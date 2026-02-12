@@ -7,6 +7,27 @@ from PIL import Image
 from app.core.config import get_api_key
 
 
+def clean_family_name(name: str) -> str:
+    """Clean up a family name by removing common unwanted patterns and quotes."""
+    if not name:
+        return ""
+
+    # Remove common prefixes/suffixes
+    name = name.split(":", 1)[-1].strip()  # Remove "Page 1:" etc
+    name = name.replace("The ", "").replace(" Family", "")
+    name = name.replace("From: ", "").replace("Sent by: ", "")
+
+    # Remove all double quotes
+    name = name.replace('"', '')
+
+    # Remove single quotes only at the start/end (not in middle like O'Brien)
+    name = re.sub(r"^'+", "", name)  # Leading single quotes
+    name = re.sub(r"'+$", "", name)  # Trailing single quotes
+    name = name.strip()
+
+    return name
+
+
 def _image_to_b64(image: Image.Image) -> str:
     buf = io.BytesIO()
     image.save(buf, format="PNG")
@@ -82,18 +103,8 @@ def analyze_card_with_ai(images: list[Image.Image] | Image.Image) -> tuple[str, 
     # Clean up each line - remove common prefixes/patterns
     cleaned_lines = []
     for line in lines:
-        # Remove common unwanted patterns
-        line = line.split(":", 1)[-1].strip()  # Remove "Page 1:" etc
-        line = line.replace("The ", "").replace(" Family", "").replace("The ", "")
-        line = line.replace("From: ", "").replace("Sent by: ", "")
-
-        # Remove all double quotes
-        line = line.replace('"', '')
-
-        # Remove single quotes only at the start/end (not in middle like O'Brien)
-        line = re.sub(r"^'+", "", line)  # Leading single quotes
-        line = re.sub(r"'+$", "", line)  # Trailing single quotes
-        line = line.strip()
+        # Clean the line
+        line = clean_family_name(line)
 
         # Skip lines that are too long (likely explanatory text)
         if len(line) > 30:

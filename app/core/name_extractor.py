@@ -1,5 +1,6 @@
 import re
 from app.models.card import Confidence
+from app.core.ai_analyzer import clean_family_name
 
 # Words to filter out — common greeting card phrases
 GREETING_WORDS = {
@@ -156,10 +157,14 @@ def extract_family_names(text: str) -> list[tuple[str, Confidence]]:
                 results.append((name, Confidence.LOW))
                 break
 
-    # Deduplicate while preserving order
+    # Deduplicate while preserving order and apply final cleaning
     seen = set()
     unique = []
     for name, conf in results:
+        # Apply the same cleaning used by AI analyzer
+        name = clean_family_name(name)
+        if not name:  # Skip if cleaning resulted in empty string
+            continue
         key = name.lower()
         if key not in seen:
             seen.add(key)
