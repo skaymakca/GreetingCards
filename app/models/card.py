@@ -27,6 +27,7 @@ class CardResult:
     ai_analyzed: bool = False
     file_hash: str = ""
     original_confidence: Optional[Confidence] = None  # Confidence before manual override
+    remove_family: bool = False  # If True, omit "Family" suffix from filename
 
     @property
     def display_name(self) -> str:
@@ -42,6 +43,7 @@ class CardResult:
         name = self.display_name
         if not name:
             return ""
-        if not name.lower().endswith("family"):
+        # Only append "Family" if checkbox is not checked and name doesn't already end with it
+        if not self.remove_family and not name.lower().endswith("family"):
             name = f"{name} Family"
         return f"Holiday Cards {year} - {name}.pdf"

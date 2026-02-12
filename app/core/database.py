@@ -3,7 +3,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, inspect
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, Boolean, inspect
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from app.core.paths import get_db_path
@@ -25,6 +25,7 @@ class FileNameCache(Base):
     source = Column(String, nullable=False)  # "ocr", "ai", "manual"
     confidence = Column(String, nullable=False, default="none")  # high/medium/low/manual/none
     alternates = Column(Text, nullable=False, default="[]")  # JSON list of alternate names
+    remove_family = Column(Boolean, nullable=False, default=False)  # Omit "Family" from filename
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc))
@@ -146,9 +147,9 @@ def _clean_and_filter_names(names: list[str]) -> list[str]:
 
 # --- Public API ---
 
-def get_cached_name(file_hash: str) -> tuple[str, str, str, list[str]] | None:
+def get_cached_name(file_hash: str) -> tuple[str, str, str, list[str], bool] | None:
     """Get the most recent cached family name for a file hash.
-    Returns (family_name, source, confidence, alternates) or None.
+    Returns (family_name, source, confidence, alternates, remove_family) or None.
 
     Applies unified cleaning and filtering to all names loaded from DB.
     Candidates include the primary name so user can reselect if needed.
@@ -169,15 +170,15 @@ def get_cached_name(file_hash: str) -> tuple[str, str, str, list[str]] | None:
             if cleaned_names:
                 family_name = cleaned_names[0]
                 alternates = cleaned_names[1:] if len(cleaned_names) > 1 else []
-                return family_name, row.source, row.confidence, alternates
+                return family_name, row.source, row.confidence, alternates, row.remove_family
             # If cleaning filtered everything out, return empty
-            return "", row.source, row.confidence, []
+            return "", row.source, row.confidence, [], row.remove_family
         return None
     finally:
         session.close()
 
 
-def save_name(file_hash: str, family_name: str, source: str, confidence: str = "", alternates: list[str] = None):
+def save_name(file_hash: str, family_name: str, source: str, confidence: str = "", alternates: list[str] = None, remove_family: bool = False):
     """Save or update a family name for a file hash."""
     if not confidence:
         confidence = {"ocr": "medium", "ai": "high", "manual": "manual"}.get(source, "none")
@@ -191,6 +192,7 @@ def save_name(file_hash: str, family_name: str, source: str, confidence: str = "
             row.source = source
             row.confidence = confidence
             row.alternates = json.dumps(alternates)
+            row.remove_family = remove_family
             row.updated_at = datetime.now(timezone.utc)
         else:
             row = FileNameCache(
@@ -199,6 +201,7 @@ def save_name(file_hash: str, family_name: str, source: str, confidence: str = "
                 source=source,
                 confidence=confidence,
                 alternates=json.dumps(alternates),
+                remove_family=remove_family,
             )
             session.add(row)
         session.commit()

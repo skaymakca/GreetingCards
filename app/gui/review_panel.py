@@ -88,6 +88,11 @@ class ReviewPanel(tk.Frame):
             col_header, text="Family Name", font=styles.FONT_SMALL,
             bg=styles.BG_PRIMARY, fg=styles.TEXT_SECONDARY, anchor="w",
         ).pack(side="left", padx=4, fill="x", expand=True)
+        # Empty space for checkbox column (no header per user preference)
+        tk.Label(
+            col_header, text="", width=2,
+            bg=styles.BG_PRIMARY,
+        ).pack(side="left", padx=4)
 
         # Scrollable area
         container = tk.Frame(self, bg=styles.BG_PRIMARY)
@@ -170,6 +175,16 @@ class ReviewPanel(tk.Frame):
         name_var.trace_add("write", lambda *a, cid=card_id, v=name_var: self._on_name_edit(cid, v))
         add_entry_context_menu(name_entry)
 
+        # Remove Family checkbox
+        remove_family_var = tk.BooleanVar(value=card.remove_family)
+        remove_family_check = tk.Checkbutton(
+            row_frame, variable=remove_family_var,
+            bg=bg, highlightthickness=0,
+            command=lambda cid=card_id, v=remove_family_var: self._on_remove_family_toggle(cid, v)
+        )
+        remove_family_check.pack(side="left", padx=4, pady=4)
+        remove_family_tooltip = _Tooltip(remove_family_check, "Remove 'Family' from filename")
+
         # Candidates dropdown
         alt_values = card.alternates if card.alternates else []
         alt_combo = ttk.Combobox(
@@ -200,6 +215,9 @@ class ReviewPanel(tk.Frame):
             "fn_label": fn_label,
             "name_var": name_var,
             "name_entry": name_entry,
+            "remove_family_var": remove_family_var,
+            "remove_family_check": remove_family_check,
+            "remove_family_tooltip": remove_family_tooltip,
             "alt_combo": alt_combo,
             "ai_btn": ai_btn,
         }
@@ -210,7 +228,7 @@ class ReviewPanel(tk.Frame):
             widget.bind("<Button-1>", lambda e, cid=card_id: self._select_row(cid))
 
         # Bind scroll to all widgets in row for native macOS behavior
-        for widget in [row_frame, dot, fn_label, name_entry, alt_combo, ai_btn]:
+        for widget in [row_frame, dot, fn_label, name_entry, remove_family_check, alt_combo, ai_btn]:
             widget.bind("<MouseWheel>", self._on_mousewheel)
 
     def _select_row(self, card_id: int):
@@ -268,7 +286,18 @@ class ReviewPanel(tk.Frame):
                 if card.file_hash:
                     # Determine source based on confidence
                     source = "ai" if card.ai_analyzed else "ocr"
-                    save_name(card.file_hash, selected, source, card.confidence.value, card.alternates or [])
+                    save_name(card.file_hash, selected, source, card.confidence.value, card.alternates or [], card.remove_family)
+
+    def _on_remove_family_toggle(self, card_id: int, var: tk.BooleanVar):
+        """Handle checkbox toggle for remove_family option."""
+        card = self._cards_by_id.get(card_id)
+        if card:
+            card.remove_family = var.get()
+            # Save to DB if card has been processed
+            if card.file_hash and card.family_name:
+                from app.core.database import save_name
+                source = "manual" if card.manual_override else ("ai" if card.ai_analyzed else "ocr")
+                save_name(card.file_hash, card.family_name, source, card.confidence.value, card.alternates or [], card.remove_family)
 
     def update_dot(self, card_id: int, confidence: Confidence):
         """Update just the confidence dot and tooltip for a row."""
@@ -296,6 +325,9 @@ class ReviewPanel(tk.Frame):
         self._suppress_trace = True
         row["name_var"].set(card.display_name)
         self._suppress_trace = False
+
+        # Update remove_family checkbox
+        row["remove_family_var"].set(card.remove_family)
 
         # Update alternates
         if card.alternates:

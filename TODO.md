@@ -14,7 +14,7 @@
 - [ ] Add Help > About menu with version number and git commit hash
 
 ### Name Extraction
-- [ ] Add "Remove Family" option to candidates as checkmark.  
+- [x] Add "Remove Family" option to candidates as checkmark.
   - Persist in the db
   - In this case the file name is just "Holiday Cards - $RESULT.pdf"
 

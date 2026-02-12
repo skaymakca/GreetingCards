@@ -79,6 +79,7 @@ def _process_pdf_worker(pdf_path_str: str) -> dict:
             result['family_name'] = cached[0]
             result['confidence'] = cached[2]
             result['alternates'] = cached[3]
+            result['remove_family'] = cached[4]
         else:
             # Run OCR
             if images:
@@ -98,6 +99,7 @@ def _process_pdf_worker(pdf_path_str: str) -> dict:
                         result['family_name'] = cached[0]
                         result['confidence'] = cached[2]
                         result['alternates'] = cached[3]
+                        result['remove_family'] = cached[4]
 
     except Exception as e:
         result['error'] = str(e)
@@ -432,6 +434,7 @@ class MainWindow:
         card.file_hash = result_dict['file_hash']
         card.family_name = result_dict['family_name']
         card.alternates = result_dict['alternates']
+        card.remove_family = result_dict.get('remove_family', False)
         card.ocr_text = result_dict['ocr_text']
 
         try:
@@ -473,6 +476,7 @@ class MainWindow:
                     except ValueError:
                         card.confidence = Confidence.MEDIUM
                     card.alternates = cached[3]
+                    card.remove_family = cached[4]
 
                 images = render_all_pages(pdf_path, dpi=200)
                 if images:
@@ -486,12 +490,13 @@ class MainWindow:
                     if names:
                         raw_family_name = names[0][0]
                         raw_alternates = [n for n, _ in names[1:]]
-                        save_name(card.file_hash, raw_family_name, "ocr", names[0][1].value, raw_alternates)
+                        save_name(card.file_hash, raw_family_name, "ocr", names[0][1].value, raw_alternates, card.remove_family)
                         cached = get_cached_name(card.file_hash)
                         if cached:
                             card.family_name = cached[0]
                             card.confidence = Confidence(cached[2])
                             card.alternates = cached[3]
+                            card.remove_family = cached[4]
             except Exception as e:
                 card.ocr_text = f"Error: {e}"
                 card.confidence = Confidence.NONE
@@ -540,7 +545,7 @@ class MainWindow:
                     card.original_confidence = card.confidence
                 card.confidence = Confidence.MANUAL
                 if card.file_hash:
-                    save_name(card.file_hash, name, "manual", "manual", card.alternates or [])
+                    save_name(card.file_hash, name, "manual", "manual", card.alternates or [], card.remove_family)
             self._review_panel.update_dot(card_id, card.confidence)
 
     def _on_card_select(self, card_id: int):
@@ -620,7 +625,7 @@ class MainWindow:
 
                 # Save RAW results to DB
                 if card.file_hash:
-                    save_name(card.file_hash, best_name, "ai", "", combined)
+                    save_name(card.file_hash, best_name, "ai", "", combined, card.remove_family)
 
                     # Reload from DB to get CLEANED/FILTERED version
                     cached = get_cached_name(card.file_hash)
@@ -628,6 +633,7 @@ class MainWindow:
                         card.family_name = cached[0]
                         card.confidence = Confidence(cached[2])
                         card.alternates = cached[3]
+                        card.remove_family = cached[4]
                         card.ai_analyzed = True
                         card.manual_override = ""
             else:
@@ -711,7 +717,7 @@ class MainWindow:
 
                         # Save RAW results to DB
                         if card.file_hash:
-                            save_name(card.file_hash, best_name, "ai", "", combined)
+                            save_name(card.file_hash, best_name, "ai", "", combined, card.remove_family)
 
                             # Reload from DB to get CLEANED/FILTERED version
                             cached = get_cached_name(card.file_hash)
@@ -719,6 +725,7 @@ class MainWindow:
                                 card.family_name = cached[0]
                                 card.confidence = Confidence(cached[2])
                                 card.alternates = cached[3]
+                                card.remove_family = cached[4]
                                 card.ai_analyzed = True
                                 card.manual_override = ""
                     else:

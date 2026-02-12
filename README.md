@@ -8,7 +8,8 @@ Scans holiday/greeting card PDFs, extracts family names via OCR and AI, and batc
 - **Offline OCR** — extracts text from card images with Tesseract, then pattern-matches family names (e.g. "The Smiths", "Love, John & Jane Smith") at high/medium/low confidence levels
 - **AI analysis** — sends page images to Claude's vision API for name extraction; available per-card or as a batch "AI All" operation
 - **Caching** — OCR results, AI results, and manual edits are all persisted to a local SQLite database keyed by file content hash, so re-processing the same files is instant
-- **Batch rename** — builds a rename plan (with duplicate/skip detection), shows a confirmation dialog, then renames files to `Year - FamilyName.pdf`
+- **Batch rename** — builds a rename plan (with duplicate/skip detection), shows a confirmation dialog, then renames files to `Holiday Cards Year - FamilyName Family.pdf` (or without "Family" suffix if checkbox is checked)
+- **Per-file options** — checkbox to omit "Family" suffix from individual filenames (e.g., `Holiday Cards 2024 - Smith.pdf` instead of `Holiday Cards 2024 - Smith Family.pdf`)
 - **Drag and drop** — drop a folder or PDF onto the window to load it
 - **Keyboard navigation** — Up/Down to select cards, Left/Right to page through previews, Escape to defocus text entries
 - **API key management** — prompts for the Anthropic API key on first AI use; key is saved to a plist in bundled mode or read from `.env` in dev mode
