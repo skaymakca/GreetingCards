@@ -39,8 +39,17 @@ class HelpDialog(tk.Toplevel):
         scrollbar.pack(side="right", fill="y")
         canvas.pack(side="left", fill="both", expand=True)
 
-        # Bind mousewheel
-        canvas.bind("<MouseWheel>", lambda e: canvas.yview_scroll(-1 * (e.delta // 120 or e.delta), "units"))
+        # Bind mousewheel to canvas and frame for native macOS scroll behavior
+        def on_mousewheel(e):
+            canvas.yview_scroll(-1 * (e.delta // 120 or e.delta), "units")
+
+        canvas.bind("<MouseWheel>", on_mousewheel)
+        scrollable_frame.bind("<MouseWheel>", on_mousewheel)
+
+        # Store for binding to child widgets
+        self._canvas = canvas
+        self._scrollable_frame = scrollable_frame
+        self._on_mousewheel = on_mousewheel
 
         # --- Content ---
         self._add_section(scrollable_frame, "Workflow", [
@@ -78,6 +87,7 @@ class HelpDialog(tk.Toplevel):
         ])
 
         self._add_section(scrollable_frame, "Keyboard Shortcuts", [
+            "↑  ↓  — Navigate cards in list (select previous/next)",
             "←  →  — Navigate pages in preview",
             "Esc — Defocus text entries",
             "⌘X, ⌘C, ⌘V — Cut, Copy, Paste (in text fields)",
@@ -109,18 +119,22 @@ class HelpDialog(tk.Toplevel):
     def _add_section(self, parent, title: str, items: list[str]):
         """Add a help section with title and bullet points."""
         # Section title
-        tk.Label(
+        title_label = tk.Label(
             parent, text=title, font=styles.FONT_HEADING,
             bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY, anchor="w",
-        ).pack(fill="x", pady=(12, 4))
+        )
+        title_label.pack(fill="x", pady=(12, 4))
+        title_label.bind("<MouseWheel>", self._on_mousewheel)
 
         # Section items
         for item in items:
-            tk.Label(
+            item_label = tk.Label(
                 parent, text=item, font=styles.FONT_SMALL,
                 bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
                 anchor="w", justify="left", wraplength=520,
-            ).pack(fill="x", padx=(12, 0), pady=2)
+            )
+            item_label.pack(fill="x", padx=(12, 0), pady=2)
+            item_label.bind("<MouseWheel>", self._on_mousewheel)
 
     def _close(self):
         self.grab_release()
