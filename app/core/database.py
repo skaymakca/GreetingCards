@@ -111,7 +111,6 @@ def _ensure_schema():
 
     if orphaned:
         from sqlalchemy import text
-        print(f"Dropping orphaned tables: {orphaned}")
         with _engine.begin() as conn:
             for table_name in orphaned:
                 conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))
