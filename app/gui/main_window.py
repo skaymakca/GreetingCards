@@ -133,12 +133,12 @@ class MainWindow:
     def _apply_toolbar_icons(self):
         """Load SF Symbol icons and attach them to toolbar buttons."""
         icon_map = {
-            "browse": ("folder", 14, self._browse_btn),
-            "process": ("play.fill", 14, self._process_btn),
-            "ai_all": ("sparkles", 14, self._ai_all_btn),
-            "rename": ("pencil", 14, self._rename_btn),
-            "clear": ("xmark", 14, self._clear_btn),
-            "settings": ("gearshape", 12, self._settings_btn),
+            "browse": ("folder", 11, self._browse_btn),
+            "process": ("play.fill", 11, self._process_btn),
+            "ai_all": ("sparkles", 11, self._ai_all_btn),
+            "rename": ("pencil", 11, self._rename_btn),
+            "clear": ("xmark", 11, self._clear_btn),
+            "settings": ("gearshape", 10, self._settings_btn),
         }
         for key, (symbol, size, btn) in icon_map.items():
             icon = load_sf_symbol(symbol, size, styles.TEXT_PRIMARY)
