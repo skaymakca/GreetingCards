@@ -4,6 +4,8 @@ from pathlib import Path
 import threading
 from datetime import datetime
 
+from tkinterdnd2 import DND_FILES, TkinterDnD
+
 from app.gui import styles
 from app.gui.preview_panel import PreviewPanel
 from app.gui.review_panel import ReviewPanel
@@ -20,7 +22,7 @@ class MainWindow:
     """Root window, toolbar, and orchestration."""
 
     def __init__(self):
-        self.root = tk.Tk()
+        self.root = TkinterDnD.Tk()
         self.root.title("Greeting Card Analyzer")
         self.root.geometry(f"{styles.WINDOW_WIDTH}x{styles.WINDOW_HEIGHT}")
         self.root.configure(bg=styles.BG_PRIMARY)
@@ -32,6 +34,7 @@ class MainWindow:
 
         self._build_toolbar()
         self._build_main_area()
+        self._setup_drop_target()
 
     def _build_toolbar(self):
         toolbar = tk.Frame(self.root, bg=styles.BG_SECONDARY, height=styles.TOOLBAR_HEIGHT)
@@ -122,11 +125,29 @@ class MainWindow:
         self._preview_panel = PreviewPanel(main)
         main.add(self._preview_panel, minsize=300, width=styles.PREVIEW_WIDTH, stretch="never")
 
+    def _setup_drop_target(self):
+        self.root.drop_target_register(DND_FILES)
+        self.root.dnd_bind("<<Drop>>", self._on_drop)
+
+    def _on_drop(self, event):
+        path = event.data.strip()
+        # macOS wraps paths with braces if they contain spaces
+        if path.startswith("{") and path.endswith("}"):
+            path = path[1:-1]
+        dropped = Path(path)
+        if dropped.is_dir():
+            self._load_folder(dropped, auto_process=True)
+        elif dropped.is_file() and dropped.suffix.lower() == ".pdf":
+            self._load_folder(dropped.parent, auto_process=True)
+
     def _browse_folder(self):
         folder = filedialog.askdirectory(title="Select Greeting Cards Folder")
         if not folder:
             return
-        self._folder = Path(folder)
+        self._load_folder(Path(folder))
+
+    def _load_folder(self, folder: Path, auto_process: bool = False):
+        self._folder = folder
         self._folder_var.set(str(self._folder))
         self._pdf_files = sorted(self._folder.glob("*.pdf"))
         count = len(self._pdf_files)
@@ -136,6 +157,8 @@ class MainWindow:
         else:
             self._process_btn.config(state="normal")
             self._folder_label.config(fg=styles.TEXT_PRIMARY)
+            if auto_process:
+                self._start_processing()
 
     def _start_processing(self):
         if not self._pdf_files:
