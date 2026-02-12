@@ -21,7 +21,8 @@ from app.core.config import get_api_key
 from app.core.renamer import build_rename_plan, execute_rename_plan
 from app.core.database import (
     compute_file_hash, get_card_state, add_candidate, select_candidate,
-    set_manual_name, save_raw_ocr, update_remove_family,
+    set_manual_name, save_raw_ocr, save_raw_ai, update_remove_family,
+    clear_unselected_candidates, should_reprocess,
 )
 from app.gui.settings_dialog import SettingsDialog, ApiKeyPrompt
 from app.gui.help_dialog import HelpDialog
@@ -645,6 +646,9 @@ class MainWindow:
                 best_name, alternates = analyze_card_with_ai(ai_images)
 
                 if card.file_hash and best_name:
+                    # Save raw AI result for debugging/re-processing
+                    save_raw_ai(card.file_hash, best_name, alternates)
+
                     # Add AI candidates to DB
                     add_candidate(card.file_hash, best_name, "ai", "high")
                     for alt_name in alternates:
@@ -733,6 +737,9 @@ class MainWindow:
                         best_name, alternates = await analyze_card_with_ai_async(ai_images)
 
                         if card.file_hash and best_name:
+                            # Save raw AI result for debugging/re-processing
+                            save_raw_ai(card.file_hash, best_name, alternates)
+
                             # Add AI candidates to DB
                             add_candidate(card.file_hash, best_name, "ai", "high")
                             for alt_name in alternates:

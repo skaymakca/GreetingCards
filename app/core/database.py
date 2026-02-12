@@ -52,10 +52,19 @@ class RawOCRResult(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
+class RawAIResult(Base):
+    """Raw AI response preserved for debugging and potential re-processing."""
+    __tablename__ = "raw_ai_results"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    file_hash = Column(String(64), ForeignKey("cards.file_hash"), index=True, unique=True, nullable=False)
+    raw_response = Column(Text, nullable=False)  # JSON: {"best_name": "...", "alternates": [...]}
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 def _compute_schema_version() -> str:
     """Compute a hash representing the current model schema."""
     schema_parts = []
-    for model in [Settings, Card, Candidate, RawOCRResult]:
+    for model in [Settings, Card, Candidate, RawOCRResult, RawAIResult]:
         cols = []
         for col in model.__table__.columns:
             cols.append(f"{col.name}:{col.type}:{col.nullable}:{col.primary_key}")
@@ -78,7 +87,7 @@ def get_session():
 
 
 def _ensure_schema():
-    """Check schema version; if mismatch, drop all and recreate."""
+    """Check schema version; if mismatch, drop all tables and recreate."""
     expected = _compute_schema_version()
     inspector = inspect(_engine)
 
@@ -91,8 +100,23 @@ def _ensure_schema():
         finally:
             session.close()
 
-    # Schema mismatch or missing — drop everything and recreate
+    # Schema mismatch or missing — drop ALL tables including orphaned ones
+    # First drop tables known to SQLAlchemy
     Base.metadata.drop_all(_engine)
+
+    # Then check for and drop any orphaned tables not in current metadata
+    all_tables = inspector.get_table_names()
+    known_tables = {table.name for table in Base.metadata.tables.values()}
+    orphaned = set(all_tables) - known_tables
+
+    if orphaned:
+        from sqlalchemy import text
+        print(f"Dropping orphaned tables: {orphaned}")
+        with _engine.begin() as conn:
+            for table_name in orphaned:
+                conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))
+
+    # Create new schema
     Base.metadata.create_all(_engine)
 
     session = _Session()
@@ -110,7 +134,18 @@ def reset_database():
     if _engine is None:
         _engine = create_engine(f"sqlite:///{get_db_path()}", echo=False)
         _Session = sessionmaker(bind=_engine)
-    Base.metadata.drop_all(_engine)
+
+    # Drop all tables including orphaned ones
+    inspector = inspect(_engine)
+    all_tables = inspector.get_table_names()
+
+    if all_tables:
+        from sqlalchemy import text
+        with _engine.begin() as conn:
+            for table_name in all_tables:
+                conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))
+
+    # Create new schema
     Base.metadata.create_all(_engine)
     session = _Session()
     try:
@@ -180,15 +215,18 @@ def add_candidate(file_hash: str, family_name: str, method: str, confidence: str
     """Add a name candidate (OCR or AI result). Returns candidate ID.
 
     Automatically creates card if it doesn't exist.
-    Applies cleaning/filtering to the name before storing.
+    Applies cleaning/filtering and smart title case to the name before storing.
     Returns 0 if name is filtered out.
     """
+    from app.core.name_formatting import smart_title_case
+
     # Clean the name first
     cleaned = _clean_and_filter_names([family_name])
     if not cleaned:
         return 0  # Filtered out
 
-    clean_name = cleaned[0]
+    # Apply smart title case
+    clean_name = smart_title_case(cleaned[0])
 
     session = get_session()
     try:
@@ -389,5 +427,95 @@ def get_raw_ocr(file_hash: str) -> str | None:
     try:
         ocr_result = session.query(RawOCRResult).filter_by(file_hash=file_hash).first()
         return ocr_result.ocr_text if ocr_result else None
+    finally:
+        session.close()
+
+
+def save_raw_ai(file_hash: str, best_name: str, alternates: list[str]) -> None:
+    """Save raw AI result for debugging and potential re-processing."""
+    session = get_session()
+    try:
+        # Ensure card exists
+        card = session.query(Card).filter_by(file_hash=file_hash).first()
+        if not card:
+            card = Card(file_hash=file_hash)
+            session.add(card)
+            session.flush()
+
+        # Save raw AI response as JSON
+        raw_data = json.dumps({"best_name": best_name, "alternates": alternates})
+        ai_result = session.query(RawAIResult).filter_by(file_hash=file_hash).first()
+        if ai_result:
+            ai_result.raw_response = raw_data
+            ai_result.created_at = datetime.now(timezone.utc)
+        else:
+            ai_result = RawAIResult(file_hash=file_hash, raw_response=raw_data)
+            session.add(ai_result)
+        session.commit()
+    finally:
+        session.close()
+
+
+def get_raw_ai(file_hash: str) -> tuple[str, list[str]] | None:
+    """Get raw AI result for re-processing.
+
+    Returns (best_name, alternates) or None.
+    """
+    session = get_session()
+    try:
+        ai_result = session.query(RawAIResult).filter_by(file_hash=file_hash).first()
+        if ai_result:
+            data = json.loads(ai_result.raw_response)
+            return data.get("best_name", ""), data.get("alternates", [])
+        return None
+    finally:
+        session.close()
+
+
+def clear_unselected_candidates(file_hash: str, method: str) -> None:
+    """Clear candidates of a specific method (ocr/ai) except the selected one.
+
+    Used when re-processing to ensure new extraction logic is applied while
+    preserving user's selection.
+    """
+    session = get_session()
+    try:
+        card = session.query(Card).filter_by(file_hash=file_hash).first()
+        if not card:
+            return
+
+        # Get selected candidate ID (if any)
+        selected_id = card.selected_candidate_id
+
+        # Delete all candidates of this method except the selected one
+        query = session.query(Candidate).filter_by(file_hash=file_hash, method=method)
+        if selected_id:
+            # Only delete if the selected candidate is of a different method
+            selected = session.query(Candidate).filter_by(id=selected_id).first()
+            if selected and selected.method != method:
+                # Safe to delete all of this method
+                query.delete()
+            else:
+                # Selected candidate is of this method, preserve it
+                query = query.filter(Candidate.id != selected_id)
+                query.delete()
+        else:
+            # No selection, safe to delete all
+            query.delete()
+
+        session.commit()
+    finally:
+        session.close()
+
+
+def should_reprocess(file_hash: str, method: str) -> bool:
+    """Check if we should re-run OCR/AI for this file.
+
+    Returns True if no candidates of this method exist.
+    """
+    session = get_session()
+    try:
+        count = session.query(Candidate).filter_by(file_hash=file_hash, method=method).count()
+        return count == 0
     finally:
         session.close()
