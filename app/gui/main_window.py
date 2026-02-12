@@ -24,6 +24,7 @@ from app.core.database import (
     get_cached_ai_result, save_ai_result,
 )
 from app.gui.settings_dialog import SettingsDialog, ApiKeyPrompt
+from app.gui.help_dialog import HelpDialog
 
 
 def _process_pdf_worker(pdf_path_str: str) -> dict:
@@ -206,12 +207,18 @@ class MainWindow:
         )
         self._clear_btn.pack(side="left", padx=4)
 
-        # Settings button (right side)
+        # Help and Settings buttons (right side)
         self._settings_btn = ttk.Button(
             toolbar, text="Settings", style="ToolbarSmall.TButton",
             command=self._show_settings,
         )
         self._settings_btn.pack(side="right", padx=(4, styles.PAD))
+
+        self._help_btn = ttk.Button(
+            toolbar, text="Help", style="ToolbarSmall.TButton",
+            command=self._show_help,
+        )
+        self._help_btn.pack(side="right", padx=4)
 
     def _apply_toolbar_icons(self):
         """Load SF Symbol icons and attach them to toolbar buttons."""
@@ -221,6 +228,7 @@ class MainWindow:
             "ai_all": ("sparkles", 7, self._ai_all_btn),
             "rename": ("pencil", 7, self._rename_btn),
             "clear": ("xmark", 7, self._clear_btn),
+            "help": ("questionmark.circle", 6, self._help_btn),
             "settings": ("gearshape", 6, self._settings_btn),
         }
         for key, (symbol, size, btn) in icon_map.items():
@@ -499,6 +507,10 @@ class MainWindow:
 
     def _show_settings(self):
         dialog = SettingsDialog(self.root, on_db_reset=self._clear_all)
+        self.root.wait_window(dialog)
+
+    def _show_help(self):
+        dialog = HelpDialog(self.root)
         self.root.wait_window(dialog)
 
     def _on_ai_request(self, idx: int):
