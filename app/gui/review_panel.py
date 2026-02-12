@@ -200,6 +200,10 @@ class ReviewPanel(tk.Frame):
         for widget in [row_frame, dot, fn_label]:
             widget.bind("<Button-1>", lambda e, i=idx: self._select_row(i))
 
+        # Bind scroll to all widgets in row for native macOS behavior
+        for widget in [row_frame, dot, fn_label, name_entry, alt_combo, ai_btn]:
+            widget.bind("<MouseWheel>", self._on_mousewheel)
+
     def _select_row(self, idx: int):
         # Deselect previous
         if 0 <= self._selected_idx < len(self._rows):
