@@ -186,21 +186,21 @@ class MainWindow:
 
         # AI All button
         self._ai_all_btn = ttk.Button(
-            row2, text="AI All", style="ToolbarBold.TButton",
+            row2, text="AI All", style="ToolbarSmall.TButton",
             command=self._start_ai_all, state="disabled",
         )
         self._ai_all_btn.pack(side="left", padx=(0, 4))
 
         # Rename button
         self._rename_btn = ttk.Button(
-            row2, text="Rename All", style="ToolbarBold.TButton",
+            row2, text="Rename All", style="ToolbarSmall.TButton",
             command=self._start_rename, state="disabled",
         )
         self._rename_btn.pack(side="left", padx=4)
 
         # Clear button
         self._clear_btn = ttk.Button(
-            row2, text="Clear", style="Toolbar.TButton",
+            row2, text="Clear", style="ToolbarSmall.TButton",
             command=self._clear_all, state="disabled",
         )
         self._clear_btn.pack(side="left", padx=4)
@@ -221,10 +221,10 @@ class MainWindow:
     def _apply_toolbar_icons(self):
         """Load SF Symbol icons and attach them to toolbar buttons."""
         icon_map = {
-            "browse": ("folder", 7, self._browse_btn),
-            "ai_all": ("sparkles", 7, self._ai_all_btn),
-            "rename": ("pencil", 7, self._rename_btn),
-            "clear": ("xmark", 7, self._clear_btn),
+            "browse": ("folder", 6, self._browse_btn),
+            "ai_all": ("sparkles", 6, self._ai_all_btn),
+            "rename": ("pencil", 6, self._rename_btn),
+            "clear": ("xmark", 6, self._clear_btn),
             "help": ("questionmark.circle", 6, self._help_btn),
             "settings": ("gearshape", 6, self._settings_btn),
         }
