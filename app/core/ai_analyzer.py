@@ -7,6 +7,50 @@ from PIL import Image
 from app.core.config import get_api_key
 
 
+def _strip_plural(name: str) -> str:
+    """Strip plural 's' or 'es' from family names in obvious cases only.
+
+    Conservative approach to avoid breaking names that naturally end in 's'.
+
+    Examples:
+        "Walshes" -> "Walsh"   (strip 'es' after 'sh')
+        "Smiths" -> "Smith"     (strip 's' after 'th')
+        "Browns" -> "Brown"     (strip 's' after 'wn')
+        "Jones" -> "Jones"      (keep - natural name ending)
+        "Williams" -> "Williams" (keep - natural name ending)
+    """
+    if not name or len(name) < 3:
+        return name
+
+    # Strip "es" after sibilants (very safe plurals)
+    if name.endswith("shes") and len(name) > 4:
+        return name[:-2]  # "Walshes" -> "Walsh"
+    if name.endswith("ches") and len(name) > 4:
+        return name[:-2]  # "Marches" -> "March"
+    if name.endswith("xes") and len(name) > 3:
+        return name[:-2]  # "Foxes" -> "Fox"
+
+    # Strip single 's' only after specific consonant patterns (safe plurals)
+    if name.endswith("s") and not name.endswith("ss") and len(name) >= 4:
+        # Very common plural patterns that are safe to strip
+        if name.endswith("ths"):
+            return name[:-1]  # "Smiths" -> "Smith"
+        if name.endswith("wns"):
+            return name[:-1]  # "Browns" -> "Brown"
+        if name.endswith("cks"):
+            return name[:-1]  # "Blacks" -> "Black"
+        if name.endswith("rds"):
+            return name[:-1]  # "Edwards" -> "Edward"
+        if name.endswith("rts"):
+            return name[:-1]  # "Roberts" -> "Robert"
+        if name.endswith("nds"):
+            return name[:-1]  # "Strands" -> "Strand"
+        if name.endswith("nts"):
+            return name[:-1]  # "Grants" -> "Grant"
+
+    return name
+
+
 def clean_family_name(name: str) -> str:
     """Clean up a family name by removing common unwanted patterns and quotes.
 
@@ -33,6 +77,9 @@ def clean_family_name(name: str) -> str:
 
     # Final aggressive strip of any remaining punctuation at the ends
     name = name.strip('.,!;:-—–"\'"''""')
+
+    # Strip plural 's' or 'es' in obvious cases
+    name = _strip_plural(name)
 
     return name
 
