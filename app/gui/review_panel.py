@@ -254,11 +254,14 @@ class ReviewPanel(tk.Frame):
                 from app.models.card import Confidence
 
                 card.family_name = selected
-                card.manual_override = selected
+                card.manual_override = ""  # Clear manual override when selecting from candidates
 
                 # Restore original confidence if it was previously manual
                 if card.confidence == Confidence.MANUAL and card.original_confidence:
                     card.confidence = card.original_confidence
+                else:
+                    # If there's no original confidence, it means it wasn't manually edited before
+                    # Keep the current confidence (already set from OCR/AI)
 
                 # Update the dot to show restored confidence
                 self.update_dot(card_id, card.confidence)
