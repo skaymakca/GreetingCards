@@ -290,10 +290,17 @@ class MainWindow:
 
                     names = extract_family_names(ocr_text)
                     if names:
-                        card.family_name = names[0][0]
-                        card.confidence = names[0][1]
-                        card.alternates = [n for n, _ in names[1:]]
-                        save_name(card.file_hash, card.family_name, "ocr", card.confidence.value, card.alternates)
+                        # Save RAW results to DB
+                        raw_family_name = names[0][0]
+                        raw_alternates = [n for n, _ in names[1:]]
+                        save_name(card.file_hash, raw_family_name, "ocr", names[0][1].value, raw_alternates)
+
+                        # Reload from DB to get CLEANED/FILTERED version
+                        cached = get_cached_name(card.file_hash)
+                        if cached:
+                            card.family_name = cached[0]
+                            card.confidence = Confidence(cached[2])
+                            card.alternates = cached[3]
             except Exception as e:
                 card.ocr_text = f"Error: {e}"
                 card.confidence = Confidence.NONE
@@ -394,8 +401,6 @@ class MainWindow:
                 # Save previous OCR family name before overwriting
                 ocr_family_name = card.family_name if not card.ai_analyzed else ""
 
-                card.family_name = best_name
-                card.confidence = Confidence.HIGH
                 # Combine ALL candidates: AI best, AI alternates, OCR best, OCR alternates
                 # Union so user can reselect any if they change their mind
                 existing_alternates = card.alternates or []
@@ -411,11 +416,18 @@ class MainWindow:
                         seen.add(name.lower())
                         combined.append(name)
 
-                card.alternates = combined
-                card.ai_analyzed = True
-                card.manual_override = ""
+                # Save RAW results to DB
                 if card.file_hash:
                     save_name(card.file_hash, best_name, "ai", "", combined)
+
+                    # Reload from DB to get CLEANED/FILTERED version
+                    cached = get_cached_name(card.file_hash)
+                    if cached:
+                        card.family_name = cached[0]
+                        card.confidence = Confidence(cached[2])
+                        card.alternates = cached[3]
+                        card.ai_analyzed = True
+                        card.manual_override = ""
             else:
                 card.confidence = Confidence.NONE
                 card.ai_analyzed = True
@@ -465,8 +477,6 @@ class MainWindow:
                     # Save previous OCR family name before overwriting
                     ocr_family_name = card.family_name if not card.ai_analyzed else ""
 
-                    card.family_name = best_name
-                    card.confidence = Confidence.HIGH
                     # Combine ALL candidates: AI best, AI alternates, OCR best, OCR alternates
                     # Union so user can reselect any if they change their mind
                     existing_alternates = card.alternates or []
@@ -482,11 +492,18 @@ class MainWindow:
                             seen.add(name.lower())
                             combined.append(name)
 
-                    card.alternates = combined
-                    card.ai_analyzed = True
-                    card.manual_override = ""
+                    # Save RAW results to DB
                     if card.file_hash:
                         save_name(card.file_hash, best_name, "ai", "", combined)
+
+                        # Reload from DB to get CLEANED/FILTERED version
+                        cached = get_cached_name(card.file_hash)
+                        if cached:
+                            card.family_name = cached[0]
+                            card.confidence = Confidence(cached[2])
+                            card.alternates = cached[3]
+                            card.ai_analyzed = True
+                            card.manual_override = ""
                 else:
                     card.ai_analyzed = True
             except Exception as e:
