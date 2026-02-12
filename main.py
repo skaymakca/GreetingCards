@@ -2,6 +2,7 @@
 """Greeting Card PDF Analyzer & Renamer"""
 
 import sys
+import multiprocessing
 from pathlib import Path
 
 # Ensure the project root is on the path
@@ -16,4 +17,6 @@ def main():
 
 
 if __name__ == "__main__":
+    # Required for PyInstaller bundled apps with multiprocessing
+    multiprocessing.freeze_support()
     main()

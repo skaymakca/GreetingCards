@@ -142,83 +142,87 @@ class MainWindow:
         border = tk.Frame(self.root, bg=styles.BG_PRIMARY, height=1)
         border.pack(fill="x", side="top")
 
-        # Folder selection
-        tk.Label(
-            toolbar, text="Folder:", font=styles.FONT_BODY,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
-        ).pack(side="left", padx=(styles.PAD, 4))
+        # --- Row 1: Folder selection (left) and Year (right) ---
+        row1 = tk.Frame(toolbar, bg=styles.BG_PRIMARY)
+        row1.pack(fill="x", padx=styles.PAD, pady=(6, 0))
+
+        # Left side: Browse button + folder path
+        left_frame = tk.Frame(row1, bg=styles.BG_PRIMARY)
+        left_frame.pack(side="left")
+
+        self._browse_btn = ttk.Button(
+            left_frame, text="Browse...", style="Toolbar.TButton",
+            command=self._browse_folder,
+        )
+        self._browse_btn.pack(side="left", padx=(0, 8))
 
         self._folder_var = tk.StringVar(value="No folder selected")
         self._folder_label = tk.Label(
-            toolbar, textvariable=self._folder_var, font=styles.FONT_BODY,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_SECONDARY, anchor="w", width=40,
+            left_frame, textvariable=self._folder_var, font=styles.FONT_BODY,
+            bg=styles.BG_PRIMARY, fg=styles.TEXT_SECONDARY, anchor="w",
         )
-        self._folder_label.pack(side="left", padx=4)
+        self._folder_label.pack(side="left")
 
-        self._browse_btn = ttk.Button(
-            toolbar, text="Browse...", style="Toolbar.TButton",
-            command=self._browse_folder,
-        )
-        self._browse_btn.pack(side="left", padx=4)
+        # Right side: Year label + entry
+        right_frame = tk.Frame(row1, bg=styles.BG_PRIMARY)
+        right_frame.pack(side="right")
 
-        # Separator
-        tk.Frame(toolbar, width=2, bg=styles.TEXT_SECONDARY).pack(
-            side="left", fill="y", padx=8, pady=8
-        )
-
-        # Year entry
         tk.Label(
-            toolbar, text="Year:", font=styles.FONT_BODY,
+            right_frame, text="Year:", font=styles.FONT_BODY,
             bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
-        ).pack(side="left", padx=(4, 4))
+        ).pack(side="left", padx=(0, 4))
 
         self._year_var = tk.StringVar(value=str(datetime.now().year - 1))
         year_entry = tk.Entry(
-            toolbar, textvariable=self._year_var, font=styles.FONT_BODY,
+            right_frame, textvariable=self._year_var, font=styles.FONT_BODY,
             width=6, relief="flat", bg=styles.BG_PRIMARY,
         )
-        year_entry.pack(side="left", padx=4)
+        year_entry.pack(side="left")
+
+        # --- Row 2: Action buttons ---
+        row2 = tk.Frame(toolbar, bg=styles.BG_PRIMARY)
+        row2.pack(fill="x", padx=styles.PAD, pady=(6, 6))
 
         # Process button
         self._process_btn = ttk.Button(
-            toolbar, text="Process", style="ToolbarBold.TButton",
+            row2, text="Process", style="ToolbarBold.TButton",
             command=self._start_processing, state="disabled",
         )
-        self._process_btn.pack(side="left", padx=(12, 4))
+        self._process_btn.pack(side="left", padx=(0, 4))
 
         # AI All button
         self._ai_all_btn = ttk.Button(
-            toolbar, text="AI All", style="ToolbarBold.TButton",
+            row2, text="AI All", style="ToolbarBold.TButton",
             command=self._start_ai_all, state="disabled",
         )
         self._ai_all_btn.pack(side="left", padx=4)
 
         # Rename button
         self._rename_btn = ttk.Button(
-            toolbar, text="Rename All", style="ToolbarBold.TButton",
+            row2, text="Rename All", style="ToolbarBold.TButton",
             command=self._start_rename, state="disabled",
         )
         self._rename_btn.pack(side="left", padx=4)
 
         # Clear button
         self._clear_btn = ttk.Button(
-            toolbar, text="Clear", style="Toolbar.TButton",
+            row2, text="Clear", style="Toolbar.TButton",
             command=self._clear_all, state="disabled",
         )
         self._clear_btn.pack(side="left", padx=4)
 
         # Help and Settings buttons (right side)
         self._settings_btn = ttk.Button(
-            toolbar, text="Settings", style="ToolbarSmall.TButton",
+            row2, text="Settings", style="ToolbarSmall.TButton",
             command=self._show_settings,
         )
-        self._settings_btn.pack(side="right", padx=(4, styles.PAD))
+        self._settings_btn.pack(side="right", padx=0)
 
         self._help_btn = ttk.Button(
-            toolbar, text="Help", style="ToolbarSmall.TButton",
+            row2, text="Help", style="ToolbarSmall.TButton",
             command=self._show_help,
         )
-        self._help_btn.pack(side="right", padx=4)
+        self._help_btn.pack(side="right", padx=(0, 4))
 
     def _apply_toolbar_icons(self):
         """Load SF Symbol icons and attach them to toolbar buttons."""
@@ -348,8 +352,16 @@ class MainWindow:
 
     def _process_cards(self):
         """Process PDFs in parallel using multiprocessing for CPU-bound tasks."""
+        import multiprocessing
         from multiprocessing import Pool, cpu_count
         from PIL import Image
+
+        # Set spawn start method for PyInstaller compatibility
+        # This ensures child processes start fresh instead of forking
+        try:
+            multiprocessing.set_start_method('spawn', force=True)
+        except RuntimeError:
+            pass  # Already set
 
         total = len(self._pdf_files)
         # Use half the CPUs (leave room for system/UI)
