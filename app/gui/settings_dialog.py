@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 
 from app.gui import styles
 from app.gui.icons import load_sf_symbol
@@ -41,8 +41,8 @@ class SettingsDialog(tk.Toplevel):
         if current_key:
             self._key_entry.insert(0, current_key)
 
-        self._save_key_btn = tk.Button(
-            key_frame, text="Save", font=styles.FONT_BODY,
+        self._save_key_btn = ttk.Button(
+            key_frame, text="Save",
             command=self._save_api_key,
         )
         self._save_key_btn.pack(side="left", padx=(8, 0))
@@ -73,8 +73,8 @@ class SettingsDialog(tk.Toplevel):
             font=styles.FONT_SMALL, bg=styles.BG_PRIMARY, fg=styles.TEXT_SECONDARY,
         ).pack(side="left")
 
-        self._rebuild_btn = tk.Button(
-            db_frame, text="Rebuild", font=styles.FONT_BODY,
+        self._rebuild_btn = ttk.Button(
+            db_frame, text="Rebuild",
             command=self._rebuild_db,
         )
         self._rebuild_btn.pack(side="right")

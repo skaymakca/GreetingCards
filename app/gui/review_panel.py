@@ -178,14 +178,14 @@ class ReviewPanel(tk.Frame):
 
         # AI button
         ai_btn_kwargs = dict(
-            text="AI", font=styles.FONT_SMALL,
+            text="AI",
             command=lambda i=idx: self._on_ai_request(i),
             width=3,
         )
         if self._ai_icon:
             ai_btn_kwargs["image"] = self._ai_icon
             ai_btn_kwargs["compound"] = "left"
-        ai_btn = tk.Button(row_frame, **ai_btn_kwargs)
+        ai_btn = ttk.Button(row_frame, **ai_btn_kwargs)
         ai_btn.pack(side="left", padx=(4, 8), pady=4)
 
         row_data = {

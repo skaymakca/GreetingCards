@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 from pathlib import Path
 import threading
 from datetime import datetime
@@ -40,11 +40,18 @@ class MainWindow:
         self._pdf_files: list[Path] = []
 
         self._icons = {}
+        self._setup_ttk_styles()
         self._build_toolbar()
         self._apply_toolbar_icons()
         self._build_main_area()
         self._setup_drop_target()
         self._setup_keyboard_nav()
+
+    def _setup_ttk_styles(self):
+        s = ttk.Style()
+        s.configure("Toolbar.TButton", font=styles.FONT_BODY)
+        s.configure("ToolbarBold.TButton", font=styles.FONT_HEADING)
+        s.configure("ToolbarSmall.TButton", font=styles.FONT_SMALL)
 
     def _build_toolbar(self):
         toolbar = tk.Frame(self.root, bg=styles.BG_SECONDARY, height=styles.TOOLBAR_HEIGHT)
@@ -64,8 +71,8 @@ class MainWindow:
         )
         self._folder_label.pack(side="left", padx=4)
 
-        self._browse_btn = tk.Button(
-            toolbar, text="Browse...", font=styles.FONT_BODY,
+        self._browse_btn = ttk.Button(
+            toolbar, text="Browse...", style="Toolbar.TButton",
             command=self._browse_folder,
         )
         self._browse_btn.pack(side="left", padx=4)
@@ -89,36 +96,36 @@ class MainWindow:
         year_entry.pack(side="left", padx=4)
 
         # Process button
-        self._process_btn = tk.Button(
-            toolbar, text="Process", font=styles.FONT_HEADING,
+        self._process_btn = ttk.Button(
+            toolbar, text="Process", style="ToolbarBold.TButton",
             command=self._start_processing, state="disabled",
         )
         self._process_btn.pack(side="left", padx=(12, 4))
 
         # AI All button
-        self._ai_all_btn = tk.Button(
-            toolbar, text="AI All", font=styles.FONT_HEADING,
+        self._ai_all_btn = ttk.Button(
+            toolbar, text="AI All", style="ToolbarBold.TButton",
             command=self._start_ai_all, state="disabled",
         )
         self._ai_all_btn.pack(side="left", padx=4)
 
         # Rename button
-        self._rename_btn = tk.Button(
-            toolbar, text="Rename All", font=styles.FONT_HEADING,
+        self._rename_btn = ttk.Button(
+            toolbar, text="Rename All", style="ToolbarBold.TButton",
             command=self._start_rename, state="disabled",
         )
         self._rename_btn.pack(side="left", padx=4)
 
         # Clear button
-        self._clear_btn = tk.Button(
-            toolbar, text="Clear", font=styles.FONT_BODY,
+        self._clear_btn = ttk.Button(
+            toolbar, text="Clear", style="Toolbar.TButton",
             command=self._clear_all, state="disabled",
         )
         self._clear_btn.pack(side="left", padx=4)
 
         # Settings button (right side)
-        self._settings_btn = tk.Button(
-            toolbar, text="Settings", font=styles.FONT_SMALL,
+        self._settings_btn = ttk.Button(
+            toolbar, text="Settings", style="ToolbarSmall.TButton",
             command=self._show_settings,
         )
         self._settings_btn.pack(side="right", padx=(4, styles.PAD))
