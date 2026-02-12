@@ -160,6 +160,7 @@ class ReviewPanel(tk.Frame):
             relief="flat", bg=styles.BG_SECONDARY,
         )
         name_entry.pack(side="left", padx=4, pady=4, fill="x", expand=True)
+        name_entry.bind("<Return>", lambda e: row_frame.focus_set())
         name_var.trace_add("write", lambda *a, i=idx, v=name_var: self._on_name_edit(i, v))
 
         # Alternates dropdown
