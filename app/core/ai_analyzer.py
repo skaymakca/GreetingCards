@@ -17,12 +17,13 @@ def clean_family_name(name: str) -> str:
     name = name.replace("The ", "").replace(" Family", "")
     name = name.replace("From: ", "").replace("Sent by: ", "")
 
-    # Remove all double quotes
-    name = name.replace('"', '')
+    # Remove all double quotes (straight and curly)
+    name = re.sub(r'[""""]', '', name)
 
     # Remove single quotes only at the start/end (not in middle like O'Brien)
-    name = re.sub(r"^'+", "", name)  # Leading single quotes
-    name = re.sub(r"'+$", "", name)  # Trailing single quotes
+    # Handles both straight and curly quotes
+    name = re.sub(r"^[''\']+", "", name)  # Leading single quotes
+    name = re.sub(r"[''\']+$", "", name)  # Trailing single quotes
     name = name.strip()
 
     return name

@@ -232,7 +232,22 @@ class ReviewPanel(tk.Frame):
     def _on_alt_select(self, idx: int, combo: ttk.Combobox, var: tk.StringVar):
         selected = combo.get()
         if selected and selected != "Alternates":
+            # Suppress trace to avoid triggering _on_name_change
+            self._suppress_trace = True
             var.set(selected)
+            self._suppress_trace = False
+            # Update the card's family_name without changing confidence
+            if idx < len(self._cards):
+                self._cards[idx].family_name = selected
+                self._cards[idx].manual_override = selected
+                # Save to DB with original confidence (not manual)
+                if self._on_name_change:
+                    from app.core.database import save_name
+                    card = self._cards[idx]
+                    if card.file_hash:
+                        # Determine source based on confidence
+                        source = "ai" if card.ai_analyzed else "ocr"
+                        save_name(card.file_hash, selected, source, card.confidence.value, card.alternates or [])
 
     def update_dot(self, idx: int, confidence: Confidence):
         """Update just the confidence dot and tooltip for a row."""
