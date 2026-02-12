@@ -5,6 +5,37 @@ from app.models.card import CardResult, Confidence
 from app.gui import styles
 
 
+class _Tooltip:
+    """Simple hover tooltip for a widget."""
+
+    def __init__(self, widget: tk.Widget, text: str):
+        self._widget = widget
+        self.text = text
+        self._tw = None
+        widget.bind("<Enter>", self._show, add="+")
+        widget.bind("<Leave>", self._hide, add="+")
+
+    def _show(self, event=None):
+        if self._tw:
+            return
+        x = self._widget.winfo_rootx() + 20
+        y = self._widget.winfo_rooty() + self._widget.winfo_height() + 4
+        self._tw = tw = tk.Toplevel(self._widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        label = tk.Label(
+            tw, text=self.text, font=styles.FONT_SMALL,
+            bg="#333333", fg="#FFFFFF", padx=6, pady=3,
+            relief="flat",
+        )
+        label.pack()
+
+    def _hide(self, event=None):
+        if self._tw:
+            self._tw.destroy()
+            self._tw = None
+
+
 class ReviewPanel(tk.Frame):
     """Scrollable card list with edit controls for reviewing extracted names."""
 
@@ -105,11 +136,13 @@ class ReviewPanel(tk.Frame):
         row_frame = tk.Frame(self._inner, bg=bg, cursor="hand2")
         row_frame.pack(fill="x", pady=1)
 
-        # Confidence dot
+        # Confidence dot with tooltip
         dot_color = styles.CONFIDENCE_COLORS.get(card.confidence.value, styles.TEXT_SECONDARY)
         dot = tk.Canvas(row_frame, width=12, height=12, bg=bg, highlightthickness=0)
         dot.create_oval(2, 2, 10, 10, fill=dot_color, outline="")
         dot.pack(side="left", padx=(8, 4), pady=8)
+        tooltip_text = styles.CONFIDENCE_TOOLTIPS.get(card.confidence.value, "")
+        dot_tooltip = _Tooltip(dot, tooltip_text)
 
         # Filename label
         fn_label = tk.Label(
@@ -149,6 +182,7 @@ class ReviewPanel(tk.Frame):
         row_data = {
             "frame": row_frame,
             "dot": dot,
+            "dot_tooltip": dot_tooltip,
             "fn_label": fn_label,
             "name_var": name_var,
             "name_entry": name_entry,
@@ -188,6 +222,16 @@ class ReviewPanel(tk.Frame):
         if selected and selected != "Alternates":
             var.set(selected)
 
+    def update_dot(self, idx: int, confidence: Confidence):
+        """Update just the confidence dot and tooltip for a row."""
+        if idx >= len(self._rows):
+            return
+        row = self._rows[idx]
+        dot_color = styles.CONFIDENCE_COLORS.get(confidence.value, styles.TEXT_SECONDARY)
+        row["dot"].delete("all")
+        row["dot"].create_oval(2, 2, 10, 10, fill=dot_color, outline="")
+        row["dot_tooltip"].text = styles.CONFIDENCE_TOOLTIPS.get(confidence.value, "")
+
     def update_card(self, idx: int, card: CardResult):
         """Update a single card's display after AI analysis."""
         if idx >= len(self._rows):
@@ -195,10 +239,8 @@ class ReviewPanel(tk.Frame):
         self._cards[idx] = card
         row = self._rows[idx]
 
-        # Update confidence dot
-        dot_color = styles.CONFIDENCE_COLORS.get(card.confidence.value, styles.TEXT_SECONDARY)
-        row["dot"].delete("all")
-        row["dot"].create_oval(2, 2, 10, 10, fill=dot_color, outline="")
+        # Update confidence dot and tooltip
+        self.update_dot(idx, card.confidence)
 
         # Update name
         row["name_var"].set(card.display_name)

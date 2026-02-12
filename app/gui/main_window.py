@@ -191,7 +191,10 @@ class MainWindow:
                 cached = get_cached_name(card.file_hash)
                 if cached:
                     card.family_name = cached[0]
-                    card.confidence = Confidence.HIGH if cached[1] in ("ai", "manual") else Confidence.MEDIUM
+                    try:
+                        card.confidence = Confidence(cached[2])
+                    except ValueError:
+                        card.confidence = Confidence.MEDIUM
 
                 # Always render preview
                 images = render_all_pages(pdf_path, dpi=200)
@@ -209,7 +212,7 @@ class MainWindow:
                         card.family_name = names[0][0]
                         card.confidence = names[0][1]
                         card.alternates = [n for n, _ in names[1:]]
-                        save_name(card.file_hash, card.family_name, "ocr")
+                        save_name(card.file_hash, card.family_name, "ocr", card.confidence.value)
             except Exception as e:
                 card.ocr_text = f"Error: {e}"
                 card.confidence = Confidence.NONE
@@ -242,11 +245,14 @@ class MainWindow:
         self._clear_btn.config(state="disabled")
 
     def _on_name_change(self, idx: int, name: str):
-        """Persist manual name edits to the database."""
+        """Persist manual name edits to the database and update confidence dot."""
         if 0 <= idx < len(self._cards):
             card = self._cards[idx]
-            if card.file_hash and name:
-                save_name(card.file_hash, name, "manual")
+            if name:
+                card.confidence = Confidence.MANUAL
+                if card.file_hash:
+                    save_name(card.file_hash, name, "manual", "manual")
+            self._review_panel.update_dot(idx, card.confidence)
 
     def _on_card_select(self, idx: int):
         if 0 <= idx < len(self._cards):

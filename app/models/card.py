@@ -9,6 +9,7 @@ class Confidence(Enum):
     HIGH = "high"
     MEDIUM = "medium"
     LOW = "low"
+    MANUAL = "manual"
     NONE = "none"
 
 

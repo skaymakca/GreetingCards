@@ -9,13 +9,24 @@ ACCENT = "#007AFF"
 SUCCESS = "#34C759"
 WARNING = "#FF9500"
 ERROR = "#FF3B30"
+MANUAL_BLUE = "#1E90FF"  # Dodger Blue
 
 # Confidence dot colors
 CONFIDENCE_COLORS = {
     "high": SUCCESS,
     "medium": WARNING,
     "low": ERROR,
+    "manual": MANUAL_BLUE,
     "none": TEXT_SECONDARY,
+}
+
+# Confidence tooltip descriptions
+CONFIDENCE_TOOLTIPS = {
+    "high": "High confidence — strong pattern match or AI result",
+    "medium": "Medium confidence — partial pattern match",
+    "low": "Low confidence — weak/fallback match",
+    "manual": "Manually entered name",
+    "none": "No name extracted",
 }
 
 # Fonts
