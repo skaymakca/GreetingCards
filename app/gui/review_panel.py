@@ -105,18 +105,12 @@ class ReviewPanel(tk.Frame):
         self._canvas.pack(fill="both", expand=True)
 
         self._canvas.bind("<Configure>", self._on_canvas_configure)
-        # Bind mousewheel
-        self._canvas.bind("<Enter>", lambda e: self._bind_mousewheel())
-        self._canvas.bind("<Leave>", lambda e: self._unbind_mousewheel())
+        # Bind mousewheel - macOS native behavior responds when mouse is over widget
+        self._canvas.bind("<MouseWheel>", self._on_mousewheel)
+        self._inner.bind("<MouseWheel>", self._on_mousewheel)
 
     def _on_canvas_configure(self, event):
         self._canvas.itemconfigure(self._canvas_window, width=event.width)
-
-    def _bind_mousewheel(self):
-        self._canvas.bind_all("<MouseWheel>", self._on_mousewheel)
-
-    def _unbind_mousewheel(self):
-        self._canvas.unbind_all("<MouseWheel>")
 
     def _on_mousewheel(self, event):
         self._canvas.yview_scroll(-1 * (event.delta // 120 or event.delta), "units")
