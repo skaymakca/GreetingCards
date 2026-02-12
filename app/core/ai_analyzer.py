@@ -1,5 +1,6 @@
 import base64
 import io
+import re
 
 from PIL import Image
 
@@ -85,6 +86,14 @@ def analyze_card_with_ai(images: list[Image.Image] | Image.Image) -> tuple[str, 
         line = line.split(":", 1)[-1].strip()  # Remove "Page 1:" etc
         line = line.replace("The ", "").replace(" Family", "").replace("The ", "")
         line = line.replace("From: ", "").replace("Sent by: ", "")
+
+        # Remove all double quotes
+        line = line.replace('"', '')
+
+        # Remove single quotes only at the start/end (not in middle like O'Brien)
+        line = re.sub(r"^'+", "", line)  # Leading single quotes
+        line = re.sub(r"'+$", "", line)  # Trailing single quotes
+        line = line.strip()
 
         # Skip lines that are too long (likely explanatory text)
         if len(line) > 30:
