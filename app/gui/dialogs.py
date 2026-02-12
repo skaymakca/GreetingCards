@@ -131,6 +131,13 @@ class RenameConfirmDialog(tk.Toplevel):
         scrollbar.pack(side="right", fill="y")
         canvas.pack(fill="both", expand=True)
 
+        # Bind mousewheel for native macOS scroll behavior
+        def on_mousewheel(e):
+            canvas.yview_scroll(-1 * (e.delta // 120 or e.delta), "units")
+
+        canvas.bind("<MouseWheel>", on_mousewheel)
+        inner.bind("<MouseWheel>", on_mousewheel)
+
         STATUS_LABELS = {
             "ok": "",
             "duplicate": "DUP",
@@ -141,17 +148,21 @@ class RenameConfirmDialog(tk.Toplevel):
         for i, (old_path, new_path, status) in enumerate(plan):
             row_bg = styles.BG_PRIMARY if i % 2 == 0 else styles.BG_SECONDARY
 
-            tk.Label(
+            old_label = tk.Label(
                 inner, text=old_path.name, font=styles.FONT_MONO, anchor="w",
                 bg=row_bg, fg=styles.TEXT_PRIMARY,
-            ).grid(row=i, column=0, sticky="ew", padx=(8, 4), pady=1)
+            )
+            old_label.grid(row=i, column=0, sticky="ew", padx=(8, 4), pady=1)
+            old_label.bind("<MouseWheel>", on_mousewheel)
 
             new_name = new_path.name if status not in ("skip_no_name", "skip_same") else "-"
             new_fg = styles.TEXT_PRIMARY if status in ("ok", "duplicate") else styles.TEXT_SECONDARY
-            tk.Label(
+            new_label = tk.Label(
                 inner, text=new_name, font=styles.FONT_MONO, anchor="w",
                 bg=row_bg, fg=new_fg,
-            ).grid(row=i, column=1, sticky="ew", padx=(4, 4), pady=1)
+            )
+            new_label.grid(row=i, column=1, sticky="ew", padx=(4, 4), pady=1)
+            new_label.bind("<MouseWheel>", on_mousewheel)
 
             status_text = STATUS_LABELS.get(status, status)
             status_fg = styles.TEXT_SECONDARY
@@ -159,10 +170,12 @@ class RenameConfirmDialog(tk.Toplevel):
                 status_fg = styles.WARNING
             elif status.startswith("skip"):
                 status_fg = styles.TEXT_SECONDARY
-            tk.Label(
+            status_label = tk.Label(
                 inner, text=status_text, font=styles.FONT_SMALL, anchor="w",
                 bg=row_bg, fg=status_fg,
-            ).grid(row=i, column=2, sticky="w", padx=(4, 8), pady=1)
+            )
+            status_label.grid(row=i, column=2, sticky="w", padx=(4, 8), pady=1)
+            status_label.bind("<MouseWheel>", on_mousewheel)
 
         # Buttons
         btn_frame = tk.Frame(self, bg=styles.BG_PRIMARY)

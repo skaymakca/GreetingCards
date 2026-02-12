@@ -716,10 +716,11 @@ class MainWindow:
 
         if dialog.result:
             results = execute_rename_plan(plan)
-            success = sum(1 for _, _, ok, _ in results if ok)
+            # Count only actual renames (not skips)
+            renamed = sum(1 for _, _, ok, msg in results if ok and msg == "Renamed")
             errors = [(old, new, msg) for old, new, ok, msg in results if not ok]
 
-            summary = f"Renamed {success} file(s)."
+            summary = f"Renamed {renamed} file(s)."
             if errors:
                 err_lines = "\n".join(f"  {o.name}: {m}" for o, _, m in errors)
                 summary += f"\n\nErrors:\n{err_lines}"
