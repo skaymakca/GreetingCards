@@ -1,9 +1,21 @@
-.PHONY: run app build clean icon
+.PHONY: run app build clean icon loc
 
 run:
 	.venv/bin/python main.py
 
 build: app
+
+loc:
+	@echo "Lines of code (project files only):"
+	@echo ""
+	@echo "Python files:"
+	@find . -name "*.py" -not -path "./.venv/*" -not -path "./build/*" -not -path "./dist/*" -not -path "*/__pycache__/*" -exec wc -l {} + | tail -1 | awk '{print "  " $$1 " lines"}'
+	@echo ""
+	@echo "Other project files:"
+	@wc -l Makefile "Greeting Cards.spec" 2>/dev/null | tail -1 | awk '{print "  " $$1 " lines"}'
+	@echo ""
+	@echo "Total project LOC:"
+	@(find . -name "*.py" -not -path "./.venv/*" -not -path "./build/*" -not -path "./dist/*" -not -path "*/__pycache__/*" -exec cat {} + ; cat Makefile "Greeting Cards.spec") | wc -l | awk '{print "  " $$1 " lines"}'
 
 icon: icon.png
 	@mkdir -p icon.iconset
