@@ -218,7 +218,7 @@ class CompletionDialog(tk.Toplevel):
         self.transient(parent)
         self.grab_set()
 
-        w, h = 400, 180
+        w, h = 400, 210
         x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
         y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
         self.geometry(f"{w}x{h}+{x}+{y}")
