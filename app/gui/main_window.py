@@ -197,6 +197,7 @@ class MainWindow:
                 images = render_all_pages(pdf_path, dpi=200)
                 if images:
                     card.preview_image = images[0]
+                    card.page_images = images
 
                 # Only run OCR if no cached name
                 if not cached:
@@ -250,8 +251,10 @@ class MainWindow:
     def _on_card_select(self, idx: int):
         if 0 <= idx < len(self._cards):
             card = self._cards[idx]
-            if card.preview_image:
-                self._preview_panel.show_image(card.preview_image, card.filename)
+            if card.page_images:
+                self._preview_panel.show_images(card.page_images, card.filename)
+            elif card.preview_image:
+                self._preview_panel.show_images([card.preview_image], card.filename)
             else:
                 self._preview_panel.clear()
 

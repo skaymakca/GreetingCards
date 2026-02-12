@@ -19,7 +19,8 @@ class CardResult:
     confidence: Confidence = Confidence.NONE
     alternates: list[str] = field(default_factory=list)
     ocr_text: str = ""
-    preview_image: Optional[Image.Image] = None
+    preview_image: Optional[Image.Image] = None  # first page (for AI analysis)
+    page_images: list[Image.Image] = field(default_factory=list)  # all pages
     manual_override: str = ""
     ai_analyzed: bool = False
     file_hash: str = ""
