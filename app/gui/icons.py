@@ -28,6 +28,8 @@ def load_sf_symbol(
             NSColor,
             NSGraphicsContext,
             NSCompositingOperationSourceOver,
+            NSPNGFileType,
+            NSScreen,
         )
         from Foundation import NSSize, NSRect, NSPoint
 
@@ -55,22 +57,29 @@ def load_sf_symbol(
         if styled is None:
             styled = image
 
-        # Render to bitmap
+        # Get point size and screen scale factor for Retina support
         sz = styled.size()
-        w, h = int(sz.width), int(sz.height)
-        if w == 0 or h == 0:
+        pt_w, pt_h = int(sz.width), int(sz.height)
+        if pt_w == 0 or pt_h == 0:
             _cache[key] = None
             return None
 
+        screen = NSScreen.mainScreen()
+        scale = int(screen.backingScaleFactor()) if screen else 2
+        px_w, px_h = pt_w * scale, pt_h * scale
+
+        # Create bitmap at native pixel resolution
         rep = NSBitmapImageRep.alloc().initWithBitmapDataPlanes_pixelsWide_pixelsHigh_bitsPerSample_samplesPerPixel_hasAlpha_isPlanar_colorSpaceName_bytesPerRow_bitsPerPixel_(
-            None, w, h, 8, 4, True, False, "NSCalibratedRGBColorSpace", 0, 0
+            None, px_w, px_h, 8, 4, True, False, "NSCalibratedRGBColorSpace", 0, 0
         )
+        # Set the rep's point size so drawing scales up into the larger pixel buffer
+        rep.setSize_(NSSize(pt_w, pt_h))
 
         ctx = NSGraphicsContext.graphicsContextWithBitmapImageRep_(rep)
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.setCurrentContext_(ctx)
         styled.drawInRect_fromRect_operation_fraction_(
-            NSRect(NSPoint(0, 0), NSSize(w, h)),
+            NSRect(NSPoint(0, 0), NSSize(pt_w, pt_h)),
             NSRect(NSPoint(0, 0), NSSize(0, 0)),  # entire image
             NSCompositingOperationSourceOver,
             1.0,
@@ -78,14 +87,11 @@ def load_sf_symbol(
         NSGraphicsContext.restoreGraphicsState()
 
         # Convert to PNG bytes then PhotoImage
-        from AppKit import NSPNGFileType
-
         png_data = rep.representationUsingType_properties_(NSPNGFileType, None)
         if png_data is None:
             _cache[key] = None
             return None
 
-        # Use PIL if available for better quality, fall back to raw PhotoImage
         png_bytes = bytes(png_data)
         try:
             from PIL import Image, ImageTk
