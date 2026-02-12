@@ -5,7 +5,7 @@ from app.gui.icons import load_sf_symbol
 
 
 def add_entry_context_menu(entry: tk.Entry):
-    """Add a native-style context menu to an Entry widget with Cut, Copy, Paste, Clear.
+    """Add a native-style context menu to an Entry widget with Cut, Copy, Paste, Title Case, Clear.
 
     Args:
         entry: The tk.Entry widget to attach the context menu to
@@ -18,6 +18,7 @@ def add_entry_context_menu(entry: tk.Entry):
         "cut": ("scissors", 7),
         "copy": ("doc.on.doc", 7),
         "paste": ("doc.on.clipboard", 7),
+        "title_case": ("textformat.abc", 7),
         "clear": ("xmark.circle", 7),
     }
     for key, (symbol, size) in icon_specs.items():
@@ -53,6 +54,14 @@ def add_entry_context_menu(entry: tk.Entry):
     )
 
     menu.add_separator()
+
+    # Title Case
+    menu.add_command(
+        label="Title Case",
+        command=lambda: _title_case(entry),
+        image=icons.get("title_case"),
+        compound="left",
+    )
 
     # Clear
     menu.add_command(
@@ -92,6 +101,15 @@ def _copy(entry: tk.Entry):
 def _paste(entry: tk.Entry):
     """Paste from clipboard."""
     entry.event_generate("<<Paste>>")
+
+
+def _title_case(entry: tk.Entry):
+    """Convert text to Title Case."""
+    current_text = entry.get()
+    if current_text:
+        title_cased = current_text.title()
+        entry.delete(0, tk.END)
+        entry.insert(0, title_cased)
 
 
 def _clear(entry: tk.Entry):
