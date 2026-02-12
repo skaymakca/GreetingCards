@@ -1,6 +1,6 @@
 import fitz  # PyMuPDF
 from pathlib import Path
-from PIL import Image
+from PIL import Image, ImageChops
 import io
 
 
@@ -17,6 +17,21 @@ def _capped_zoom(page, dpi: int) -> fitz.Matrix:
     return fitz.Matrix(target_zoom, target_zoom)
 
 
+def autocrop_whitespace(image: Image.Image, threshold: int = 245, padding: int = 10) -> Image.Image:
+    """Crop near-white borders from a scanned page image."""
+    gray = image.convert("L")
+    bg = Image.new("L", gray.size, threshold)
+    diff = ImageChops.subtract(bg, gray)
+    bbox = diff.getbbox()
+    if not bbox:
+        return image
+    left = max(0, bbox[0] - padding)
+    top = max(0, bbox[1] - padding)
+    right = min(image.width, bbox[2] + padding)
+    bottom = min(image.height, bbox[3] + padding)
+    return image.crop((left, top, right, bottom))
+
+
 def render_pdf_page(pdf_path: Path, page_num: int = 0, dpi: int = 600) -> Image.Image:
     """Render a single PDF page to a PIL Image (capped at native resolution)."""
     doc = fitz.open(str(pdf_path))
@@ -24,7 +39,7 @@ def render_pdf_page(pdf_path: Path, page_num: int = 0, dpi: int = 600) -> Image.
         page = doc[page_num]
         pix = page.get_pixmap(matrix=_capped_zoom(page, dpi))
         img_data = pix.tobytes("png")
-        return Image.open(io.BytesIO(img_data))
+        return autocrop_whitespace(Image.open(io.BytesIO(img_data)))
     finally:
         doc.close()
 
@@ -37,7 +52,7 @@ def render_all_pages(pdf_path: Path, dpi: int = 600) -> list[Image.Image]:
         for page in doc:
             pix = page.get_pixmap(matrix=_capped_zoom(page, dpi))
             img_data = pix.tobytes("png")
-            images.append(Image.open(io.BytesIO(img_data)))
+            images.append(autocrop_whitespace(Image.open(io.BytesIO(img_data))))
     finally:
         doc.close()
     return images
