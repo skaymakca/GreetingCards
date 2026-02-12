@@ -330,6 +330,9 @@ class MainWindow:
         if 0 <= idx < len(self._cards):
             card = self._cards[idx]
             if name:
+                # Save original confidence before marking as manual
+                if card.confidence != Confidence.MANUAL:
+                    card.original_confidence = card.confidence
                 card.confidence = Confidence.MANUAL
                 if card.file_hash:
                     save_name(card.file_hash, name, "manual", "manual", card.alternates or [])

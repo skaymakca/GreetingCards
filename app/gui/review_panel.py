@@ -236,18 +236,27 @@ class ReviewPanel(tk.Frame):
             self._suppress_trace = True
             var.set(selected)
             self._suppress_trace = False
-            # Update the card's family_name without changing confidence
+            # Update the card's family_name and restore original confidence
             if idx < len(self._cards):
-                self._cards[idx].family_name = selected
-                self._cards[idx].manual_override = selected
-                # Save to DB with original confidence (not manual)
-                if self._on_name_change:
-                    from app.core.database import save_name
-                    card = self._cards[idx]
-                    if card.file_hash:
-                        # Determine source based on confidence
-                        source = "ai" if card.ai_analyzed else "ocr"
-                        save_name(card.file_hash, selected, source, card.confidence.value, card.alternates or [])
+                from app.core.database import save_name
+                from app.models.card import Confidence
+
+                card = self._cards[idx]
+                card.family_name = selected
+                card.manual_override = selected
+
+                # Restore original confidence if it was previously manual
+                if card.confidence == Confidence.MANUAL and card.original_confidence:
+                    card.confidence = card.original_confidence
+
+                # Update the dot to show restored confidence
+                self.update_dot(idx, card.confidence)
+
+                # Save to DB with correct confidence (not manual)
+                if card.file_hash:
+                    # Determine source based on confidence
+                    source = "ai" if card.ai_analyzed else "ocr"
+                    save_name(card.file_hash, selected, source, card.confidence.value, card.alternates or [])
 
     def update_dot(self, idx: int, confidence: Confidence):
         """Update just the confidence dot and tooltip for a row."""

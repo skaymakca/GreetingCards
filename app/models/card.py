@@ -25,6 +25,7 @@ class CardResult:
     manual_override: str = ""
     ai_analyzed: bool = False
     file_hash: str = ""
+    original_confidence: Optional[Confidence] = None  # Confidence before manual override
 
     @property
     def display_name(self) -> str:

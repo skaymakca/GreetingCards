@@ -12,19 +12,23 @@ def clean_family_name(name: str) -> str:
     if not name:
         return ""
 
+    name = name.strip()
+
     # Remove common prefixes/suffixes
     name = name.split(":", 1)[-1].strip()  # Remove "Page 1:" etc
     name = name.replace("The ", "").replace(" Family", "")
     name = name.replace("From: ", "").replace("Sent by: ", "")
 
-    # Remove all double quotes (straight and curly)
-    name = re.sub(r'[""""]', '', name)
+    # Remove all double quotes (straight and curly) and strip after each
+    name = re.sub(r'[""""]', '', name).strip()
 
     # Remove single quotes only at the start/end (not in middle like O'Brien)
     # Handles both straight and curly quotes
-    name = re.sub(r"^[''\']+", "", name)  # Leading single quotes
-    name = re.sub(r"[''\']+$", "", name)  # Trailing single quotes
-    name = name.strip()
+    name = re.sub(r"^[''\']+", "", name).strip()  # Leading single quotes
+    name = re.sub(r"[''\']+$", "", name).strip()  # Trailing single quotes
+
+    # Final aggressive strip of any remaining punctuation at the ends
+    name = name.strip('.,!;:-—–"\'"''""')
 
     return name
 
