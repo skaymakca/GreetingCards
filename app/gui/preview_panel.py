@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk
 from PIL import Image, ImageTk
 from app.gui import styles
 
@@ -47,8 +48,8 @@ class PreviewPanel(tk.Frame):
         page_frame = tk.Frame(controls, bg=styles.BG_SECONDARY)
         page_frame.pack(side="left")
 
-        self._prev_btn = tk.Button(
-            page_frame, text="\u25C0", font=styles.FONT_SMALL,
+        self._prev_btn = ttk.Button(
+            page_frame, text="\u25C0",
             command=self._prev_page, width=2, state="disabled",
         )
         self._prev_btn.pack(side="left", padx=(0, 2))
@@ -59,8 +60,8 @@ class PreviewPanel(tk.Frame):
         )
         self._page_label.pack(side="left", padx=2)
 
-        self._next_btn = tk.Button(
-            page_frame, text="\u25B6", font=styles.FONT_SMALL,
+        self._next_btn = ttk.Button(
+            page_frame, text="\u25B6",
             command=self._next_page, width=2, state="disabled",
         )
         self._next_btn.pack(side="left", padx=(2, 0))
@@ -69,14 +70,14 @@ class PreviewPanel(tk.Frame):
         zoom_frame = tk.Frame(controls, bg=styles.BG_SECONDARY)
         zoom_frame.pack(side="right")
 
-        self._fit_btn = tk.Button(
-            zoom_frame, text="Fit", font=styles.FONT_SMALL,
+        self._fit_btn = ttk.Button(
+            zoom_frame, text="Fit",
             command=self._zoom_fit, width=3,
         )
         self._fit_btn.pack(side="left", padx=(0, 2))
 
-        self._zout_btn = tk.Button(
-            zoom_frame, text="\u2212", font=styles.FONT_SMALL,
+        self._zout_btn = ttk.Button(
+            zoom_frame, text="\u2212",
             command=self._zoom_out, width=2,
         )
         self._zout_btn.pack(side="left", padx=2)
@@ -87,8 +88,8 @@ class PreviewPanel(tk.Frame):
         )
         self._zoom_label.pack(side="left", padx=2)
 
-        self._zin_btn = tk.Button(
-            zoom_frame, text="+", font=styles.FONT_SMALL,
+        self._zin_btn = ttk.Button(
+            zoom_frame, text="+",
             command=self._zoom_in, width=2,
         )
         self._zin_btn.pack(side="left", padx=(2, 0))
