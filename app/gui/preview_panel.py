@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk
 from app.gui import styles
+from app.gui.icons import load_sf_symbol
 
 
 class PreviewPanel(tk.Frame):
@@ -22,6 +23,9 @@ class PreviewPanel(tk.Frame):
         self._pan_x = 0.0
         self._pan_y = 0.0
         self._drag_start = None
+        self._cursor_overlay = None  # For custom cursor icon
+        self._cursor_icon_zoomin = None
+        self._cursor_icon_zoomout = None
 
         # --- Title bar ---
         self._title_label = tk.Label(
@@ -108,7 +112,11 @@ class PreviewPanel(tk.Frame):
         self._canvas.bind("<Command-Button-1>", self._on_ctrl_click)  # macOS
         # Cursor change on modifier hover
         self._canvas.bind("<Motion>", self._on_motion)
-        self._canvas.bind("<Leave>", lambda e: self._canvas.config(cursor=""))
+        self._canvas.bind("<Leave>", self._on_leave)
+
+        # Load zoom cursor icons
+        self._cursor_icon_zoomin = load_sf_symbol("plus.magnifyingglass", 20, styles.TEXT_PRIMARY)
+        self._cursor_icon_zoomout = load_sf_symbol("minus.magnifyingglass", 20, styles.TEXT_PRIMARY)
 
     # --- Public API ---
 
@@ -227,14 +235,45 @@ class PreviewPanel(tk.Frame):
         """Update cursor based on modifier keys."""
         if not self._images:
             return
-        # Check for Shift (zoom in)
+
+        # Check for Shift (zoom in) or Ctrl/Cmd (zoom out)
         if event.state & 0x0001:  # Shift
-            self._canvas.config(cursor="plus")
-        # Check for Control/Command (zoom out)
+            self._show_cursor_overlay(event, self._cursor_icon_zoomin)
+            self._canvas.config(cursor="none")
         elif event.state & 0x0004 or event.state & 0x0008:  # Ctrl or Cmd
-            self._canvas.config(cursor="circle")
+            self._show_cursor_overlay(event, self._cursor_icon_zoomout)
+            self._canvas.config(cursor="none")
         else:
+            self._hide_cursor_overlay()
             self._canvas.config(cursor="")
+
+    def _show_cursor_overlay(self, event, icon):
+        """Show cursor overlay with SF Symbol icon."""
+        if not icon:
+            return
+
+        if self._cursor_overlay is None:
+            # Create cursor overlay label
+            self._cursor_overlay = tk.Label(
+                self._canvas, image=icon, bg=styles.BG_PRIMARY,
+                borderwidth=0, highlightthickness=0
+            )
+
+        self._cursor_overlay.config(image=icon)
+        # Position overlay at cursor location with slight offset
+        x = event.x + 8
+        y = event.y + 8
+        self._cursor_overlay.place(x=x, y=y)
+
+    def _hide_cursor_overlay(self):
+        """Hide cursor overlay."""
+        if self._cursor_overlay:
+            self._cursor_overlay.place_forget()
+
+    def _on_leave(self, event):
+        """Handle mouse leaving canvas."""
+        self._hide_cursor_overlay()
+        self._canvas.config(cursor="")
 
     def _on_pan_start(self, event):
         if not self._images:
