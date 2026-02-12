@@ -3,6 +3,7 @@ from tkinter import messagebox, ttk
 
 from app.gui import styles
 from app.gui.icons import load_sf_symbol
+from app.gui.context_menu import add_entry_context_menu
 from app.core.config import get_api_key, save_api_key
 from app.core.database import reset_database
 
@@ -49,6 +50,7 @@ class ApiKeyPrompt(tk.Toplevel):
         self._key_entry.pack(side="left", fill="x", expand=True)
         self._key_entry.focus_set()
         self._key_entry.bind("<Return>", lambda e: self._save())
+        add_entry_context_menu(self._key_entry)
 
         # Buttons
         btn_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
@@ -116,6 +118,8 @@ class SettingsDialog(tk.Toplevel):
         current_key = get_api_key()
         if current_key:
             self._key_entry.insert(0, current_key)
+
+        add_entry_context_menu(self._key_entry)
 
         self._save_key_btn = ttk.Button(
             key_frame, text="Save",

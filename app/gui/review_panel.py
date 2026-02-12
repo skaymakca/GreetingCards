@@ -4,6 +4,7 @@ from typing import Callable, Optional
 from app.models.card import CardResult, Confidence
 from app.gui import styles
 from app.gui.icons import load_sf_symbol
+from app.gui.context_menu import add_entry_context_menu
 
 
 class _Tooltip:
@@ -164,6 +165,7 @@ class ReviewPanel(tk.Frame):
         name_entry.pack(side="left", padx=4, pady=4, fill="x", expand=True)
         name_entry.bind("<Return>", lambda e: row_frame.focus_set())
         name_var.trace_add("write", lambda *a, i=idx, v=name_var: self._on_name_edit(i, v))
+        add_entry_context_menu(name_entry)
 
         # Candidates dropdown
         alt_values = card.alternates if card.alternates else []

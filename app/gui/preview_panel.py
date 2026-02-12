@@ -102,6 +102,13 @@ class PreviewPanel(tk.Frame):
         self._canvas.bind("<ButtonRelease-1>", self._on_pan_end)
         # Scroll to zoom
         self._canvas.bind("<MouseWheel>", self._on_scroll_zoom)
+        # Modifier-click zoom
+        self._canvas.bind("<Shift-Button-1>", self._on_shift_click)
+        self._canvas.bind("<Control-Button-1>", self._on_ctrl_click)
+        self._canvas.bind("<Command-Button-1>", self._on_ctrl_click)  # macOS
+        # Cursor change on modifier hover
+        self._canvas.bind("<Motion>", self._on_motion)
+        self._canvas.bind("<Leave>", lambda e: self._canvas.config(cursor=""))
 
     # --- Public API ---
 
@@ -201,6 +208,33 @@ class PreviewPanel(tk.Frame):
             self._apply_zoom(1.0 / self.ZOOM_STEP)
 
     # --- Pan ---
+
+    def _on_shift_click(self, event):
+        """Shift+Click to zoom in."""
+        if not self._images:
+            return
+        self._apply_zoom(self.ZOOM_STEP)
+        return "break"  # Prevent pan
+
+    def _on_ctrl_click(self, event):
+        """Ctrl/Cmd+Click to zoom out."""
+        if not self._images:
+            return
+        self._apply_zoom(1.0 / self.ZOOM_STEP)
+        return "break"  # Prevent pan
+
+    def _on_motion(self, event):
+        """Update cursor based on modifier keys."""
+        if not self._images:
+            return
+        # Check for Shift (zoom in)
+        if event.state & 0x0001:  # Shift
+            self._canvas.config(cursor="plus")
+        # Check for Control/Command (zoom out)
+        elif event.state & 0x0004 or event.state & 0x0008:  # Ctrl or Cmd
+            self._canvas.config(cursor="circle")
+        else:
+            self._canvas.config(cursor="")
 
     def _on_pan_start(self, event):
         if not self._images:
