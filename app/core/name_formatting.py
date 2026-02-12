@@ -1,6 +1,43 @@
 """Name formatting utilities for proper capitalization of family names."""
 
 
+def deparameterize_name(name: str) -> str:
+    """Remove plural 's' from family names.
+
+    Examples:
+        "Smiths" → "Smith"
+        "Jones" → "Jones" (already singular)
+        "The Smiths" → "The Smith"
+    """
+    if not name:
+        return name
+
+    words = name.split()
+    result = []
+
+    for word in words:
+        # Skip articles and particles
+        if word.lower() in ['the', 'a', 'an']:
+            result.append(word)
+            continue
+
+        # Remove trailing 's' if it looks like a plural family name
+        # But keep names that naturally end in 's' (Jones, Williams, etc.)
+        if len(word) > 3 and word.endswith('s') and not word.endswith('ss'):
+            # Check if removing 's' leaves a valid name
+            singular = word[:-1]
+            # Common patterns: Smiths → Smith, Browns → Brown
+            # But keep: Jones, Williams, Davis (natural 's' endings)
+            if not singular.endswith(('on', 'am', 'vi', 'li')):
+                result.append(singular)
+            else:
+                result.append(word)
+        else:
+            result.append(word)
+
+    return ' '.join(result)
+
+
 def smart_title_case(name: str) -> str:
     """Apply smart title case with special rules for names.
 

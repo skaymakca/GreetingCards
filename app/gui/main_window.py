@@ -22,7 +22,7 @@ from app.core.renamer import build_rename_plan, execute_rename_plan
 from app.core.database import (
     compute_file_hash, get_card_state, add_candidate, select_candidate,
     set_manual_name, save_raw_ocr, save_raw_ai, update_remove_family,
-    clear_unselected_candidates, should_reprocess,
+    clear_unselected_candidates, should_reprocess, reprocess_candidates_from_raw,
 )
 from app.gui.settings_dialog import SettingsDialog, ApiKeyPrompt
 from app.gui.help_dialog import HelpDialog
@@ -39,8 +39,8 @@ def _process_pdf_worker(pdf_path_str: str) -> dict:
     from app.core.ocr_engine import extract_text_all_pages
     from app.core.name_extractor import extract_family_names
     from app.core.database import (
-        compute_file_hash, get_card_state, add_candidate,
-        select_candidate, save_raw_ocr
+        compute_file_hash, get_card_state, save_raw_ocr,
+        reprocess_candidates_from_raw
     )
     from app.models.card import Confidence
 
@@ -84,43 +84,41 @@ def _process_pdf_worker(pdf_path_str: str) -> dict:
                 result['page_images_bytes'].append(buf.getvalue())
 
         if card_state:
-            result['family_name'] = card_state['display_name']
-            result['confidence'] = card_state['confidence']
-            result['alternates'] = [name for _, name, _, _ in card_state['candidates']]
-            result['candidates'] = card_state['candidates']
-            result['remove_family'] = card_state['remove_family']
-            result['selected_candidate_id'] = card_state['selected_candidate_id']
-            result['method'] = card_state['method']
+            # Card exists - reprocess candidates from raw data with current cleaning logic
+            reprocess_candidates_from_raw(file_hash)
+
+            # Reload state after reprocessing
+            card_state = get_card_state(file_hash)
+            if card_state:
+                result['family_name'] = card_state['display_name']
+                result['confidence'] = card_state['confidence']
+                result['alternates'] = [name for _, name, _, _ in card_state['candidates']]
+                result['candidates'] = card_state['candidates']
+                result['remove_family'] = card_state['remove_family']
+                result['selected_candidate_id'] = card_state['selected_candidate_id']
+                result['method'] = card_state['method']
         else:
-            # Run OCR
+            # New file - run OCR and save raw data
             if images:
                 ocr_text = extract_text_all_pages(images)
                 result['ocr_text'] = ocr_text
 
-                # Save raw OCR for potential re-processing
+                # Save raw OCR
                 save_raw_ocr(file_hash, ocr_text)
 
-                names = extract_family_names(ocr_text)
-                if names:
-                    # Add all extracted names as candidates
-                    for name, conf in names:
-                        add_candidate(file_hash, name, "ocr", conf.value)
+                # Process candidates from raw data
+                reprocess_candidates_from_raw(file_hash)
 
-                    # Auto-select the best candidate (first one)
-                    best_id = add_candidate(file_hash, names[0][0], "ocr", names[0][1].value)
-                    if best_id:
-                        select_candidate(file_hash, best_id)
-
-                    # Reload state to get cleaned/filtered version
-                    card_state = get_card_state(file_hash)
-                    if card_state:
-                        result['family_name'] = card_state['display_name']
-                        result['confidence'] = card_state['confidence']
-                        result['alternates'] = [name for _, name, _, _ in card_state['candidates']]
-                        result['candidates'] = card_state['candidates']
-                        result['remove_family'] = card_state['remove_family']
-                        result['selected_candidate_id'] = card_state['selected_candidate_id']
-                        result['method'] = card_state['method']
+                # Load state after processing
+                card_state = get_card_state(file_hash)
+                if card_state:
+                    result['family_name'] = card_state['display_name']
+                    result['confidence'] = card_state['confidence']
+                    result['alternates'] = [name for _, name, _, _ in card_state['candidates']]
+                    result['candidates'] = card_state['candidates']
+                    result['remove_family'] = card_state['remove_family']
+                    result['selected_candidate_id'] = card_state['selected_candidate_id']
+                    result['method'] = card_state['method']
 
     except Exception as e:
         result['error'] = str(e)
@@ -493,6 +491,27 @@ class MainWindow:
             try:
                 card.file_hash = compute_file_hash(pdf_path)
                 card_state = get_card_state(card.file_hash)
+
+                images = render_all_pages(pdf_path, dpi=200)
+                if images:
+                    card.preview_image = images[0]
+                    card.page_images = images
+
+                if card_state:
+                    # Card exists - reprocess from raw data
+                    reprocess_candidates_from_raw(card.file_hash)
+                    card_state = get_card_state(card.file_hash)
+                else:
+                    # New file - run OCR and save raw
+                    ocr_text = extract_text_all_pages(images)
+                    card.ocr_text = ocr_text
+                    save_raw_ocr(card.file_hash, ocr_text)
+
+                    # Process candidates from raw
+                    reprocess_candidates_from_raw(card.file_hash)
+                    card_state = get_card_state(card.file_hash)
+
+                # Load card state
                 if card_state:
                     card.family_name = card_state['display_name']
                     try:
@@ -504,40 +523,6 @@ class MainWindow:
                     card.remove_family = card_state['remove_family']
                     card.selected_candidate_id = card_state['selected_candidate_id']
                     card.method = card_state['method']
-
-                images = render_all_pages(pdf_path, dpi=200)
-                if images:
-                    card.preview_image = images[0]
-                    card.page_images = images
-
-                if not card_state:
-                    ocr_text = extract_text_all_pages(images)
-                    card.ocr_text = ocr_text
-
-                    # Save raw OCR
-                    save_raw_ocr(card.file_hash, ocr_text)
-
-                    names = extract_family_names(ocr_text)
-                    if names:
-                        # Add all extracted names as candidates
-                        for name, conf in names:
-                            add_candidate(card.file_hash, name, "ocr", conf.value)
-
-                        # Auto-select the best candidate
-                        best_id = add_candidate(card.file_hash, names[0][0], "ocr", names[0][1].value)
-                        if best_id:
-                            select_candidate(card.file_hash, best_id)
-
-                        # Reload state to get cleaned version
-                        card_state = get_card_state(card.file_hash)
-                        if card_state:
-                            card.family_name = card_state['display_name']
-                            card.confidence = Confidence(card_state['confidence'])
-                            card.alternates = [name for _, name, _, _ in card_state['candidates']]
-                            card.candidates = card_state['candidates']
-                            card.remove_family = card_state['remove_family']
-                            card.selected_candidate_id = card_state['selected_candidate_id']
-                            card.method = card_state['method']
             except Exception as e:
                 card.ocr_text = f"Error: {e}"
                 card.confidence = Confidence.NONE
@@ -649,20 +634,13 @@ class MainWindow:
                 best_name, alternates = analyze_card_with_ai(ai_images)
 
                 if card.file_hash and best_name:
-                    # Save raw AI result for debugging/re-processing
+                    # Save raw AI result
                     save_raw_ai(card.file_hash, best_name, alternates)
 
-                    # Add AI candidates to DB
-                    add_candidate(card.file_hash, best_name, "ai", "high")
-                    for alt_name in alternates:
-                        add_candidate(card.file_hash, alt_name, "ai", "high")
+                    # Reprocess all candidates from raw data (includes new AI results)
+                    reprocess_candidates_from_raw(card.file_hash)
 
-                    # Auto-select the best AI candidate
-                    best_id = add_candidate(card.file_hash, best_name, "ai", "high")
-                    if best_id:
-                        select_candidate(card.file_hash, best_id, card.remove_family)
-
-            # Reload state to get updated candidates list
+            # Reload state after reprocessing
             if card.file_hash:
                 card_state = get_card_state(card.file_hash)
                 if card_state:
@@ -676,7 +654,6 @@ class MainWindow:
                     card.ai_analyzed = True
                     # Only clear manual override if user hasn't manually edited
                     if not card.manual_override or card.method != "manual":
-                        card.manual_override = ""
                         card.manual_override = ""
             else:
                 card.confidence = Confidence.NONE
@@ -740,20 +717,13 @@ class MainWindow:
                         best_name, alternates = await analyze_card_with_ai_async(ai_images)
 
                         if card.file_hash and best_name:
-                            # Save raw AI result for debugging/re-processing
+                            # Save raw AI result
                             save_raw_ai(card.file_hash, best_name, alternates)
 
-                            # Add AI candidates to DB
-                            add_candidate(card.file_hash, best_name, "ai", "high")
-                            for alt_name in alternates:
-                                add_candidate(card.file_hash, alt_name, "ai", "high")
+                            # Reprocess all candidates from raw data (includes new AI results)
+                            reprocess_candidates_from_raw(card.file_hash)
 
-                            # Auto-select the best AI candidate
-                            best_id = add_candidate(card.file_hash, best_name, "ai", "high")
-                            if best_id:
-                                select_candidate(card.file_hash, best_id, card.remove_family)
-
-                    # Reload state to get updated candidates list
+                    # Reload state after reprocessing
                     if card.file_hash:
                         card_state = get_card_state(card.file_hash)
                         if card_state:

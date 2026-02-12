@@ -170,6 +170,7 @@ def _clean_and_filter_names(names: list[str]) -> list[str]:
     Raw data is persisted in the DB and cleaned on load.
     """
     from app.core.ai_analyzer import clean_family_name
+    from app.core.name_formatting import deparameterize_name
 
     # Filter words that are not family names
     FILTER_OUT = {
@@ -184,6 +185,8 @@ def _clean_and_filter_names(names: list[str]) -> list[str]:
             continue
         # Apply comprehensive cleaning
         clean_name = clean_family_name(name)
+        # Remove plural 's' (Smiths → Smith)
+        clean_name = deparameterize_name(clean_name)
         # Filter out unwanted values
         if clean_name and clean_name.lower() not in FILTER_OUT:
             cleaned.append(clean_name)
@@ -193,7 +196,9 @@ def _clean_and_filter_names(names: list[str]) -> list[str]:
 
 # --- Public API ---
 
-# Confidence sort order for candidates dropdown
+# Sort order for candidates dropdown
+# Priority: AI results first, then OCR, sorted by confidence within each method
+_METHOD_ORDER = {"ai": 0, "ocr": 1}
 _CONFIDENCE_ORDER = {"high": 0, "medium": 1, "low": 2}
 
 
@@ -258,7 +263,9 @@ def add_candidate(file_hash: str, family_name: str, method: str, confidence: str
 
 
 def get_candidates(file_hash: str) -> list[tuple[int, str, str, str]]:
-    """Get all candidates for a file, sorted by confidence (high→medium→low).
+    """Get all candidates for a file, sorted by method (AI first) then confidence.
+
+    Priority: AI high > AI medium > AI low > OCR high > OCR medium > OCR low
 
     Returns [(id, family_name, method, confidence), ...]
     """
@@ -268,10 +275,13 @@ def get_candidates(file_hash: str) -> list[tuple[int, str, str, str]]:
                      .filter_by(file_hash=file_hash)
                      .all())
 
-        # Sort by confidence (high first)
+        # Sort by method (AI first), then confidence (high first)
         sorted_candidates = sorted(
             candidates,
-            key=lambda c: _CONFIDENCE_ORDER.get(c.confidence, 999)
+            key=lambda c: (
+                _METHOD_ORDER.get(c.method, 999),
+                _CONFIDENCE_ORDER.get(c.confidence, 999)
+            )
         )
 
         return [
@@ -516,5 +526,59 @@ def should_reprocess(file_hash: str, method: str) -> bool:
     try:
         count = session.query(Candidate).filter_by(file_hash=file_hash, method=method).count()
         return count == 0
+    finally:
+        session.close()
+
+
+def reprocess_candidates_from_raw(file_hash: str) -> None:
+    """Reprocess candidates from raw OCR and AI data.
+
+    - Clears all existing candidates (except if manual entry is selected)
+    - Re-parses raw_ocr and raw_ai with current cleaning logic
+    - Auto-selects best candidate (prioritizes AI high > OCR high)
+    - Preserves manual entries (selected_family_name)
+    """
+    from app.core.name_extractor import extract_family_names
+
+    session = get_session()
+    try:
+        card = session.query(Card).filter_by(file_hash=file_hash).first()
+        if not card:
+            return
+
+        # If manual entry exists, keep it but still update candidates
+        is_manual = bool(card.selected_family_name)
+
+        # Clear all existing candidates
+        session.query(Candidate).filter_by(file_hash=file_hash).delete()
+        session.commit()
+
+        # Re-parse raw OCR if exists
+        ocr_result = session.query(RawOCRResult).filter_by(file_hash=file_hash).first()
+        if ocr_result:
+            names = extract_family_names(ocr_result.ocr_text)
+            for name, conf in names:
+                add_candidate(file_hash, name, "ocr", conf.value)
+
+        # Re-parse raw AI if exists
+        ai_result = session.query(RawAIResult).filter_by(file_hash=file_hash).first()
+        if ai_result:
+            data = json.loads(ai_result.raw_response)
+            best_name = data.get("best_name", "")
+            alternates = data.get("alternates", [])
+
+            if best_name:
+                add_candidate(file_hash, best_name, "ai", "high")
+            for alt_name in alternates:
+                add_candidate(file_hash, alt_name, "ai", "high")
+
+        # Auto-select best candidate if not manual entry
+        if not is_manual:
+            candidates = get_candidates(file_hash)
+            if candidates:
+                # First candidate is best (AI high priority due to sorting)
+                best_id = candidates[0][0]
+                select_candidate(file_hash, best_id)
+
     finally:
         session.close()
