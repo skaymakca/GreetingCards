@@ -72,19 +72,19 @@ class ReviewPanel(tk.Frame):
         self._count_label.pack(side="right")
 
         # Column headers
-        col_header = tk.Frame(self, bg=styles.BG_SECONDARY)
+        col_header = tk.Frame(self, bg=styles.BG_PRIMARY)
         col_header.pack(fill="x", padx=styles.PAD)
         tk.Label(
             col_header, text="", width=2,
-            bg=styles.BG_SECONDARY,
+            bg=styles.BG_PRIMARY,
         ).pack(side="left", padx=(4, 0))
         tk.Label(
             col_header, text="Filename", font=styles.FONT_SMALL,
-            bg=styles.BG_SECONDARY, fg=styles.TEXT_SECONDARY, anchor="w", width=28,
+            bg=styles.BG_PRIMARY, fg=styles.TEXT_SECONDARY, anchor="w", width=28,
         ).pack(side="left", padx=4)
         tk.Label(
             col_header, text="Family Name", font=styles.FONT_SMALL,
-            bg=styles.BG_SECONDARY, fg=styles.TEXT_SECONDARY, anchor="w",
+            bg=styles.BG_PRIMARY, fg=styles.TEXT_SECONDARY, anchor="w",
         ).pack(side="left", padx=4, fill="x", expand=True)
 
         # Scrollable area
