@@ -68,7 +68,7 @@ class MainWindow:
             bg=styles.BG_SECONDARY, fg=styles.TEXT_PRIMARY,
         ).pack(side="left", padx=(4, 4))
 
-        self._year_var = tk.StringVar(value=str(datetime.now().year))
+        self._year_var = tk.StringVar(value=str(datetime.now().year - 1))
         year_entry = tk.Entry(
             toolbar, textvariable=self._year_var, font=styles.FONT_BODY,
             width=6, relief="flat", bg=styles.BG_PRIMARY,
