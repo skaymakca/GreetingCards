@@ -110,7 +110,7 @@ class MainWindow:
 
     def __init__(self):
         self.root = TkinterDnD.Tk()
-        self.root.title("Greeting Card Analyzer")
+        self.root.title("Greeting Cards")
         self.root.geometry(f"{styles.WINDOW_WIDTH}x{styles.WINDOW_HEIGHT}")
         self.root.configure(bg=styles.BG_PRIMARY)
         self.root.minsize(800, 500)
@@ -121,12 +121,44 @@ class MainWindow:
         self._pdf_files: list[Path] = []
 
         self._icons = {}
+        self._setup_menu_bar()
         self._setup_ttk_styles()
         self._build_toolbar()
         self._apply_toolbar_icons()
         self._build_main_area()
         self._setup_drop_target()
         self._setup_keyboard_nav()
+
+    def _setup_menu_bar(self):
+        """Create native macOS menu bar with File menu."""
+        menubar = tk.Menu(self.root)
+        self.root.config(menu=menubar)
+
+        # File menu
+        file_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="File", menu=file_menu)
+
+        file_menu.add_command(
+            label="Open...",
+            command=self._browse_folder,
+            accelerator="⌘O"
+        )
+        file_menu.add_separator()
+        file_menu.add_command(
+            label="Close Window",
+            command=self.root.destroy,
+            accelerator="⌘W"
+        )
+        file_menu.add_command(
+            label="Quit",
+            command=self.root.quit,
+            accelerator="⌘Q"
+        )
+
+        # Bind keyboard shortcuts
+        self.root.bind("<Command-o>", lambda e: self._browse_folder())
+        self.root.bind("<Command-w>", lambda e: self.root.destroy())
+        self.root.bind("<Command-q>", lambda e: self.root.quit())
 
     def _setup_ttk_styles(self):
         s = ttk.Style()
