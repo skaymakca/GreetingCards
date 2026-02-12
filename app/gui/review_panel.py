@@ -56,7 +56,7 @@ class ReviewPanel(tk.Frame):
         self._rows: list[dict] = []
         self._selected_idx: Optional[int] = -1
         self._suppress_trace = False
-        self._ai_icon = load_sf_symbol("sparkles", 9, styles.TEXT_PRIMARY)
+        self._ai_icon = load_sf_symbol("sparkles", 6, styles.TEXT_PRIMARY)
 
         # Header
         header = tk.Frame(self, bg=styles.BG_PRIMARY)

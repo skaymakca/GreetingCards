@@ -92,7 +92,7 @@ class SettingsDialog(tk.Toplevel):
             ("save", "checkmark", self._save_key_btn),
             ("rebuild", "arrow.triangle.2.circlepath", self._rebuild_btn),
         ]:
-            icon = load_sf_symbol(symbol, 10, styles.TEXT_PRIMARY)
+            icon = load_sf_symbol(symbol, 7, styles.TEXT_PRIMARY)
             if icon:
                 self._icons[key] = icon
                 btn.config(image=icon, compound="left")
