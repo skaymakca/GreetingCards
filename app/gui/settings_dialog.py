@@ -54,14 +54,14 @@ class ApiKeyPrompt(tk.Toplevel):
         btn_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
         btn_frame.pack(pady=(16, 24))
 
-        tk.Button(
-            btn_frame, text="Cancel", font=styles.FONT_BODY,
-            command=self._cancel, width=12, pady=6,
+        ttk.Button(
+            btn_frame, text="Cancel",
+            command=self._cancel,
         ).pack(side="left", padx=6)
 
-        tk.Button(
-            btn_frame, text="Save", font=styles.FONT_BODY,
-            command=self._save, width=12, pady=6,
+        ttk.Button(
+            btn_frame, text="Save",
+            command=self._save,
         ).pack(side="left", padx=6)
 
         self.protocol("WM_DELETE_WINDOW", self._cancel)
