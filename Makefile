@@ -1,7 +1,9 @@
-.PHONY: run app clean icon
+.PHONY: run app build clean icon
 
 run:
 	.venv/bin/python main.py
+
+build: app
 
 icon: icon.png
 	@mkdir -p icon.iconset
