@@ -33,7 +33,11 @@ def build_rename_plan(
             stem = new_path.stem
             suffix = new_path.suffix
             new_path = new_path.parent / f"{stem} ({used_names[key]}){suffix}"
-            plan.append((card.pdf_path, new_path, "duplicate"))
+            # If duplicate would rename to itself, treat as skip_same
+            if new_path == card.pdf_path:
+                plan.append((card.pdf_path, new_path, "skip_same"))
+            else:
+                plan.append((card.pdf_path, new_path, "duplicate"))
         else:
             used_names[key] = 1
             # Check if file already exists on disk
@@ -42,7 +46,11 @@ def build_rename_plan(
                 stem = new_path.stem
                 suffix = new_path.suffix
                 new_path = new_path.parent / f"{stem} ({used_names[key]}){suffix}"
-                plan.append((card.pdf_path, new_path, "duplicate"))
+                # If duplicate would rename to itself, treat as skip_same
+                if new_path == card.pdf_path:
+                    plan.append((card.pdf_path, new_path, "skip_same"))
+                else:
+                    plan.append((card.pdf_path, new_path, "duplicate"))
             else:
                 plan.append((card.pdf_path, new_path, "ok"))
 
