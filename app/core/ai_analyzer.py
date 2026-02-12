@@ -90,6 +90,96 @@ def _image_to_b64(image: Image.Image) -> str:
     return base64.standard_b64encode(buf.getvalue()).decode("utf-8")
 
 
+async def analyze_card_with_ai_async(images: list[Image.Image] | Image.Image) -> tuple[str, list[str]]:
+    """
+    Async version for concurrent AI analysis of multiple cards.
+    Use Claude's vision to analyze greeting card page images and extract the family name.
+    Accepts a single image or a list of page images.
+    Returns (best_name, alternates).
+    """
+    import anthropic
+
+    # Normalize to list
+    if isinstance(images, Image.Image):
+        images = [images]
+
+    api_key = get_api_key()
+    if not api_key:
+        raise ValueError("ANTHROPIC_API_KEY not configured.")
+
+    client = anthropic.AsyncAnthropic(api_key=api_key)
+
+    # Build content blocks — one image per page, then the text prompt
+    content = []
+    for i, image in enumerate(images):
+        img_b64 = _image_to_b64(image)
+        content.append({
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": "image/png",
+                "data": img_b64,
+            },
+        })
+
+    page_word = "page" if len(images) == 1 else "pages"
+    content.append({
+        "type": "text",
+        "text": (
+            f"This is a holiday/greeting card with {len(images)} {page_word}. "
+            "Look at ALL pages to find who sent this card. Extract the family name.\n\n"
+            "CRITICAL: Return ONLY family last names, one per line. No explanations, "
+            "no 'Page 1:', no 'The [Name] Family', no extra text.\n\n"
+            "Format:\n"
+            "- First line: most likely family name (e.g., 'Smith')\n"
+            "- Additional lines (if any): alternate possible names\n"
+            "- If uncertain, respond with just: UNKNOWN\n\n"
+            "Examples of CORRECT output:\n"
+            "Smith\nJones\n\n"
+            "Examples of INCORRECT output (DO NOT DO THIS):\n"
+            "Page 1: Shows the Smith family\n"
+            "The Smith Family\n"
+            "From: The Smiths"
+        ),
+    })
+
+    message = await client.messages.create(
+        model="claude-sonnet-4-5-20250929",
+        max_tokens=256,
+        messages=[{"role": "user", "content": content}],
+    )
+
+    response_text = message.content[0].text.strip()
+
+    if response_text.upper() == "UNKNOWN":
+        return "", []
+
+    # Parse lines and do basic filtering
+    # NOTE: Comprehensive cleaning is applied AFTER loading from DB, not here
+    lines = [line.strip() for line in response_text.split("\n") if line.strip()]
+
+    # Basic filtering to catch obvious non-name responses
+    filtered_lines = []
+    for line in lines:
+        # Skip lines that are too long (likely explanatory text)
+        if len(line) > 50:
+            continue
+
+        # Skip lines with common explanation words
+        skip_words = ["shows", "appears", "page", "card", "signed", "written", "seems"]
+        if any(word in line.lower() for word in skip_words):
+            continue
+
+        if line:
+            filtered_lines.append(line)
+
+    # Return RAW results - cleaning happens in database.py when loading
+    best = filtered_lines[0] if filtered_lines else ""
+    alternates = filtered_lines[1:] if len(filtered_lines) > 1 else []
+
+    return best, alternates
+
+
 def analyze_card_with_ai(images: list[Image.Image] | Image.Image) -> tuple[str, list[str]]:
     """
     Use Claude's vision to analyze greeting card page images and extract the family name.

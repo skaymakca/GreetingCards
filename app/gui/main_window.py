@@ -457,62 +457,83 @@ class MainWindow:
         thread.start()
 
     def _run_ai_all(self):
+        """Run AI analysis on all cards with concurrency."""
+        import asyncio
+        asyncio.run(self._run_ai_all_async())
+
+    async def _run_ai_all_async(self):
+        """Async version that processes multiple cards concurrently."""
+        import asyncio
+        from app.core.ai_analyzer import analyze_card_with_ai_async
+
         total = len(self._cards)
-        for i, card in enumerate(self._cards):
+        # Limit concurrent API calls to avoid rate limits
+        semaphore = asyncio.Semaphore(3)
+        completed = 0
+
+        async def process_card(i: int, card: CardResult):
+            nonlocal completed
             if not card.page_images and not card.preview_image:
-                self.root.after(0, self._update_ai_all_progress, i + 1, total, card.filename, i, None)
-                continue
-            try:
-                # Check AI cache first
-                cached = get_cached_ai_result(card.file_hash) if card.file_hash else None
-                if cached:
-                    best_name, alternates = cached
-                else:
-                    ai_images = card.page_images or [card.preview_image]
-                    best_name, alternates = analyze_card_with_ai(ai_images)
-                    if card.file_hash:
-                        save_ai_result(card.file_hash, best_name, alternates)
+                completed += 1
+                self.root.after(0, self._update_ai_all_progress, completed, total, card.filename, i, None)
+                return
 
-                if best_name:
-                    # Save previous OCR family name before overwriting
-                    ocr_family_name = card.family_name if not card.ai_analyzed else ""
+            async with semaphore:
+                try:
+                    # Check AI cache first
+                    cached = get_cached_ai_result(card.file_hash) if card.file_hash else None
+                    if cached:
+                        best_name, alternates = cached
+                    else:
+                        ai_images = card.page_images or [card.preview_image]
+                        best_name, alternates = await analyze_card_with_ai_async(ai_images)
+                        if card.file_hash:
+                            save_ai_result(card.file_hash, best_name, alternates)
 
-                    # Combine ALL candidates: AI best, AI alternates, OCR best, OCR alternates
-                    # Union so user can reselect any if they change their mind
-                    existing_alternates = card.alternates or []
-                    all_candidates = [best_name] + alternates + existing_alternates
-                    if ocr_family_name:
-                        all_candidates.append(ocr_family_name)
+                    if best_name:
+                        # Save previous OCR family name before overwriting
+                        ocr_family_name = card.family_name if not card.ai_analyzed else ""
 
-                    # Deduplicate while preserving order
-                    combined = []
-                    seen = set()
-                    for name in all_candidates:
-                        if name and name.lower() not in seen:
-                            seen.add(name.lower())
-                            combined.append(name)
+                        # Combine ALL candidates: AI best, AI alternates, OCR best, OCR alternates
+                        # Union so user can reselect any if they change their mind
+                        existing_alternates = card.alternates or []
+                        all_candidates = [best_name] + alternates + existing_alternates
+                        if ocr_family_name:
+                            all_candidates.append(ocr_family_name)
 
-                    # Save RAW results to DB
-                    if card.file_hash:
-                        save_name(card.file_hash, best_name, "ai", "", combined)
+                        # Deduplicate while preserving order
+                        combined = []
+                        seen = set()
+                        for name in all_candidates:
+                            if name and name.lower() not in seen:
+                                seen.add(name.lower())
+                                combined.append(name)
 
-                        # Reload from DB to get CLEANED/FILTERED version
-                        cached = get_cached_name(card.file_hash)
-                        if cached:
-                            card.family_name = cached[0]
-                            card.confidence = Confidence(cached[2])
-                            card.alternates = cached[3]
-                            card.ai_analyzed = True
-                            card.manual_override = ""
-                else:
-                    card.ai_analyzed = True
-            except Exception as e:
-                msg = str(e)
-                self.root.after(0, lambda m=msg, fn=card.filename: messagebox.showerror(
-                    "AI Error", f"{fn}: {m}"
-                ))
+                        # Save RAW results to DB
+                        if card.file_hash:
+                            save_name(card.file_hash, best_name, "ai", "", combined)
 
-            self.root.after(0, self._update_ai_all_progress, i + 1, total, card.filename, i, card)
+                            # Reload from DB to get CLEANED/FILTERED version
+                            cached = get_cached_name(card.file_hash)
+                            if cached:
+                                card.family_name = cached[0]
+                                card.confidence = Confidence(cached[2])
+                                card.alternates = cached[3]
+                                card.ai_analyzed = True
+                                card.manual_override = ""
+                    else:
+                        card.ai_analyzed = True
+                except Exception as e:
+                    msg = str(e)
+                    self.root.after(0, lambda m=msg, fn=card.filename: messagebox.showerror(
+                        "AI Error", f"{fn}: {m}"
+                    ))
+
+                completed += 1
+                self.root.after(0, self._update_ai_all_progress, completed, total, card.filename, i, card)
+
+        # Process all cards concurrently with semaphore limiting concurrency
+        await asyncio.gather(*[process_card(i, card) for i, card in enumerate(self._cards)])
 
         self.root.after(0, self._ai_all_complete)
 
