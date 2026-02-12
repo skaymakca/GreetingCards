@@ -20,6 +20,7 @@
 - [x] Make sure raw_ai results actually populated
 - [x] When files loaded for each file if alternates exist, be sure to clear them to get the "new"/"current code" ocr->candidates ai->candidates processing is used.  To ensure a selected alternate remains, if the cards table has a reference to it, prevent that row from deleted.  When the processing happens again make sure that we arent duplicating, ie dont insert second copy of the same alternate.
 - [x] When DB refresh/schema change detected, drop all the tables to make sure old tables go away.
+- [ ] Check for dupes that are only different by case sensitivity Macintosh vs MacIntosh shouldn't trigger a dupe and (x) appending
 
 ### UI/UX Improvements
 - [ ] Add Help > About menu with version number and git commit hash
@@ -30,11 +31,11 @@
   - In this case the file name is just "Holiday Cards - $RESULT.pdf"
 
 ### Error Handling
-- [ ] Handle PDFs that can't be opened (corrupted/encrypted)
+- [ ] Handle PDFs that can't be opened (corrupted/encrypted/wrongformat)
   - Show error icon/message in cards list
-  - Don't crash on bad PDFs
+  - Indicate in preview pane with a centered message and bad file icon
 - [ ] Review file permissions issues and handle
-- [ ] Review API issues and handle
+- [ ] Review API issues and handle - seperate handling for auth issues (reprompt) and network/other/load issues (stop)
 
 ## Medium Priority
 
