@@ -390,11 +390,19 @@ class MainWindow:
             if best_name:
                 card.family_name = best_name
                 card.confidence = Confidence.HIGH
-                card.alternates = alternates
+                # Combine AI alternates with existing OCR alternates
+                existing_alternates = card.alternates or []
+                combined = []
+                seen = set()
+                for name in alternates + existing_alternates:
+                    if name and name != best_name and name not in seen:
+                        seen.add(name)
+                        combined.append(name)
+                card.alternates = combined
                 card.ai_analyzed = True
                 card.manual_override = ""
                 if card.file_hash:
-                    save_name(card.file_hash, best_name, "ai", "", alternates)
+                    save_name(card.file_hash, best_name, "ai", "", combined)
             else:
                 card.confidence = Confidence.NONE
                 card.ai_analyzed = True
@@ -443,11 +451,19 @@ class MainWindow:
                 if best_name:
                     card.family_name = best_name
                     card.confidence = Confidence.HIGH
-                    card.alternates = alternates
+                    # Combine AI alternates with existing OCR alternates
+                    existing_alternates = card.alternates or []
+                    combined = []
+                    seen = set()
+                    for name in alternates + existing_alternates:
+                        if name and name != best_name and name not in seen:
+                            seen.add(name)
+                            combined.append(name)
+                    card.alternates = combined
                     card.ai_analyzed = True
                     card.manual_override = ""
                     if card.file_hash:
-                        save_name(card.file_hash, best_name, "ai", "", alternates)
+                        save_name(card.file_hash, best_name, "ai", "", combined)
                 else:
                     card.ai_analyzed = True
             except Exception as e:
