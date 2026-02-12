@@ -6,9 +6,9 @@ from pathlib import Path
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, inspect
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-Base = declarative_base()
+from app.core.paths import get_db_path
 
-DB_PATH = Path(__file__).resolve().parent.parent.parent / "GreetingCards.sqlite"
+Base = declarative_base()
 
 
 class Settings(Base):
@@ -57,7 +57,7 @@ _Session = None
 def get_session():
     global _engine, _Session
     if _Session is None:
-        _engine = create_engine(f"sqlite:///{DB_PATH}", echo=False)
+        _engine = create_engine(f"sqlite:///{get_db_path()}", echo=False)
         _Session = sessionmaker(bind=_engine)
         _ensure_schema()
     return _Session()

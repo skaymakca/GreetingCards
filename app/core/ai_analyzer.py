@@ -1,11 +1,9 @@
 import base64
 import io
-import os
 
 from PIL import Image
-from dotenv import load_dotenv
 
-load_dotenv()
+from app.core.config import get_api_key
 
 
 def _image_to_b64(image: Image.Image) -> str:
@@ -26,11 +24,9 @@ def analyze_card_with_ai(images: list[Image.Image] | Image.Image) -> tuple[str, 
     if isinstance(images, Image.Image):
         images = [images]
 
-    api_key = os.getenv("ANTHROPIC_API_KEY", "")
-    if not api_key or api_key == "your-api-key-here":
-        raise ValueError(
-            "ANTHROPIC_API_KEY not set. Please add your API key to the .env file."
-        )
+    api_key = get_api_key()
+    if not api_key:
+        raise ValueError("ANTHROPIC_API_KEY not configured.")
 
     client = anthropic.Anthropic(api_key=api_key)
 

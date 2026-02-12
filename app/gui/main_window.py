@@ -15,11 +15,13 @@ from app.core.pdf_renderer import render_pdf_page, render_all_pages
 from app.core.ocr_engine import extract_text_all_pages
 from app.core.name_extractor import extract_family_names
 from app.core.ai_analyzer import analyze_card_with_ai
+from app.core.config import get_api_key, save_api_key
 from app.core.renamer import build_rename_plan, execute_rename_plan
 from app.core.database import (
     compute_file_hash, get_cached_name, save_name,
     get_cached_ai_result, save_ai_result,
 )
+from app.gui.api_key_dialog import ApiKeyDialog
 
 
 class MainWindow:
@@ -110,6 +112,13 @@ class MainWindow:
             command=self._clear_all, state="disabled",
         )
         self._clear_btn.pack(side="left", padx=4)
+
+        # API Key button (right side)
+        api_key_btn = tk.Button(
+            toolbar, text="API Key", font=styles.FONT_SMALL,
+            command=self._show_api_key_dialog,
+        )
+        api_key_btn.pack(side="right", padx=(4, styles.PAD))
 
     def _build_main_area(self):
         main = tk.PanedWindow(
@@ -305,8 +314,23 @@ class MainWindow:
             else:
                 self._preview_panel.clear()
 
+    def _ensure_api_key(self) -> bool:
+        """Check for an API key; prompt the user if missing. Returns True if a key is available."""
+        if get_api_key():
+            return True
+        self._show_api_key_dialog()
+        return get_api_key() is not None
+
+    def _show_api_key_dialog(self):
+        dialog = ApiKeyDialog(self.root)
+        self.root.wait_window(dialog)
+        if dialog.result:
+            save_api_key(dialog.result)
+
     def _on_ai_request(self, idx: int):
         if idx >= len(self._cards):
+            return
+        if not self._ensure_api_key():
             return
         card = self._cards[idx]
         if not card.page_images and not card.preview_image:
@@ -357,6 +381,8 @@ class MainWindow:
 
     def _start_ai_all(self):
         if not self._cards:
+            return
+        if not self._ensure_api_key():
             return
         self._ai_all_btn.config(state="disabled")
         self._process_btn.config(state="disabled")
