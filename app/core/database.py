@@ -24,6 +24,7 @@ class FileNameCache(Base):
     family_name = Column(String, nullable=False, default="")
     source = Column(String, nullable=False)  # "ocr", "ai", "manual"
     confidence = Column(String, nullable=False, default="none")  # high/medium/low/manual/none
+    alternates = Column(Text, nullable=False, default="[]")  # JSON list of alternate names
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc))
@@ -117,9 +118,9 @@ def compute_file_hash(path: Path) -> str:
 
 # --- Public API ---
 
-def get_cached_name(file_hash: str) -> tuple[str, str, str] | None:
+def get_cached_name(file_hash: str) -> tuple[str, str, str, list[str]] | None:
     """Get the most recent cached family name for a file hash.
-    Returns (family_name, source, confidence) or None."""
+    Returns (family_name, source, confidence, alternates) or None."""
     session = get_session()
     try:
         row = (session.query(FileNameCache)
@@ -127,16 +128,19 @@ def get_cached_name(file_hash: str) -> tuple[str, str, str] | None:
                .order_by(FileNameCache.updated_at.desc())
                .first())
         if row:
-            return row.family_name, row.source, row.confidence
+            alternates = json.loads(row.alternates) if row.alternates else []
+            return row.family_name, row.source, row.confidence, alternates
         return None
     finally:
         session.close()
 
 
-def save_name(file_hash: str, family_name: str, source: str, confidence: str = ""):
+def save_name(file_hash: str, family_name: str, source: str, confidence: str = "", alternates: list[str] = None):
     """Save or update a family name for a file hash."""
     if not confidence:
         confidence = {"ocr": "medium", "ai": "high", "manual": "manual"}.get(source, "none")
+    if alternates is None:
+        alternates = []
     session = get_session()
     try:
         row = session.query(FileNameCache).filter_by(file_hash=file_hash).first()
@@ -144,6 +148,7 @@ def save_name(file_hash: str, family_name: str, source: str, confidence: str = "
             row.family_name = family_name
             row.source = source
             row.confidence = confidence
+            row.alternates = json.dumps(alternates)
             row.updated_at = datetime.now(timezone.utc)
         else:
             row = FileNameCache(
@@ -151,6 +156,7 @@ def save_name(file_hash: str, family_name: str, source: str, confidence: str = "
                 family_name=family_name,
                 source=source,
                 confidence=confidence,
+                alternates=json.dumps(alternates),
             )
             session.add(row)
         session.commit()

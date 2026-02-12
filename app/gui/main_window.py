@@ -275,11 +275,7 @@ class MainWindow:
                         card.confidence = Confidence(cached[2])
                     except ValueError:
                         card.confidence = Confidence.MEDIUM
-
-                    # Also check for AI results to populate alternates
-                    ai_cached = get_cached_ai_result(card.file_hash)
-                    if ai_cached:
-                        card.alternates = ai_cached[1]
+                    card.alternates = cached[3]  # Get alternates from cache
 
                 # Always render preview
                 images = render_all_pages(pdf_path, dpi=200)
@@ -297,7 +293,7 @@ class MainWindow:
                         card.family_name = names[0][0]
                         card.confidence = names[0][1]
                         card.alternates = [n for n, _ in names[1:]]
-                        save_name(card.file_hash, card.family_name, "ocr", card.confidence.value)
+                        save_name(card.file_hash, card.family_name, "ocr", card.confidence.value, card.alternates)
             except Exception as e:
                 card.ocr_text = f"Error: {e}"
                 card.confidence = Confidence.NONE
@@ -336,7 +332,7 @@ class MainWindow:
             if name:
                 card.confidence = Confidence.MANUAL
                 if card.file_hash:
-                    save_name(card.file_hash, name, "manual", "manual")
+                    save_name(card.file_hash, name, "manual", "manual", card.alternates or [])
             self._review_panel.update_dot(idx, card.confidence)
 
     def _on_card_select(self, idx: int):
@@ -398,7 +394,7 @@ class MainWindow:
                 card.ai_analyzed = True
                 card.manual_override = ""
                 if card.file_hash:
-                    save_name(card.file_hash, best_name, "ai")
+                    save_name(card.file_hash, best_name, "ai", "", alternates)
             else:
                 card.confidence = Confidence.NONE
                 card.ai_analyzed = True
@@ -451,7 +447,7 @@ class MainWindow:
                     card.ai_analyzed = True
                     card.manual_override = ""
                     if card.file_hash:
-                        save_name(card.file_hash, best_name, "ai")
+                        save_name(card.file_hash, best_name, "ai", "", alternates)
                 else:
                     card.ai_analyzed = True
             except Exception as e:
