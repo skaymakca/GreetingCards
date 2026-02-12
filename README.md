@@ -24,8 +24,11 @@ Scans holiday/greeting card PDFs, extracts family names via OCR and AI, and batc
 | Command | Description |
 |---------|-------------|
 | `make run` | Run the app from source |
-| `make app` | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`) |
-| `make clean` | Remove `build/`, `dist/`, and `*.spec` |
+| `make build` | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`) — alias for `make app` |
+| `make app` | Build the macOS `.app` bundle (same as `make build`) |
+| `make icon` | Generate `icon.icns` from `icon.png` (auto-run by build) |
+| `make loc` | Count lines of code in project files (excludes dependencies and build artifacts) |
+| `make clean` | Remove `build/` and `dist/` directories |
 
 ## Manual setup and commands
 
