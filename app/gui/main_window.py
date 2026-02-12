@@ -1,3 +1,4 @@
+import io
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from pathlib import Path
@@ -23,6 +24,84 @@ from app.core.database import (
     get_cached_ai_result, save_ai_result,
 )
 from app.gui.settings_dialog import SettingsDialog, ApiKeyPrompt
+
+
+def _process_pdf_worker(pdf_path_str: str) -> dict:
+    """Worker function to process a single PDF in a separate process.
+
+    Returns dict of results (serializable for multiprocessing).
+    """
+    from pathlib import Path
+    from PIL import Image
+    from app.core.pdf_renderer import render_all_pages
+    from app.core.ocr_engine import extract_text_all_pages
+    from app.core.name_extractor import extract_family_names
+    from app.core.database import compute_file_hash, get_cached_name, save_name
+    from app.models.card import Confidence
+
+    pdf_path = Path(pdf_path_str)
+    result = {
+        'pdf_path': pdf_path_str,
+        'file_hash': None,
+        'family_name': '',
+        'confidence': 'none',
+        'alternates': [],
+        'ocr_text': '',
+        'error': None,
+        # Store images as PNG bytes for pickling
+        'preview_image_bytes': None,
+        'page_images_bytes': [],
+    }
+
+    try:
+        # Compute file hash
+        file_hash = compute_file_hash(pdf_path)
+        result['file_hash'] = file_hash
+
+        # Check DB cache first
+        cached = get_cached_name(file_hash)
+
+        # Always render preview (needed for AI later)
+        images = render_all_pages(pdf_path, dpi=200)
+        if images:
+            # Serialize images to bytes
+            preview_buf = io.BytesIO()
+            images[0].save(preview_buf, format='PNG')
+            result['preview_image_bytes'] = preview_buf.getvalue()
+
+            for img in images:
+                buf = io.BytesIO()
+                img.save(buf, format='PNG')
+                result['page_images_bytes'].append(buf.getvalue())
+
+        if cached:
+            result['family_name'] = cached[0]
+            result['confidence'] = cached[2]
+            result['alternates'] = cached[3]
+        else:
+            # Run OCR
+            if images:
+                ocr_text = extract_text_all_pages(images)
+                result['ocr_text'] = ocr_text
+
+                names = extract_family_names(ocr_text)
+                if names:
+                    # Save RAW results to DB
+                    raw_family_name = names[0][0]
+                    raw_alternates = [n for n, _ in names[1:]]
+                    save_name(file_hash, raw_family_name, "ocr", names[0][1].value, raw_alternates)
+
+                    # Reload from DB to get CLEANED/FILTERED version
+                    cached = get_cached_name(file_hash)
+                    if cached:
+                        result['family_name'] = cached[0]
+                        result['confidence'] = cached[2]
+                        result['alternates'] = cached[3]
+
+    except Exception as e:
+        result['error'] = str(e)
+
+    return result
 
 
 class MainWindow:
@@ -260,14 +339,75 @@ class MainWindow:
         thread.start()
 
     def _process_cards(self):
+        """Process PDFs in parallel using multiprocessing for CPU-bound tasks."""
+        from multiprocessing import Pool, cpu_count
+        from PIL import Image
+
+        total = len(self._pdf_files)
+        # Use half the CPUs (leave room for system/UI)
+        num_workers = max(1, cpu_count() // 2)
+
+        # Convert paths to strings for multiprocessing
+        pdf_paths_str = [str(p) for p in self._pdf_files]
+
+        try:
+            with Pool(num_workers) as pool:
+                # Process PDFs in parallel, get results as they complete
+                for i, result_dict in enumerate(pool.imap_unordered(_process_pdf_worker, pdf_paths_str)):
+                    # Reconstruct CardResult from dict on main thread
+                    card = self._dict_to_card(result_dict)
+                    self._cards.append(card)
+
+                    # Update progress
+                    self.root.after(0, self._update_processing_progress, i + 1, total, card.filename)
+        except Exception as e:
+            print(f"Multiprocessing error: {e}")
+            # Fallback to sequential processing if multiprocessing fails
+            self._process_cards_sequential()
+            return
+
+        self.root.after(0, self._processing_complete)
+
+    def _dict_to_card(self, result_dict: dict) -> CardResult:
+        """Convert result dict from worker to CardResult object."""
+        from PIL import Image
+
+        pdf_path = Path(result_dict['pdf_path'])
+        card = CardResult(pdf_path=pdf_path)
+
+        card.file_hash = result_dict['file_hash']
+        card.family_name = result_dict['family_name']
+        card.alternates = result_dict['alternates']
+        card.ocr_text = result_dict['ocr_text']
+
+        try:
+            card.confidence = Confidence(result_dict['confidence'])
+        except ValueError:
+            card.confidence = Confidence.NONE
+
+        # Deserialize images from bytes
+        if result_dict['preview_image_bytes']:
+            card.preview_image = Image.open(io.BytesIO(result_dict['preview_image_bytes']))
+
+        if result_dict['page_images_bytes']:
+            card.page_images = [
+                Image.open(io.BytesIO(img_bytes))
+                for img_bytes in result_dict['page_images_bytes']
+            ]
+
+        if result_dict['error']:
+            card.ocr_text = f"Error: {result_dict['error']}"
+            card.confidence = Confidence.NONE
+
+        return card
+
+    def _process_cards_sequential(self):
+        """Fallback: sequential processing if multiprocessing fails."""
         total = len(self._pdf_files)
         for i, pdf_path in enumerate(self._pdf_files):
             card = CardResult(pdf_path=pdf_path)
             try:
-                # Compute file hash for caching
                 card.file_hash = compute_file_hash(pdf_path)
-
-                # Check DB cache first
                 cached = get_cached_name(card.file_hash)
                 if cached:
                     card.family_name = cached[0]
@@ -275,27 +415,21 @@ class MainWindow:
                         card.confidence = Confidence(cached[2])
                     except ValueError:
                         card.confidence = Confidence.MEDIUM
-                    card.alternates = cached[3]  # Get alternates from cache
+                    card.alternates = cached[3]
 
-                # Always render preview
                 images = render_all_pages(pdf_path, dpi=200)
                 if images:
                     card.preview_image = images[0]
                     card.page_images = images
 
-                # Only run OCR if no cached name
                 if not cached:
                     ocr_text = extract_text_all_pages(images)
                     card.ocr_text = ocr_text
-
                     names = extract_family_names(ocr_text)
                     if names:
-                        # Save RAW results to DB
                         raw_family_name = names[0][0]
                         raw_alternates = [n for n, _ in names[1:]]
                         save_name(card.file_hash, raw_family_name, "ocr", names[0][1].value, raw_alternates)
-
-                        # Reload from DB to get CLEANED/FILTERED version
                         cached = get_cached_name(card.file_hash)
                         if cached:
                             card.family_name = cached[0]
