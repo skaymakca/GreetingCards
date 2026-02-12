@@ -89,6 +89,23 @@ def _ensure_schema():
         session.close()
 
 
+def reset_database():
+    """Drop all tables and recreate from scratch."""
+    global _engine, _Session
+    # Ensure engine exists
+    if _engine is None:
+        _engine = create_engine(f"sqlite:///{get_db_path()}", echo=False)
+        _Session = sessionmaker(bind=_engine)
+    Base.metadata.drop_all(_engine)
+    Base.metadata.create_all(_engine)
+    session = _Session()
+    try:
+        session.add(Settings(key="schema_version", value=_compute_schema_version()))
+        session.commit()
+    finally:
+        session.close()
+
+
 def compute_file_hash(path: Path) -> str:
     """Compute SHA256 hash of a file's contents."""
     h = hashlib.sha256()
