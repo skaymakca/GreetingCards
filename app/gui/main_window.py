@@ -7,6 +7,7 @@ from datetime import datetime
 from tkinterdnd2 import DND_FILES, TkinterDnD
 
 from app.gui import styles
+from app.gui.icons import load_sf_symbol
 from app.gui.preview_panel import PreviewPanel
 from app.gui.review_panel import ReviewPanel
 from app.gui.dialogs import ProgressDialog, RenameConfirmDialog
@@ -38,7 +39,9 @@ class MainWindow:
         self._cards: list[CardResult] = []
         self._pdf_files: list[Path] = []
 
+        self._icons = {}
         self._build_toolbar()
+        self._apply_toolbar_icons()
         self._build_main_area()
         self._setup_drop_target()
         self._setup_keyboard_nav()
@@ -61,11 +64,11 @@ class MainWindow:
         )
         self._folder_label.pack(side="left", padx=4)
 
-        browse_btn = tk.Button(
+        self._browse_btn = tk.Button(
             toolbar, text="Browse...", font=styles.FONT_BODY,
             command=self._browse_folder,
         )
-        browse_btn.pack(side="left", padx=4)
+        self._browse_btn.pack(side="left", padx=4)
 
         # Separator
         tk.Frame(toolbar, width=2, bg=styles.TEXT_SECONDARY).pack(
@@ -114,11 +117,27 @@ class MainWindow:
         self._clear_btn.pack(side="left", padx=4)
 
         # Settings button (right side)
-        settings_btn = tk.Button(
+        self._settings_btn = tk.Button(
             toolbar, text="Settings", font=styles.FONT_SMALL,
             command=self._show_settings,
         )
-        settings_btn.pack(side="right", padx=(4, styles.PAD))
+        self._settings_btn.pack(side="right", padx=(4, styles.PAD))
+
+    def _apply_toolbar_icons(self):
+        """Load SF Symbol icons and attach them to toolbar buttons."""
+        icon_map = {
+            "browse": ("folder", 14, self._browse_btn),
+            "process": ("play.fill", 14, self._process_btn),
+            "ai_all": ("sparkles", 14, self._ai_all_btn),
+            "rename": ("pencil", 14, self._rename_btn),
+            "clear": ("xmark", 14, self._clear_btn),
+            "settings": ("gearshape", 12, self._settings_btn),
+        }
+        for key, (symbol, size, btn) in icon_map.items():
+            icon = load_sf_symbol(symbol, size, styles.TEXT_PRIMARY)
+            if icon:
+                self._icons[key] = icon
+                btn.config(image=icon, compound="left")
 
     def _build_main_area(self):
         main = tk.PanedWindow(

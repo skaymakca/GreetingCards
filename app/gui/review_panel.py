@@ -3,6 +3,7 @@ from tkinter import ttk
 from typing import Callable, Optional
 from app.models.card import CardResult, Confidence
 from app.gui import styles
+from app.gui.icons import load_sf_symbol
 
 
 class _Tooltip:
@@ -55,6 +56,7 @@ class ReviewPanel(tk.Frame):
         self._rows: list[dict] = []
         self._selected_idx: Optional[int] = -1
         self._suppress_trace = False
+        self._ai_icon = load_sf_symbol("sparkles", 11, styles.TEXT_PRIMARY)
 
         # Header
         header = tk.Frame(self, bg=styles.BG_PRIMARY)
@@ -175,11 +177,15 @@ class ReviewPanel(tk.Frame):
         alt_combo.pack(side="left", padx=4, pady=4)
 
         # AI button
-        ai_btn = tk.Button(
-            row_frame, text="AI", font=styles.FONT_SMALL,
+        ai_btn_kwargs = dict(
+            text="AI", font=styles.FONT_SMALL,
             command=lambda i=idx: self._on_ai_request(i),
             width=3,
         )
+        if self._ai_icon:
+            ai_btn_kwargs["image"] = self._ai_icon
+            ai_btn_kwargs["compound"] = "left"
+        ai_btn = tk.Button(row_frame, **ai_btn_kwargs)
         ai_btn.pack(side="left", padx=(4, 8), pady=4)
 
         row_data = {

@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 
 from app.gui import styles
+from app.gui.icons import load_sf_symbol
 from app.core.config import get_api_key, save_api_key
 from app.core.database import reset_database
 
@@ -40,11 +41,11 @@ class SettingsDialog(tk.Toplevel):
         if current_key:
             self._key_entry.insert(0, current_key)
 
-        save_key_btn = tk.Button(
+        self._save_key_btn = tk.Button(
             key_frame, text="Save", font=styles.FONT_BODY,
             command=self._save_api_key,
         )
-        save_key_btn.pack(side="left", padx=(8, 0))
+        self._save_key_btn.pack(side="left", padx=(8, 0))
 
         # Status label
         self._key_status = tk.Label(
@@ -72,11 +73,11 @@ class SettingsDialog(tk.Toplevel):
             font=styles.FONT_SMALL, bg=styles.BG_PRIMARY, fg=styles.TEXT_SECONDARY,
         ).pack(side="left")
 
-        rebuild_btn = tk.Button(
+        self._rebuild_btn = tk.Button(
             db_frame, text="Rebuild", font=styles.FONT_BODY,
             command=self._rebuild_db,
         )
-        rebuild_btn.pack(side="right")
+        self._rebuild_btn.pack(side="right")
 
         # --- Close ---
         close_btn = tk.Button(
@@ -84,6 +85,17 @@ class SettingsDialog(tk.Toplevel):
             command=self._close, width=8,
         )
         close_btn.pack(pady=(16, 16))
+
+        # Apply SF Symbol icons
+        self._icons = {}
+        for key, symbol, btn in [
+            ("save", "checkmark", self._save_key_btn),
+            ("rebuild", "arrow.triangle.2.circlepath", self._rebuild_btn),
+        ]:
+            icon = load_sf_symbol(symbol, 12, styles.TEXT_PRIMARY)
+            if icon:
+                self._icons[key] = icon
+                btn.config(image=icon, compound="left")
 
         self.protocol("WM_DELETE_WINDOW", self._close)
         self.bind("<Escape>", lambda e: self._close())
