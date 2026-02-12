@@ -601,7 +601,6 @@ class MainWindow:
         if not self._ensure_api_key():
             return
         self._ai_all_btn.config(state="disabled")
-        self._process_btn.config(state="disabled")
         self._rename_btn.config(state="disabled")
 
         total = len(self._cards)
@@ -700,7 +699,6 @@ class MainWindow:
         if hasattr(self, "_progress") and self._progress.winfo_exists():
             self._progress.finish()
         self._ai_all_btn.config(state="normal")
-        self._process_btn.config(state="normal")
         self._rename_btn.config(state="normal")
 
     def _start_rename(self):
