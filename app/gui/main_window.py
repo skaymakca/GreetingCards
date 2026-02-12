@@ -183,19 +183,12 @@ class MainWindow:
         row2 = tk.Frame(toolbar, bg=styles.BG_PRIMARY)
         row2.pack(fill="x", padx=styles.PAD, pady=(6, 6))
 
-        # Process button
-        self._process_btn = ttk.Button(
-            row2, text="Process", style="ToolbarBold.TButton",
-            command=self._start_processing, state="disabled",
-        )
-        self._process_btn.pack(side="left", padx=(0, 4))
-
         # AI All button
         self._ai_all_btn = ttk.Button(
             row2, text="AI All", style="ToolbarBold.TButton",
             command=self._start_ai_all, state="disabled",
         )
-        self._ai_all_btn.pack(side="left", padx=4)
+        self._ai_all_btn.pack(side="left", padx=(0, 4))
 
         # Rename button
         self._rename_btn = ttk.Button(
@@ -228,7 +221,6 @@ class MainWindow:
         """Load SF Symbol icons and attach them to toolbar buttons."""
         icon_map = {
             "browse": ("folder", 7, self._browse_btn),
-            "process": ("play.fill", 7, self._process_btn),
             "ai_all": ("sparkles", 7, self._ai_all_btn),
             "rename": ("pencil", 7, self._rename_btn),
             "clear": ("xmark", 7, self._clear_btn),
@@ -320,7 +312,7 @@ class MainWindow:
         folder = filedialog.askdirectory(title="Select Greeting Cards Folder")
         if not folder:
             return
-        self._load_folder(Path(folder))
+        self._load_folder(Path(folder), auto_process=True)
 
     def _load_folder(self, folder: Path, auto_process: bool = False):
         self._folder = folder
@@ -329,9 +321,7 @@ class MainWindow:
         count = len(self._pdf_files)
         if count == 0:
             messagebox.showwarning("No PDFs", "No PDF files found in the selected folder.")
-            self._process_btn.config(state="disabled")
         else:
-            self._process_btn.config(state="normal")
             self._folder_label.config(fg=styles.TEXT_PRIMARY)
             if auto_process:
                 self._start_processing()
@@ -339,7 +329,6 @@ class MainWindow:
     def _start_processing(self):
         if not self._pdf_files:
             return
-        self._process_btn.config(state="disabled")
         self._rename_btn.config(state="disabled")
         self._ai_all_btn.config(state="disabled")
         self._cards = []
@@ -471,8 +460,9 @@ class MainWindow:
     def _processing_complete(self):
         if hasattr(self, "_progress") and self._progress.winfo_exists():
             self._progress.finish()
-        self._review_panel.load_cards(self._cards)
-        self._process_btn.config(state="normal")
+        # Sort cards by filename for stable display order
+        sorted_cards = sorted(self._cards, key=lambda c: c.filename.lower())
+        self._review_panel.load_cards(sorted_cards)
         self._rename_btn.config(state="normal")
         self._ai_all_btn.config(state="normal")
         self._clear_btn.config(state="normal")
@@ -485,7 +475,6 @@ class MainWindow:
         self._rename_btn.config(state="disabled")
         self._ai_all_btn.config(state="disabled")
         self._clear_btn.config(state="disabled")
-        self._process_btn.config(state="disabled")
         # Unset folder
         self._folder = None
         self._pdf_files = []
