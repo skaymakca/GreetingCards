@@ -54,10 +54,11 @@ class ApiKeyPrompt(tk.Toplevel):
         btn_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
         btn_frame.pack(pady=(12, 20))
 
-        tk.Button(
-            btn_frame, text="Cancel", font=styles.FONT_BODY,
-            command=self._cancel, width=10,
-        ).pack(side="left", padx=4)
+        cancel_btn = ttk.Button(
+            btn_frame, text="Cancel",
+            command=self._cancel,
+        )
+        cancel_btn.pack(side="left", padx=4)
 
         save_btn = ttk.Button(
             btn_frame, text="Save",
@@ -65,11 +66,17 @@ class ApiKeyPrompt(tk.Toplevel):
         )
         save_btn.pack(side="left", padx=4)
 
-        # Apply icon to save button
-        icon = load_sf_symbol("checkmark", 7, styles.TEXT_PRIMARY)
-        if icon:
-            self._save_icon = icon
-            save_btn.config(image=icon, compound="left")
+        # Apply icons to buttons
+        self._icons = {}
+        cancel_icon = load_sf_symbol("xmark", 7, styles.TEXT_PRIMARY)
+        if cancel_icon:
+            self._icons["cancel"] = cancel_icon
+            cancel_btn.config(image=cancel_icon, compound="left")
+
+        save_icon = load_sf_symbol("checkmark", 7, styles.TEXT_PRIMARY)
+        if save_icon:
+            self._icons["save"] = save_icon
+            save_btn.config(image=save_icon, compound="left")
 
         self.protocol("WM_DELETE_WINDOW", self._cancel)
         self.bind("<Escape>", lambda e: self._cancel())
