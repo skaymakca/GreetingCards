@@ -38,7 +38,10 @@ def _process_pdf_worker(pdf_path_str: str) -> dict:
     from app.core.pdf_renderer import render_all_pages
     from app.core.ocr_engine import extract_text_all_pages
     from app.core.name_extractor import extract_family_names
-    from app.core.database import compute_file_hash, get_cached_name, save_name
+    from app.core.database import (
+        compute_file_hash, get_card_state, add_candidate,
+        select_candidate, save_raw_ocr
+    )
     from app.models.card import Confidence
 
     pdf_path = Path(pdf_path_str)

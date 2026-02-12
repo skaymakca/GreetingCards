@@ -22,7 +22,7 @@ class Card(Base):
     __tablename__ = "cards"
     file_hash = Column(String(64), primary_key=True)
     selected_family_name = Column(String, nullable=True)  # Manual entry only
-    selected_candidate_id = Column(Integer, ForeignKey("candidates.id"), nullable=True)
+    selected_candidate_id = Column(Integer, ForeignKey("candidates.id", use_alter=True, name="fk_card_selected_candidate"), nullable=True)
     remove_family = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
