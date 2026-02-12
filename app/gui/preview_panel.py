@@ -32,7 +32,7 @@ class PreviewPanel(tk.Frame):
 
         # --- Canvas ---
         self._canvas = tk.Canvas(self, bg=styles.BG_PRIMARY, highlightthickness=0)
-        self._canvas.pack(fill="both", expand=True, padx=styles.PAD, pady=0)
+        self._canvas.pack(fill="both", expand=True, padx=0, pady=0)
 
         self._placeholder = tk.Label(
             self._canvas, text="Select a card to preview",
