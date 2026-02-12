@@ -54,20 +54,24 @@ class MainWindow:
         s.configure("ToolbarSmall.TButton", font=styles.FONT_SMALL)
 
     def _build_toolbar(self):
-        toolbar = tk.Frame(self.root, bg=styles.BG_SECONDARY, height=styles.TOOLBAR_HEIGHT)
+        toolbar = tk.Frame(self.root, bg=styles.BG_PRIMARY, height=styles.TOOLBAR_HEIGHT)
         toolbar.pack(fill="x", side="top")
         toolbar.pack_propagate(False)
+
+        # Bottom border for visual separation
+        border = tk.Frame(self.root, bg=styles.BG_PRIMARY, height=1)
+        border.pack(fill="x", side="top")
 
         # Folder selection
         tk.Label(
             toolbar, text="Folder:", font=styles.FONT_BODY,
-            bg=styles.BG_SECONDARY, fg=styles.TEXT_PRIMARY,
+            bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
         ).pack(side="left", padx=(styles.PAD, 4))
 
         self._folder_var = tk.StringVar(value="No folder selected")
         self._folder_label = tk.Label(
             toolbar, textvariable=self._folder_var, font=styles.FONT_BODY,
-            bg=styles.BG_SECONDARY, fg=styles.TEXT_SECONDARY, anchor="w", width=40,
+            bg=styles.BG_PRIMARY, fg=styles.TEXT_SECONDARY, anchor="w", width=40,
         )
         self._folder_label.pack(side="left", padx=4)
 
@@ -85,7 +89,7 @@ class MainWindow:
         # Year entry
         tk.Label(
             toolbar, text="Year:", font=styles.FONT_BODY,
-            bg=styles.BG_SECONDARY, fg=styles.TEXT_PRIMARY,
+            bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
         ).pack(side="left", padx=(4, 4))
 
         self._year_var = tk.StringVar(value=str(datetime.now().year - 1))
