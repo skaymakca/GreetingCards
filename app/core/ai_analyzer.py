@@ -48,12 +48,19 @@ def analyze_card_with_ai(images: list[Image.Image] | Image.Image) -> tuple[str, 
         "type": "text",
         "text": (
             f"This is a holiday/greeting card with {len(images)} {page_word}. "
-            "Look at ALL pages to find who sent this card. Extract the family name "
-            "that sent this card. Return ONLY the family last name "
-            "(e.g., 'Smith' not 'The Smith Family' or 'The Smiths'). "
-            "If you see multiple possible names, return the most likely "
-            "one on the first line, then each alternate on its own line. "
-            "If you cannot determine a family name, respond with just: UNKNOWN"
+            "Look at ALL pages to find who sent this card. Extract the family name.\n\n"
+            "CRITICAL: Return ONLY family last names, one per line. No explanations, "
+            "no 'Page 1:', no 'The [Name] Family', no extra text.\n\n"
+            "Format:\n"
+            "- First line: most likely family name (e.g., 'Smith')\n"
+            "- Additional lines (if any): alternate possible names\n"
+            "- If uncertain, respond with just: UNKNOWN\n\n"
+            "Examples of CORRECT output:\n"
+            "Smith\nJones\n\n"
+            "Examples of INCORRECT output (DO NOT DO THIS):\n"
+            "Page 1: Shows the Smith family\n"
+            "The Smith Family\n"
+            "From: The Smiths"
         ),
     })
 
@@ -68,8 +75,30 @@ def analyze_card_with_ai(images: list[Image.Image] | Image.Image) -> tuple[str, 
     if response_text.upper() == "UNKNOWN":
         return "", []
 
+    # Parse lines and filter out non-name text
     lines = [line.strip() for line in response_text.split("\n") if line.strip()]
-    best = lines[0] if lines else ""
-    alternates = lines[1:] if len(lines) > 1 else []
+
+    # Clean up each line - remove common prefixes/patterns
+    cleaned_lines = []
+    for line in lines:
+        # Remove common unwanted patterns
+        line = line.split(":", 1)[-1].strip()  # Remove "Page 1:" etc
+        line = line.replace("The ", "").replace(" Family", "").replace("The ", "")
+        line = line.replace("From: ", "").replace("Sent by: ", "")
+
+        # Skip lines that are too long (likely explanatory text)
+        if len(line) > 30:
+            continue
+
+        # Skip lines with common explanation words
+        skip_words = ["shows", "appears", "page", "card", "signed", "written"]
+        if any(word in line.lower() for word in skip_words):
+            continue
+
+        if line:
+            cleaned_lines.append(line)
+
+    best = cleaned_lines[0] if cleaned_lines else ""
+    alternates = cleaned_lines[1:] if len(cleaned_lines) > 1 else []
 
     return best, alternates
