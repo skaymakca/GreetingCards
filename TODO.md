@@ -10,6 +10,13 @@
 
 ## High Priority
 
+### Core
+- [x] Better candidates handling
+  - Create a seperate table or tables for the "raw" OCR and AI results to ensure updated code w/o schema changes gets new processing updates, link with proper foreign keys and constraints
+  - Create a seperate table candidates, linked with foreign keys, and store each candidate's family_name, method and confidence. Populate the dropdown in a sort with highest confidence at top
+  - Update the indicator tooltip to have $METHOD - $CONFIDENCE or just "Manual Entry" for those types
+  - The main file_names should be renamed to cards and store the current family_name and a reference to the candidates table if it is an OCR/AI result instead of duplicating the source and confidence fields from the other table.  Probably could be if the family_name is filled in it's manual.  If the candidate reference is filled and no family_name set, use that candidate and if neither is present the file doesnt have a name yet.  Flag this as missing in the rename window as status and skip these from renaming.  Turn indicator for missing in the indicator icon for the main card views as a red X or stop sign or other warning symbol.
+
 ### UI/UX Improvements
 - [ ] Add Help > About menu with version number and git commit hash
 

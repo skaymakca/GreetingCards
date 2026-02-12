@@ -3,8 +3,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, Boolean, inspect
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, Boolean, ForeignKey, UniqueConstraint, inspect
+from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 
 from app.core.paths import get_db_path
 
@@ -17,33 +17,45 @@ class Settings(Base):
     value = Column(String)
 
 
-class FileNameCache(Base):
-    __tablename__ = "file_names"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    file_hash = Column(String(64), index=True, nullable=False)
-    family_name = Column(String, nullable=False, default="")
-    source = Column(String, nullable=False)  # "ocr", "ai", "manual"
-    confidence = Column(String, nullable=False, default="none")  # high/medium/low/manual/none
-    alternates = Column(Text, nullable=False, default="[]")  # JSON list of alternate names
-    remove_family = Column(Boolean, nullable=False, default=False)  # Omit "Family" from filename
+class Card(Base):
+    """Main card record. Tracks selected name (manual or from candidates) and preferences."""
+    __tablename__ = "cards"
+    file_hash = Column(String(64), primary_key=True)
+    selected_family_name = Column(String, nullable=True)  # Manual entry only
+    selected_candidate_id = Column(Integer, ForeignKey("candidates.id"), nullable=True)
+    remove_family = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc))
 
 
-class AIResultCache(Base):
-    __tablename__ = "ai_results"
+class Candidate(Base):
+    """Name candidates extracted via OCR or AI."""
+    __tablename__ = "candidates"
+    __table_args__ = (
+        UniqueConstraint('file_hash', 'family_name', 'method', name='_file_name_method_uc'),
+    )
     id = Column(Integer, primary_key=True, autoincrement=True)
-    file_hash = Column(String(64), index=True, unique=True, nullable=False)
-    best_name = Column(String, nullable=False, default="")
-    alternates = Column(Text, nullable=False, default="[]")  # JSON list
+    file_hash = Column(String(64), ForeignKey("cards.file_hash"), index=True, nullable=False)
+    family_name = Column(String, nullable=False)
+    method = Column(String, nullable=False)  # 'ocr' | 'ai'
+    confidence = Column(String, nullable=False)  # 'high' | 'medium' | 'low'
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class RawOCRResult(Base):
+    """Raw OCR text preserved for potential re-processing with improved extraction logic."""
+    __tablename__ = "raw_ocr_results"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    file_hash = Column(String(64), ForeignKey("cards.file_hash"), index=True, unique=True, nullable=False)
+    ocr_text = Column(Text, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 def _compute_schema_version() -> str:
     """Compute a hash representing the current model schema."""
     schema_parts = []
-    for model in [Settings, FileNameCache, AIResultCache]:
+    for model in [Settings, Card, Candidate, RawOCRResult]:
         cols = []
         for col in model.__table__.columns:
             cols.append(f"{col.name}:{col.type}:{col.nullable}:{col.primary_key}")
@@ -147,112 +159,235 @@ def _clean_and_filter_names(names: list[str]) -> list[str]:
 
 # --- Public API ---
 
-def get_cached_name(file_hash: str) -> tuple[str, str, str, list[str], bool] | None:
-    """Get the most recent cached family name for a file hash.
-    Returns (family_name, source, confidence, alternates, remove_family) or None.
+# Confidence sort order for candidates dropdown
+_CONFIDENCE_ORDER = {"high": 0, "medium": 1, "low": 2}
 
-    Applies unified cleaning and filtering to all names loaded from DB.
-    Candidates include the primary name so user can reselect if needed.
-    """
+
+def create_or_update_card(file_hash: str, remove_family: bool = False) -> None:
+    """Create or update a card record. Call this when first processing a file."""
     session = get_session()
     try:
-        row = (session.query(FileNameCache)
-               .filter_by(file_hash=file_hash)
-               .order_by(FileNameCache.updated_at.desc())
-               .first())
-        if row:
-            # Load raw data from DB
-            raw_alternates = json.loads(row.alternates) if row.alternates else []
-            # Apply unified cleaning and filtering
-            all_names = [row.family_name] + raw_alternates
-            cleaned_names = _clean_and_filter_names(all_names)
-            # First cleaned name is the primary, rest are alternates
-            if cleaned_names:
-                family_name = cleaned_names[0]
-                alternates = cleaned_names[1:] if len(cleaned_names) > 1 else []
-                return family_name, row.source, row.confidence, alternates, row.remove_family
-            # If cleaning filtered everything out, return empty
-            return "", row.source, row.confidence, [], row.remove_family
-        return None
+        card = session.query(Card).filter_by(file_hash=file_hash).first()
+        if not card:
+            card = Card(file_hash=file_hash, remove_family=remove_family)
+            session.add(card)
+            session.commit()
     finally:
         session.close()
 
 
-def save_name(file_hash: str, family_name: str, source: str, confidence: str = "", alternates: list[str] = None, remove_family: bool = False):
-    """Save or update a family name for a file hash."""
-    if not confidence:
-        confidence = {"ocr": "medium", "ai": "high", "manual": "manual"}.get(source, "none")
-    if alternates is None:
-        alternates = []
+def add_candidate(file_hash: str, family_name: str, method: str, confidence: str) -> int:
+    """Add a name candidate (OCR or AI result). Returns candidate ID.
+
+    Automatically creates card if it doesn't exist.
+    Applies cleaning/filtering to the name before storing.
+    Returns 0 if name is filtered out.
+    """
+    # Clean the name first
+    cleaned = _clean_and_filter_names([family_name])
+    if not cleaned:
+        return 0  # Filtered out
+
+    clean_name = cleaned[0]
+
     session = get_session()
     try:
-        row = session.query(FileNameCache).filter_by(file_hash=file_hash).first()
-        if row:
-            row.family_name = family_name
-            row.source = source
-            row.confidence = confidence
-            row.alternates = json.dumps(alternates)
-            row.remove_family = remove_family
-            row.updated_at = datetime.now(timezone.utc)
+        # Ensure card exists
+        card = session.query(Card).filter_by(file_hash=file_hash).first()
+        if not card:
+            card = Card(file_hash=file_hash)
+            session.add(card)
+            session.flush()
+
+        # Check if candidate already exists
+        existing = (session.query(Candidate)
+                   .filter_by(file_hash=file_hash, family_name=clean_name, method=method)
+                   .first())
+        if existing:
+            return existing.id
+
+        # Add new candidate
+        candidate = Candidate(
+            file_hash=file_hash,
+            family_name=clean_name,
+            method=method,
+            confidence=confidence
+        )
+        session.add(candidate)
+        session.commit()
+        return candidate.id
+    finally:
+        session.close()
+
+
+def get_candidates(file_hash: str) -> list[tuple[int, str, str, str]]:
+    """Get all candidates for a file, sorted by confidence (high→medium→low).
+
+    Returns [(id, family_name, method, confidence), ...]
+    """
+    session = get_session()
+    try:
+        candidates = (session.query(Candidate)
+                     .filter_by(file_hash=file_hash)
+                     .all())
+
+        # Sort by confidence (high first)
+        sorted_candidates = sorted(
+            candidates,
+            key=lambda c: _CONFIDENCE_ORDER.get(c.confidence, 999)
+        )
+
+        return [
+            (c.id, c.family_name, c.method, c.confidence)
+            for c in sorted_candidates
+        ]
+    finally:
+        session.close()
+
+
+def set_manual_name(file_hash: str, family_name: str, remove_family: bool = False) -> None:
+    """Set a manual name entry. Clears selected_candidate_id."""
+    session = get_session()
+    try:
+        card = session.query(Card).filter_by(file_hash=file_hash).first()
+        if card:
+            card.selected_family_name = family_name
+            card.selected_candidate_id = None
+            card.remove_family = remove_family
+            card.updated_at = datetime.now(timezone.utc)
         else:
-            row = FileNameCache(
+            card = Card(
                 file_hash=file_hash,
-                family_name=family_name,
-                source=source,
-                confidence=confidence,
-                alternates=json.dumps(alternates),
-                remove_family=remove_family,
+                selected_family_name=family_name,
+                remove_family=remove_family
             )
-            session.add(row)
+            session.add(card)
         session.commit()
     finally:
         session.close()
 
 
-def get_cached_ai_result(file_hash: str) -> tuple[str, list[str]] | None:
-    """Get cached AI result for a file hash.
-    Returns (best_name, alternates) or None.
-
-    Applies unified cleaning and filtering to all names loaded from DB.
-    Candidates include the primary name so user can reselect if needed.
-    """
+def select_candidate(file_hash: str, candidate_id: int, remove_family: bool = False) -> None:
+    """Select a candidate from the dropdown. Clears selected_family_name."""
     session = get_session()
     try:
-        row = session.query(AIResultCache).filter_by(file_hash=file_hash).first()
-        if row:
-            # Load raw data from DB
-            raw_alternates = json.loads(row.alternates) if row.alternates else []
-            # Apply unified cleaning and filtering
-            all_names = [row.best_name] + raw_alternates
-            cleaned_names = _clean_and_filter_names(all_names)
-            # First cleaned name is the primary, rest are alternates
-            if cleaned_names:
-                best_name = cleaned_names[0]
-                alternates = cleaned_names[1:] if len(cleaned_names) > 1 else []
-                return best_name, alternates
-            # If cleaning filtered everything out, return empty
-            return "", []
-        return None
+        card = session.query(Card).filter_by(file_hash=file_hash).first()
+        if card:
+            card.selected_candidate_id = candidate_id
+            card.selected_family_name = None
+            card.remove_family = remove_family
+            card.updated_at = datetime.now(timezone.utc)
+        else:
+            card = Card(
+                file_hash=file_hash,
+                selected_candidate_id=candidate_id,
+                remove_family=remove_family
+            )
+            session.add(card)
+        session.commit()
     finally:
         session.close()
 
 
-def save_ai_result(file_hash: str, best_name: str, alternates: list[str]):
-    """Save AI analysis result for a file hash."""
+def update_remove_family(file_hash: str, remove_family: bool) -> None:
+    """Update just the remove_family flag for a card."""
     session = get_session()
     try:
-        row = session.query(AIResultCache).filter_by(file_hash=file_hash).first()
-        if row:
-            row.best_name = best_name
-            row.alternates = json.dumps(alternates)
-            row.created_at = datetime.now(timezone.utc)
+        card = session.query(Card).filter_by(file_hash=file_hash).first()
+        if card:
+            card.remove_family = remove_family
+            card.updated_at = datetime.now(timezone.utc)
+            session.commit()
+    finally:
+        session.close()
+
+
+def get_card_state(file_hash: str) -> dict | None:
+    """Get complete card state for display.
+
+    Returns {
+        'display_name': str,          # The name to show (manual or selected candidate)
+        'method': str,                # 'manual' | 'ocr' | 'ai' | 'missing'
+        'confidence': str,            # 'manual' | 'high' | 'medium' | 'low' | 'none'
+        'candidates': [(id, name, method, conf), ...],  # Sorted by confidence
+        'remove_family': bool,
+        'selected_candidate_id': int | None
+    } or None if card doesn't exist.
+    """
+    session = get_session()
+    try:
+        card = session.query(Card).filter_by(file_hash=file_hash).first()
+        if not card:
+            return None
+
+        # Get all candidates
+        candidates = get_candidates(file_hash)
+
+        # Determine display name, method, and confidence
+        if card.selected_family_name:
+            # Manual entry
+            display_name = card.selected_family_name
+            method = "manual"
+            confidence = "manual"
+        elif card.selected_candidate_id:
+            # Selected candidate
+            candidate = session.query(Candidate).filter_by(id=card.selected_candidate_id).first()
+            if candidate:
+                display_name = candidate.family_name
+                method = candidate.method
+                confidence = candidate.confidence
+            else:
+                # Candidate was deleted somehow
+                display_name = ""
+                method = "missing"
+                confidence = "none"
         else:
-            row = AIResultCache(
-                file_hash=file_hash,
-                best_name=best_name,
-                alternates=json.dumps(alternates),
-            )
-            session.add(row)
+            # No selection - missing
+            display_name = ""
+            method = "missing"
+            confidence = "none"
+
+        return {
+            'display_name': display_name,
+            'method': method,
+            'confidence': confidence,
+            'candidates': candidates,
+            'remove_family': card.remove_family,
+            'selected_candidate_id': card.selected_candidate_id
+        }
+    finally:
+        session.close()
+
+
+def save_raw_ocr(file_hash: str, ocr_text: str) -> None:
+    """Save raw OCR text for potential re-processing."""
+    session = get_session()
+    try:
+        # Ensure card exists
+        card = session.query(Card).filter_by(file_hash=file_hash).first()
+        if not card:
+            card = Card(file_hash=file_hash)
+            session.add(card)
+            session.flush()
+
+        # Save or update OCR result
+        ocr_result = session.query(RawOCRResult).filter_by(file_hash=file_hash).first()
+        if ocr_result:
+            ocr_result.ocr_text = ocr_text
+            ocr_result.created_at = datetime.now(timezone.utc)
+        else:
+            ocr_result = RawOCRResult(file_hash=file_hash, ocr_text=ocr_text)
+            session.add(ocr_result)
         session.commit()
+    finally:
+        session.close()
+
+
+def get_raw_ocr(file_hash: str) -> str | None:
+    """Get raw OCR text for re-processing."""
+    session = get_session()
+    try:
+        ocr_result = session.query(RawOCRResult).filter_by(file_hash=file_hash).first()
+        return ocr_result.ocr_text if ocr_result else None
     finally:
         session.close()

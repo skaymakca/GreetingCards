@@ -20,8 +20,8 @@ from app.core.ai_analyzer import analyze_card_with_ai
 from app.core.config import get_api_key
 from app.core.renamer import build_rename_plan, execute_rename_plan
 from app.core.database import (
-    compute_file_hash, get_cached_name, save_name,
-    get_cached_ai_result, save_ai_result,
+    compute_file_hash, get_card_state, add_candidate, select_candidate,
+    set_manual_name, save_raw_ocr, update_remove_family,
 )
 from app.gui.settings_dialog import SettingsDialog, ApiKeyPrompt
 from app.gui.help_dialog import HelpDialog
@@ -46,7 +46,11 @@ def _process_pdf_worker(pdf_path_str: str) -> dict:
         'file_hash': None,
         'family_name': '',
         'confidence': 'none',
+        'method': 'missing',
         'alternates': [],
+        'candidates': [],
+        'remove_family': False,
+        'selected_candidate_id': None,
         'ocr_text': '',
         'error': None,
         # Store images as PNG bytes for pickling
@@ -60,7 +64,7 @@ def _process_pdf_worker(pdf_path_str: str) -> dict:
         result['file_hash'] = file_hash
 
         # Check DB cache first
-        cached = get_cached_name(file_hash)
+        card_state = get_card_state(file_hash)
 
         # Always render preview (needed for AI later)
         images = render_all_pages(pdf_path, dpi=200)
@@ -75,31 +79,44 @@ def _process_pdf_worker(pdf_path_str: str) -> dict:
                 img.save(buf, format='PNG')
                 result['page_images_bytes'].append(buf.getvalue())
 
-        if cached:
-            result['family_name'] = cached[0]
-            result['confidence'] = cached[2]
-            result['alternates'] = cached[3]
-            result['remove_family'] = cached[4]
+        if card_state:
+            result['family_name'] = card_state['display_name']
+            result['confidence'] = card_state['confidence']
+            result['alternates'] = [name for _, name, _, _ in card_state['candidates']]
+            result['candidates'] = card_state['candidates']
+            result['remove_family'] = card_state['remove_family']
+            result['selected_candidate_id'] = card_state['selected_candidate_id']
+            result['method'] = card_state['method']
         else:
             # Run OCR
             if images:
                 ocr_text = extract_text_all_pages(images)
                 result['ocr_text'] = ocr_text
 
+                # Save raw OCR for potential re-processing
+                save_raw_ocr(file_hash, ocr_text)
+
                 names = extract_family_names(ocr_text)
                 if names:
-                    # Save RAW results to DB
-                    raw_family_name = names[0][0]
-                    raw_alternates = [n for n, _ in names[1:]]
-                    save_name(file_hash, raw_family_name, "ocr", names[0][1].value, raw_alternates)
+                    # Add all extracted names as candidates
+                    for name, conf in names:
+                        add_candidate(file_hash, name, "ocr", conf.value)
 
-                    # Reload from DB to get CLEANED/FILTERED version
-                    cached = get_cached_name(file_hash)
-                    if cached:
-                        result['family_name'] = cached[0]
-                        result['confidence'] = cached[2]
-                        result['alternates'] = cached[3]
-                        result['remove_family'] = cached[4]
+                    # Auto-select the best candidate (first one)
+                    best_id = add_candidate(file_hash, names[0][0], "ocr", names[0][1].value)
+                    if best_id:
+                        select_candidate(file_hash, best_id)
+
+                    # Reload state to get cleaned/filtered version
+                    card_state = get_card_state(file_hash)
+                    if card_state:
+                        result['family_name'] = card_state['display_name']
+                        result['confidence'] = card_state['confidence']
+                        result['alternates'] = [name for _, name, _, _ in card_state['candidates']]
+                        result['candidates'] = card_state['candidates']
+                        result['remove_family'] = card_state['remove_family']
+                        result['selected_candidate_id'] = card_state['selected_candidate_id']
+                        result['method'] = card_state['method']
 
     except Exception as e:
         result['error'] = str(e)
@@ -434,7 +451,10 @@ class MainWindow:
         card.file_hash = result_dict['file_hash']
         card.family_name = result_dict['family_name']
         card.alternates = result_dict['alternates']
+        card.candidates = result_dict.get('candidates', [])
         card.remove_family = result_dict.get('remove_family', False)
+        card.selected_candidate_id = result_dict.get('selected_candidate_id')
+        card.method = result_dict.get('method', 'missing')
         card.ocr_text = result_dict['ocr_text']
 
         try:
@@ -468,35 +488,52 @@ class MainWindow:
             card = CardResult(id=card_id, pdf_path=pdf_path)
             try:
                 card.file_hash = compute_file_hash(pdf_path)
-                cached = get_cached_name(card.file_hash)
-                if cached:
-                    card.family_name = cached[0]
+                card_state = get_card_state(card.file_hash)
+                if card_state:
+                    card.family_name = card_state['display_name']
                     try:
-                        card.confidence = Confidence(cached[2])
+                        card.confidence = Confidence(card_state['confidence'])
                     except ValueError:
                         card.confidence = Confidence.MEDIUM
-                    card.alternates = cached[3]
-                    card.remove_family = cached[4]
+                    card.alternates = [name for _, name, _, _ in card_state['candidates']]
+                    card.candidates = card_state['candidates']
+                    card.remove_family = card_state['remove_family']
+                    card.selected_candidate_id = card_state['selected_candidate_id']
+                    card.method = card_state['method']
 
                 images = render_all_pages(pdf_path, dpi=200)
                 if images:
                     card.preview_image = images[0]
                     card.page_images = images
 
-                if not cached:
+                if not card_state:
                     ocr_text = extract_text_all_pages(images)
                     card.ocr_text = ocr_text
+
+                    # Save raw OCR
+                    save_raw_ocr(card.file_hash, ocr_text)
+
                     names = extract_family_names(ocr_text)
                     if names:
-                        raw_family_name = names[0][0]
-                        raw_alternates = [n for n, _ in names[1:]]
-                        save_name(card.file_hash, raw_family_name, "ocr", names[0][1].value, raw_alternates, card.remove_family)
-                        cached = get_cached_name(card.file_hash)
-                        if cached:
-                            card.family_name = cached[0]
-                            card.confidence = Confidence(cached[2])
-                            card.alternates = cached[3]
-                            card.remove_family = cached[4]
+                        # Add all extracted names as candidates
+                        for name, conf in names:
+                            add_candidate(card.file_hash, name, "ocr", conf.value)
+
+                        # Auto-select the best candidate
+                        best_id = add_candidate(card.file_hash, names[0][0], "ocr", names[0][1].value)
+                        if best_id:
+                            select_candidate(card.file_hash, best_id)
+
+                        # Reload state to get cleaned version
+                        card_state = get_card_state(card.file_hash)
+                        if card_state:
+                            card.family_name = card_state['display_name']
+                            card.confidence = Confidence(card_state['confidence'])
+                            card.alternates = [name for _, name, _, _ in card_state['candidates']]
+                            card.candidates = card_state['candidates']
+                            card.remove_family = card_state['remove_family']
+                            card.selected_candidate_id = card_state['selected_candidate_id']
+                            card.method = card_state['method']
             except Exception as e:
                 card.ocr_text = f"Error: {e}"
                 card.confidence = Confidence.NONE
@@ -544,8 +581,10 @@ class MainWindow:
                 if card.confidence != Confidence.MANUAL:
                     card.original_confidence = card.confidence
                 card.confidence = Confidence.MANUAL
+                card.method = "manual"
+                card.selected_candidate_id = None
                 if card.file_hash:
-                    save_name(card.file_hash, name, "manual", "manual", card.alternates or [], card.remove_family)
+                    set_manual_name(card.file_hash, name, card.remove_family)
             self._review_panel.update_dot(card_id, card.confidence)
 
     def _on_card_select(self, card_id: int):
@@ -594,47 +633,43 @@ class MainWindow:
 
     def _run_ai_analysis(self, card_id: int, card: CardResult):
         try:
-            # Check AI cache first
-            cached = get_cached_ai_result(card.file_hash) if card.file_hash else None
-            if cached:
-                best_name, alternates = cached
-            else:
+            # Check if we already have AI candidates
+            card_state = get_card_state(card.file_hash) if card.file_hash else None
+            has_ai_candidates = False
+            if card_state:
+                has_ai_candidates = any(method == 'ai' for _, _, method, _ in card_state['candidates'])
+
+            if not has_ai_candidates:
+                # Run AI analysis
                 ai_images = card.page_images or [card.preview_image]
                 best_name, alternates = analyze_card_with_ai(ai_images)
-                if card.file_hash:
-                    save_ai_result(card.file_hash, best_name, alternates)
 
-            if best_name:
-                # Save previous OCR family name before overwriting
-                ocr_family_name = card.family_name if not card.ai_analyzed else ""
+                if card.file_hash and best_name:
+                    # Add AI candidates to DB
+                    add_candidate(card.file_hash, best_name, "ai", "high")
+                    for alt_name in alternates:
+                        add_candidate(card.file_hash, alt_name, "ai", "high")
 
-                # Combine ALL candidates: AI best, AI alternates, OCR best, OCR alternates
-                # Union so user can reselect any if they change their mind
-                existing_alternates = card.alternates or []
-                all_candidates = [best_name] + alternates + existing_alternates
-                if ocr_family_name:
-                    all_candidates.append(ocr_family_name)
+                    # Auto-select the best AI candidate
+                    best_id = add_candidate(card.file_hash, best_name, "ai", "high")
+                    if best_id:
+                        select_candidate(card.file_hash, best_id, card.remove_family)
 
-                # Deduplicate while preserving order
-                combined = []
-                seen = set()
-                for name in all_candidates:
-                    if name and name.lower() not in seen:
-                        seen.add(name.lower())
-                        combined.append(name)
-
-                # Save RAW results to DB
-                if card.file_hash:
-                    save_name(card.file_hash, best_name, "ai", "", combined, card.remove_family)
-
-                    # Reload from DB to get CLEANED/FILTERED version
-                    cached = get_cached_name(card.file_hash)
-                    if cached:
-                        card.family_name = cached[0]
-                        card.confidence = Confidence(cached[2])
-                        card.alternates = cached[3]
-                        card.remove_family = cached[4]
-                        card.ai_analyzed = True
+            # Reload state to get updated candidates list
+            if card.file_hash:
+                card_state = get_card_state(card.file_hash)
+                if card_state:
+                    card.family_name = card_state['display_name']
+                    card.confidence = Confidence(card_state['confidence'])
+                    card.alternates = [name for _, name, _, _ in card_state['candidates']]
+                    card.candidates = card_state['candidates']
+                    card.remove_family = card_state['remove_family']
+                    card.selected_candidate_id = card_state['selected_candidate_id']
+                    card.method = card_state['method']
+                    card.ai_analyzed = True
+                    # Only clear manual override if user hasn't manually edited
+                    if not card.manual_override or card.method != "manual":
+                        card.manual_override = ""
                         card.manual_override = ""
             else:
                 card.confidence = Confidence.NONE
@@ -686,48 +721,45 @@ class MainWindow:
 
             async with semaphore:
                 try:
-                    # Check AI cache first
-                    cached = get_cached_ai_result(card.file_hash) if card.file_hash else None
-                    if cached:
-                        best_name, alternates = cached
-                    else:
+                    # Check if we already have AI candidates
+                    card_state = get_card_state(card.file_hash) if card.file_hash else None
+                    has_ai_candidates = False
+                    if card_state:
+                        has_ai_candidates = any(method == 'ai' for _, _, method, _ in card_state['candidates'])
+
+                    if not has_ai_candidates:
+                        # Run AI analysis
                         ai_images = card.page_images or [card.preview_image]
                         best_name, alternates = await analyze_card_with_ai_async(ai_images)
-                        if card.file_hash:
-                            save_ai_result(card.file_hash, best_name, alternates)
 
-                    if best_name:
-                        # Save previous OCR family name before overwriting
-                        ocr_family_name = card.family_name if not card.ai_analyzed else ""
+                        if card.file_hash and best_name:
+                            # Add AI candidates to DB
+                            add_candidate(card.file_hash, best_name, "ai", "high")
+                            for alt_name in alternates:
+                                add_candidate(card.file_hash, alt_name, "ai", "high")
 
-                        # Combine ALL candidates: AI best, AI alternates, OCR best, OCR alternates
-                        # Union so user can reselect any if they change their mind
-                        existing_alternates = card.alternates or []
-                        all_candidates = [best_name] + alternates + existing_alternates
-                        if ocr_family_name:
-                            all_candidates.append(ocr_family_name)
+                            # Auto-select the best AI candidate
+                            best_id = add_candidate(card.file_hash, best_name, "ai", "high")
+                            if best_id:
+                                select_candidate(card.file_hash, best_id, card.remove_family)
 
-                        # Deduplicate while preserving order
-                        combined = []
-                        seen = set()
-                        for name in all_candidates:
-                            if name and name.lower() not in seen:
-                                seen.add(name.lower())
-                                combined.append(name)
-
-                        # Save RAW results to DB
-                        if card.file_hash:
-                            save_name(card.file_hash, best_name, "ai", "", combined, card.remove_family)
-
-                            # Reload from DB to get CLEANED/FILTERED version
-                            cached = get_cached_name(card.file_hash)
-                            if cached:
-                                card.family_name = cached[0]
-                                card.confidence = Confidence(cached[2])
-                                card.alternates = cached[3]
-                                card.remove_family = cached[4]
-                                card.ai_analyzed = True
+                    # Reload state to get updated candidates list
+                    if card.file_hash:
+                        card_state = get_card_state(card.file_hash)
+                        if card_state:
+                            card.family_name = card_state['display_name']
+                            card.confidence = Confidence(card_state['confidence'])
+                            card.alternates = [name for _, name, _, _ in card_state['candidates']]
+                            card.candidates = card_state['candidates']
+                            card.remove_family = card_state['remove_family']
+                            card.selected_candidate_id = card_state['selected_candidate_id']
+                            card.method = card_state['method']
+                            card.ai_analyzed = True
+                            # Only clear manual override if user hasn't manually edited
+                            if not card.manual_override or card.method != "manual":
                                 card.manual_override = ""
+                        else:
+                            card.ai_analyzed = True
                     else:
                         card.ai_analyzed = True
                 except Exception as e:
