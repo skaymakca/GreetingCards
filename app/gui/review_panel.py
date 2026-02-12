@@ -54,6 +54,7 @@ class ReviewPanel(tk.Frame):
         self._cards: list[CardResult] = []
         self._rows: list[dict] = []
         self._selected_idx: Optional[int] = -1
+        self._suppress_trace = False
 
         # Header
         header = tk.Frame(self, bg=styles.BG_PRIMARY)
@@ -212,6 +213,8 @@ class ReviewPanel(tk.Frame):
         self._on_select(idx)
 
     def _on_name_edit(self, idx: int, var: tk.StringVar):
+        if self._suppress_trace:
+            return
         if idx < len(self._cards):
             self._cards[idx].manual_override = var.get()
             if self._on_name_change:
@@ -242,8 +245,10 @@ class ReviewPanel(tk.Frame):
         # Update confidence dot and tooltip
         self.update_dot(idx, card.confidence)
 
-        # Update name
+        # Update name (suppress trace to avoid triggering manual override)
+        self._suppress_trace = True
         row["name_var"].set(card.display_name)
+        self._suppress_trace = False
 
         # Update alternates
         if card.alternates:
