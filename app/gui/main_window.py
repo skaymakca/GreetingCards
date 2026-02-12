@@ -130,7 +130,7 @@ class MainWindow:
         self._setup_keyboard_nav()
 
     def _setup_menu_bar(self):
-        """Create native macOS menu bar with File menu."""
+        """Create native macOS menu bar with File and Help menus."""
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
 
@@ -155,10 +155,22 @@ class MainWindow:
             accelerator="⌘Q"
         )
 
-        # Bind keyboard shortcuts
-        self.root.bind("<Command-o>", lambda e: self._browse_folder())
-        self.root.bind("<Command-w>", lambda e: self.root.destroy())
-        self.root.bind("<Command-q>", lambda e: self.root.quit())
+        # Help menu
+        help_menu = tk.Menu(menubar, tearoff=0, name="help")
+        menubar.add_cascade(label="Help", menu=help_menu)
+
+        help_menu.add_command(
+            label="Greeting Cards Help",
+            command=self._show_help,
+            accelerator="⌘/"
+        )
+
+        # Bind keyboard shortcuts using bind_all for app-level shortcuts
+        # This ensures they work even when window is inactive or dialogs are open
+        self.root.bind_all("<Command-o>", lambda e: self._browse_folder())
+        self.root.bind_all("<Command-w>", lambda e: self.root.destroy())
+        self.root.bind_all("<Command-q>", lambda e: self.root.quit())
+        self.root.bind_all("<Command-slash>", lambda e: self._show_help())
 
     def _setup_ttk_styles(self):
         s = ttk.Style()
