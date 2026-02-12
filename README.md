@@ -21,8 +21,11 @@ Scans holiday/greeting card PDFs, extracts family names via OCR and AI, and batc
 
 ## Make commands
 
+Run `make help` to see all available commands.
+
 | Command | Description |
 |---------|-------------|
+| `make help` | Show all available make commands |
 | `make run` | Run the app from source |
 | `make build` | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`) — alias for `make app` |
 | `make app` | Build the macOS `.app` bundle (same as `make build`) |
