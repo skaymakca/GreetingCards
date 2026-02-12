@@ -206,3 +206,65 @@ class RenameConfirmDialog(tk.Toplevel):
         self.result = False
         self.grab_release()
         self.destroy()
+
+
+class CompletionDialog(tk.Toplevel):
+    """Dialog showing completion message with app icon."""
+
+    def __init__(self, parent, title: str, message: str, icon_path: Path | None = None):
+        super().__init__(parent)
+        self.title(title)
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set()
+
+        w, h = 400, 200
+        x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
+        y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
+        self.geometry(f"{w}x{h}+{x}+{y}")
+        self.configure(bg=styles.BG_PRIMARY)
+
+        content_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
+        content_frame.pack(expand=True, fill="both", padx=20, pady=20)
+
+        # Icon (if available)
+        self._icon_ref = None
+        if icon_path and icon_path.exists():
+            try:
+                from PIL import Image, ImageTk
+                img = Image.open(icon_path)
+                img = img.resize((64, 64), Image.Resampling.LANCZOS)
+                self._icon_ref = ImageTk.PhotoImage(img)
+                icon_label = tk.Label(
+                    content_frame, image=self._icon_ref,
+                    bg=styles.BG_PRIMARY,
+                )
+                icon_label.pack(pady=(10, 15))
+            except Exception:
+                pass  # Icon optional
+
+        # Message
+        msg_label = tk.Label(
+            content_frame, text=message, font=styles.FONT_BODY,
+            bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
+            justify="center", wraplength=350,
+        )
+        msg_label.pack(pady=(0, 20))
+
+        # OK button
+        ok_btn = tk.Button(
+            self, text="OK", font=styles.FONT_HEADING,
+            command=self._close, width=10,
+        )
+        ok_btn.pack(pady=(0, 20))
+
+        self.protocol("WM_DELETE_WINDOW", self._close)
+        self.bind("<Return>", lambda e: self._close())
+        self.bind("<Escape>", lambda e: self._close())
+
+        # Focus the OK button
+        ok_btn.focus_set()
+
+    def _close(self):
+        self.grab_release()
+        self.destroy()

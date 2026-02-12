@@ -11,7 +11,7 @@ from app.gui import styles
 from app.gui.icons import load_sf_symbol
 from app.gui.preview_panel import PreviewPanel
 from app.gui.review_panel import ReviewPanel
-from app.gui.dialogs import ProgressDialog, RenameConfirmDialog
+from app.gui.dialogs import ProgressDialog, RenameConfirmDialog, CompletionDialog
 from app.models.card import CardResult, Confidence
 from app.core.pdf_renderer import render_pdf_page, render_all_pages
 from app.core.ocr_engine import extract_text_all_pages
@@ -725,7 +725,10 @@ class MainWindow:
                 err_lines = "\n".join(f"  {o.name}: {m}" for o, _, m in errors)
                 summary += f"\n\nErrors:\n{err_lines}"
 
-            messagebox.showinfo("Rename Complete", summary)
+            # Show completion dialog with app icon
+            icon_path = Path(__file__).parent.parent.parent / "icon.png"
+            dialog = CompletionDialog(self.root, "Rename Complete", summary, icon_path)
+            self.root.wait_window(dialog)
 
             # Clear everything including folder
             self._clear_all()
