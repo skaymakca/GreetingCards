@@ -229,11 +229,10 @@ class PreviewPanel(tk.Frame):
             return
         # Check for Shift (zoom in)
         if event.state & 0x0001:  # Shift
-            self._canvas.config(cursor="plus")
-        # Check for Control/Command (zoom out) - try a few options
+            self._canvas.config(cursor="cross")
+        # Check for Control/Command (zoom out)
         elif event.state & 0x0004 or event.state & 0x0008:  # Ctrl or Cmd
-            # Options: "circle", "target", "cross", "X_cursor", "tcross"
-            self._canvas.config(cursor="circle")
+            self._canvas.config(cursor="X_cursor")
         else:
             self._canvas.config(cursor="")
 
