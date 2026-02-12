@@ -39,6 +39,7 @@ class MainWindow:
         self._build_toolbar()
         self._build_main_area()
         self._setup_drop_target()
+        self._setup_keyboard_nav()
 
     def _build_toolbar(self):
         toolbar = tk.Frame(self.root, bg=styles.BG_SECONDARY, height=styles.TOOLBAR_HEIGHT)
@@ -129,6 +130,41 @@ class MainWindow:
         # Preview panel (right)
         self._preview_panel = PreviewPanel(main)
         main.add(self._preview_panel, minsize=300, width=styles.PREVIEW_WIDTH, stretch="never")
+
+    def _setup_keyboard_nav(self):
+        self.root.bind("<Up>", self._on_key_up)
+        self.root.bind("<Down>", self._on_key_down)
+        self.root.bind("<Left>", self._on_key_left)
+        self.root.bind("<Right>", self._on_key_right)
+
+    def _is_entry_focused(self) -> bool:
+        """Check if focus is in a text entry widget (don't hijack typing)."""
+        w = self.root.focus_get()
+        return isinstance(w, (tk.Entry, tk.Text))
+
+    def _on_key_up(self, event):
+        if self._is_entry_focused():
+            return
+        idx = self._review_panel._selected_idx
+        if idx > 0:
+            self._review_panel._select_row(idx - 1)
+
+    def _on_key_down(self, event):
+        if self._is_entry_focused():
+            return
+        idx = self._review_panel._selected_idx
+        if idx < len(self._cards) - 1:
+            self._review_panel._select_row(idx + 1)
+
+    def _on_key_left(self, event):
+        if self._is_entry_focused():
+            return
+        self._preview_panel._prev_page()
+
+    def _on_key_right(self, event):
+        if self._is_entry_focused():
+            return
+        self._preview_panel._next_page()
 
     def _setup_drop_target(self):
         self.root.drop_target_register(DND_FILES)

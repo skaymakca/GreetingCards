@@ -101,10 +101,6 @@ class PreviewPanel(tk.Frame):
         self._canvas.bind("<ButtonRelease-1>", self._on_pan_end)
         # Scroll to zoom
         self._canvas.bind("<MouseWheel>", self._on_scroll_zoom)
-        # Keyboard page nav
-        self._canvas.bind("<Enter>", lambda e: self._canvas.focus_set())
-        self._canvas.bind("<Left>", lambda e: self._prev_page())
-        self._canvas.bind("<Right>", lambda e: self._next_page())
 
     # --- Public API ---
 
