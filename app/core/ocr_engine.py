@@ -1,5 +1,22 @@
+import shutil
+
 import pytesseract
 from PIL import Image, ImageFilter, ImageOps
+
+from app.core.paths import is_bundled
+
+# macOS .app bundles have a minimal PATH that excludes Homebrew.
+# Locate the tesseract binary at import time.
+if is_bundled() and not shutil.which("tesseract"):
+    _SEARCH_PATHS = [
+        "/opt/homebrew/bin/tesseract",   # Apple Silicon Homebrew
+        "/usr/local/bin/tesseract",      # Intel Homebrew / manual install
+    ]
+    import os as _os
+    for _p in _SEARCH_PATHS:
+        if _os.path.isfile(_p) and _os.access(_p, _os.X_OK):
+            pytesseract.pytesseract.tesseract_cmd = _p
+            break
 
 
 def preprocess_image(image: Image.Image) -> Image.Image:
