@@ -98,18 +98,21 @@ class RenameConfirmDialog(tk.Toplevel):
 
         col_header = tk.Frame(table_frame, bg=styles.BG_SECONDARY)
         col_header.pack(fill="x")
+        col_header.columnconfigure(0, weight=1)
+        col_header.columnconfigure(1, weight=1)
+        col_header.columnconfigure(2, minsize=60)
         tk.Label(
             col_header, text="Original Filename", font=styles.FONT_SMALL,
             bg=styles.BG_SECONDARY, fg=styles.TEXT_SECONDARY, anchor="w",
-        ).pack(side="left", padx=(8, 0), fill="x", expand=True)
+        ).grid(row=0, column=0, sticky="w", padx=(8, 4))
         tk.Label(
             col_header, text="New Filename", font=styles.FONT_SMALL,
             bg=styles.BG_SECONDARY, fg=styles.TEXT_SECONDARY, anchor="w",
-        ).pack(side="left", padx=(8, 0), fill="x", expand=True)
+        ).grid(row=0, column=1, sticky="w", padx=(4, 4))
         tk.Label(
             col_header, text="Status", font=styles.FONT_SMALL,
-            bg=styles.BG_SECONDARY, fg=styles.TEXT_SECONDARY, anchor="w", width=8,
-        ).pack(side="left", padx=(8, 8))
+            bg=styles.BG_SECONDARY, fg=styles.TEXT_SECONDARY, anchor="w",
+        ).grid(row=0, column=2, sticky="w", padx=(4, 8))
 
         # Scrollable table body
         body_container = tk.Frame(table_frame, bg=styles.BG_PRIMARY)
@@ -118,6 +121,9 @@ class RenameConfirmDialog(tk.Toplevel):
         canvas = tk.Canvas(body_container, bg=styles.BG_PRIMARY, highlightthickness=0)
         scrollbar = ttk.Scrollbar(body_container, orient="vertical", command=canvas.yview)
         inner = tk.Frame(canvas, bg=styles.BG_PRIMARY)
+        inner.columnconfigure(0, weight=1)
+        inner.columnconfigure(1, weight=1)
+        inner.columnconfigure(2, minsize=60)
         inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
         canvas_window = canvas.create_window((0, 0), window=inner, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
@@ -134,20 +140,18 @@ class RenameConfirmDialog(tk.Toplevel):
 
         for i, (old_path, new_path, status) in enumerate(plan):
             row_bg = styles.BG_PRIMARY if i % 2 == 0 else styles.BG_SECONDARY
-            row = tk.Frame(inner, bg=row_bg)
-            row.pack(fill="x")
 
             tk.Label(
-                row, text=old_path.name, font=styles.FONT_MONO, anchor="w",
+                inner, text=old_path.name, font=styles.FONT_MONO, anchor="w",
                 bg=row_bg, fg=styles.TEXT_PRIMARY,
-            ).pack(side="left", padx=(8, 0), fill="x", expand=True)
+            ).grid(row=i, column=0, sticky="ew", padx=(8, 4), pady=1)
 
             new_name = new_path.name if status not in ("skip_no_name", "skip_same") else "-"
             new_fg = styles.TEXT_PRIMARY if status in ("ok", "duplicate") else styles.TEXT_SECONDARY
             tk.Label(
-                row, text=new_name, font=styles.FONT_MONO, anchor="w",
+                inner, text=new_name, font=styles.FONT_MONO, anchor="w",
                 bg=row_bg, fg=new_fg,
-            ).pack(side="left", padx=(8, 0), fill="x", expand=True)
+            ).grid(row=i, column=1, sticky="ew", padx=(4, 4), pady=1)
 
             status_text = STATUS_LABELS.get(status, status)
             status_fg = styles.TEXT_SECONDARY
@@ -156,9 +160,9 @@ class RenameConfirmDialog(tk.Toplevel):
             elif status.startswith("skip"):
                 status_fg = styles.TEXT_SECONDARY
             tk.Label(
-                row, text=status_text, font=styles.FONT_SMALL, anchor="w",
-                bg=row_bg, fg=status_fg, width=8,
-            ).pack(side="left", padx=(8, 8))
+                inner, text=status_text, font=styles.FONT_SMALL, anchor="w",
+                bg=row_bg, fg=status_fg,
+            ).grid(row=i, column=2, sticky="w", padx=(4, 8), pady=1)
 
         # Buttons
         btn_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
