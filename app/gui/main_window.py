@@ -116,7 +116,8 @@ class MainWindow:
         self.root.minsize(800, 500)
 
         self._folder: Path | None = None
-        self._cards: list[CardResult] = []
+        self._next_card_id = 0  # Monotonically increasing ID counter
+        self._cards_by_id: dict[int, CardResult] = {}  # ID -> CardResult lookup
         self._pdf_files: list[Path] = []
 
         self._icons = {}
@@ -268,16 +269,12 @@ class MainWindow:
     def _on_key_up(self, event):
         if self._is_entry_focused():
             return
-        idx = self._review_panel._selected_idx
-        if idx > 0:
-            self._review_panel._select_row(idx - 1)
+        self._review_panel.select_prev_card()
 
     def _on_key_down(self, event):
         if self._is_entry_focused():
             return
-        idx = self._review_panel._selected_idx
-        if idx < len(self._cards) - 1:
-            self._review_panel._select_row(idx + 1)
+        self._review_panel.select_next_card()
 
     def _on_key_left(self, event):
         if self._is_entry_focused():
@@ -363,9 +360,13 @@ class MainWindow:
             with Pool(num_workers) as pool:
                 # Process PDFs in parallel, get results as they complete
                 for i, result_dict in enumerate(pool.imap_unordered(_process_pdf_worker, pdf_paths_str)):
+                    # Assign unique ID in main process (single-threaded, no race conditions)
+                    card_id = self._next_card_id
+                    self._next_card_id += 1
+
                     # Reconstruct CardResult from dict on main thread
-                    card = self._dict_to_card(result_dict)
-                    self._cards.append(card)
+                    card = self._dict_to_card(result_dict, card_id)
+                    self._cards_by_id[card_id] = card
 
                     # Update progress
                     self.root.after(0, self._update_processing_progress, i + 1, total, card.filename)
@@ -377,12 +378,12 @@ class MainWindow:
 
         self.root.after(0, self._processing_complete)
 
-    def _dict_to_card(self, result_dict: dict) -> CardResult:
-        """Convert result dict from worker to CardResult object."""
+    def _dict_to_card(self, result_dict: dict, card_id: int) -> CardResult:
+        """Convert result dict from worker to CardResult object with assigned ID."""
         from PIL import Image
 
         pdf_path = Path(result_dict['pdf_path'])
-        card = CardResult(pdf_path=pdf_path)
+        card = CardResult(id=card_id, pdf_path=pdf_path)
 
         card.file_hash = result_dict['file_hash']
         card.family_name = result_dict['family_name']
@@ -414,7 +415,10 @@ class MainWindow:
         """Fallback: sequential processing if multiprocessing fails."""
         total = len(self._pdf_files)
         for i, pdf_path in enumerate(self._pdf_files):
-            card = CardResult(pdf_path=pdf_path)
+            # Assign unique ID in main process
+            card_id = self._next_card_id
+            self._next_card_id += 1
+            card = CardResult(id=card_id, pdf_path=pdf_path)
             try:
                 card.file_hash = compute_file_hash(pdf_path)
                 cached = get_cached_name(card.file_hash)
@@ -448,7 +452,7 @@ class MainWindow:
                 card.ocr_text = f"Error: {e}"
                 card.confidence = Confidence.NONE
 
-            self._cards.append(card)
+            self._cards_by_id[card_id] = card
             self.root.after(0, self._update_processing_progress, i + 1, total, pdf_path.name)
 
         self.root.after(0, self._processing_complete)
@@ -461,7 +465,7 @@ class MainWindow:
         if hasattr(self, "_progress") and self._progress.winfo_exists():
             self._progress.finish()
         # Sort cards by filename for stable display order
-        sorted_cards = sorted(self._cards, key=lambda c: c.filename.lower())
+        sorted_cards = sorted(self._cards_by_id.values(), key=lambda c: c.filename.lower())
         self._review_panel.load_cards(sorted_cards)
         self._rename_btn.config(state="normal")
         self._ai_all_btn.config(state="normal")
@@ -469,7 +473,8 @@ class MainWindow:
 
     def _clear_all(self):
         """Clear all cards from the review and preview panels and unset folder."""
-        self._cards = []
+        self._cards_by_id.clear()
+        self._next_card_id = 0
         self._review_panel.load_cards([])
         self._preview_panel.clear()
         self._rename_btn.config(state="disabled")
@@ -481,10 +486,10 @@ class MainWindow:
         self._folder_var.set("No folder selected")
         self._folder_label.config(fg=styles.TEXT_SECONDARY)
 
-    def _on_name_change(self, idx: int, name: str):
+    def _on_name_change(self, card_id: int, name: str):
         """Persist manual name edits to the database and update confidence dot."""
-        if 0 <= idx < len(self._cards):
-            card = self._cards[idx]
+        card = self._cards_by_id.get(card_id)
+        if card:
             if name:
                 # Save original confidence before marking as manual
                 if card.confidence != Confidence.MANUAL:
@@ -492,11 +497,11 @@ class MainWindow:
                 card.confidence = Confidence.MANUAL
                 if card.file_hash:
                     save_name(card.file_hash, name, "manual", "manual", card.alternates or [])
-            self._review_panel.update_dot(idx, card.confidence)
+            self._review_panel.update_dot(card_id, card.confidence)
 
-    def _on_card_select(self, idx: int):
-        if 0 <= idx < len(self._cards):
-            card = self._cards[idx]
+    def _on_card_select(self, card_id: int):
+        card = self._cards_by_id.get(card_id)
+        if card:
             if card.page_images:
                 self._preview_panel.show_images(card.page_images, card.filename)
             elif card.preview_image:
@@ -520,25 +525,25 @@ class MainWindow:
         dialog = HelpDialog(self.root)
         self.root.wait_window(dialog)
 
-    def _on_ai_request(self, idx: int):
-        if idx >= len(self._cards):
+    def _on_ai_request(self, card_id: int):
+        card = self._cards_by_id.get(card_id)
+        if not card:
             return
         if not self._ensure_api_key():
             return
-        card = self._cards[idx]
         if not card.page_images and not card.preview_image:
             messagebox.showwarning("No Image", "No preview image available for AI analysis.")
             return
 
         # Disable the AI button for this card while processing
-        self._review_panel._rows[idx]["ai_btn"].config(state="disabled", text="...")
+        self._review_panel.set_ai_button_state(card_id, "disabled", "...")
 
         thread = threading.Thread(
-            target=self._run_ai_analysis, args=(idx, card), daemon=True
+            target=self._run_ai_analysis, args=(card_id, card), daemon=True
         )
         thread.start()
 
-    def _run_ai_analysis(self, idx: int, card: CardResult):
+    def _run_ai_analysis(self, card_id: int, card: CardResult):
         try:
             # Check AI cache first
             cached = get_cached_ai_result(card.file_hash) if card.file_hash else None
@@ -588,22 +593,21 @@ class MainWindow:
             msg = str(e)
             self.root.after(0, lambda: messagebox.showerror("AI Error", msg))
 
-        self.root.after(0, self._ai_analysis_complete, idx, card)
+        self.root.after(0, self._ai_analysis_complete, card_id, card)
 
-    def _ai_analysis_complete(self, idx: int, card: CardResult):
-        self._review_panel.update_card(idx, card)
-        if idx < len(self._review_panel._rows):
-            self._review_panel._rows[idx]["ai_btn"].config(state="normal", text="AI")
+    def _ai_analysis_complete(self, card_id: int, card: CardResult):
+        self._review_panel.update_card(card_id, card)
+        self._review_panel.set_ai_button_state(card_id, "normal", "AI")
 
     def _start_ai_all(self):
-        if not self._cards:
+        if not self._cards_by_id:
             return
         if not self._ensure_api_key():
             return
         self._ai_all_btn.config(state="disabled")
         self._rename_btn.config(state="disabled")
 
-        total = len(self._cards)
+        total = len(self._cards_by_id)
         self._progress = ProgressDialog(self.root, "AI Analysis", total)
         thread = threading.Thread(target=self._run_ai_all, daemon=True)
         thread.start()
@@ -618,16 +622,16 @@ class MainWindow:
         import asyncio
         from app.core.ai_analyzer import analyze_card_with_ai_async
 
-        total = len(self._cards)
+        total = len(self._cards_by_id)
         # Limit concurrent API calls to avoid rate limits
         semaphore = asyncio.Semaphore(3)
         completed = 0
 
-        async def process_card(i: int, card: CardResult):
+        async def process_card(card_id: int, card: CardResult):
             nonlocal completed
             if not card.page_images and not card.preview_image:
                 completed += 1
-                self.root.after(0, self._update_ai_all_progress, completed, total, card.filename, i, None)
+                self.root.after(0, self._update_ai_all_progress, completed, total, card.filename, card_id, None)
                 return
 
             async with semaphore:
@@ -682,18 +686,18 @@ class MainWindow:
                     ))
 
                 completed += 1
-                self.root.after(0, self._update_ai_all_progress, completed, total, card.filename, i, card)
+                self.root.after(0, self._update_ai_all_progress, completed, total, card.filename, card_id, card)
 
         # Process all cards concurrently with semaphore limiting concurrency
-        await asyncio.gather(*[process_card(i, card) for i, card in enumerate(self._cards)])
+        await asyncio.gather(*[process_card(card_id, card) for card_id, card in self._cards_by_id.items()])
 
         self.root.after(0, self._ai_all_complete)
 
-    def _update_ai_all_progress(self, current: int, total: int, name: str, idx: int, card):
+    def _update_ai_all_progress(self, current: int, total: int, name: str, card_id: int, card):
         if hasattr(self, "_progress") and self._progress.winfo_exists():
             self._progress.update_progress(current, f"AI analyzing: {name}")
         if card is not None:
-            self._review_panel.update_card(idx, card)
+            self._review_panel.update_card(card_id, card)
 
     def _ai_all_complete(self):
         if hasattr(self, "_progress") and self._progress.winfo_exists():

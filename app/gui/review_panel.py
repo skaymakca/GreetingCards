@@ -53,9 +53,10 @@ class ReviewPanel(tk.Frame):
         self._on_select = on_select
         self._on_ai_request = on_ai_request
         self._on_name_change = on_name_change
-        self._cards: list[CardResult] = []
-        self._rows: list[dict] = []
-        self._selected_idx: Optional[int] = -1
+        self._card_order: list[int] = []  # Ordered list of card IDs (display order)
+        self._cards_by_id: dict[int, CardResult] = {}  # Card lookup by ID
+        self._rows_by_id: dict[int, dict] = {}  # UI row lookup by card ID
+        self._selected_card_id: Optional[int] = None
         self._suppress_trace = False
         self._ai_icon = load_sf_symbol("sparkles", 6, styles.TEXT_PRIMARY)
 
@@ -117,20 +118,28 @@ class ReviewPanel(tk.Frame):
 
     def load_cards(self, cards: list[CardResult]):
         """Load card results into the review panel."""
-        self._cards = cards
-        self._selected_idx = -1
+        # Build card lookup and order list
+        self._cards_by_id.clear()
+        self._card_order.clear()
+        for card in cards:
+            self._cards_by_id[card.id] = card
+            self._card_order.append(card.id)
+
+        self._selected_card_id = None
+
         # Clear existing rows
         for widget in self._inner.winfo_children():
             widget.destroy()
-        self._rows.clear()
+        self._rows_by_id.clear()
 
         self._count_label.config(text=f"{len(cards)} cards")
 
-        for i, card in enumerate(cards):
-            self._create_row(i, card)
+        for card in cards:
+            self._create_row(card)
 
-    def _create_row(self, idx: int, card: CardResult):
+    def _create_row(self, card: CardResult):
         bg = styles.BG_PRIMARY
+        card_id = card.id
 
         row_frame = tk.Frame(self._inner, bg=bg, cursor="hand2")
         row_frame.pack(fill="x", pady=1)
@@ -158,7 +167,7 @@ class ReviewPanel(tk.Frame):
         )
         name_entry.pack(side="left", padx=4, pady=4, fill="x", expand=True)
         name_entry.bind("<Return>", lambda e: row_frame.focus_set())
-        name_var.trace_add("write", lambda *a, i=idx, v=name_var: self._on_name_edit(i, v))
+        name_var.trace_add("write", lambda *a, cid=card_id, v=name_var: self._on_name_edit(cid, v))
         add_entry_context_menu(name_entry)
 
         # Candidates dropdown
@@ -169,13 +178,13 @@ class ReviewPanel(tk.Frame):
         )
         if alt_values:
             alt_combo.set("Candidates")
-            alt_combo.bind("<<ComboboxSelected>>", lambda e, i=idx, c=alt_combo, v=name_var: self._on_alt_select(i, c, v))
+            alt_combo.bind("<<ComboboxSelected>>", lambda e, cid=card_id, c=alt_combo, v=name_var: self._on_alt_select(cid, c, v))
         alt_combo.pack(side="left", padx=4, pady=4)
 
         # AI button
         ai_btn_kwargs = dict(
             text="AI",
-            command=lambda i=idx: self._on_ai_request(i),
+            command=lambda cid=card_id: self._on_ai_request(cid),
             width=3,
         )
         if self._ai_icon:
@@ -194,42 +203,44 @@ class ReviewPanel(tk.Frame):
             "alt_combo": alt_combo,
             "ai_btn": ai_btn,
         }
-        self._rows.append(row_data)
+        self._rows_by_id[card_id] = row_data
 
         # Click to select
         for widget in [row_frame, dot, fn_label]:
-            widget.bind("<Button-1>", lambda e, i=idx: self._select_row(i))
+            widget.bind("<Button-1>", lambda e, cid=card_id: self._select_row(cid))
 
         # Bind scroll to all widgets in row for native macOS behavior
         for widget in [row_frame, dot, fn_label, name_entry, alt_combo, ai_btn]:
             widget.bind("<MouseWheel>", self._on_mousewheel)
 
-    def _select_row(self, idx: int):
+    def _select_row(self, card_id: int):
         # Deselect previous
-        if 0 <= self._selected_idx < len(self._rows):
-            prev = self._rows[self._selected_idx]
+        if self._selected_card_id is not None and self._selected_card_id in self._rows_by_id:
+            prev = self._rows_by_id[self._selected_card_id]
             prev["frame"].configure(bg=styles.BG_PRIMARY)
             prev["fn_label"].configure(bg=styles.BG_PRIMARY)
             prev["dot"].configure(bg=styles.BG_PRIMARY)
 
-        self._selected_idx = idx
-        row = self._rows[idx]
-        row["frame"].focus_set()
-        row["frame"].configure(bg=styles.BG_SELECTED)
-        row["fn_label"].configure(bg=styles.BG_SELECTED)
-        row["dot"].configure(bg=styles.BG_SELECTED)
+        self._selected_card_id = card_id
+        if card_id in self._rows_by_id:
+            row = self._rows_by_id[card_id]
+            row["frame"].focus_set()
+            row["frame"].configure(bg=styles.BG_SELECTED)
+            row["fn_label"].configure(bg=styles.BG_SELECTED)
+            row["dot"].configure(bg=styles.BG_SELECTED)
 
-        self._on_select(idx)
+            self._on_select(card_id)
 
-    def _on_name_edit(self, idx: int, var: tk.StringVar):
+    def _on_name_edit(self, card_id: int, var: tk.StringVar):
         if self._suppress_trace:
             return
-        if idx < len(self._cards):
-            self._cards[idx].manual_override = var.get()
+        card = self._cards_by_id.get(card_id)
+        if card:
+            card.manual_override = var.get()
             if self._on_name_change:
-                self._on_name_change(idx, var.get())
+                self._on_name_change(card_id, var.get())
 
-    def _on_alt_select(self, idx: int, combo: ttk.Combobox, var: tk.StringVar):
+    def _on_alt_select(self, card_id: int, combo: ttk.Combobox, var: tk.StringVar):
         selected = combo.get()
         if selected and selected != "Candidates":
             # Suppress trace to avoid triggering _on_name_change
@@ -237,11 +248,11 @@ class ReviewPanel(tk.Frame):
             var.set(selected)
             self._suppress_trace = False
             # Update the card's family_name and restore original confidence
-            if idx < len(self._cards):
+            card = self._cards_by_id.get(card_id)
+            if card:
                 from app.core.database import save_name
                 from app.models.card import Confidence
 
-                card = self._cards[idx]
                 card.family_name = selected
                 card.manual_override = selected
 
@@ -250,7 +261,7 @@ class ReviewPanel(tk.Frame):
                     card.confidence = card.original_confidence
 
                 # Update the dot to show restored confidence
-                self.update_dot(idx, card.confidence)
+                self.update_dot(card_id, card.confidence)
 
                 # Save to DB with correct confidence (not manual)
                 if card.file_hash:
@@ -258,25 +269,27 @@ class ReviewPanel(tk.Frame):
                     source = "ai" if card.ai_analyzed else "ocr"
                     save_name(card.file_hash, selected, source, card.confidence.value, card.alternates or [])
 
-    def update_dot(self, idx: int, confidence: Confidence):
+    def update_dot(self, card_id: int, confidence: Confidence):
         """Update just the confidence dot and tooltip for a row."""
-        if idx >= len(self._rows):
+        row = self._rows_by_id.get(card_id)
+        if not row:
             return
-        row = self._rows[idx]
         dot_color = styles.CONFIDENCE_COLORS.get(confidence.value, styles.TEXT_SECONDARY)
         row["dot"].delete("all")
         row["dot"].create_oval(2, 2, 10, 10, fill=dot_color, outline="")
         row["dot_tooltip"].text = styles.CONFIDENCE_TOOLTIPS.get(confidence.value, "")
 
-    def update_card(self, idx: int, card: CardResult):
+    def update_card(self, card_id: int, card: CardResult):
         """Update a single card's display after AI analysis."""
-        if idx >= len(self._rows):
+        row = self._rows_by_id.get(card_id)
+        if not row:
             return
-        self._cards[idx] = card
-        row = self._rows[idx]
+
+        # Update card in lookup dict
+        self._cards_by_id[card_id] = card
 
         # Update confidence dot and tooltip
-        self.update_dot(idx, card.confidence)
+        self.update_dot(card_id, card.confidence)
 
         # Update name (suppress trace to avoid triggering manual override)
         self._suppress_trace = True
@@ -294,5 +307,33 @@ class ReviewPanel(tk.Frame):
             row["alt_combo"].set("")
 
     def get_cards(self) -> list[CardResult]:
-        """Return all cards with current edits applied."""
-        return self._cards
+        """Return all cards with current edits applied, in display order."""
+        return [self._cards_by_id[card_id] for card_id in self._card_order if card_id in self._cards_by_id]
+
+    def select_prev_card(self):
+        """Select the previous card in display order."""
+        if not self._card_order:
+            return
+        if self._selected_card_id is None:
+            self._select_row(self._card_order[0])
+        elif self._selected_card_id in self._card_order:
+            idx = self._card_order.index(self._selected_card_id)
+            if idx > 0:
+                self._select_row(self._card_order[idx - 1])
+
+    def select_next_card(self):
+        """Select the next card in display order."""
+        if not self._card_order:
+            return
+        if self._selected_card_id is None:
+            self._select_row(self._card_order[0])
+        elif self._selected_card_id in self._card_order:
+            idx = self._card_order.index(self._selected_card_id)
+            if idx < len(self._card_order) - 1:
+                self._select_row(self._card_order[idx + 1])
+
+    def set_ai_button_state(self, card_id: int, state: str, text: str = "AI"):
+        """Set the AI button state and text for a specific card."""
+        row = self._rows_by_id.get(card_id)
+        if row:
+            row["ai_btn"].config(state=state, text=text)

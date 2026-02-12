@@ -15,6 +15,7 @@ class Confidence(Enum):
 
 @dataclass
 class CardResult:
+    id: int  # Unique, monotonically increasing identifier
     pdf_path: Path
     family_name: str = ""
     confidence: Confidence = Confidence.NONE
