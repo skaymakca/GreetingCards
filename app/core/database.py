@@ -121,6 +121,7 @@ def compute_file_hash(path: Path) -> str:
 def get_cached_name(file_hash: str) -> tuple[str, str, str, list[str]] | None:
     """Get the most recent cached family name for a file hash.
     Returns (family_name, source, confidence, alternates) or None."""
+    from app.core.ai_analyzer import clean_family_name
     session = get_session()
     try:
         row = (session.query(FileNameCache)
@@ -129,6 +130,9 @@ def get_cached_name(file_hash: str) -> tuple[str, str, str, list[str]] | None:
                .first())
         if row:
             alternates = json.loads(row.alternates) if row.alternates else []
+            # Clean alternates when loading from DB to remove quotes/cruft
+            alternates = [clean_family_name(alt) for alt in alternates]
+            alternates = [alt for alt in alternates if alt]  # Remove empty strings
             return row.family_name, row.source, row.confidence, alternates
         return None
     finally:
@@ -167,11 +171,15 @@ def save_name(file_hash: str, family_name: str, source: str, confidence: str = "
 def get_cached_ai_result(file_hash: str) -> tuple[str, list[str]] | None:
     """Get cached AI result for a file hash.
     Returns (best_name, alternates) or None."""
+    from app.core.ai_analyzer import clean_family_name
     session = get_session()
     try:
         row = session.query(AIResultCache).filter_by(file_hash=file_hash).first()
         if row:
             alternates = json.loads(row.alternates) if row.alternates else []
+            # Clean alternates when loading from DB to remove quotes/cruft
+            alternates = [clean_family_name(alt) for alt in alternates]
+            alternates = [alt for alt in alternates if alt]  # Remove empty strings
             return row.best_name, alternates
         return None
     finally:
