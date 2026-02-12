@@ -252,8 +252,8 @@ class CompletionDialog(tk.Toplevel):
         msg_label.pack(pady=(0, 10))
 
         # OK button
-        ok_btn = ttk.Button(
-            self, text="OK",
+        ok_btn = tk.Button(
+            self, text="OK", font=styles.FONT_BODY,
             command=self._close, width=10,
         )
         ok_btn.pack(pady=(0, 16))
