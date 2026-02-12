@@ -96,6 +96,7 @@ class ReviewPanel(tk.Frame):
         self._inner.bind("<Configure>", lambda e: self._canvas.configure(scrollregion=self._canvas.bbox("all")))
         self._canvas_window = self._canvas.create_window((0, 0), window=self._inner, anchor="nw")
         self._canvas.configure(yscrollcommand=self._scrollbar.set)
+        self._canvas.bind("<Button-1>", lambda e: self._canvas.focus_set())
 
         self._scrollbar.pack(side="right", fill="y")
         self._canvas.pack(fill="both", expand=True)
