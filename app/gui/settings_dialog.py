@@ -17,7 +17,7 @@ class ApiKeyPrompt(tk.Toplevel):
         self.transient(parent)
         self.grab_set()
 
-        w, h = 420, 160
+        w, h = 500, 200
         x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
         y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
         self.geometry(f"{w}x{h}+{x}+{y}")
@@ -52,17 +52,17 @@ class ApiKeyPrompt(tk.Toplevel):
 
         # Buttons
         btn_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
-        btn_frame.pack(pady=(12, 20))
+        btn_frame.pack(pady=(16, 24))
 
         tk.Button(
             btn_frame, text="Cancel", font=styles.FONT_BODY,
-            command=self._cancel, width=12,
-        ).pack(side="left", padx=4)
+            command=self._cancel, width=12, pady=6,
+        ).pack(side="left", padx=6)
 
         tk.Button(
             btn_frame, text="Save", font=styles.FONT_BODY,
-            command=self._save, width=12,
-        ).pack(side="left", padx=4)
+            command=self._save, width=12, pady=6,
+        ).pack(side="left", padx=6)
 
         self.protocol("WM_DELETE_WINDOW", self._cancel)
         self.bind("<Escape>", lambda e: self._cancel())
