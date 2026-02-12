@@ -1,0 +1,214 @@
+import tkinter as tk
+from tkinter import ttk
+from typing import Callable, Optional
+from app.models.card import CardResult, Confidence
+from app.gui import styles
+
+
+class ReviewPanel(tk.Frame):
+    """Scrollable card list with edit controls for reviewing extracted names."""
+
+    def __init__(
+        self,
+        parent,
+        on_select: Callable[[int], None],
+        on_ai_request: Callable[[int], None],
+        **kwargs,
+    ):
+        super().__init__(parent, bg=styles.BG_PRIMARY, **kwargs)
+        self._on_select = on_select
+        self._on_ai_request = on_ai_request
+        self._cards: list[CardResult] = []
+        self._rows: list[dict] = []
+        self._selected_idx: Optional[int] = -1
+
+        # Header
+        header = tk.Frame(self, bg=styles.BG_PRIMARY)
+        header.pack(fill="x", padx=styles.PAD, pady=(styles.PAD, 4))
+        tk.Label(
+            header, text="Cards", font=styles.FONT_HEADING,
+            bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
+        ).pack(side="left")
+        self._count_label = tk.Label(
+            header, text="", font=styles.FONT_SMALL,
+            bg=styles.BG_PRIMARY, fg=styles.TEXT_SECONDARY,
+        )
+        self._count_label.pack(side="right")
+
+        # Column headers
+        col_header = tk.Frame(self, bg=styles.BG_SECONDARY)
+        col_header.pack(fill="x", padx=styles.PAD)
+        tk.Label(
+            col_header, text="", width=2,
+            bg=styles.BG_SECONDARY,
+        ).pack(side="left", padx=(4, 0))
+        tk.Label(
+            col_header, text="Filename", font=styles.FONT_SMALL,
+            bg=styles.BG_SECONDARY, fg=styles.TEXT_SECONDARY, anchor="w", width=28,
+        ).pack(side="left", padx=4)
+        tk.Label(
+            col_header, text="Family Name", font=styles.FONT_SMALL,
+            bg=styles.BG_SECONDARY, fg=styles.TEXT_SECONDARY, anchor="w",
+        ).pack(side="left", padx=4, fill="x", expand=True)
+
+        # Scrollable area
+        container = tk.Frame(self, bg=styles.BG_PRIMARY)
+        container.pack(fill="both", expand=True, padx=styles.PAD, pady=(4, styles.PAD))
+
+        self._canvas = tk.Canvas(container, bg=styles.BG_PRIMARY, highlightthickness=0)
+        self._scrollbar = ttk.Scrollbar(container, orient="vertical", command=self._canvas.yview)
+        self._inner = tk.Frame(self._canvas, bg=styles.BG_PRIMARY)
+
+        self._inner.bind("<Configure>", lambda e: self._canvas.configure(scrollregion=self._canvas.bbox("all")))
+        self._canvas_window = self._canvas.create_window((0, 0), window=self._inner, anchor="nw")
+        self._canvas.configure(yscrollcommand=self._scrollbar.set)
+
+        self._scrollbar.pack(side="right", fill="y")
+        self._canvas.pack(fill="both", expand=True)
+
+        self._canvas.bind("<Configure>", self._on_canvas_configure)
+        # Bind mousewheel
+        self._canvas.bind("<Enter>", lambda e: self._bind_mousewheel())
+        self._canvas.bind("<Leave>", lambda e: self._unbind_mousewheel())
+
+    def _on_canvas_configure(self, event):
+        self._canvas.itemconfigure(self._canvas_window, width=event.width)
+
+    def _bind_mousewheel(self):
+        self._canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+
+    def _unbind_mousewheel(self):
+        self._canvas.unbind_all("<MouseWheel>")
+
+    def _on_mousewheel(self, event):
+        self._canvas.yview_scroll(-1 * (event.delta // 120 or event.delta), "units")
+
+    def load_cards(self, cards: list[CardResult]):
+        """Load card results into the review panel."""
+        self._cards = cards
+        self._selected_idx = -1
+        # Clear existing rows
+        for widget in self._inner.winfo_children():
+            widget.destroy()
+        self._rows.clear()
+
+        self._count_label.config(text=f"{len(cards)} cards")
+
+        for i, card in enumerate(cards):
+            self._create_row(i, card)
+
+    def _create_row(self, idx: int, card: CardResult):
+        bg = styles.BG_PRIMARY
+
+        row_frame = tk.Frame(self._inner, bg=bg, cursor="hand2")
+        row_frame.pack(fill="x", pady=1)
+
+        # Confidence dot
+        dot_color = styles.CONFIDENCE_COLORS.get(card.confidence.value, styles.TEXT_SECONDARY)
+        dot = tk.Canvas(row_frame, width=12, height=12, bg=bg, highlightthickness=0)
+        dot.create_oval(2, 2, 10, 10, fill=dot_color, outline="")
+        dot.pack(side="left", padx=(8, 4), pady=8)
+
+        # Filename label
+        fn_label = tk.Label(
+            row_frame, text=card.filename, font=styles.FONT_SMALL,
+            bg=bg, fg=styles.TEXT_PRIMARY, anchor="w", width=28,
+        )
+        fn_label.pack(side="left", padx=4, pady=4)
+
+        # Editable name entry
+        name_var = tk.StringVar(value=card.display_name)
+        name_entry = tk.Entry(
+            row_frame, textvariable=name_var, font=styles.FONT_BODY,
+            relief="flat", bg=styles.BG_SECONDARY,
+        )
+        name_entry.pack(side="left", padx=4, pady=4, fill="x", expand=True)
+        name_var.trace_add("write", lambda *a, i=idx, v=name_var: self._on_name_edit(i, v))
+
+        # Alternates dropdown
+        alt_values = card.alternates if card.alternates else []
+        alt_combo = ttk.Combobox(
+            row_frame, values=alt_values, font=styles.FONT_SMALL,
+            state="readonly" if alt_values else "disabled", width=14,
+        )
+        if alt_values:
+            alt_combo.set("Alternates")
+            alt_combo.bind("<<ComboboxSelected>>", lambda e, i=idx, c=alt_combo, v=name_var: self._on_alt_select(i, c, v))
+        alt_combo.pack(side="left", padx=4, pady=4)
+
+        # AI button
+        ai_btn = tk.Button(
+            row_frame, text="AI", font=styles.FONT_SMALL,
+            command=lambda i=idx: self._on_ai_request(i),
+            width=3,
+        )
+        ai_btn.pack(side="left", padx=(4, 8), pady=4)
+
+        row_data = {
+            "frame": row_frame,
+            "dot": dot,
+            "fn_label": fn_label,
+            "name_var": name_var,
+            "name_entry": name_entry,
+            "alt_combo": alt_combo,
+            "ai_btn": ai_btn,
+        }
+        self._rows.append(row_data)
+
+        # Click to select
+        for widget in [row_frame, dot, fn_label]:
+            widget.bind("<Button-1>", lambda e, i=idx: self._select_row(i))
+
+    def _select_row(self, idx: int):
+        # Deselect previous
+        if 0 <= self._selected_idx < len(self._rows):
+            prev = self._rows[self._selected_idx]
+            prev["frame"].configure(bg=styles.BG_PRIMARY)
+            prev["fn_label"].configure(bg=styles.BG_PRIMARY)
+            prev["dot"].configure(bg=styles.BG_PRIMARY)
+
+        self._selected_idx = idx
+        row = self._rows[idx]
+        row["frame"].configure(bg=styles.BG_SELECTED)
+        row["fn_label"].configure(bg=styles.BG_SELECTED)
+        row["dot"].configure(bg=styles.BG_SELECTED)
+
+        self._on_select(idx)
+
+    def _on_name_edit(self, idx: int, var: tk.StringVar):
+        if idx < len(self._cards):
+            self._cards[idx].manual_override = var.get()
+
+    def _on_alt_select(self, idx: int, combo: ttk.Combobox, var: tk.StringVar):
+        selected = combo.get()
+        if selected and selected != "Alternates":
+            var.set(selected)
+
+    def update_card(self, idx: int, card: CardResult):
+        """Update a single card's display after AI analysis."""
+        if idx >= len(self._rows):
+            return
+        self._cards[idx] = card
+        row = self._rows[idx]
+
+        # Update confidence dot
+        dot_color = styles.CONFIDENCE_COLORS.get(card.confidence.value, styles.TEXT_SECONDARY)
+        row["dot"].delete("all")
+        row["dot"].create_oval(2, 2, 10, 10, fill=dot_color, outline="")
+
+        # Update name
+        row["name_var"].set(card.display_name)
+
+        # Update alternates
+        if card.alternates:
+            row["alt_combo"]["values"] = card.alternates
+            row["alt_combo"]["state"] = "readonly"
+            row["alt_combo"].set("Alternates")
+        else:
+            row["alt_combo"]["values"] = []
+            row["alt_combo"]["state"] = "disabled"
+            row["alt_combo"].set("")
+
+    def get_cards(self) -> list[CardResult]:
+        """Return all cards with current edits applied."""
+        return self._cards
