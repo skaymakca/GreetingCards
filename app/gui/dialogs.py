@@ -218,14 +218,14 @@ class CompletionDialog(tk.Toplevel):
         self.transient(parent)
         self.grab_set()
 
-        w, h = 400, 200
+        w, h = 400, 180
         x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
         y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
         self.geometry(f"{w}x{h}+{x}+{y}")
         self.configure(bg=styles.BG_PRIMARY)
 
         content_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
-        content_frame.pack(expand=True, fill="both", padx=20, pady=20)
+        content_frame.pack(expand=True, fill="both", padx=20, pady=(20, 10))
 
         # Icon (if available)
         self._icon_ref = None
@@ -239,7 +239,7 @@ class CompletionDialog(tk.Toplevel):
                     content_frame, image=self._icon_ref,
                     bg=styles.BG_PRIMARY,
                 )
-                icon_label.pack(pady=(10, 15))
+                icon_label.pack(pady=(5, 12))
             except Exception:
                 pass  # Icon optional
 
@@ -249,14 +249,14 @@ class CompletionDialog(tk.Toplevel):
             bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
             justify="center", wraplength=350,
         )
-        msg_label.pack(pady=(0, 20))
+        msg_label.pack(pady=(0, 10))
 
         # OK button
-        ok_btn = tk.Button(
-            self, text="OK", font=styles.FONT_HEADING,
+        ok_btn = ttk.Button(
+            self, text="OK",
             command=self._close, width=10,
         )
-        ok_btn.pack(pady=(0, 20))
+        ok_btn.pack(pady=(0, 16))
 
         self.protocol("WM_DELETE_WINDOW", self._close)
         self.bind("<Return>", lambda e: self._close())
