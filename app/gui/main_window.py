@@ -466,13 +466,19 @@ class MainWindow:
         self._clear_btn.config(state="normal")
 
     def _clear_all(self):
-        """Clear all cards from the review and preview panels."""
+        """Clear all cards from the review and preview panels and unset folder."""
         self._cards = []
         self._review_panel.load_cards([])
         self._preview_panel.clear()
         self._rename_btn.config(state="disabled")
         self._ai_all_btn.config(state="disabled")
         self._clear_btn.config(state="disabled")
+        self._process_btn.config(state="disabled")
+        # Unset folder
+        self._folder = None
+        self._pdf_files = []
+        self._folder_var.set("No folder selected")
+        self._folder_label.config(fg=styles.TEXT_SECONDARY)
 
     def _on_name_change(self, idx: int, name: str):
         """Persist manual name edits to the database and update confidence dot."""
@@ -720,12 +726,8 @@ class MainWindow:
 
             messagebox.showinfo("Rename Complete", summary)
 
-            # Clear the screen and refresh file list
+            # Clear everything including folder
             self._clear_all()
-            if self._folder:
-                self._pdf_files = sorted(self._folder.glob("*.pdf"))
-                if self._pdf_files:
-                    self._process_btn.config(state="normal")
 
     def run(self):
         self.root.mainloop()
