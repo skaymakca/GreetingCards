@@ -16,6 +16,10 @@ from app.core.ocr_engine import extract_text_all_pages
 from app.core.name_extractor import extract_family_names
 from app.core.ai_analyzer import analyze_card_with_ai
 from app.core.renamer import build_rename_plan, execute_rename_plan
+from app.core.database import (
+    compute_file_hash, get_cached_name, save_name,
+    get_cached_ai_result, save_ai_result,
+)
 
 
 class MainWindow:
@@ -118,6 +122,7 @@ class MainWindow:
             main,
             on_select=self._on_card_select,
             on_ai_request=self._on_ai_request,
+            on_name_change=self._on_name_change,
         )
         main.add(self._review_panel, minsize=500, stretch="always")
 
@@ -179,21 +184,31 @@ class MainWindow:
         for i, pdf_path in enumerate(self._pdf_files):
             card = CardResult(pdf_path=pdf_path)
             try:
-                # Render pages
+                # Compute file hash for caching
+                card.file_hash = compute_file_hash(pdf_path)
+
+                # Check DB cache first
+                cached = get_cached_name(card.file_hash)
+                if cached:
+                    card.family_name = cached[0]
+                    card.confidence = Confidence.HIGH if cached[1] in ("ai", "manual") else Confidence.MEDIUM
+
+                # Always render preview
                 images = render_all_pages(pdf_path, dpi=200)
                 if images:
                     card.preview_image = images[0]
 
-                # OCR
-                ocr_text = extract_text_all_pages(images)
-                card.ocr_text = ocr_text
+                # Only run OCR if no cached name
+                if not cached:
+                    ocr_text = extract_text_all_pages(images)
+                    card.ocr_text = ocr_text
 
-                # Extract names
-                names = extract_family_names(ocr_text)
-                if names:
-                    card.family_name = names[0][0]
-                    card.confidence = names[0][1]
-                    card.alternates = [n for n, _ in names[1:]]
+                    names = extract_family_names(ocr_text)
+                    if names:
+                        card.family_name = names[0][0]
+                        card.confidence = names[0][1]
+                        card.alternates = [n for n, _ in names[1:]]
+                        save_name(card.file_hash, card.family_name, "ocr")
             except Exception as e:
                 card.ocr_text = f"Error: {e}"
                 card.confidence = Confidence.NONE
@@ -225,6 +240,13 @@ class MainWindow:
         self._ai_all_btn.config(state="disabled")
         self._clear_btn.config(state="disabled")
 
+    def _on_name_change(self, idx: int, name: str):
+        """Persist manual name edits to the database."""
+        if 0 <= idx < len(self._cards):
+            card = self._cards[idx]
+            if card.file_hash and name:
+                save_name(card.file_hash, name, "manual")
+
     def _on_card_select(self, idx: int):
         if 0 <= idx < len(self._cards):
             card = self._cards[idx]
@@ -251,13 +273,23 @@ class MainWindow:
 
     def _run_ai_analysis(self, idx: int, card: CardResult):
         try:
-            best_name, alternates = analyze_card_with_ai(card.preview_image)
+            # Check AI cache first
+            cached = get_cached_ai_result(card.file_hash) if card.file_hash else None
+            if cached:
+                best_name, alternates = cached
+            else:
+                best_name, alternates = analyze_card_with_ai(card.preview_image)
+                if card.file_hash:
+                    save_ai_result(card.file_hash, best_name, alternates)
+
             if best_name:
                 card.family_name = best_name
                 card.confidence = Confidence.HIGH
                 card.alternates = alternates
                 card.ai_analyzed = True
                 card.manual_override = ""
+                if card.file_hash:
+                    save_name(card.file_hash, best_name, "ai")
             else:
                 card.confidence = Confidence.NONE
                 card.ai_analyzed = True
@@ -291,13 +323,23 @@ class MainWindow:
                 self.root.after(0, self._update_ai_all_progress, i + 1, total, card.filename, i, None)
                 continue
             try:
-                best_name, alternates = analyze_card_with_ai(card.preview_image)
+                # Check AI cache first
+                cached = get_cached_ai_result(card.file_hash) if card.file_hash else None
+                if cached:
+                    best_name, alternates = cached
+                else:
+                    best_name, alternates = analyze_card_with_ai(card.preview_image)
+                    if card.file_hash:
+                        save_ai_result(card.file_hash, best_name, alternates)
+
                 if best_name:
                     card.family_name = best_name
                     card.confidence = Confidence.HIGH
                     card.alternates = alternates
                     card.ai_analyzed = True
                     card.manual_override = ""
+                    if card.file_hash:
+                        save_name(card.file_hash, best_name, "ai")
                 else:
                     card.ai_analyzed = True
             except Exception as e:

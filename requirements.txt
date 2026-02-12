@@ -17,6 +17,7 @@ PyMuPDF==1.27.1
 pytesseract==0.3.13
 python-dotenv==1.2.1
 sniffio==1.3.1
+SQLAlchemy==2.0.46
 tkinterdnd2==0.4.3
 typing-inspection==0.4.2
 typing_extensions==4.15.0

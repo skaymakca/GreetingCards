@@ -13,11 +13,13 @@ class ReviewPanel(tk.Frame):
         parent,
         on_select: Callable[[int], None],
         on_ai_request: Callable[[int], None],
+        on_name_change: Callable[[int, str], None] | None = None,
         **kwargs,
     ):
         super().__init__(parent, bg=styles.BG_PRIMARY, **kwargs)
         self._on_select = on_select
         self._on_ai_request = on_ai_request
+        self._on_name_change = on_name_change
         self._cards: list[CardResult] = []
         self._rows: list[dict] = []
         self._selected_idx: Optional[int] = -1
@@ -178,6 +180,8 @@ class ReviewPanel(tk.Frame):
     def _on_name_edit(self, idx: int, var: tk.StringVar):
         if idx < len(self._cards):
             self._cards[idx].manual_override = var.get()
+            if self._on_name_change:
+                self._on_name_change(idx, var.get())
 
     def _on_alt_select(self, idx: int, combo: ttk.Combobox, var: tk.StringVar):
         selected = combo.get()

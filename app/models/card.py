@@ -22,6 +22,7 @@ class CardResult:
     preview_image: Optional[Image.Image] = None
     manual_override: str = ""
     ai_analyzed: bool = False
+    file_hash: str = ""
 
     @property
     def display_name(self) -> str:
