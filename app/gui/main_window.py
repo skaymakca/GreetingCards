@@ -262,7 +262,7 @@ class MainWindow:
         if idx >= len(self._cards):
             return
         card = self._cards[idx]
-        if not card.preview_image:
+        if not card.page_images and not card.preview_image:
             messagebox.showwarning("No Image", "No preview image available for AI analysis.")
             return
 
@@ -281,7 +281,8 @@ class MainWindow:
             if cached:
                 best_name, alternates = cached
             else:
-                best_name, alternates = analyze_card_with_ai(card.preview_image)
+                ai_images = card.page_images or [card.preview_image]
+                best_name, alternates = analyze_card_with_ai(ai_images)
                 if card.file_hash:
                     save_ai_result(card.file_hash, best_name, alternates)
 
@@ -322,7 +323,7 @@ class MainWindow:
     def _run_ai_all(self):
         total = len(self._cards)
         for i, card in enumerate(self._cards):
-            if not card.preview_image:
+            if not card.page_images and not card.preview_image:
                 self.root.after(0, self._update_ai_all_progress, i + 1, total, card.filename, i, None)
                 continue
             try:
@@ -331,7 +332,8 @@ class MainWindow:
                 if cached:
                     best_name, alternates = cached
                 else:
-                    best_name, alternates = analyze_card_with_ai(card.preview_image)
+                    ai_images = card.page_images or [card.preview_image]
+                    best_name, alternates = analyze_card_with_ai(ai_images)
                     if card.file_hash:
                         save_ai_result(card.file_hash, best_name, alternates)
 
