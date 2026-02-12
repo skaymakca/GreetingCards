@@ -254,16 +254,14 @@ class CompletionDialog(tk.Toplevel):
         # OK button
         ok_btn = tk.Button(
             self, text="OK", font=styles.FONT_BODY,
-            command=self._close, width=10,
+            command=self._close, width=8,
+            highlightthickness=0,
         )
         ok_btn.pack(pady=(0, 16))
 
         self.protocol("WM_DELETE_WINDOW", self._close)
         self.bind("<Return>", lambda e: self._close())
         self.bind("<Escape>", lambda e: self._close())
-
-        # Focus the OK button
-        ok_btn.focus_set()
 
     def _close(self):
         self.grab_release()
