@@ -165,14 +165,14 @@ class ReviewPanel(tk.Frame):
         name_entry.bind("<Return>", lambda e: row_frame.focus_set())
         name_var.trace_add("write", lambda *a, i=idx, v=name_var: self._on_name_edit(i, v))
 
-        # Alternates dropdown
+        # Candidates dropdown
         alt_values = card.alternates if card.alternates else []
         alt_combo = ttk.Combobox(
             row_frame, values=alt_values, font=styles.FONT_SMALL,
             state="readonly" if alt_values else "disabled", width=14,
         )
         if alt_values:
-            alt_combo.set("Alternates")
+            alt_combo.set("Candidates")
             alt_combo.bind("<<ComboboxSelected>>", lambda e, i=idx, c=alt_combo, v=name_var: self._on_alt_select(i, c, v))
         alt_combo.pack(side="left", padx=4, pady=4)
 
@@ -231,7 +231,7 @@ class ReviewPanel(tk.Frame):
 
     def _on_alt_select(self, idx: int, combo: ttk.Combobox, var: tk.StringVar):
         selected = combo.get()
-        if selected and selected != "Alternates":
+        if selected and selected != "Candidates":
             # Suppress trace to avoid triggering _on_name_change
             self._suppress_trace = True
             var.set(selected)
@@ -287,7 +287,7 @@ class ReviewPanel(tk.Frame):
         if card.alternates:
             row["alt_combo"]["values"] = card.alternates
             row["alt_combo"]["state"] = "readonly"
-            row["alt_combo"].set("Alternates")
+            row["alt_combo"].set("Candidates")
         else:
             row["alt_combo"]["values"] = []
             row["alt_combo"]["state"] = "disabled"

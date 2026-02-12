@@ -151,7 +151,7 @@ def get_cached_name(file_hash: str) -> tuple[str, str, str, list[str]] | None:
     Returns (family_name, source, confidence, alternates) or None.
 
     Applies unified cleaning and filtering to all names loaded from DB.
-    Alternates include the primary name so user can reselect if needed.
+    Candidates include the primary name so user can reselect if needed.
     """
     session = get_session()
     try:
@@ -211,7 +211,7 @@ def get_cached_ai_result(file_hash: str) -> tuple[str, list[str]] | None:
     Returns (best_name, alternates) or None.
 
     Applies unified cleaning and filtering to all names loaded from DB.
-    Alternates include the primary name so user can reselect if needed.
+    Candidates include the primary name so user can reselect if needed.
     """
     session = get_session()
     try:
