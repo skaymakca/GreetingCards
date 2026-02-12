@@ -116,12 +116,43 @@ def compute_file_hash(path: Path) -> str:
     return h.hexdigest()
 
 
+def _clean_and_filter_names(names: list[str]) -> list[str]:
+    """Apply unified cleaning and filtering to a list of names.
+
+    This is the ONLY place where cleaning/filtering is applied.
+    Raw data is persisted in the DB and cleaned on load.
+    """
+    from app.core.ai_analyzer import clean_family_name
+
+    # Filter words that are not family names
+    FILTER_OUT = {
+        "unknown",  # AI response when uncertain
+        "snapfish",  # Card printing service
+        "shutterfly",  # Card printing service
+    }
+
+    cleaned = []
+    for name in names:
+        if not name:
+            continue
+        # Apply comprehensive cleaning
+        clean_name = clean_family_name(name)
+        # Filter out unwanted values
+        if clean_name and clean_name.lower() not in FILTER_OUT:
+            cleaned.append(clean_name)
+
+    return cleaned
+
+
 # --- Public API ---
 
 def get_cached_name(file_hash: str) -> tuple[str, str, str, list[str]] | None:
     """Get the most recent cached family name for a file hash.
-    Returns (family_name, source, confidence, alternates) or None."""
-    from app.core.ai_analyzer import clean_family_name
+    Returns (family_name, source, confidence, alternates) or None.
+
+    Applies unified cleaning and filtering to all names loaded from DB.
+    Alternates include the primary name so user can reselect if needed.
+    """
     session = get_session()
     try:
         row = (session.query(FileNameCache)
@@ -129,11 +160,18 @@ def get_cached_name(file_hash: str) -> tuple[str, str, str, list[str]] | None:
                .order_by(FileNameCache.updated_at.desc())
                .first())
         if row:
-            alternates = json.loads(row.alternates) if row.alternates else []
-            # Clean alternates when loading from DB to remove quotes/cruft
-            alternates = [clean_family_name(alt) for alt in alternates]
-            alternates = [alt for alt in alternates if alt]  # Remove empty strings
-            return row.family_name, row.source, row.confidence, alternates
+            # Load raw data from DB
+            raw_alternates = json.loads(row.alternates) if row.alternates else []
+            # Apply unified cleaning and filtering
+            all_names = [row.family_name] + raw_alternates
+            cleaned_names = _clean_and_filter_names(all_names)
+            # First cleaned name is the primary, rest are alternates
+            if cleaned_names:
+                family_name = cleaned_names[0]
+                alternates = cleaned_names[1:] if len(cleaned_names) > 1 else []
+                return family_name, row.source, row.confidence, alternates
+            # If cleaning filtered everything out, return empty
+            return "", row.source, row.confidence, []
         return None
     finally:
         session.close()
@@ -170,17 +208,27 @@ def save_name(file_hash: str, family_name: str, source: str, confidence: str = "
 
 def get_cached_ai_result(file_hash: str) -> tuple[str, list[str]] | None:
     """Get cached AI result for a file hash.
-    Returns (best_name, alternates) or None."""
-    from app.core.ai_analyzer import clean_family_name
+    Returns (best_name, alternates) or None.
+
+    Applies unified cleaning and filtering to all names loaded from DB.
+    Alternates include the primary name so user can reselect if needed.
+    """
     session = get_session()
     try:
         row = session.query(AIResultCache).filter_by(file_hash=file_hash).first()
         if row:
-            alternates = json.loads(row.alternates) if row.alternates else []
-            # Clean alternates when loading from DB to remove quotes/cruft
-            alternates = [clean_family_name(alt) for alt in alternates]
-            alternates = [alt for alt in alternates if alt]  # Remove empty strings
-            return row.best_name, alternates
+            # Load raw data from DB
+            raw_alternates = json.loads(row.alternates) if row.alternates else []
+            # Apply unified cleaning and filtering
+            all_names = [row.best_name] + raw_alternates
+            cleaned_names = _clean_and_filter_names(all_names)
+            # First cleaned name is the primary, rest are alternates
+            if cleaned_names:
+                best_name = cleaned_names[0]
+                alternates = cleaned_names[1:] if len(cleaned_names) > 1 else []
+                return best_name, alternates
+            # If cleaning filtered everything out, return empty
+            return "", []
         return None
     finally:
         session.close()

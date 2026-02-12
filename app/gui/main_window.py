@@ -391,16 +391,26 @@ class MainWindow:
                     save_ai_result(card.file_hash, best_name, alternates)
 
             if best_name:
+                # Save previous OCR family name before overwriting
+                ocr_family_name = card.family_name if not card.ai_analyzed else ""
+
                 card.family_name = best_name
                 card.confidence = Confidence.HIGH
-                # Combine AI alternates with existing OCR alternates
+                # Combine ALL candidates: AI best, AI alternates, OCR best, OCR alternates
+                # Union so user can reselect any if they change their mind
                 existing_alternates = card.alternates or []
+                all_candidates = [best_name] + alternates + existing_alternates
+                if ocr_family_name:
+                    all_candidates.append(ocr_family_name)
+
+                # Deduplicate while preserving order
                 combined = []
                 seen = set()
-                for name in alternates + existing_alternates:
-                    if name and name != best_name and name not in seen:
-                        seen.add(name)
+                for name in all_candidates:
+                    if name and name.lower() not in seen:
+                        seen.add(name.lower())
                         combined.append(name)
+
                 card.alternates = combined
                 card.ai_analyzed = True
                 card.manual_override = ""
@@ -452,16 +462,26 @@ class MainWindow:
                         save_ai_result(card.file_hash, best_name, alternates)
 
                 if best_name:
+                    # Save previous OCR family name before overwriting
+                    ocr_family_name = card.family_name if not card.ai_analyzed else ""
+
                     card.family_name = best_name
                     card.confidence = Confidence.HIGH
-                    # Combine AI alternates with existing OCR alternates
+                    # Combine ALL candidates: AI best, AI alternates, OCR best, OCR alternates
+                    # Union so user can reselect any if they change their mind
                     existing_alternates = card.alternates or []
+                    all_candidates = [best_name] + alternates + existing_alternates
+                    if ocr_family_name:
+                        all_candidates.append(ocr_family_name)
+
+                    # Deduplicate while preserving order
                     combined = []
                     seen = set()
-                    for name in alternates + existing_alternates:
-                        if name and name != best_name and name not in seen:
-                            seen.add(name)
+                    for name in all_candidates:
+                        if name and name.lower() not in seen:
+                            seen.add(name.lower())
                             combined.append(name)
+
                     card.alternates = combined
                     card.ai_analyzed = True
                     card.manual_override = ""

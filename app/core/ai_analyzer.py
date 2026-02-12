@@ -8,7 +8,10 @@ from app.core.config import get_api_key
 
 
 def clean_family_name(name: str) -> str:
-    """Clean up a family name by removing common unwanted patterns and quotes."""
+    """Clean up a family name by removing common unwanted patterns and quotes.
+
+    This is the unified cleaning function applied AFTER loading from DB.
+    """
     if not name:
         return ""
 
@@ -19,13 +22,14 @@ def clean_family_name(name: str) -> str:
     name = name.replace("The ", "").replace(" Family", "")
     name = name.replace("From: ", "").replace("Sent by: ", "")
 
-    # Remove all double quotes (straight and curly) and strip after each
-    name = re.sub(r'[""""]', '', name).strip()
+    # Remove ALL double quote variants (straight, curly, low-9, high-reversed-9)
+    # Covers: " (U+0022), " (U+201C), " (U+201D), „ (U+201E), ‟ (U+201F)
+    name = re.sub(r'["""\"\u201C\u201D\u201E\u201F]', '', name).strip()
 
     # Remove single quotes only at the start/end (not in middle like O'Brien)
-    # Handles both straight and curly quotes
-    name = re.sub(r"^[''\']+", "", name).strip()  # Leading single quotes
-    name = re.sub(r"[''\']+$", "", name).strip()  # Trailing single quotes
+    # Handles both straight and curly quotes: ' (U+0027), ' (U+2018), ' (U+2019)
+    name = re.sub(r"^[''\u2018\u2019]+", "", name).strip()  # Leading single quotes
+    name = re.sub(r"[''\u2018\u2019]+$", "", name).strip()  # Trailing single quotes
 
     # Final aggressive strip of any remaining punctuation at the ends
     name = name.strip('.,!;:-—–"\'"''""')
@@ -102,28 +106,27 @@ def analyze_card_with_ai(images: list[Image.Image] | Image.Image) -> tuple[str, 
     if response_text.upper() == "UNKNOWN":
         return "", []
 
-    # Parse lines and filter out non-name text
+    # Parse lines and do basic filtering
+    # NOTE: Comprehensive cleaning is applied AFTER loading from DB, not here
     lines = [line.strip() for line in response_text.split("\n") if line.strip()]
 
-    # Clean up each line - remove common prefixes/patterns
-    cleaned_lines = []
+    # Basic filtering to catch obvious non-name responses
+    filtered_lines = []
     for line in lines:
-        # Clean the line
-        line = clean_family_name(line)
-
         # Skip lines that are too long (likely explanatory text)
-        if len(line) > 30:
+        if len(line) > 50:
             continue
 
         # Skip lines with common explanation words
-        skip_words = ["shows", "appears", "page", "card", "signed", "written"]
+        skip_words = ["shows", "appears", "page", "card", "signed", "written", "seems"]
         if any(word in line.lower() for word in skip_words):
             continue
 
         if line:
-            cleaned_lines.append(line)
+            filtered_lines.append(line)
 
-    best = cleaned_lines[0] if cleaned_lines else ""
-    alternates = cleaned_lines[1:] if len(cleaned_lines) > 1 else []
+    # Return RAW results - cleaning happens in database.py when loading
+    best = filtered_lines[0] if filtered_lines else ""
+    alternates = filtered_lines[1:] if len(filtered_lines) > 1 else []
 
     return best, alternates

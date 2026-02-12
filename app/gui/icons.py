@@ -5,7 +5,7 @@ from __future__ import annotations
 import io
 from tkinter import PhotoImage
 
-_cache: dict[tuple[str, int, str], PhotoImage | None] = {}
+_cache: dict[tuple[str, int, str], PhotoImage | None] = {}  # Icon cache
 
 
 def load_sf_symbol(
