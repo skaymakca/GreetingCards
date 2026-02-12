@@ -7,6 +7,11 @@ help: ## Show this help message
 	@echo ""
 
 run: ## Run the app from source
+	@if [ -z "$$ANTHROPIC_API_KEY" ]; then \
+		echo "INFO: ANTHROPIC_API_KEY not set in environment"; \
+		echo "      AI features will prompt for API key or read from .env file"; \
+		echo ""; \
+	fi
 	.venv/bin/python main.py
 
 build: app ## Build the macOS .app bundle (alias for 'app')
