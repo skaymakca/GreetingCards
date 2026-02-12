@@ -7,6 +7,89 @@ from app.core.config import get_api_key, save_api_key
 from app.core.database import reset_database
 
 
+class ApiKeyPrompt(tk.Toplevel):
+    """Simple prompt for API key when needed for AI features."""
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("API Key Required")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set()
+
+        w, h = 420, 160
+        x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
+        y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
+        self.geometry(f"{w}x{h}+{x}+{y}")
+        self.configure(bg=styles.BG_PRIMARY)
+
+        self.result = None
+
+        # Message
+        tk.Label(
+            self, text="AI analysis requires an Anthropic API key.",
+            font=styles.FONT_BODY, bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
+        ).pack(pady=(20, 4), padx=20)
+
+        tk.Label(
+            self, text="Get one at: console.anthropic.com",
+            font=styles.FONT_SMALL, bg=styles.BG_PRIMARY, fg=styles.TEXT_SECONDARY,
+        ).pack(padx=20, pady=(0, 12))
+
+        # Key entry
+        key_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
+        key_frame.pack(fill="x", padx=20, pady=8)
+
+        tk.Label(
+            key_frame, text="API Key:", font=styles.FONT_BODY,
+            bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
+        ).pack(side="left", padx=(0, 8))
+
+        self._key_entry = tk.Entry(key_frame, font=styles.FONT_BODY, show="*", width=30)
+        self._key_entry.pack(side="left", fill="x", expand=True)
+        self._key_entry.focus_set()
+        self._key_entry.bind("<Return>", lambda e: self._save())
+
+        # Buttons
+        btn_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
+        btn_frame.pack(pady=(12, 20))
+
+        tk.Button(
+            btn_frame, text="Cancel", font=styles.FONT_BODY,
+            command=self._cancel, width=10,
+        ).pack(side="left", padx=4)
+
+        save_btn = ttk.Button(
+            btn_frame, text="Save",
+            command=self._save,
+        )
+        save_btn.pack(side="left", padx=4)
+
+        # Apply icon to save button
+        icon = load_sf_symbol("checkmark", 7, styles.TEXT_PRIMARY)
+        if icon:
+            self._save_icon = icon
+            save_btn.config(image=icon, compound="left")
+
+        self.protocol("WM_DELETE_WINDOW", self._cancel)
+        self.bind("<Escape>", lambda e: self._cancel())
+
+    def _save(self):
+        key = self._key_entry.get().strip()
+        if key:
+            save_api_key(key)
+            self.result = True
+            self.grab_release()
+            self.destroy()
+        else:
+            messagebox.showwarning("Empty Key", "Please enter an API key.", parent=self)
+
+    def _cancel(self):
+        self.result = False
+        self.grab_release()
+        self.destroy()
+
+
 class SettingsDialog(tk.Toplevel):
     """Settings window with API key management and database controls."""
 

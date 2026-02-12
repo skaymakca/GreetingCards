@@ -22,7 +22,7 @@ from app.core.database import (
     compute_file_hash, get_cached_name, save_name,
     get_cached_ai_result, save_ai_result,
 )
-from app.gui.settings_dialog import SettingsDialog
+from app.gui.settings_dialog import SettingsDialog, ApiKeyPrompt
 
 
 class MainWindow:
@@ -344,8 +344,9 @@ class MainWindow:
         """Check for an API key; prompt the user if missing. Returns True if a key is available."""
         if get_api_key():
             return True
-        self._show_settings()
-        return get_api_key() is not None
+        dialog = ApiKeyPrompt(self.root)
+        self.root.wait_window(dialog)
+        return dialog.result and get_api_key() is not None
 
     def _show_settings(self):
         dialog = SettingsDialog(self.root, on_db_reset=self._clear_all)
