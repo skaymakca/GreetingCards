@@ -20,7 +20,7 @@ icon: icon.png
 	@echo "Generated icon.icns"
 
 app: icon
-	.venv/bin/pyinstaller -y --windowed --name="Greeting Cards" --icon=icon.icns --collect-all tkinterdnd2 "Greeting Cards.spec"
+	.venv/bin/pyinstaller -y "Greeting Cards.spec"
 
 clean:
 	rm -rf build dist icon.iconset
