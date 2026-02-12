@@ -15,10 +15,10 @@ def add_entry_context_menu(entry: tk.Entry):
     # Load SF Symbol icons
     icons = {}
     icon_specs = {
-        "cut": ("scissors", 12),
-        "copy": ("doc.on.doc", 12),
-        "paste": ("doc.on.clipboard", 12),
-        "clear": ("xmark.circle", 12),
+        "cut": ("scissors", 7),
+        "copy": ("doc.on.doc", 7),
+        "paste": ("doc.on.clipboard", 7),
+        "clear": ("xmark.circle", 7),
     }
     for key, (symbol, size) in icon_specs.items():
         icon = load_sf_symbol(symbol, size, styles.TEXT_PRIMARY)
