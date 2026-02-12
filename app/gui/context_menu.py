@@ -69,7 +69,7 @@ def add_entry_context_menu(entry: tk.Entry):
     # Bind right-click (Button-2 on macOS, Button-3 on others)
     def show_menu(event):
         try:
-            menu.tk_call("tk_popup", menu, event.x_root, event.y_root)
+            menu.post(event.x_root, event.y_root)
         finally:
             menu.grab_release()
 
