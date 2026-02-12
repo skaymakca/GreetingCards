@@ -276,6 +276,11 @@ class MainWindow:
                     except ValueError:
                         card.confidence = Confidence.MEDIUM
 
+                    # Also check for AI results to populate alternates
+                    ai_cached = get_cached_ai_result(card.file_hash)
+                    if ai_cached:
+                        card.alternates = ai_cached[1]
+
                 # Always render preview
                 images = render_all_pages(pdf_path, dpi=200)
                 if images:
