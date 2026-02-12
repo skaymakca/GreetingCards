@@ -14,14 +14,16 @@
 - [ ] Add Help > About menu with version number and git commit hash
 
 ### Name Extraction
-- [ ] Add "Remove Family" option to candidates dropdown
-  - If name is "Smith Family", add "Smith" as a candidate
-  - If name is "Family Smith", add "Smith" as a candidate
+- [ ] Add "Remove Family" option to candidates as checkmark.  
+  - Persist in the db
+  - In this case the file name is just "Holiday Cards - $RESULT.pdf"
 
 ### Error Handling
 - [ ] Handle PDFs that can't be opened (corrupted/encrypted)
   - Show error icon/message in cards list
   - Don't crash on bad PDFs
+- [ ] Review file permissions issues and handle
+- [ ] Review API issues and handle
 
 ## Medium Priority
 
