@@ -206,6 +206,7 @@ class ReviewPanel(tk.Frame):
 
         self._selected_idx = idx
         row = self._rows[idx]
+        row["frame"].focus_set()
         row["frame"].configure(bg=styles.BG_SELECTED)
         row["fn_label"].configure(bg=styles.BG_SELECTED)
         row["dot"].configure(bg=styles.BG_SELECTED)

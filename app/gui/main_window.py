@@ -136,6 +136,7 @@ class MainWindow:
         self.root.bind("<Down>", self._on_key_down)
         self.root.bind("<Left>", self._on_key_left)
         self.root.bind("<Right>", self._on_key_right)
+        self.root.bind("<Escape>", self._on_escape)
 
     def _is_entry_focused(self) -> bool:
         """Check if focus is in a text entry widget (don't hijack typing)."""
@@ -165,6 +166,10 @@ class MainWindow:
         if self._is_entry_focused():
             return
         self._preview_panel._next_page()
+
+    def _on_escape(self, event):
+        """Defocus any text entry by shifting focus to the root window."""
+        self.root.focus_set()
 
     def _setup_drop_target(self):
         self.root.drop_target_register(DND_FILES)
