@@ -5,12 +5,12 @@
 - [x] Fix preview not matching sort order after filename sorting
 - [x] Remove Process button and auto-process on folder load
 - [x] Fix multiprocessing for app bundle
+- [x] Add File menu with Open (⌘O), Close Window (⌘W), Quit (⌘Q)
+- [x] Change main window title to "Greeting Cards"
 
 ## High Priority
 
 ### UI/UX Improvements
-- [ ] Add "Open..." to File menu with ⌘O keyboard shortcut
-- [ ] Change main window title (currently "Greeting Card Analyzer")
 - [ ] Add Help > About menu with version number and git commit hash
 
 ### Name Extraction
