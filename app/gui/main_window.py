@@ -607,7 +607,7 @@ class MainWindow:
 
     def _on_ai_request(self, card_id: int):
         card = self._cards_by_id.get(card_id)
-        if not card:
+        if not card or card.error:
             return
         if not self._ensure_api_key():
             return
@@ -701,7 +701,7 @@ class MainWindow:
 
         async def process_card(card_id: int, card: CardResult):
             nonlocal completed
-            if not card.page_images and not card.preview_image:
+            if card.error or (not card.page_images and not card.preview_image):
                 completed += 1
                 self.root.after(0, self._update_ai_all_progress, completed, total, card.filename, card_id, None)
                 return

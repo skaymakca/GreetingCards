@@ -6,7 +6,7 @@
 - [ ] Add Help > About menu with version number and git commit hash
 
 ### Error Handling
-- [ ] Review file permissions issues and handle
+- [ ] Review file reading/permissions issues and handle
 - [ ] Review API issues and handle - seperate handling for auth issues (reprompt) and network/other/load issues (stop)
 
 ## Medium Priority
