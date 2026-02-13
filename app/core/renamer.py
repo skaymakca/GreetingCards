@@ -14,12 +14,17 @@ def build_rename_plan(
 ) -> list[tuple[Path, Path, str]]:
     """
     Build a rename plan: list of (old_path, new_path, status).
-    Status is one of: 'ok', 'skip_no_name', 'skip_same', 'duplicate'.
+    Status is one of: 'ok', 'skip_no_name', 'skip_same', 'skip_error', 'duplicate'.
     """
     plan = []
     used_names: dict[str, int] = {}
 
     for card in cards:
+        if card.error:
+            plan.append((card.pdf_path, card.pdf_path, "skip_error"))
+            used_names[card.pdf_path.name.lower()] = 1
+            continue
+
         target_name = card.target_filename(year)
 
         if not target_name:
@@ -73,7 +78,12 @@ def execute_rename_plan(plan: list[tuple[Path, Path, str]]) -> list[tuple[Path, 
     results = []
     for old_path, new_path, status in plan:
         if status.startswith("skip"):
-            reason = "No name extracted" if status == "skip_no_name" else "Already named correctly"
+            if status == "skip_no_name":
+                reason = "No name extracted"
+            elif status == "skip_error":
+                reason = "Processing error"
+            else:
+                reason = "Already named correctly"
             results.append((old_path, new_path, True, reason))
             continue
 

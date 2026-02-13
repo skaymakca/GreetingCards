@@ -79,12 +79,15 @@ class RenameConfirmDialog(tk.Toplevel):
         # Summary counts
         ok_count = sum(1 for _, _, s in plan if s == "ok")
         dup_count = sum(1 for _, _, s in plan if s == "duplicate")
-        skip_count = sum(1 for _, _, s in plan if s.startswith("skip"))
+        error_count = sum(1 for _, _, s in plan if s == "skip_error")
+        skip_count = sum(1 for _, _, s in plan if s.startswith("skip") and s != "skip_error")
         summary = f"{ok_count} rename(s)"
         if dup_count:
             summary += f", {dup_count} duplicate(s)"
         if skip_count:
             summary += f", {skip_count} skipped"
+        if error_count:
+            summary += f", {error_count} error(s)"
 
         summary_label = tk.Label(
             self, text=summary, font=styles.FONT_BODY,
@@ -92,90 +95,56 @@ class RenameConfirmDialog(tk.Toplevel):
         )
         summary_label.pack(padx=15, anchor="w")
 
-        # Table header
+        # Treeview table with resizable columns
         table_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
         table_frame.pack(fill="both", expand=True, padx=15, pady=10)
 
-        col_header = tk.Frame(table_frame, bg=styles.BG_SECONDARY)
-        col_header.pack(fill="x")
-        col_header.columnconfigure(0, weight=1)
-        col_header.columnconfigure(1, weight=1)
-        col_header.columnconfigure(2, minsize=60)
-        tk.Label(
-            col_header, text="Original Filename", font=styles.FONT_SMALL,
-            bg=styles.BG_SECONDARY, fg=styles.TEXT_SECONDARY, anchor="w",
-        ).grid(row=0, column=0, sticky="w", padx=(8, 4))
-        tk.Label(
-            col_header, text="New Filename", font=styles.FONT_SMALL,
-            bg=styles.BG_SECONDARY, fg=styles.TEXT_SECONDARY, anchor="w",
-        ).grid(row=0, column=1, sticky="w", padx=(4, 4))
-        tk.Label(
-            col_header, text="Status", font=styles.FONT_SMALL,
-            bg=styles.BG_SECONDARY, fg=styles.TEXT_SECONDARY, anchor="w",
-        ).grid(row=0, column=2, sticky="w", padx=(4, 8))
+        style = ttk.Style()
+        style.configure(
+            "Rename.Treeview", font=styles.FONT_MONO, rowheight=26,
+            background=styles.BG_PRIMARY, fieldbackground=styles.BG_PRIMARY,
+            foreground=styles.TEXT_PRIMARY,
+        )
+        style.configure("Rename.Treeview.Heading", font=styles.FONT_SMALL)
+        # Remove default state maps so tag_configure colors take effect
+        style.map("Rename.Treeview", background=[], foreground=[])
 
-        # Scrollable table body
-        body_container = tk.Frame(table_frame, bg=styles.BG_PRIMARY)
-        body_container.pack(fill="both", expand=True)
+        tree = ttk.Treeview(
+            table_frame, columns=("original", "new_name", "status"),
+            show="headings", selectmode="none", style="Rename.Treeview",
+        )
+        tree.heading("original", text="Original Filename", anchor="w")
+        tree.heading("new_name", text="New Filename", anchor="w")
+        tree.heading("status", text="Status", anchor="w")
+        tree.column("original", width=270, minwidth=100, stretch=True)
+        tree.column("new_name", width=270, minwidth=100, stretch=True)
+        tree.column("status", width=70, minwidth=50, stretch=False)
 
-        canvas = tk.Canvas(body_container, bg=styles.BG_PRIMARY, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(body_container, orient="vertical", command=canvas.yview)
-        inner = tk.Frame(canvas, bg=styles.BG_PRIMARY)
-        inner.columnconfigure(0, weight=1)
-        inner.columnconfigure(1, weight=1)
-        inner.columnconfigure(2, minsize=60)
-        inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas_window = canvas.create_window((0, 0), window=inner, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-        canvas.bind("<Configure>", lambda e: canvas.itemconfigure(canvas_window, width=e.width))
+        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side="right", fill="y")
-        canvas.pack(fill="both", expand=True)
+        tree.pack(fill="both", expand=True)
 
-        # Bind mousewheel for native macOS scroll behavior
-        def on_mousewheel(e):
-            canvas.yview_scroll(-1 * (e.delta // 120 or e.delta), "units")
-
-        canvas.bind("<MouseWheel>", on_mousewheel)
-        inner.bind("<MouseWheel>", on_mousewheel)
-
+        # Row tags: combine status color with alternating background
         STATUS_LABELS = {
-            "ok": "",
-            "duplicate": "DUP",
-            "skip_no_name": "SKIP",
-            "skip_same": "SAME",
+            "ok": "OK", "duplicate": "DUP",
+            "skip_no_name": "SKIP", "skip_same": "SAME", "skip_error": "ERROR",
         }
+        STATUS_FG = {
+            "ok": styles.SUCCESS, "duplicate": styles.TEXT_PRIMARY,
+            "skip_no_name": styles.TEXT_SECONDARY, "skip_same": styles.TEXT_SECONDARY,
+            "skip_error": styles.ERROR,
+        }
+        for status_key, fg in STATUS_FG.items():
+            tree.tag_configure(f"{status_key}_even", foreground=fg, background=styles.BG_PRIMARY)
+            tree.tag_configure(f"{status_key}_odd", foreground=fg, background=styles.BG_SECONDARY)
 
         for i, (old_path, new_path, status) in enumerate(plan):
-            row_bg = styles.BG_PRIMARY if i % 2 == 0 else styles.BG_SECONDARY
-
-            old_label = tk.Label(
-                inner, text=old_path.name, font=styles.FONT_MONO, anchor="w",
-                bg=row_bg, fg=styles.TEXT_PRIMARY,
-            )
-            old_label.grid(row=i, column=0, sticky="ew", padx=(8, 4), pady=1)
-            old_label.bind("<MouseWheel>", on_mousewheel)
-
-            new_name = new_path.name if status not in ("skip_no_name", "skip_same") else "-"
-            new_fg = styles.TEXT_PRIMARY if status in ("ok", "duplicate") else styles.TEXT_SECONDARY
-            new_label = tk.Label(
-                inner, text=new_name, font=styles.FONT_MONO, anchor="w",
-                bg=row_bg, fg=new_fg,
-            )
-            new_label.grid(row=i, column=1, sticky="ew", padx=(4, 4), pady=1)
-            new_label.bind("<MouseWheel>", on_mousewheel)
-
+            new_name = new_path.name if status not in ("skip_no_name", "skip_same", "skip_error") else "-"
             status_text = STATUS_LABELS.get(status, status)
-            status_fg = styles.TEXT_SECONDARY
-            if status == "duplicate":
-                status_fg = styles.WARNING
-            elif status.startswith("skip"):
-                status_fg = styles.TEXT_SECONDARY
-            status_label = tk.Label(
-                inner, text=status_text, font=styles.FONT_SMALL, anchor="w",
-                bg=row_bg, fg=status_fg,
-            )
-            status_label.grid(row=i, column=2, sticky="w", padx=(4, 8), pady=1)
-            status_label.bind("<MouseWheel>", on_mousewheel)
+            parity = "even" if i % 2 == 0 else "odd"
+            tag = f"{status}_{parity}"
+            tree.insert("", "end", values=(old_path.name, new_name, status_text), tags=(tag,))
 
         # Buttons
         btn_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
@@ -209,47 +178,96 @@ class RenameConfirmDialog(tk.Toplevel):
 
 
 class CompletionDialog(tk.Toplevel):
-    """Dialog showing completion message with app icon."""
+    """Dialog showing rename results in a structured table."""
 
-    def __init__(self, parent, title: str, message: str, icon_path: Path | None = None):
+    def __init__(self, parent, title: str, results: list[tuple[Path, Path, bool, str]]):
         super().__init__(parent)
         self.title(title)
-        self.resizable(False, False)
+        self.resizable(True, True)
         self.transient(parent)
         self.grab_set()
 
-        w, h = 400, 210
+        w, h = 650, 420
         x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
         y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
         self.geometry(f"{w}x{h}+{x}+{y}")
         self.configure(bg=styles.BG_PRIMARY)
 
-        content_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
-        content_frame.pack(expand=True, fill="both", padx=20, pady=(20, 10))
+        # Compute counts
+        renamed = sum(1 for _, _, ok, msg in results if ok and msg == "Renamed")
+        skipped = sum(1 for _, _, ok, msg in results if ok and msg != "Renamed")
+        errors = sum(1 for _, _, ok, _ in results if not ok)
 
-        # Icon (if available)
-        self._icon_ref = None
-        if icon_path and icon_path.exists():
-            try:
-                from PIL import Image, ImageTk
-                img = Image.open(icon_path)
-                img = img.resize((64, 64), Image.Resampling.LANCZOS)
-                self._icon_ref = ImageTk.PhotoImage(img)
-                icon_label = tk.Label(
-                    content_frame, image=self._icon_ref,
-                    bg=styles.BG_PRIMARY,
-                )
-                icon_label.pack(pady=(5, 12))
-            except Exception:
-                pass  # Icon optional
+        # Summary header
+        header_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
+        header_frame.pack(fill="x", padx=15, pady=(15, 5))
 
-        # Message
-        msg_label = tk.Label(
-            content_frame, text=message, font=styles.FONT_BODY,
+        if errors:
+            symbol = "\u26A0"
+            symbol_color = styles.ERROR
+        else:
+            symbol = "\u2713"
+            symbol_color = styles.SUCCESS
+
+        tk.Label(
+            header_frame, text=symbol, font=(styles.FONT_FAMILY, 20),
+            bg=styles.BG_PRIMARY, fg=symbol_color,
+        ).pack(side="left", padx=(0, 8))
+
+        counts = f"{renamed} renamed, {skipped} skipped"
+        if errors:
+            counts += f", {errors} failed"
+        tk.Label(
+            header_frame, text=counts, font=styles.FONT_HEADING,
             bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
-            justify="center", wraplength=350,
+        ).pack(side="left")
+
+        # Filter to only renamed and error rows (skip rows already shown in confirm dialog)
+        visible = [(old, new, ok, msg) for old, new, ok, msg in results
+                    if not ok or msg == "Renamed"]
+
+        # Treeview table with resizable columns
+        table_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
+        table_frame.pack(fill="both", expand=True, padx=15, pady=10)
+
+        style = ttk.Style()
+        style.configure(
+            "Complete.Treeview", font=styles.FONT_MONO, rowheight=26,
+            background=styles.BG_PRIMARY, fieldbackground=styles.BG_PRIMARY,
+            foreground=styles.TEXT_PRIMARY,
         )
-        msg_label.pack(pady=(0, 10))
+        style.configure("Complete.Treeview.Heading", font=styles.FONT_SMALL)
+        style.map("Complete.Treeview", background=[], foreground=[])
+
+        tree = ttk.Treeview(
+            table_frame, columns=("filename", "result"),
+            show="headings", selectmode="none", style="Complete.Treeview",
+        )
+        tree.heading("filename", text="Filename", anchor="w")
+        tree.heading("result", text="Result", anchor="w")
+        tree.column("filename", width=500, minwidth=150, stretch=True)
+        tree.column("result", width=70, minwidth=50, stretch=False)
+
+        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        tree.pack(fill="both", expand=True)
+
+        # Row tags
+        for parity in ("even", "odd"):
+            bg = styles.BG_PRIMARY if parity == "even" else styles.BG_SECONDARY
+            tree.tag_configure(f"ok_{parity}", foreground=styles.SUCCESS, background=bg)
+            tree.tag_configure(f"error_{parity}", foreground=styles.ERROR, background=bg)
+            tree.tag_configure(f"detail_{parity}", foreground=styles.ERROR, background=bg)
+
+        for i, (old_path, new_path, ok, msg) in enumerate(visible):
+            parity = "even" if i % 2 == 0 else "odd"
+            display_name = new_path.name if ok else old_path.name
+            if ok:
+                tree.insert("", "end", values=(display_name, "OK"), tags=(f"ok_{parity}",))
+            else:
+                tree.insert("", "end", values=(display_name, "ERROR"), tags=(f"error_{parity}",))
+                tree.insert("", "end", values=(f"    {msg}", ""), tags=(f"detail_{parity}",))
 
         # OK button
         ok_btn = tk.Button(
@@ -257,7 +275,7 @@ class CompletionDialog(tk.Toplevel):
             command=self._close, width=8,
             highlightthickness=0,
         )
-        ok_btn.pack(pady=(0, 16))
+        ok_btn.pack(pady=(0, 15))
 
         self.protocol("WM_DELETE_WINDOW", self._close)
         self.bind("<Return>", lambda e: self._close())
