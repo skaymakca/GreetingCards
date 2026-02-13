@@ -2,6 +2,13 @@ from pathlib import Path
 from app.models.card import CardResult
 
 
+def _is_same_file(a: Path, b: Path) -> bool:
+    try:
+        return a.samefile(b)
+    except (OSError, ValueError):
+        return False
+
+
 def build_rename_plan(
     cards: list[CardResult], year: str
 ) -> list[tuple[Path, Path, str]]:
@@ -17,12 +24,14 @@ def build_rename_plan(
 
         if not target_name:
             plan.append((card.pdf_path, card.pdf_path, "skip_no_name"))
+            used_names[card.pdf_path.name.lower()] = 1
             continue
 
         new_path = card.pdf_path.parent / target_name
 
-        if new_path == card.pdf_path:
+        if new_path == card.pdf_path or _is_same_file(new_path, card.pdf_path):
             plan.append((card.pdf_path, new_path, "skip_same"))
+            used_names[target_name.lower()] = 1
             continue
 
         # Handle duplicates
@@ -41,7 +50,7 @@ def build_rename_plan(
         else:
             used_names[key] = 1
             # Check if file already exists on disk
-            if new_path.exists() and new_path != card.pdf_path:
+            if new_path.exists() and not _is_same_file(new_path, card.pdf_path):
                 used_names[key] += 1
                 stem = new_path.stem
                 suffix = new_path.suffix

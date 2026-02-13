@@ -2,9 +2,6 @@
 
 ## High Priority
 
-### Core
-- [ ] Check for dupes that are only different by case sensitivity Macintosh vs MacIntosh shouldn't trigger a dupe and (x) appending
-
 ### UI/UX Improvements
 - [ ] Add Help > About menu with version number and git commit hash
 
@@ -52,6 +49,7 @@
 - [x] Add "Remove Family" option to candidates as checkmark.
   - Persist in the db
   - In this case the file name is just "Holiday Cards - $RESULT.pdf"
+- [x] Fix case-insensitive duplicate detection (Macintosh vs MacIntosh no longer triggers false dupe)
 
 ---
 
