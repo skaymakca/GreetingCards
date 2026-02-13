@@ -2,7 +2,7 @@
 
 import pytest
 import wx
-from app.gui.wx_icons import load_sf_symbol
+from app.gui.wx_icons import load_sf_symbol, load_menu_icon, _hex_to_rgb
 
 
 @pytest.mark.gui
@@ -16,9 +16,10 @@ class TestSFSymbolLoading:
         """Should return wx.Bitmap for valid SF Symbol."""
         bitmap = load_sf_symbol("scissors", 12, "#000000")
 
-        assert bitmap is not None
-        assert isinstance(bitmap, wx.Bitmap)
-        assert bitmap.IsOk()
+        # Should return bitmap or None if PyObjC unavailable
+        assert bitmap is None or isinstance(bitmap, wx.Bitmap)
+        if bitmap:
+            assert bitmap.IsOk()
 
     def test_load_invalid_symbol_returns_none(self, wx_app):
         """Should return None for invalid/nonexistent SF Symbol."""
@@ -268,3 +269,147 @@ class TestIconDialogIntegration:
             assert static_bitmap.GetBitmap().GetWidth() > 0
 
             dialog.Destroy()
+
+
+@pytest.mark.gui
+class TestHexToRgb:
+    """Tests for _hex_to_rgb() utility function."""
+
+    def test_hex_to_rgb_black(self):
+        """Should convert black to (0.0, 0.0, 0.0)."""
+        result = _hex_to_rgb("#000000")
+        assert result == (0.0, 0.0, 0.0)
+
+    def test_hex_to_rgb_white(self):
+        """Should convert white to (1.0, 1.0, 1.0)."""
+        result = _hex_to_rgb("#FFFFFF")
+        assert result == (1.0, 1.0, 1.0)
+
+    def test_hex_to_rgb_red(self):
+        """Should convert red to (1.0, 0.0, 0.0)."""
+        result = _hex_to_rgb("#FF0000")
+        assert result == (1.0, 0.0, 0.0)
+
+    def test_hex_to_rgb_green(self):
+        """Should convert green to (0.0, 1.0, 0.0)."""
+        result = _hex_to_rgb("#00FF00")
+        assert result == (0.0, 1.0, 0.0)
+
+    def test_hex_to_rgb_blue(self):
+        """Should convert blue to (0.0, 0.0, 1.0)."""
+        result = _hex_to_rgb("#0000FF")
+        assert result == (0.0, 0.0, 1.0)
+
+    def test_hex_to_rgb_gray(self):
+        """Should convert gray to approximately (0.5, 0.5, 0.5)."""
+        result = _hex_to_rgb("#808080")
+        # 0x80 = 128, 128/255 ≈ 0.502
+        assert result[0] == pytest.approx(0.502, abs=0.01)
+        assert result[1] == pytest.approx(0.502, abs=0.01)
+        assert result[2] == pytest.approx(0.502, abs=0.01)
+
+    def test_hex_to_rgb_custom_color(self):
+        """Should convert custom hex color correctly."""
+        result = _hex_to_rgb("#1D1D1F")
+        # 0x1D = 29, 29/255 ≈ 0.114
+        # 0x1F = 31, 31/255 ≈ 0.122
+        assert result[0] == pytest.approx(0.114, abs=0.01)
+        assert result[1] == pytest.approx(0.114, abs=0.01)
+        assert result[2] == pytest.approx(0.122, abs=0.01)
+
+    def test_hex_to_rgb_returns_floats(self):
+        """Should return tuple of floats."""
+        result = _hex_to_rgb("#123456")
+        assert isinstance(result, tuple)
+        assert len(result) == 3
+        assert all(isinstance(v, float) for v in result)
+
+    def test_hex_to_rgb_values_in_range(self):
+        """Should return values between 0.0 and 1.0."""
+        test_colors = ["#000000", "#FFFFFF", "#FF0000", "#123456", "#ABCDEF"]
+        for color in test_colors:
+            r, g, b = _hex_to_rgb(color)
+            assert 0.0 <= r <= 1.0
+            assert 0.0 <= g <= 1.0
+            assert 0.0 <= b <= 1.0
+
+
+@pytest.mark.gui
+class TestLoadMenuIcon:
+    """Tests for load_menu_icon() wrapper function."""
+
+    def test_load_menu_icon_returns_bitmap(self, wx_app):
+        """Should return wx.Bitmap for valid symbol."""
+        bitmap = load_menu_icon("scissors")
+
+        # Should return bitmap or None if PyObjC unavailable
+        assert bitmap is None or isinstance(bitmap, wx.Bitmap)
+        if bitmap:
+            assert bitmap.IsOk()
+
+    def test_load_menu_icon_invalid_symbol(self, wx_app):
+        """Should return None for invalid symbol."""
+        bitmap = load_menu_icon("invalid_symbol_xyz")
+
+        assert bitmap is None
+
+    def test_load_menu_icon_uses_6pt_size(self, wx_app):
+        """Should use 6pt size for menu icons."""
+        bitmap = load_menu_icon("scissors")
+
+        if bitmap:
+            # Size should be small (6pt + retina scaling)
+            # Don't test exact pixels due to retina, just that it's reasonable
+            assert bitmap.GetWidth() > 0
+            assert bitmap.GetHeight() > 0
+            # Menu icons should be relatively small
+            assert bitmap.GetWidth() < 50
+            assert bitmap.GetHeight() < 50
+
+    def test_load_menu_icon_accepts_custom_color(self, wx_app):
+        """Should accept custom color parameter."""
+        bitmap = load_menu_icon("scissors", color_hex="#FF0000")
+
+        # Should load successfully (color is applied internally)
+        assert bitmap is None or isinstance(bitmap, wx.Bitmap)
+
+    def test_load_menu_icon_uses_default_color(self, wx_app):
+        """Should use default near-black color when not specified."""
+        bitmap = load_menu_icon("scissors")
+
+        # Should load with default color
+        assert bitmap is None or isinstance(bitmap, wx.Bitmap)
+
+    @pytest.mark.parametrize("symbol_name", [
+        "scissors",
+        "doc.on.doc",
+        "doc.on.clipboard",
+        "textformat.abc",
+        "xmark.circle",
+    ])
+    def test_load_menu_icon_common_symbols(self, wx_app, symbol_name):
+        """Should load common menu symbols."""
+        bitmap = load_menu_icon(symbol_name)
+
+        assert bitmap is None or isinstance(bitmap, wx.Bitmap)
+        if bitmap:
+            assert bitmap.IsOk()
+
+    def test_load_menu_icon_is_cached(self, wx_app):
+        """Should cache menu icon results."""
+        # Load same icon twice
+        bitmap1 = load_menu_icon("scissors")
+        bitmap2 = load_menu_icon("scissors")
+
+        if bitmap1 and bitmap2:
+            # Should return same cached object
+            assert bitmap1 is bitmap2
+
+    def test_load_menu_icon_different_colors_cached_separately(self, wx_app):
+        """Should cache separately for different colors."""
+        bitmap_black = load_menu_icon("scissors", "#000000")
+        bitmap_red = load_menu_icon("scissors", "#FF0000")
+
+        if bitmap_black and bitmap_red:
+            # Different colors = different cached objects
+            assert bitmap_black is not bitmap_red

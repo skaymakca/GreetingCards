@@ -30,6 +30,94 @@ def _hex_to_rgb(color_hex: str) -> tuple[float, float, float]:
     return r, g, b
 
 
+def _render_sf_symbol_to_png(
+    name: str,
+    point_size: int,
+    color_hex: str,
+    scale: int
+) -> bytes | None:
+    """Render SF Symbol to PNG bytes (shared implementation).
+
+    Args:
+        name: SF Symbol name
+        point_size: Icon size in points
+        color_hex: Hex color string
+        scale: NSImageSymbolScale (1=Small, 2=Medium, 3=Large)
+
+    Returns:
+        PNG bytes or None if rendering fails
+    """
+    try:
+        from AppKit import (
+            NSImage,
+            NSImageSymbolConfiguration,
+            NSBitmapImageRep,
+            NSColor,
+            NSGraphicsContext,
+            NSCompositingOperationSourceOver,
+            NSPNGFileType,
+            NSScreen,
+        )
+        from Foundation import NSSize, NSRect, NSPoint
+
+        # Load the SF Symbol
+        image = NSImage.imageWithSystemSymbolName_accessibilityDescription_(name, None)
+        if image is None:
+            return None
+
+        # Build size config
+        size_config = NSImageSymbolConfiguration.configurationWithPointSize_weight_scale_(
+            point_size, _NS_FONT_WEIGHT_MEDIUM, scale
+        )
+
+        # Build color config from hex
+        r, g, b = _hex_to_rgb(color_hex)
+        ns_color = NSColor.colorWithSRGBRed_green_blue_alpha_(r, g, b, 1.0)
+        color_config = NSImageSymbolConfiguration.configurationWithHierarchicalColor_(ns_color)
+
+        # Combine configs and apply
+        combined = size_config.configurationByApplyingConfiguration_(color_config)
+        styled = image.imageWithSymbolConfiguration_(combined)
+        if styled is None:
+            styled = image
+
+        # Get point size and screen scale factor for Retina support
+        sz = styled.size()
+        pt_w, pt_h = int(sz.width), int(sz.height)
+        if pt_w == 0 or pt_h == 0:
+            return None
+
+        screen = NSScreen.mainScreen()
+        render_scale = int(screen.backingScaleFactor()) if screen else _DEFAULT_RETINA_SCALE
+        px_w, px_h = pt_w * render_scale, pt_h * render_scale
+
+        # Create bitmap at native pixel resolution
+        rep = NSBitmapImageRep.alloc().initWithBitmapDataPlanes_pixelsWide_pixelsHigh_bitsPerSample_samplesPerPixel_hasAlpha_isPlanar_colorSpaceName_bytesPerRow_bitsPerPixel_(
+            None, px_w, px_h, 8, 4, True, False, "NSCalibratedRGBColorSpace", 0, 0
+        )
+        rep.setSize_(NSSize(pt_w, pt_h))
+
+        ctx = NSGraphicsContext.graphicsContextWithBitmapImageRep_(rep)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.setCurrentContext_(ctx)
+        ctx.setImageInterpolation_(_NS_IMAGE_INTERPOLATION_HIGH)
+
+        styled.drawInRect_fromRect_operation_fraction_(
+            NSRect(NSPoint(0, 0), NSSize(pt_w, pt_h)),
+            NSRect(NSPoint(0, 0), NSSize(0, 0)),  # entire image
+            NSCompositingOperationSourceOver,
+            1.0,
+        )
+        NSGraphicsContext.restoreGraphicsState()
+
+        # Convert to PNG bytes
+        png_data = rep.representationUsingType_properties_(NSPNGFileType, None)
+        return bytes(png_data) if png_data else None
+
+    except (ImportError, AttributeError, RuntimeError):
+        return None
+
+
 def load_menu_icon(name: str, color_hex: str = "#1D1D1F") -> wx.Bitmap | None:
     """Load SF Symbol optimized for context/popup menus.
 
@@ -43,6 +131,53 @@ def load_menu_icon(name: str, color_hex: str = "#1D1D1F") -> wx.Bitmap | None:
         wx.Bitmap with the rendered symbol, or None if unavailable
     """
     return load_sf_symbol(name, point_size=6, color_hex=color_hex, scale=1)
+
+
+def load_cursor_from_symbol(
+    name: str,
+    point_size: int = 20,
+    color_hex: str = "#1D1D1F",
+    hotspot_x: int | None = None,
+    hotspot_y: int | None = None
+) -> wx.Cursor | None:
+    """Load SF Symbol as a wx.Cursor for use as mouse cursor.
+
+    Args:
+        name: SF Symbol name (e.g., "plus.magnifyingglass")
+        point_size: Size in points (default 20 for good visibility)
+        color_hex: Hex color string (default black)
+        hotspot_x: Click hotspot X (defaults to center)
+        hotspot_y: Click hotspot Y (defaults to center)
+
+    Returns:
+        wx.Cursor object or None if loading fails
+    """
+    try:
+        # Render SF Symbol to PNG using shared implementation
+        png_bytes = _render_sf_symbol_to_png(name, point_size, color_hex, _NS_IMAGE_SYMBOL_SCALE_MEDIUM)
+        if not png_bytes:
+            return None
+
+        # Create wx.Image from PNG bytes
+        wx_image = wx.Image(io.BytesIO(png_bytes), wx.BITMAP_TYPE_PNG)
+        if not wx_image.IsOk():
+            return None
+
+        # Set hotspot (click position) - default to center if not specified
+        if hotspot_x is None or hotspot_y is None:
+            hotspot_x = wx_image.GetWidth() // 2
+            hotspot_y = wx_image.GetHeight() // 2
+
+        wx_image.SetOption(wx.IMAGE_OPTION_CUR_HOTSPOT_X, hotspot_x)
+        wx_image.SetOption(wx.IMAGE_OPTION_CUR_HOTSPOT_Y, hotspot_y)
+
+        # Create cursor from image
+        return wx.Cursor(wx_image)
+
+    except Exception as e:
+        # Log error and return None for fallback
+        print(f"Warning: Failed to load cursor from SF Symbol '{name}': {e}")
+        return None
 
 
 def load_sf_symbol(
@@ -66,95 +201,18 @@ def load_sf_symbol(
     if key in _cache:
         return _cache[key]
 
-    try:
-        from AppKit import (
-            NSImage,
-            NSImageSymbolConfiguration,
-            NSBitmapImageRep,
-            NSColor,
-            NSGraphicsContext,
-            NSCompositingOperationSourceOver,
-            NSPNGFileType,
-            NSScreen,
-        )
-        from Foundation import NSSize, NSRect, NSPoint
-
-        # Load the SF Symbol
-        image = NSImage.imageWithSystemSymbolName_accessibilityDescription_(name, None)
-        if image is None:
-            _cache[key] = None
-            return None
-
-        # Build size config
-        size_config = NSImageSymbolConfiguration.configurationWithPointSize_weight_scale_(
-            point_size, _NS_FONT_WEIGHT_MEDIUM, scale
-        )
-
-        # Build color config from hex
-        r, g, b = _hex_to_rgb(color_hex)
-        ns_color = NSColor.colorWithSRGBRed_green_blue_alpha_(r, g, b, 1.0)
-        color_config = NSImageSymbolConfiguration.configurationWithHierarchicalColor_(ns_color)
-
-        # Combine configs and apply
-        combined = size_config.configurationByApplyingConfiguration_(color_config)
-        styled = image.imageWithSymbolConfiguration_(combined)
-        if styled is None:
-            styled = image
-
-        # Get point size and screen scale factor for Retina support
-        sz = styled.size()
-        pt_w, pt_h = int(sz.width), int(sz.height)
-        if pt_w == 0 or pt_h == 0:
-            _cache[key] = None
-            return None
-
-        screen = NSScreen.mainScreen()
-        render_scale = int(screen.backingScaleFactor()) if screen else _DEFAULT_RETINA_SCALE
-        px_w, px_h = pt_w * render_scale, pt_h * render_scale
-
-        # Create bitmap at native pixel resolution
-        rep = NSBitmapImageRep.alloc().initWithBitmapDataPlanes_pixelsWide_pixelsHigh_bitsPerSample_samplesPerPixel_hasAlpha_isPlanar_colorSpaceName_bytesPerRow_bitsPerPixel_(
-            None, px_w, px_h, 8, 4, True, False, "NSCalibratedRGBColorSpace", 0, 0
-        )
-        # Set the rep's point size so drawing scales up into the larger pixel buffer
-        rep.setSize_(NSSize(pt_w, pt_h))
-
-        ctx = NSGraphicsContext.graphicsContextWithBitmapImageRep_(rep)
-        NSGraphicsContext.saveGraphicsState()
-        NSGraphicsContext.setCurrentContext_(ctx)
-
-        # Use high quality interpolation for smooth rendering
-        ctx.setImageInterpolation_(_NS_IMAGE_INTERPOLATION_HIGH)
-
-        styled.drawInRect_fromRect_operation_fraction_(
-            NSRect(NSPoint(0, 0), NSSize(pt_w, pt_h)),
-            NSRect(NSPoint(0, 0), NSSize(0, 0)),  # entire image
-            NSCompositingOperationSourceOver,
-            1.0,
-        )
-        NSGraphicsContext.restoreGraphicsState()
-
-        # Convert to PNG bytes then wx.Bitmap
-        png_data = rep.representationUsingType_properties_(NSPNGFileType, None)
-        if png_data is None:
-            _cache[key] = None
-            return None
-
-        png_bytes = bytes(png_data)
-
-        # Convert PNG bytes to wx.Bitmap directly via wx.Image
-        wx_img = wx.Image(io.BytesIO(png_bytes))
-        if not wx_img.IsOk():
-            _cache[key] = None
-            return None
-        bitmap = wx.Bitmap(wx_img)
-
-        _cache[key] = bitmap
-        return bitmap
-
-    except (ImportError, AttributeError, RuntimeError):
-        # ImportError: PyObjC not available
-        # AttributeError: NSImage/AppKit API issues
-        # RuntimeError: Image rendering failures
+    # Render SF Symbol to PNG using shared implementation
+    png_bytes = _render_sf_symbol_to_png(name, point_size, color_hex, scale)
+    if not png_bytes:
         _cache[key] = None
         return None
+
+    # Convert PNG bytes to wx.Bitmap
+    wx_img = wx.Image(io.BytesIO(png_bytes))
+    if not wx_img.IsOk():
+        _cache[key] = None
+        return None
+
+    bitmap = wx.Bitmap(wx_img)
+    _cache[key] = bitmap
+    return bitmap
