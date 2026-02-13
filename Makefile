@@ -1,4 +1,4 @@
-.PHONY: help run app build clean icon loc version bump-patch bump-minor bump-major tag
+.PHONY: help run app build clean icon loc version bump-patch bump-minor bump-major tag tag-push
 
 help: ## Show this help message
 	@echo "Greeting Cards - Available make commands:"
@@ -71,6 +71,9 @@ bump-major: ## Bump major version (0.6.0 → 1.0.0)
 tag: ## Create git tag vX.Y.Z from current version
 	@v=$$(python3 -c "from app.version import __version__; print(__version__)"); \
 	git tag "v$$v" && echo "Tagged v$$v"
+
+tag-push: ## Push all tags to remote
+	@git push --tags && echo "Tags pushed"
 
 clean: ## Remove build artifacts
 	rm -rf build dist icon.iconset

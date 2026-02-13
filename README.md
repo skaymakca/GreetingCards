@@ -35,6 +35,7 @@ Run `make help` to see all available commands.
 | `make bump-minor` | Bump minor version (e.g. 0.5.1 → 0.6.0) |
 | `make bump-major` | Bump major version (e.g. 0.6.0 → 1.0.0) |
 | `make tag` | Create git tag `vX.Y.Z` from current version |
+| `make tag-push` | Push all tags to remote |
 | `make loc` | Count lines of code in project files (excludes dependencies and build artifacts) |
 | `make clean` | Remove `build/` and `dist/` directories |
 
