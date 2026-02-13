@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from app.gui import wx_styles
 from app.gui import wx_utils
-from app.gui.wx_api_key_dialog import ApiKeyDialog
+from app.gui.wx_api_key_dialog import show_api_key_dialog
 from app.gui.wx_dialogs import ProgressDialog, CompletionDialog
 from app.models.card import RenameResult
 
@@ -156,12 +156,10 @@ class TestFrame(wx.Frame):
 
     def _test_api_key(self):
         """Test API key dialog."""
-        dialog = ApiKeyDialog(self)
-        result = dialog.ShowModal()
-        dialog.Destroy()
+        api_key = show_api_key_dialog(self)
 
-        if result == wx.ID_OK and dialog.result:
-            wx_utils.show_info(self, f"API Key entered: {dialog.result[:10]}...", "Success")
+        if api_key:
+            wx_utils.show_info(self, f"API Key entered: {api_key[:10]}...", "Success")
         else:
             wx_utils.show_info(self, "API Key dialog cancelled", "Cancelled")
 

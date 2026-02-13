@@ -142,9 +142,10 @@ class CompletionDialog(wx.Dialog):
         )
         self.list_ctrl.SetFont(wx_styles.Font.MONO())
 
-        # Add columns
-        self.list_ctrl.InsertColumn(0, "Filename", width=500)
-        self.list_ctrl.InsertColumn(1, "Result", width=70)
+        # Add columns with proper widths (total should match dialog width - margins)
+        # Dialog width 650 - margins (15 * 2) = 620 for list control
+        self.list_ctrl.InsertColumn(0, "Filename", width=510)
+        self.list_ctrl.InsertColumn(1, "Result", width=110)
 
         # Add items
         for r in visible:
@@ -155,11 +156,9 @@ class CompletionDialog(wx.Dialog):
                 self.list_ctrl.SetItem(index, 1, "OK")
                 self.list_ctrl.SetItemTextColour(index, wx_styles.Color.SUCCESS)
             else:
-                self.list_ctrl.SetItem(index, 1, "ERROR")
-                self.list_ctrl.SetItemTextColour(index, wx_styles.Color.ERROR)
-
-                # Add error detail as next row
-                index = self.list_ctrl.InsertItem(self.list_ctrl.GetItemCount(), f"    {r.message}")
+                # Put error message directly in Result column
+                error_text = f"ERROR\n{r.message}"
+                self.list_ctrl.SetItem(index, 1, error_text)
                 self.list_ctrl.SetItemTextColour(index, wx_styles.Color.ERROR)
 
         sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 15)
