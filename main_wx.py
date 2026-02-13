@@ -198,12 +198,12 @@ class TestFrame(wx.Frame):
         # Phase 6 review panel test
         phase6_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        btn_review = wx_utils.create_button(
+        btn_master_detail = wx_utils.create_button(
             panel,
-            "Review Panel Test",
-            self._test_review_panel
+            "Master-Detail Test",
+            self._test_master_detail
         )
-        phase6_sizer.Add(btn_review, 0, wx.ALL, wx_styles.Layout.PAD)
+        phase6_sizer.Add(btn_master_detail, 0, wx.ALL, wx_styles.Layout.PAD)
 
         sizer.Add(phase6_sizer, 0, wx.ALL | wx.CENTER, wx_styles.Layout.PAD)
 
@@ -607,15 +607,15 @@ class TestFrame(wx.Frame):
 
         preview.show_images(images, "multi-page.pdf")
 
-    def _test_review_panel(self):
-        """Test review panel with mock cards."""
-        from app.gui.wx_review_panel import ReviewPanel
+    def _test_master_detail(self):
+        """Test master-detail review panel (prototype)."""
+        from app.gui.wx_review_panel_master_detail import ReviewPanelMasterDetail
         from app.models.card import CardResult, Confidence, CandidateInfo
 
         dialog = wx.Dialog(
             self,
-            title="Review Panel Test",
-            size=(1000, 600),
+            title="Master-Detail Review Panel (Prototype)",
+            size=(900, 700),
             style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER | wx.MAXIMIZE_BOX
         )
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -623,7 +623,8 @@ class TestFrame(wx.Frame):
         # Instructions
         instructions = wx_utils.create_static_text(
             dialog,
-            "Test card review panel: Click rows, edit names, select candidates, toggle checkbox. Use arrow keys to navigate.",
+            "Mac-native master-detail pattern: Select card in list (top), edit in detail panel (bottom). " +
+            "Use Up/Down arrows or click to navigate.",
             font=wx_styles.Font.SMALL(),
             colour=wx_styles.Color.TEXT_SECONDARY
         )
@@ -639,14 +640,14 @@ class TestFrame(wx.Frame):
         def on_name_change(card_id, new_name):
             print(f"Name changed for card {card_id}: {new_name}")
 
-        # Create review panel
-        review = ReviewPanel(dialog, on_select, on_ai_request, on_name_change)
+        # Create master-detail review panel
+        review = ReviewPanelMasterDetail(dialog, on_select, on_ai_request, on_name_change)
 
-        # Create mock cards with various states
+        # Use same mock cards as original test
+        from pathlib import Path
         cards = []
 
         # Card 1: High confidence OCR with candidates
-        from pathlib import Path
         card1 = CardResult(
             id=1,
             pdf_path=Path("holiday-card-001.pdf"),
@@ -679,7 +680,7 @@ class TestFrame(wx.Frame):
         ]
         cards.append(card2)
 
-        # Card 3: Low confidence with multiple candidates
+        # Card 3: Low confidence
         card3 = CardResult(
             id=3,
             pdf_path=Path("holiday-card-003.pdf"),
@@ -692,11 +693,10 @@ class TestFrame(wx.Frame):
         card3.candidates = [
             CandidateInfo(id=301, family_name="Williams", confidence="low", method="ocr"),
             CandidateInfo(id=302, family_name="Wilson", confidence="low", method="ai"),
-            CandidateInfo(id=303, family_name="Williamson", confidence="low", method="ai"),
         ]
         cards.append(card3)
 
-        # Card 4: No extracted name (NONE confidence)
+        # Card 4: No name extracted
         card4 = CardResult(
             id=4,
             pdf_path=Path("holiday-card-004.pdf"),
@@ -733,7 +733,7 @@ class TestFrame(wx.Frame):
         card6.error = "Failed to process: timeout"
         cards.append(card6)
 
-        # Load cards into review panel
+        # Load cards
         review.load_cards(cards)
 
         sizer.Add(review, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
@@ -744,7 +744,7 @@ class TestFrame(wx.Frame):
         sizer.Add(ok_btn, 0, wx.ALIGN_CENTER | wx.BOTTOM, 10)
 
         dialog.SetSizer(sizer)
-        dialog.Layout()  # Force layout calculation
+        dialog.Layout()
         dialog.CenterOnParent()
         dialog.ShowModal()
         dialog.Destroy()
