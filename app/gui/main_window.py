@@ -204,9 +204,8 @@ class MainWindow:
         toolbar.pack(fill="x", side="top")
         toolbar.pack_propagate(False)
 
-        # Bottom border for visual separation
-        border = tk.Frame(self.root, bg=styles.BG_PRIMARY, height=1)
-        border.pack(fill="x", side="top")
+        # Horizontal separator between toolbar and content
+        ttk.Separator(self.root, orient="horizontal").pack(fill="x", side="top")
 
         # --- Row 1: Folder selection (left) and Year (right) ---
         row1 = tk.Frame(toolbar, bg=styles.BG_PRIMARY)
@@ -300,24 +299,26 @@ class MainWindow:
                 btn.config(image=icon, compound="left")
 
     def _build_main_area(self):
-        main = tk.PanedWindow(
-            self.root, orient="horizontal", bg=styles.BG_PRIMARY,
-            sashwidth=4, sashrelief="flat",
-        )
-        main.pack(fill="both", expand=True)
+        self._paned = ttk.PanedWindow(self.root, orient="horizontal")
+        self._paned.pack(fill="both", expand=True)
 
-        # Review panel (left)
+        # Review panel (left) — gets all extra space on resize
         self._review_panel = ReviewPanel(
-            main,
+            self._paned,
             on_select=self._on_card_select,
             on_ai_request=self._on_ai_request,
             on_name_change=self._on_name_change,
         )
-        main.add(self._review_panel, minsize=500, stretch="always")
+        self._paned.add(self._review_panel, weight=1)
 
-        # Preview panel (right)
-        self._preview_panel = PreviewPanel(main)
-        main.add(self._preview_panel, minsize=300, width=styles.PREVIEW_WIDTH, stretch="never")
+        # Preview panel (right) — fixed width by default
+        self._preview_panel = PreviewPanel(self._paned)
+        self._paned.add(self._preview_panel, weight=0)
+
+        # Set initial sash position once the window is mapped
+        self.root.after_idle(
+            lambda: self._paned.sashpos(0, styles.WINDOW_WIDTH - styles.PREVIEW_WIDTH)
+        )
 
     def _setup_keyboard_nav(self):
         self.root.bind("<Up>", self._on_key_up)

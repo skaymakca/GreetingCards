@@ -102,12 +102,11 @@ class ReviewPanel(tk.Frame):
         self._scrollbar = ttk.Scrollbar(container, orient="vertical", command=self._canvas.yview)
         self._inner = tk.Frame(self._canvas, bg=styles.BG_PRIMARY)
 
-        self._inner.bind("<Configure>", lambda e: self._canvas.configure(scrollregion=self._canvas.bbox("all")))
+        self._inner.bind("<Configure>", self._on_inner_configure)
         self._canvas_window = self._canvas.create_window((0, 0), window=self._inner, anchor="nw")
         self._canvas.configure(yscrollcommand=self._scrollbar.set)
         self._canvas.bind("<Button-1>", lambda e: self._canvas.focus_set())
 
-        self._scrollbar.pack(side="right", fill="y")
         self._canvas.pack(fill="both", expand=True)
 
         self._canvas.bind("<Configure>", self._on_canvas_configure)
@@ -115,11 +114,38 @@ class ReviewPanel(tk.Frame):
         self._canvas.bind("<MouseWheel>", self._on_mousewheel)
         self._inner.bind("<MouseWheel>", self._on_mousewheel)
 
+    def _on_inner_configure(self, event):
+        self._canvas.configure(scrollregion=self._canvas.bbox("all"))
+        self._schedule_scrollbar_update()
+
     def _on_canvas_configure(self, event):
         self._canvas.itemconfigure(self._canvas_window, width=event.width)
+        self._schedule_scrollbar_update()
+
+    def _schedule_scrollbar_update(self):
+        """Debounce scrollbar visibility check to run after geometry settles."""
+        if hasattr(self, "_scrollbar_after_id"):
+            self.after_cancel(self._scrollbar_after_id)
+        self._scrollbar_after_id = self.after(20, self._update_scrollbar_visibility)
+
+    def _needs_scrolling(self) -> bool:
+        """Return True when the inner content is taller than the canvas."""
+        if not self._rows_by_id:
+            return False
+        self._canvas.update_idletasks()
+        return self._inner.winfo_reqheight() > self._canvas.winfo_height()
+
+    def _update_scrollbar_visibility(self):
+        """Show scrollbar only when content overflows the canvas."""
+        if self._needs_scrolling():
+            self._scrollbar.pack(side="right", fill="y", before=self._canvas)
+        else:
+            self._scrollbar.pack_forget()
+            self._canvas.yview_moveto(0)
 
     def _on_mousewheel(self, event):
-        self._canvas.yview_scroll(-1 * (event.delta // 120 or event.delta), "units")
+        if self._needs_scrolling():
+            self._canvas.yview_scroll(-1 * (event.delta // 120 or event.delta), "units")
 
     def load_cards(self, cards: list[CardResult]):
         """Load card results into the review panel."""
@@ -136,6 +162,13 @@ class ReviewPanel(tk.Frame):
         for widget in self._inner.winfo_children():
             widget.destroy()
         self._rows_by_id.clear()
+
+        # Reset scroll state so stale region doesn't linger
+        self._canvas.xview_moveto(0)
+        self._canvas.yview_moveto(0)
+        self._canvas.configure(scrollregion=(0, 0, 0, 0))
+        self._scrollbar.pack_forget()
+        self._schedule_scrollbar_update()
 
         self._count_label.config(text=f"{len(cards)} cards")
 
