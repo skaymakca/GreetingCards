@@ -2,11 +2,11 @@
 
 ## High Priority
 
+### Core
+- [ ] Come up with a tractable versioning system, extra credit for "bumping" via the makefile or similar.
+
 ### UI/UX Improvements
 - [ ] Add Help > About menu with version number and git commit hash
-
-### Error Handling
-- [ ] Review API issues and handle - seperate handling for auth issues (reprompt) and all other issues network/other/load issues (stop).  These probably need to be coalesced into a table in a new dialog like the rename status window that is used in teh app.  Have a table with two rows, card filename (existing) and a second column with the error text.
 
 ## Medium Priority
 
@@ -48,6 +48,7 @@
 - [x] Fix case-insensitive duplicate detection (Macintosh vs MacIntosh no longer triggers false dupe)
 - [x] Handle bad/unreadable PDFs gracefully (error field, red ✕ icon, disabled controls, error in preview)
 - [x] Handle permissions/IO errors in file renaming with structured results table and success/error state
+- [x] AI error handling: auth errors abort batch early, other errors collected and shown in ErrorListDialog, clean error messages for single-card AI too
 
 ---
 

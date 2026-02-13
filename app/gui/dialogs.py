@@ -177,6 +177,92 @@ class RenameConfirmDialog(tk.Toplevel):
         self.destroy()
 
 
+class ErrorListDialog(tk.Toplevel):
+    """Dialog showing AI analysis errors in a structured table."""
+
+    def __init__(self, parent, title: str, errors: list[tuple[str, str]], auth_aborted: bool = False):
+        super().__init__(parent)
+        self.title(title)
+        self.resizable(True, True)
+        self.transient(parent)
+        self.grab_set()
+
+        w, h = 650, 400
+        x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
+        y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
+        self.geometry(f"{w}x{h}+{x}+{y}")
+        self.configure(bg=styles.BG_PRIMARY)
+
+        # Summary header
+        header_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
+        header_frame.pack(fill="x", padx=15, pady=(15, 5))
+
+        tk.Label(
+            header_frame, text="\u26A0", font=(styles.FONT_FAMILY, 20),
+            bg=styles.BG_PRIMARY, fg=styles.ERROR,
+        ).pack(side="left", padx=(0, 8))
+
+        summary = f"{len(errors)} error(s)"
+        if auth_aborted:
+            summary += " — batch aborted"
+        tk.Label(
+            header_frame, text=summary, font=styles.FONT_HEADING,
+            bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
+        ).pack(side="left")
+
+        # Treeview table
+        table_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
+        table_frame.pack(fill="both", expand=True, padx=15, pady=10)
+
+        style = ttk.Style()
+        style.configure(
+            "Error.Treeview", font=styles.FONT_MONO, rowheight=26,
+            background=styles.BG_PRIMARY, fieldbackground=styles.BG_PRIMARY,
+            foreground=styles.TEXT_PRIMARY,
+        )
+        style.configure("Error.Treeview.Heading", font=styles.FONT_SMALL)
+        style.map("Error.Treeview", background=[], foreground=[])
+
+        tree = ttk.Treeview(
+            table_frame, columns=("filename", "error"),
+            show="headings", selectmode="none", style="Error.Treeview",
+        )
+        tree.heading("filename", text="Filename", anchor="w")
+        tree.heading("error", text="Error", anchor="w")
+        tree.column("filename", width=300, minwidth=100, stretch=True)
+        tree.column("error", width=300, minwidth=100, stretch=True)
+
+        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        tree.pack(fill="both", expand=True)
+
+        # Row tags with alternating backgrounds
+        for parity in ("even", "odd"):
+            bg = styles.BG_PRIMARY if parity == "even" else styles.BG_SECONDARY
+            tree.tag_configure(f"error_{parity}", foreground=styles.ERROR, background=bg)
+
+        for i, (filename, error_msg) in enumerate(errors):
+            parity = "even" if i % 2 == 0 else "odd"
+            tree.insert("", "end", values=(filename, error_msg), tags=(f"error_{parity}",))
+
+        # OK button
+        ok_btn = tk.Button(
+            self, text="OK", font=styles.FONT_BODY,
+            command=self._close, width=8,
+            highlightthickness=0,
+        )
+        ok_btn.pack(pady=(0, 15))
+
+        self.protocol("WM_DELETE_WINDOW", self._close)
+        self.bind("<Return>", lambda e: self._close())
+        self.bind("<Escape>", lambda e: self._close())
+
+    def _close(self):
+        self.grab_release()
+        self.destroy()
+
+
 class CompletionDialog(tk.Toplevel):
     """Dialog showing rename results in a structured table."""
 

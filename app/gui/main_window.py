@@ -11,12 +11,12 @@ from app.gui import styles
 from app.gui.icons import load_sf_symbol
 from app.gui.preview_panel import PreviewPanel
 from app.gui.review_panel import ReviewPanel
-from app.gui.dialogs import ProgressDialog, RenameConfirmDialog, CompletionDialog
+from app.gui.dialogs import ProgressDialog, RenameConfirmDialog, CompletionDialog, ErrorListDialog
 from app.models.card import CardResult, Confidence
 from app.core.pdf_renderer import render_pdf_page, render_all_pages
 from app.core.ocr_engine import extract_text_all_pages
 from app.core.name_extractor import extract_family_names
-from app.core.ai_analyzer import analyze_card_with_ai
+from app.core.ai_analyzer import analyze_card_with_ai, format_ai_error
 from app.core.config import get_api_key
 from app.core.renamer import build_rename_plan, execute_rename_plan
 from app.core.database import (
@@ -662,7 +662,7 @@ class MainWindow:
                 card.confidence = Confidence.NONE
                 card.ai_analyzed = True
         except Exception as e:
-            msg = str(e)
+            msg = format_ai_error(e)
             self.root.after(0, lambda: messagebox.showerror("AI Error", msg))
 
         self.root.after(0, self._ai_analysis_complete, card_id, card)
@@ -692,12 +692,15 @@ class MainWindow:
     async def _run_ai_all_async(self):
         """Async version that processes multiple cards concurrently."""
         import asyncio
+        import anthropic
         from app.core.ai_analyzer import analyze_card_with_ai_async
 
         total = len(self._cards_by_id)
         # Limit concurrent API calls to avoid rate limits
         semaphore = asyncio.Semaphore(3)
         completed = 0
+        auth_failed = asyncio.Event()
+        errors: list[tuple[str, str]] = []
 
         async def process_card(card_id: int, card: CardResult):
             nonlocal completed
@@ -706,7 +709,19 @@ class MainWindow:
                 self.root.after(0, self._update_ai_all_progress, completed, total, card.filename, card_id, None)
                 return
 
+            # Skip remaining cards if auth already failed
+            if auth_failed.is_set():
+                completed += 1
+                self.root.after(0, self._update_ai_all_progress, completed, total, card.filename, card_id, None)
+                return
+
             async with semaphore:
+                # Re-check after acquiring semaphore
+                if auth_failed.is_set():
+                    completed += 1
+                    self.root.after(0, self._update_ai_all_progress, completed, total, card.filename, card_id, None)
+                    return
+
                 try:
                     # Check if we already have AI candidates
                     card_state = get_card_state(card.file_hash) if card.file_hash else None
@@ -745,11 +760,11 @@ class MainWindow:
                             card.ai_analyzed = True
                     else:
                         card.ai_analyzed = True
+                except anthropic.AuthenticationError as e:
+                    auth_failed.set()
+                    errors.append((card.filename, format_ai_error(e)))
                 except Exception as e:
-                    msg = str(e)
-                    self.root.after(0, lambda m=msg, fn=card.filename: messagebox.showerror(
-                        "AI Error", f"{fn}: {m}"
-                    ))
+                    errors.append((card.filename, format_ai_error(e)))
 
                 completed += 1
                 self.root.after(0, self._update_ai_all_progress, completed, total, card.filename, card_id, card)
@@ -757,7 +772,8 @@ class MainWindow:
         # Process all cards concurrently with semaphore limiting concurrency
         await asyncio.gather(*[process_card(card_id, card) for card_id, card in self._cards_by_id.items()])
 
-        self.root.after(0, self._ai_all_complete)
+        aborted = auth_failed.is_set()
+        self.root.after(0, self._ai_all_complete, errors, aborted)
 
     def _update_ai_all_progress(self, current: int, total: int, name: str, card_id: int, card):
         if hasattr(self, "_progress") and self._progress.winfo_exists():
@@ -765,11 +781,15 @@ class MainWindow:
         if card is not None:
             self._review_panel.update_card(card_id, card)
 
-    def _ai_all_complete(self):
+    def _ai_all_complete(self, errors: list[tuple[str, str]] = None, auth_aborted: bool = False):
         if hasattr(self, "_progress") and self._progress.winfo_exists():
             self._progress.finish()
         self._ai_all_btn.config(state="normal")
         self._rename_btn.config(state="normal")
+        if errors:
+            suffix = " (auth error)" if auth_aborted else " (with errors)"
+            dialog = ErrorListDialog(self.root, f"AI Analysis{suffix}", errors, auth_aborted)
+            self.root.wait_window(dialog)
 
     def _start_rename(self):
         cards = self._review_panel.get_cards()
