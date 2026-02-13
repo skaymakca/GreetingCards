@@ -1,10 +1,28 @@
-.PHONY: help run app build clean icon loc version bump-patch bump-minor bump-major tag tag-push
+.PHONY: help setup setup-dev run app build clean icon loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-unit test-gui test-watch
 
 help: ## Show this help message
 	@echo "Greeting Cards - Available make commands:"
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 	@echo ""
+
+setup: ## Create venv and install production dependencies
+	python3 -m venv .venv
+	.venv/bin/pip install --upgrade pip
+	.venv/bin/pip install -r requirements.txt
+	@echo ""
+	@echo "✓ Setup complete! Production dependencies installed."
+	@echo "  Run 'make setup-dev' to install development/testing tools."
+
+setup-dev: ## Install development dependencies (includes testing tools)
+	@if [ ! -d .venv ]; then \
+		echo "Error: .venv not found. Run 'make setup' first."; \
+		exit 1; \
+	fi
+	.venv/bin/pip install -r requirements-dev.txt
+	@echo ""
+	@echo "✓ Development setup complete!"
+	@echo "  Run 'make test' to run tests."
 
 run: ## Run the app from source
 	@if [ -z "$$ANTHROPIC_API_KEY" ]; then \
@@ -13,6 +31,23 @@ run: ## Run the app from source
 		echo ""; \
 	fi
 	.venv/bin/python main.py
+
+test: ## Run all tests
+	.venv/bin/python -m pytest -v
+
+test-cov: ## Run tests with coverage report
+	.venv/bin/python -m pytest --cov=app --cov-report=html --cov-report=term-missing
+	@echo ""
+	@echo "Coverage report generated: htmlcov/index.html"
+
+test-unit: ## Run unit tests only (fast)
+	.venv/bin/python -m pytest -v -m unit
+
+test-gui: ## Run GUI tests only
+	.venv/bin/python -m pytest -v -m gui
+
+test-watch: ## Run tests on file changes (requires pytest-watch)
+	.venv/bin/ptw -- -v
 
 build: app ## Build the macOS .app bundle (alias for 'app')
 
