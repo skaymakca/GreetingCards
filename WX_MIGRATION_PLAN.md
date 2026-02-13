@@ -1,7 +1,7 @@
 # wxPython Migration Plan
 
 **Status:** In Progress
-**Current Phase:** Phase 4 - Context Menu & Icons (COMPLETE)
+**Current Phase:** Phase 5 - Preview Panel (COMPLETE)
 **Branch:** `wx`
 **Start Date:** 2026-02-13
 
@@ -117,31 +117,52 @@ Migrating Greeting Cards App from tkinter to wxPython for better native macOS in
 
 ---
 
-## Phase 5: Preview Panel (Days 9-11)
+## Phase 5: Preview Panel (Days 9-11) ✅ COMPLETE
 
 **Goal:** Image viewer with zoom and pan
 
 ### Tasks
-- [ ] Create `app/gui/wx_preview_panel.py`
-- [ ] Basic image display
-  - [ ] wx.Panel with custom painting or wx.StaticBitmap
-  - [ ] PIL Image → wx.Bitmap conversion
-- [ ] Zoom functionality
-  - [ ] Mouse wheel zoom (wx.EVT_MOUSEWHEEL)
-  - [ ] Zoom in/out buttons
-  - [ ] Fit to window
-- [ ] Pan functionality
-  - [ ] Click and drag (wx.EVT_LEFT_DOWN, wx.EVT_MOTION)
-  - [ ] wx.ScrolledWindow or manual offset
-- [ ] Navigation toolbar
-  - [ ] Previous/Next page buttons
-  - [ ] Page counter display
-- [ ] Test with multi-page PDFs
+- [x] Create `app/gui/wx_preview_panel.py`
+- [x] Basic image display
+  - [x] wx.Panel with custom painting (EVT_PAINT with wx.PaintDC)
+  - [x] PIL Image → wx.Bitmap conversion using wx_utils
+  - [x] Placeholder text when no images loaded
+  - [x] Error message display with warning icon
+- [x] Zoom functionality
+  - [x] Mouse wheel zoom (wx.EVT_MOUSEWHEEL)
+  - [x] Zoom in/out/fit buttons
+  - [x] Intelligent fit mode (scales to canvas, max 1:1)
+  - [x] Zoom percentage label
+  - [x] Min/Max zoom limits (0.1x to 10x)
+  - [x] Modifier key zoom (Shift+Click, Ctrl/Cmd+Click)
+- [x] Pan functionality
+  - [x] Click and drag (wx.EVT_LEFT_DOWN, wx.EVT_MOTION)
+  - [x] Manual offset tracking with bitmap caching
+  - [x] Cursor changes (sizing cursor during drag)
+- [x] Navigation toolbar
+  - [x] Previous/Next page buttons
+  - [x] Page counter display (1 / 3 format)
+  - [x] Smart button enable/disable based on page bounds
+- [x] Multi-page support
+  - [x] Show_images() accepts list of PIL Images
+  - [x] Page navigation resets zoom and pan
+  - [x] Backward-compatible show_image() for single image
+- [x] Comprehensive test suite
+  - [x] 26 unit tests (Level 1: initialization, state, controls)
+  - [x] Integration tests (Level 2: zoom, pan, navigation)
+  - [x] UI integration tests (Level 3: dialogs, multi-page)
+  - [x] All tests passing
+- [x] Test harness integration
+  - [x] Added Preview Panel Test button to main_wx.py
+  - [x] Sample image generators (single and multi-page)
+  - [x] Error display test
 
-**Challenges:**
-- Canvas drawing → wx.DC or wx.GraphicsContext
-- Mouse event coordination
-- Performance with large images
+**Architecture:**
+- wx.Panel with EVT_PAINT for custom drawing (not wx.StaticBitmap)
+- Bitmap caching for performance (render once per zoom/pan change)
+- Paint approach for placeholder/error (cleaner than fixed positioning)
+- Full control over image positioning with pan offsets
+- Public API matches tkinter version exactly for drop-in replacement
 
 ---
 
@@ -427,6 +448,33 @@ Migrating Greeting Cards App from tkinter to wxPython for better native macOS in
     - All 40 Phase 4 tests passing, total test count now 159
   - Fixed SF Symbols test dialog layout (proper spacing, larger button)
   - Updated CLAUDE.md with correct venv path (.venv not venv)
+- **Phase 5 Complete:**
+  - Created `wx_preview_panel.py` - Multi-page zoomable pannable PDF preview
+    - wx.Panel with EVT_PAINT for custom drawing (full control over positioning)
+    - Bitmap caching for performance (_bitmap_cache rendered once per state change)
+    - Intelligent fit mode: scales to canvas size, never exceeds 1:1
+    - Zoom: Fit/+/- buttons, scroll wheel, Shift+Click, Ctrl/Cmd+Click
+    - Pan: Click and drag with offset tracking, sizing cursor during drag
+    - Multi-page: Previous/Next buttons, page counter (1 / 3 format)
+    - Smart controls: buttons enable/disable based on state (images loaded, page bounds)
+    - Placeholder and error display: painted in _on_paint (cleaner than fixed positioning)
+    - Text wrapping for error messages using _wrap_text helper
+  - Public API matches tkinter version:
+    - show_images(images, filename) - Display list of PIL Images
+    - show_image(image, filename) - Backward-compatible single image
+    - clear() - Reset state and clear display
+    - show_error(message, filename) - Display error with warning icon
+  - Test coverage:
+    - 26 tests for wx_preview_panel.py
+    - Level 1: Initialization, show/clear, error handling, control states
+    - Level 2: Zoom in/out/fit, page navigation, zoom limits, label updates
+    - Level 3: Dialog integration, multi-page navigation, state transitions
+    - All 26 Phase 5 tests passing
+  - Updated main_wx.py test harness:
+    - Added "Preview Panel Test" button
+    - Sample image generators (single and multi-page with PIL ImageDraw)
+    - Load/Clear/Error test buttons
+  - Total test count now 185 (159 + 26)
 
 ---
 

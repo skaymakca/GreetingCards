@@ -183,6 +183,30 @@ class TestFrame(wx.Frame):
 
         sizer.Add(phase4_sizer, 0, wx.ALL | wx.CENTER, wx_styles.Layout.PAD)
 
+        # Phase 5 preview panel test
+        phase5_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        btn_preview = wx_utils.create_button(
+            panel,
+            "Preview Panel Test",
+            self._test_preview_panel
+        )
+        phase5_sizer.Add(btn_preview, 0, wx.ALL, wx_styles.Layout.PAD)
+
+        sizer.Add(phase5_sizer, 0, wx.ALL | wx.CENTER, wx_styles.Layout.PAD)
+
+        # Phase 6 review panel test
+        phase6_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        btn_review = wx_utils.create_button(
+            panel,
+            "Review Panel Test",
+            self._test_review_panel
+        )
+        phase6_sizer.Add(btn_review, 0, wx.ALL, wx_styles.Layout.PAD)
+
+        sizer.Add(phase6_sizer, 0, wx.ALL | wx.CENTER, wx_styles.Layout.PAD)
+
         # More spacing
         sizer.AddStretchSpacer()
 
@@ -448,6 +472,279 @@ class TestFrame(wx.Frame):
         sizer.Add(ok_btn, 0, wx.ALIGN_CENTER | wx.BOTTOM, 20)
 
         dialog.SetSizer(sizer)
+        dialog.CenterOnParent()
+        dialog.ShowModal()
+        dialog.Destroy()
+
+    def _test_preview_panel(self):
+        """Test preview panel with sample PDFs."""
+        from app.gui.wx_preview_panel import PreviewPanel
+        from PIL import Image
+
+        dialog = wx.Dialog(
+            self,
+            title="Preview Panel Test",
+            size=(800, 600),
+            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER | wx.MAXIMIZE_BOX
+        )
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Instructions
+        instructions = wx_utils.create_static_text(
+            dialog,
+            "Controls: Scroll wheel = zoom | Shift+Click = zoom in | Option+Click = zoom out | Drag = pan",
+            font=wx_styles.Font.SMALL(),
+            colour=wx_styles.Color.TEXT_SECONDARY
+        )
+        sizer.Add(instructions, 0, wx.ALL | wx.EXPAND, 10)
+
+        # Create preview panel
+        preview = PreviewPanel(dialog)
+        sizer.Add(preview, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        # Control buttons
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        # Load sample image button
+        load_btn = wx_utils.create_button(
+            dialog, "Load Sample Image",
+            lambda: self._load_sample_image(preview)
+        )
+        btn_sizer.Add(load_btn, 0, wx.RIGHT, 5)
+
+        # Load multi-page button
+        multi_btn = wx_utils.create_button(
+            dialog, "Load Multi-Page",
+            lambda: self._load_multi_page(preview)
+        )
+        btn_sizer.Add(multi_btn, 0, wx.RIGHT, 5)
+
+        # Show error button
+        error_btn = wx_utils.create_button(
+            dialog, "Show Error",
+            lambda: preview.show_error("This is a test error message!", "test.pdf")
+        )
+        btn_sizer.Add(error_btn, 0, wx.RIGHT, 5)
+
+        # Clear button
+        clear_btn = wx_utils.create_button(
+            dialog, "Clear",
+            lambda: preview.clear()
+        )
+        btn_sizer.Add(clear_btn, 0)
+
+        sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER | wx.BOTTOM, 10)
+
+        dialog.SetSizer(sizer)
+        dialog.CenterOnParent()
+        dialog.ShowModal()
+        dialog.Destroy()
+
+    def _load_sample_image(self, preview):
+        """Load a sample image into preview panel."""
+        from PIL import Image, ImageDraw
+
+        # Create a simple test image
+        img = Image.new('RGB', (400, 600), color='white')
+        draw = ImageDraw.Draw(img)
+
+        # Draw border
+        draw.rectangle([10, 10, 390, 590], outline='black', width=3)
+
+        # Draw some shapes
+        draw.ellipse([100, 150, 300, 250], outline='blue', width=2)
+        draw.rectangle([120, 300, 280, 400], fill='lightblue', outline='blue', width=2)
+        draw.line([50, 450, 350, 450], fill='red', width=3)
+
+        # Draw text (centered manually)
+        try:
+            text = "Sample PDF Page"
+            bbox = draw.textbbox((0, 0), text)
+            text_width = bbox[2] - bbox[0]
+            draw.text((200 - text_width // 2, 280), text, fill='black')
+        except:
+            # Fallback if textbbox not available
+            draw.text((150, 280), "Sample PDF Page", fill='black')
+
+        preview.show_image(img, "sample.pdf")
+
+    def _load_multi_page(self, preview):
+        """Load multiple sample pages into preview panel."""
+        from PIL import Image, ImageDraw
+
+        images = []
+
+        # Create 3 sample pages
+        colors = ['lightblue', 'lightgreen', 'lightyellow']
+        for i in range(1, 4):
+            img = Image.new('RGB', (400, 600), color='white')
+            draw = ImageDraw.Draw(img)
+
+            # Draw border
+            draw.rectangle([10, 10, 390, 590], outline='black', width=3)
+
+            # Draw page-specific colored rectangle
+            draw.rectangle([50, 100, 350, 500], fill=colors[i-1], outline='black', width=2)
+
+            # Draw page number (large)
+            page_text = f"PAGE {i}"
+            try:
+                bbox = draw.textbbox((0, 0), page_text)
+                text_width = bbox[2] - bbox[0]
+                draw.text((200 - text_width // 2, 280), page_text, fill='black')
+            except:
+                draw.text((150, 280), page_text, fill='black')
+
+            # Draw shapes unique to each page
+            if i == 1:
+                draw.ellipse([150, 350, 250, 450], outline='red', width=3)
+            elif i == 2:
+                draw.polygon([(200, 350), (150, 450), (250, 450)], outline='blue', width=3)
+            else:
+                draw.rectangle([150, 350, 250, 450], outline='green', width=3)
+
+            images.append(img)
+
+        preview.show_images(images, "multi-page.pdf")
+
+    def _test_review_panel(self):
+        """Test review panel with mock cards."""
+        from app.gui.wx_review_panel import ReviewPanel
+        from app.models.card import CardResult, Confidence, CandidateInfo
+
+        dialog = wx.Dialog(
+            self,
+            title="Review Panel Test",
+            size=(1000, 600),
+            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER | wx.MAXIMIZE_BOX
+        )
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Instructions
+        instructions = wx_utils.create_static_text(
+            dialog,
+            "Test card review panel: Click rows, edit names, select candidates, toggle checkbox. Use arrow keys to navigate.",
+            font=wx_styles.Font.SMALL(),
+            colour=wx_styles.Color.TEXT_SECONDARY
+        )
+        sizer.Add(instructions, 0, wx.ALL | wx.EXPAND, 10)
+
+        # Callbacks
+        def on_select(card_id):
+            print(f"Selected card ID: {card_id}")
+
+        def on_ai_request(card_id):
+            wx_utils.show_info(dialog, f"AI request for card {card_id}", "AI Request")
+
+        def on_name_change(card_id, new_name):
+            print(f"Name changed for card {card_id}: {new_name}")
+
+        # Create review panel
+        review = ReviewPanel(dialog, on_select, on_ai_request, on_name_change)
+
+        # Create mock cards with various states
+        cards = []
+
+        # Card 1: High confidence OCR with candidates
+        from pathlib import Path
+        card1 = CardResult(
+            id=1,
+            pdf_path=Path("holiday-card-001.pdf"),
+            family_name="Smith",
+            confidence=Confidence.HIGH,
+            method="ocr",
+            original_confidence=Confidence.HIGH,
+            remove_family=True
+        )
+        card1.candidates = [
+            CandidateInfo(id=101, family_name="Smith", confidence="high", method="ocr"),
+            CandidateInfo(id=102, family_name="Smyth", confidence="medium", method="ai"),
+            CandidateInfo(id=103, family_name="Schmidt", confidence="low", method="ai"),
+        ]
+        cards.append(card1)
+
+        # Card 2: Medium confidence AI
+        card2 = CardResult(
+            id=2,
+            pdf_path=Path("holiday-card-002.pdf"),
+            family_name="Johnson",
+            confidence=Confidence.MEDIUM,
+            method="ai",
+            original_confidence=Confidence.MEDIUM,
+            remove_family=False
+        )
+        card2.candidates = [
+            CandidateInfo(id=201, family_name="Johnson", confidence="medium", method="ai"),
+            CandidateInfo(id=202, family_name="Johnston", confidence="low", method="ai"),
+        ]
+        cards.append(card2)
+
+        # Card 3: Low confidence with multiple candidates
+        card3 = CardResult(
+            id=3,
+            pdf_path=Path("holiday-card-003.pdf"),
+            family_name="Williams",
+            confidence=Confidence.LOW,
+            method="ocr",
+            original_confidence=Confidence.LOW,
+            remove_family=True
+        )
+        card3.candidates = [
+            CandidateInfo(id=301, family_name="Williams", confidence="low", method="ocr"),
+            CandidateInfo(id=302, family_name="Wilson", confidence="low", method="ai"),
+            CandidateInfo(id=303, family_name="Williamson", confidence="low", method="ai"),
+        ]
+        cards.append(card3)
+
+        # Card 4: No extracted name (NONE confidence)
+        card4 = CardResult(
+            id=4,
+            pdf_path=Path("holiday-card-004.pdf"),
+            family_name="",
+            confidence=Confidence.NONE,
+            method="missing",
+            original_confidence=Confidence.NONE,
+            remove_family=False
+        )
+        cards.append(card4)
+
+        # Card 5: Manual entry
+        card5 = CardResult(
+            id=5,
+            pdf_path=Path("holiday-card-005.pdf"),
+            family_name="Brown",
+            confidence=Confidence.MANUAL,
+            method="manual",
+            original_confidence=Confidence.HIGH,
+            remove_family=True
+        )
+        cards.append(card5)
+
+        # Card 6: Error card
+        card6 = CardResult(
+            id=6,
+            pdf_path=Path("holiday-card-006.pdf"),
+            family_name="",
+            confidence=Confidence.NONE,
+            method="missing",
+            original_confidence=Confidence.NONE,
+            remove_family=False
+        )
+        card6.error = "Failed to process: timeout"
+        cards.append(card6)
+
+        # Load cards into review panel
+        review.load_cards(cards)
+
+        sizer.Add(review, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        # OK button
+        ok_btn = wx.Button(dialog, wx.ID_OK, "OK")
+        ok_btn.Bind(wx.EVT_BUTTON, lambda evt: dialog.EndModal(wx.ID_OK))
+        sizer.Add(ok_btn, 0, wx.ALIGN_CENTER | wx.BOTTOM, 10)
+
+        dialog.SetSizer(sizer)
+        dialog.Layout()  # Force layout calculation
         dialog.CenterOnParent()
         dialog.ShowModal()
         dialog.Destroy()

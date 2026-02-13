@@ -12,6 +12,10 @@
   - Rewrite `app/gui/` with wxPython
   - Compare performance and code size
   - Use native widgets (DataViewListCtrl for cards table)
+- [ ] Preview panel: Add help button/info icon showing controls (scroll wheel, Shift+Click, Option+Click, drag)
+  - Could be small "?" button next to zoom controls
+  - Or use SF Symbol "questionmark.circle" for Mac-native look
+  - Show tooltip or small popup with keyboard/mouse shortcuts
 
 ---
 
