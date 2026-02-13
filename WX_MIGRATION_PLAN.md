@@ -1,7 +1,7 @@
 # wxPython Migration Plan
 
 **Status:** In Progress
-**Current Phase:** Phase 1 - Setup & Foundation (COMPLETE)
+**Current Phase:** Phase 2 - Simple Dialogs (COMPLETE)
 **Branch:** `wx`
 **Start Date:** 2026-02-13
 
@@ -41,17 +41,17 @@ Migrating Greeting Cards App from tkinter to wxPython for better native macOS in
 **Goal:** Migrate standalone dialogs
 
 ### Tasks
-- [ ] Migrate `api_key_dialog.py` → `app/gui/wx_api_key_dialog.py`
-  - [ ] wx.Dialog with wx.TextCtrl (password mode)
-  - [ ] OK/Cancel buttons
-  - [ ] Test standalone
-- [ ] Create `app/gui/wx_dialogs.py`
-- [ ] Migrate `ProgressDialog`
-  - [ ] Use wx.ProgressDialog or custom wx.Gauge
-  - [ ] Test with mock progress updates
-- [ ] Migrate `CompletionDialog`
-  - [ ] wx.Dialog with wx.ListCtrl
-  - [ ] Test with mock rename results
+- [x] Migrate `api_key_dialog.py` → `app/gui/wx_api_key_dialog.py`
+  - [x] wx.Dialog with wx.TextCtrl (password mode)
+  - [x] OK/Cancel buttons
+  - [x] Test standalone
+- [x] Create `app/gui/wx_dialogs.py`
+- [x] Migrate `ProgressDialog`
+  - [x] Use wx.ProgressDialog or custom wx.Gauge
+  - [x] Test with mock progress updates
+- [x] Migrate `CompletionDialog`
+  - [x] wx.Dialog with wx.ListCtrl
+  - [x] Test with mock rename results
 
 ---
 

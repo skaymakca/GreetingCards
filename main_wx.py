@@ -6,8 +6,13 @@ As we migrate components, we'll build up this file to become the main entry poin
 """
 
 import wx
+import time
+from pathlib import Path
 from app.gui import wx_styles
 from app.gui import wx_utils
+from app.gui.wx_api_key_dialog import ApiKeyDialog
+from app.gui.wx_dialogs import ProgressDialog, CompletionDialog
+from app.models.card import RenameResult
 
 
 class TestFrame(wx.Frame):
@@ -98,6 +103,32 @@ class TestFrame(wx.Frame):
 
         sizer.Add(button_sizer, 0, wx.ALL | wx.CENTER, wx_styles.Layout.PAD)
 
+        # Phase 2 dialog tests
+        dialog_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        btn_api_key = wx_utils.create_button(
+            panel,
+            "API Key Dialog",
+            self._test_api_key
+        )
+        dialog_sizer.Add(btn_api_key, 0, wx.ALL, wx_styles.Layout.PAD)
+
+        btn_progress = wx_utils.create_button(
+            panel,
+            "Progress Dialog",
+            self._test_progress
+        )
+        dialog_sizer.Add(btn_progress, 0, wx.ALL, wx_styles.Layout.PAD)
+
+        btn_completion = wx_utils.create_button(
+            panel,
+            "Completion Dialog",
+            self._test_completion
+        )
+        dialog_sizer.Add(btn_completion, 0, wx.ALL, wx_styles.Layout.PAD)
+
+        sizer.Add(dialog_sizer, 0, wx.ALL | wx.CENTER, wx_styles.Layout.PAD)
+
         # More spacing
         sizer.AddStretchSpacer()
 
@@ -122,6 +153,65 @@ class TestFrame(wx.Frame):
     def on_close(self, event):
         """Handle window close event."""
         self.Destroy()
+
+    def _test_api_key(self):
+        """Test API key dialog."""
+        dialog = ApiKeyDialog(self)
+        result = dialog.ShowModal()
+        dialog.Destroy()
+
+        if result == wx.ID_OK and dialog.result:
+            wx_utils.show_info(self, f"API Key entered: {dialog.result[:10]}...", "Success")
+        else:
+            wx_utils.show_info(self, "API Key dialog cancelled", "Cancelled")
+
+    def _test_progress(self):
+        """Test progress dialog."""
+        total = 10
+        progress = ProgressDialog(self, "Processing Test", total)
+        progress.Show()
+
+        # Simulate work
+        for i in range(1, total + 1):
+            wx.MilliSleep(300)  # Simulate work
+            progress.update_progress(i, f"Processing item {i}...")
+
+        progress.finish()
+        wx_utils.show_info(self, "Progress test complete!", "Done")
+
+    def _test_completion(self):
+        """Test completion dialog."""
+        # Create mock results
+        results = [
+            RenameResult(
+                Path("card1.pdf"),
+                Path("Holiday Cards 2024 - Smith Family.pdf"),
+                True,
+                "Renamed"
+            ),
+            RenameResult(
+                Path("card2.pdf"),
+                Path("Holiday Cards 2024 - Johnson Family.pdf"),
+                True,
+                "Renamed"
+            ),
+            RenameResult(
+                Path("card3.pdf"),
+                Path("card3.pdf"),
+                True,
+                "Already named correctly"
+            ),
+            RenameResult(
+                Path("card4.pdf"),
+                Path("Holiday Cards 2024 - Brown Family.pdf"),
+                False,
+                "Permission denied"
+            ),
+        ]
+
+        dialog = CompletionDialog(self, "Rename Complete", results)
+        dialog.ShowModal()
+        dialog.Destroy()
 
 
 class TestApp(wx.App):
