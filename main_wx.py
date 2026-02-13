@@ -11,8 +11,10 @@ from pathlib import Path
 from app.gui import wx_styles
 from app.gui import wx_utils
 from app.gui.wx_api_key_dialog import show_api_key_dialog
-from app.gui.wx_dialogs import ProgressDialog, CompletionDialog
-from app.models.card import RenameResult
+from app.gui.wx_dialogs import ProgressDialog, CompletionDialog, RenameConfirmDialog, ErrorListDialog
+from app.gui.wx_help_dialog import show_help_dialog
+from app.gui.wx_settings_dialog import show_settings_dialog
+from app.models.card import RenameResult, RenamePlanItem
 
 
 class TestFrame(wx.Frame):
@@ -129,6 +131,39 @@ class TestFrame(wx.Frame):
 
         sizer.Add(dialog_sizer, 0, wx.ALL | wx.CENTER, wx_styles.Layout.PAD)
 
+        # Phase 3 dialog tests
+        dialog_sizer2 = wx.BoxSizer(wx.HORIZONTAL)
+
+        btn_help = wx_utils.create_button(
+            panel,
+            "Help Dialog",
+            self._test_help
+        )
+        dialog_sizer2.Add(btn_help, 0, wx.ALL, wx_styles.Layout.PAD)
+
+        btn_settings = wx_utils.create_button(
+            panel,
+            "Settings Dialog",
+            self._test_settings
+        )
+        dialog_sizer2.Add(btn_settings, 0, wx.ALL, wx_styles.Layout.PAD)
+
+        btn_rename_confirm = wx_utils.create_button(
+            panel,
+            "Rename Confirm",
+            self._test_rename_confirm
+        )
+        dialog_sizer2.Add(btn_rename_confirm, 0, wx.ALL, wx_styles.Layout.PAD)
+
+        btn_error_list = wx_utils.create_button(
+            panel,
+            "Error List",
+            self._test_error_list
+        )
+        dialog_sizer2.Add(btn_error_list, 0, wx.ALL, wx_styles.Layout.PAD)
+
+        sizer.Add(dialog_sizer2, 0, wx.ALL | wx.CENTER, wx_styles.Layout.PAD)
+
         # More spacing
         sizer.AddStretchSpacer()
 
@@ -208,6 +243,73 @@ class TestFrame(wx.Frame):
         ]
 
         dialog = CompletionDialog(self, "Rename Complete", results)
+        dialog.ShowModal()
+        dialog.Destroy()
+
+    def _test_help(self):
+        """Test help dialog."""
+        show_help_dialog(self)
+
+    def _test_settings(self):
+        """Test settings dialog."""
+        show_settings_dialog(self)
+
+    def _test_rename_confirm(self):
+        """Test rename confirm dialog."""
+        # Create mock rename plan
+        plan = [
+            RenamePlanItem(
+                Path("card1.pdf"),
+                Path("Holiday Cards 2024 - Smith Family.pdf"),
+                "ok"
+            ),
+            RenamePlanItem(
+                Path("card2.pdf"),
+                Path("Holiday Cards 2024 - Johnson Family.pdf"),
+                "ok"
+            ),
+            RenamePlanItem(
+                Path("card3.pdf"),
+                Path("Holiday Cards 2024 - Smith Family.pdf"),
+                "duplicate"
+            ),
+            RenamePlanItem(
+                Path("card4.pdf"),
+                Path("card4.pdf"),
+                "skip_same"
+            ),
+            RenamePlanItem(
+                Path("card5.pdf"),
+                Path("card5.pdf"),
+                "skip_no_name"
+            ),
+            RenamePlanItem(
+                Path("card6.pdf"),
+                Path("card6.pdf"),
+                "skip_error"
+            ),
+        ]
+
+        dialog = RenameConfirmDialog(self, plan, "2024")
+        result = dialog.ShowModal()
+        dialog.Destroy()
+
+        if result == wx.ID_OK:
+            wx_utils.show_info(self, "User clicked Rename All", "Result")
+        else:
+            wx_utils.show_info(self, "User clicked Cancel", "Result")
+
+    def _test_error_list(self):
+        """Test error list dialog."""
+        # Create mock errors
+        errors = [
+            ("card1.pdf", "Authentication failed"),
+            ("card2.pdf", "Timeout exceeded"),
+            ("card3.pdf", "Invalid response format"),
+            ("card4.pdf", "Permission denied"),
+        ]
+
+        dialog = ErrorListDialog(self, "AI Analysis Errors", errors, auth_aborted=True)
         dialog.ShowModal()
         dialog.Destroy()
 
