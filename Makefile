@@ -1,4 +1,4 @@
-.PHONY: help run app build clean icon loc version bump-patch bump-minor bump-major
+.PHONY: help run app build clean icon loc version bump-patch bump-minor bump-major tag
 
 help: ## Show this help message
 	@echo "Greeting Cards - Available make commands:"
@@ -67,6 +67,10 @@ bump-major: ## Bump major version (0.6.0 → 1.0.0)
 	p='app/version.py'; v=open(p).read().split('\"')[1].split('.'); \
 	v=[int(x) for x in v]; v[0]+=1; v[1]=0; v[2]=0; nv='.'.join(map(str,v)); \
 	open(p,'w').write(f'__version__ = \"{nv}\"\n'); print(nv)"
+
+tag: ## Create git tag vX.Y.Z from current version
+	@v=$$(python3 -c "from app.version import __version__; print(__version__)"); \
+	git tag "v$$v" && echo "Tagged v$$v"
 
 clean: ## Remove build artifacts
 	rm -rf build dist icon.iconset
