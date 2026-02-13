@@ -1,7 +1,7 @@
 # wxPython Migration Plan
 
 **Status:** In Progress
-**Current Phase:** Phase 5 - Preview Panel (COMPLETE)
+**Current Phase:** Phase 6 - Review Panel (COMPLETE)
 **Branch:** `wx`
 **Start Date:** 2026-02-13
 
@@ -166,40 +166,79 @@ Migrating Greeting Cards App from tkinter to wxPython for better native macOS in
 
 ---
 
-## Phase 6: Review Panel (Days 12-15)
+## Phase 6: Review Panel (Days 12-15) ✅ COMPLETE
 
-**Goal:** Scrollable card list with editable rows
+**Goal:** Card list with editing controls
+
+**Decision:** Pivoted from scrollable rows to master-detail pattern (Mac-native Mail.app / Finder style)
 
 ### Tasks
-- [ ] Create `app/gui/wx_review_panel.py`
-- [ ] Choose implementation approach
-  - [ ] Research: wx.ListCtrl vs wx.grid.Grid vs wx.lib.scrolledpanel
-  - [ ] Decision: Recommended wx.lib.scrolledpanel
-- [ ] Create `ReviewRow` as wx.Panel
-  - [ ] wx.StaticBitmap (confidence dot)
-  - [ ] wx.StaticText (filename)
-  - [ ] wx.TextCtrl (editable name)
-  - [ ] wx.CheckBox (remove family suffix)
-  - [ ] wx.Choice (candidates dropdown)
-  - [ ] wx.Button (AI button)
-- [ ] Row layout with wx.BoxSizer
-- [ ] Selection handling
-  - [ ] Click to select (highlight row)
-  - [ ] Keyboard navigation (up/down arrows)
-  - [ ] Scroll to selected row
-- [ ] Dynamic row creation/destruction
-- [ ] Event handlers
-  - [ ] Name edit callback
-  - [ ] Candidate selection callback
-  - [ ] Checkbox toggle callback
-  - [ ] AI button click callback
-- [ ] Test with real greeting card data
+- [x] Create `app/gui/wx_review_panel_master_detail.py`
+- [x] Choose implementation approach
+  - [x] Research: Scrollable ReviewRow panels vs Master-Detail pattern
+  - [x] Decision: Master-Detail with wx.dataview.DataViewCtrl (Mac-native NSTableView)
+  - [x] Rationale: Better macOS integration, cleaner architecture, easier to test
+- [x] Implement `CardListModel` (PyDataViewModel)
+  - [x] 3 columns: confidence dot (●/⚠/✕), filename, family name
+  - [x] Color-coded rows based on confidence level
+  - [x] Notification methods for external updates
+- [x] Implement `DetailPanel` (Edit controls for selected card)
+  - [x] Name text input with live editing
+  - [x] "Remove 'Family' from File Name" checkbox
+  - [x] Candidate dropdown with placeholder
+  - [x] AI button with SF Symbol icon (sparkles, 9pt, 28px height)
+- [x] Implement `ReviewPanelMasterDetail` (SplitterWindow layout)
+  - [x] Master (top): DataViewCtrl with card list
+  - [x] Detail (bottom): Edit controls for selected card
+  - [x] SetSashGravity(1.0) to give space to master list
+- [x] Selection handling
+  - [x] Click to select card
+  - [x] Keyboard navigation (up/down arrows)
+  - [x] Auto-scroll to selection
+  - [x] Update detail panel on selection
+- [x] Event callbacks
+  - [x] on_select: Card selected in list
+  - [x] on_name_change: Name edited manually
+  - [x] on_remove_family_change: Checkbox toggled
+  - [x] on_candidate_select: Candidate chosen from dropdown
+  - [x] on_ai_generate: AI button clicked
+- [x] Public API matches original ReviewPanel
+  - [x] Drop-in replacement (same method signatures)
+  - [x] Backward-compatible for main window integration
+- [x] Comprehensive test suite
+  - [x] 61 tests for master-detail panel
+  - [x] CardListModel tests (22): columns, values, colors, updates
+  - [x] ReviewPanelMasterDetail tests (39): initialization, selection, navigation, callbacks
+  - [x] DetailPanel tests (5): candidates, controls, AI button
+  - [x] Edge cases (5): empty list, invalid selection, state transitions
+  - [x] All tests passing
+- [x] Remove old scrollable implementation
+  - [x] Deleted `app/gui/wx_review_panel.py`
+  - [x] Deleted `tests/gui/test_wx_review_panel.py` (47 old tests)
+  - [x] Removed test button from main_wx.py
+- [x] Code quality review
+  - [x] Created `CODE_REVIEW_MASTER_DETAIL.md`
+  - [x] Documented magic numbers, code smells, DRY violations
+  - [x] Deferred refactoring until app completion
 
-**Challenges:**
-- Selection highlighting (custom background painting)
-- Keyboard navigation between rows
-- Scroll performance with many cards
-- Dynamic widget creation
+**Architecture:**
+- **Master-Detail Pattern** (Mac-native, like Mail.app)
+- **DataViewCtrl** (uses NSTableView on macOS) for performant native list
+- **PyDataViewModel** for custom data source (no widget creation per row)
+- **Single DetailPanel** (edit one card at a time, cleaner than 100+ controls)
+- **SplitterWindow** for resizable master/detail split
+- **Callback-based** (parent/controller pattern, UI doesn't call database directly)
+
+**Why Master-Detail?**
+- Native macOS pattern (Mail, Finder, System Preferences)
+- More performant (one set of controls vs N*6 widgets per card)
+- Easier to test (mock data model, verify callbacks)
+- Better separation of concerns (CardListModel vs DetailPanel)
+- Cleaner architecture (no dynamic widget creation)
+
+**Button Sizing Notes:**
+- AI button: 9pt SF Symbol icon, 28px height for proper scaling
+- Testing progression: 12pt→16pt→11pt→9pt to find native-looking size
 
 ---
 
@@ -475,6 +514,40 @@ Migrating Greeting Cards App from tkinter to wxPython for better native macOS in
     - Sample image generators (single and multi-page with PIL ImageDraw)
     - Load/Clear/Error test buttons
   - Total test count now 185 (159 + 26)
+- **Phase 6 Complete:**
+  - Created `wx_review_panel_master_detail.py` - Master-detail pattern (Mac-native)
+    - CardListModel: PyDataViewModel with 3 columns (dot, filename, family)
+    - DetailPanel: Single set of controls for selected card (name, checkbox, dropdown, AI button)
+    - ReviewPanelMasterDetail: SplitterWindow layout (master top, detail bottom)
+    - SetSashGravity(1.0) gives space to master list
+    - AI button: 9pt sparkles icon, 28px height for native appearance
+  - Public API matches original ReviewPanel:
+    - Drop-in replacement with same method signatures
+    - Callbacks for all interactions (selection, name change, checkbox, candidate, AI)
+    - Keyboard navigation (up/down arrows)
+    - select_card_by_id(), select_next_card(), select_prev_card() methods
+  - Test coverage:
+    - 61 tests for master-detail panel
+    - Level 1: CardListModel (22 tests) - columns, values, colors, notifications
+    - Level 2: ReviewPanelMasterDetail (39 tests) - init, selection, navigation, callbacks
+    - Level 3: DetailPanel (5 tests) - candidates, controls, AI button
+    - Edge cases (5 tests) - empty list, invalid selection, state transitions
+    - All 61 tests passing
+  - Deleted old scrollable implementation:
+    - Removed `app/gui/wx_review_panel.py` (old scrollable rows approach)
+    - Removed `tests/gui/test_wx_review_panel.py` (47 old tests)
+    - Removed test button from main_wx.py
+  - Code quality review:
+    - Created `CODE_REVIEW_MASTER_DETAIL.md` documenting issues for future refactoring
+    - HIGH priority: magic numbers (column indices, confidence symbols), private attribute access, DB coupling
+    - MEDIUM priority: repeated code, lazy imports, dynamic attributes
+    - LOW priority: hardcoded dimensions, unused parameters
+    - Deferred refactoring until app completion
+  - Architecture decision:
+    - Chose master-detail over scrollable ReviewRow panels
+    - Rationale: More performant (one control set vs N*6 widgets), native macOS pattern, easier to test
+  - Button sizing journey: 12pt→16pt→11pt→9pt icon sizes to find native appearance
+  - Total test count now 287 (226 before Phase 6 + 61 new master-detail tests)
 
 ---
 
