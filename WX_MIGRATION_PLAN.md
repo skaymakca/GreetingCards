@@ -1,7 +1,7 @@
 # wxPython Migration Plan
 
-**Status:** Not Started
-**Current Phase:** Phase 1 - Setup & Foundation
+**Status:** In Progress
+**Current Phase:** Phase 1 - Setup & Foundation (COMPLETE)
 **Branch:** `wx`
 **Start Date:** 2026-02-13
 
@@ -22,17 +22,17 @@ Migrating Greeting Cards App from tkinter to wxPython for better native macOS in
 **Goal:** Get wxPython running alongside tkinter
 
 ### Tasks
-- [ ] Install wxPython: `pip install wxPython`
-- [ ] Create `app/gui/wx_styles.py`
-  - [ ] Port `Color` class to wx.Colour
-  - [ ] Port `Font` class to wx.Font objects
-  - [ ] Port `Layout` class dimensions
-- [ ] Create `app/gui/wx_utils.py`
-  - [ ] PIL → wx.Bitmap conversion helper
-  - [ ] Hex color → wx.Colour helper
-  - [ ] Common widget factory functions
-- [ ] Create `main_wx.py` test harness
-- [ ] Verify wxPython runs on macOS
+- [x] Install wxPython: `pip install wxPython`
+- [x] Create `app/gui/wx_styles.py`
+  - [x] Port `Color` class to wx.Colour
+  - [x] Port `Font` class to wx.Font factory methods
+  - [x] Port `Layout` class dimensions
+- [x] Create `app/gui/wx_utils.py`
+  - [x] PIL → wx.Bitmap conversion helper
+  - [x] Hex color → wx.Colour helper
+  - [x] Common widget factory functions
+- [x] Create `main_wx.py` test harness
+- [x] Verify wxPython runs on macOS
 
 ---
 
@@ -352,7 +352,13 @@ Migrating Greeting Cards App from tkinter to wxPython for better native macOS in
 ### 2026-02-13
 - Created migration plan
 - Created wx branch
-- Status: Ready to begin Phase 1
+- **Phase 1 Complete:**
+  - Installed wxPython 4.2.5
+  - Created `wx_styles.py` (Color, Font factory methods, Layout)
+  - Created `wx_utils.py` (PIL conversion, color helpers, widget factories, dialogs)
+  - Created `main_wx.py` test harness
+  - Verified wxPython working on macOS
+  - Note: Font class uses factory methods to avoid wx.App requirement at import time
 
 ---
 

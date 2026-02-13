@@ -22,3 +22,4 @@ SQLAlchemy==2.0.46
 tkinterdnd2==0.4.3
 typing-inspection==0.4.2
 typing_extensions==4.15.0
+wxPython==4.2.5
