@@ -30,6 +30,10 @@ Run `make help` to see all available commands.
 | `make build` | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`) — alias for `make app` |
 | `make app` | Build the macOS `.app` bundle (same as `make build`) |
 | `make icon` | Generate `icon.icns` from `icon.png` (auto-run by build) |
+| `make version` | Print the current version |
+| `make bump-patch` | Bump patch version (e.g. 0.5.0 → 0.5.1) |
+| `make bump-minor` | Bump minor version (e.g. 0.5.1 → 0.6.0) |
+| `make bump-major` | Bump major version (e.g. 0.6.0 → 1.0.0) |
 | `make loc` | Count lines of code in project files (excludes dependencies and build artifacts) |
 | `make clean` | Remove `build/` and `dist/` directories |
 
