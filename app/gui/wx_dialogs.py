@@ -358,95 +358,75 @@ class CompletionDialog(wx.Dialog):
         skipped = sum(1 for r in results if r.success and r.message != "Renamed")
         errors = sum(1 for r in results if not r.success)
 
-        # Create panel
-        panel = wx.Panel(self)
-        panel.SetBackgroundColour(wx_styles.Color.BG_PRIMARY)
-
         # Main sizer
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         sizer.AddSpacer(20)
 
-        # Header with symbol and counts
-        header_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        # Header
+        header = wx.StaticText(self, label="Rename Complete")
+        header.SetFont(wx_styles.Font.TITLE())
+        header.SetForegroundColour(wx_styles.Color.TEXT_PRIMARY)
+        sizer.Add(header, 0, wx.LEFT | wx.RIGHT, 20)
 
-        # Symbol
+        sizer.AddSpacer(4)
+
+        # Summary counts
+        summary = f"{renamed} renamed, {skipped} skipped"
         if errors:
-            symbol = "\u26A0"
-            symbol_color = wx_styles.Color.ERROR
-        else:
-            symbol = "\u2713"
-            symbol_color = wx_styles.Color.SUCCESS
+            summary += f", {errors} failed"
 
-        symbol_label = wx.StaticText(panel, label=symbol)
-        symbol_font = wx_styles.Font.TITLE()
-        symbol_font.SetPointSize(20)
-        symbol_label.SetFont(symbol_font)
-        symbol_label.SetForegroundColour(symbol_color)
-        header_sizer.Add(symbol_label, 0, wx.RIGHT, 8)
-
-        # Counts text
-        counts = f"{renamed} renamed, {skipped} skipped"
-        if errors:
-            counts += f", {errors} failed"
-
-        counts_label = wx.StaticText(panel, label=counts)
-        counts_label.SetFont(wx_styles.Font.HEADING())
-        counts_label.SetForegroundColour(wx_styles.Color.TEXT_PRIMARY)
-        header_sizer.Add(counts_label, 0, wx.ALIGN_CENTER_VERTICAL)
-
-        sizer.Add(header_sizer, 0, wx.LEFT | wx.RIGHT, 20)
+        summary_label = wx.StaticText(self, label=summary)
+        summary_label.SetFont(wx_styles.Font.BODY())
+        summary_label.SetForegroundColour(wx_styles.Color.TEXT_SECONDARY)
+        sizer.Add(summary_label, 0, wx.LEFT | wx.RIGHT, 20)
 
         sizer.AddSpacer(12)
 
-        # List control for results
         # Filter to only renamed and error rows (skip rows already shown in confirm dialog)
         visible = [r for r in results if not r.success or r.message == "Renamed"]
 
-        self.list_ctrl = wx.ListCtrl(
-            panel,
-            style=wx.LC_REPORT | wx.LC_SINGLE_SEL | wx.LC_HRULES
-        )
-        self.list_ctrl.SetFont(wx_styles.Font.MONO())
-
-        # Add columns with proper widths (total should match dialog width - margins)
-        # Dialog width 650 - margins (20 * 2) = 610 for list control
-        self.list_ctrl.InsertColumn(0, "Filename", width=500)
-        self.list_ctrl.InsertColumn(1, "Result", width=110)
-
-        # Add items
+        # Prepare data and colors
+        data = []
+        colors = []
         for r in visible:
             display_name = r.new_path.name if r.success else r.old_path.name
-            index = self.list_ctrl.InsertItem(self.list_ctrl.GetItemCount(), display_name)
-
             if r.success:
-                self.list_ctrl.SetItem(index, 1, "OK")
-                self.list_ctrl.SetItemTextColour(index, wx_styles.Color.SUCCESS)
+                result_text = "OK"
+                colors.append(wx_styles.Color.SUCCESS)
             else:
-                # Put error message directly in Result column
-                error_text = f"ERROR\n{r.message}"
-                self.list_ctrl.SetItem(index, 1, error_text)
-                self.list_ctrl.SetItemTextColour(index, wx_styles.Color.ERROR)
+                result_text = f"ERROR: {r.message}"
+                colors.append(wx_styles.Color.ERROR)
+            data.append([display_name, result_text])
+
+        # Create model and ctrl
+        self.model = TableModel(data, colors)
+        self.list_ctrl = dv.DataViewCtrl(
+            self,
+            style=dv.DV_ROW_LINES | dv.DV_VERT_RULES
+        )
+        self.list_ctrl.SetFont(wx_styles.Font.MONO())
+        self.list_ctrl.AssociateModel(self.model)
+
+        # Add columns
+        self.list_ctrl.AppendTextColumn("Filename", 0, width=490)
+        self.list_ctrl.AppendTextColumn("Result", 1, width=140)
 
         sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
 
         sizer.AddSpacer(20)
 
         # OK button
-        ok_btn = wx.Button(panel, wx.ID_OK, "OK")
-        ok_btn.SetFont(wx_styles.Font.BODY())
+        ok_btn = wx.Button(self, wx.ID_OK, "OK")
+        ok_btn.Bind(wx.EVT_BUTTON, lambda evt: self.EndModal(wx.ID_OK))
         sizer.Add(ok_btn, 0, wx.ALIGN_CENTER)
 
         sizer.AddSpacer(20)
 
-        # Set sizers
-        panel.SetSizer(sizer)
-
-        # Center on parent
+        self.SetSizer(sizer)
         self.CenterOnParent()
 
-        # Bind events
-        ok_btn.Bind(wx.EVT_BUTTON, lambda evt: self.EndModal(wx.ID_OK))
+        # Keyboard shortcuts
         self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
 
     def _on_key(self, event):
