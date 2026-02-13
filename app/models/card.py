@@ -31,6 +31,7 @@ class CardResult:
     remove_family: bool = False  # If True, omit "Family" suffix from filename
     selected_candidate_id: Optional[int] = None  # ID of selected candidate from DB (None if manual or missing)
     method: str = "missing"  # 'ocr' | 'ai' | 'manual' | 'missing'
+    error: str = ""  # Non-empty when PDF processing failed (corrupt, encrypted, etc.)
 
     @property
     def display_name(self) -> str:

@@ -6,9 +6,6 @@
 - [ ] Add Help > About menu with version number and git commit hash
 
 ### Error Handling
-- [ ] Handle PDFs that can't be opened (corrupted/encrypted/wrongformat)
-  - Show error icon/message in cards list
-  - Indicate in preview pane with a centered message and bad file icon
 - [ ] Review file permissions issues and handle
 - [ ] Review API issues and handle - seperate handling for auth issues (reprompt) and network/other/load issues (stop)
 
@@ -50,6 +47,7 @@
   - Persist in the db
   - In this case the file name is just "Holiday Cards - $RESULT.pdf"
 - [x] Fix case-insensitive duplicate detection (Macintosh vs MacIntosh no longer triggers false dupe)
+- [x] Handle bad/unreadable PDFs gracefully (error field, red ✕ icon, disabled controls, error in preview)
 
 ---
 

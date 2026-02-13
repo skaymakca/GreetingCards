@@ -22,6 +22,7 @@ class PreviewPanel(tk.Frame):
         self._pan_x = 0.0
         self._pan_y = 0.0
         self._drag_start = None
+        self._error_message = ""  # Non-empty when showing an error
 
         # --- Title bar ---
         self._title_label = tk.Label(
@@ -72,25 +73,25 @@ class PreviewPanel(tk.Frame):
 
         self._fit_btn = ttk.Button(
             zoom_frame, text="Fit", style="ToolbarSmall.TButton",
-            command=self._zoom_fit, width=3,
+            command=self._zoom_fit, width=3, state="disabled",
         )
         self._fit_btn.pack(side="left", padx=(0, 2))
 
         self._zout_btn = ttk.Button(
             zoom_frame, text="\u2212", style="ToolbarSmall.TButton",
-            command=self._zoom_out, width=2,
+            command=self._zoom_out, width=2, state="disabled",
         )
         self._zout_btn.pack(side="left", padx=2)
 
         self._zoom_label = tk.Label(
-            zoom_frame, text="Fit", font=styles.FONT_SMALL,
+            zoom_frame, text="", font=styles.FONT_SMALL,
             bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY, width=6,
         )
         self._zoom_label.pack(side="left", padx=2)
 
         self._zin_btn = ttk.Button(
             zoom_frame, text="+", style="ToolbarSmall.TButton",
-            command=self._zoom_in, width=2,
+            command=self._zoom_in, width=2, state="disabled",
         )
         self._zin_btn.pack(side="left", padx=(2, 0))
 
@@ -114,6 +115,7 @@ class PreviewPanel(tk.Frame):
 
     def show_images(self, images: list[Image.Image], filename: str = ""):
         """Display a list of page images."""
+        self._error_message = ""
         self._images = images
         self._page_idx = 0
         self._reset_view()
@@ -121,6 +123,7 @@ class PreviewPanel(tk.Frame):
         if filename:
             self._title_label.config(text=f"Preview: {filename}")
         self._update_page_controls()
+        self._update_zoom_controls()
         self._render()
 
     def show_image(self, image: Image.Image, filename: str = ""):
@@ -129,16 +132,32 @@ class PreviewPanel(tk.Frame):
 
     def clear(self):
         """Clear the preview."""
+        self._error_message = ""
         self._images = []
         self._page_idx = 0
         self._photo = None
         self._canvas.delete("all")
         self._title_label.config(text="Preview")
         self._page_label.config(text="")
-        self._zoom_label.config(text="")
         self._prev_btn.config(state="disabled")
         self._next_btn.config(state="disabled")
+        self._update_zoom_controls()
         self._placeholder.place(relx=0.5, rely=0.5, anchor="center")
+
+    def show_error(self, message: str, filename: str = ""):
+        """Display an error message on the preview canvas."""
+        self._images = []
+        self._page_idx = 0
+        self._photo = None
+        self._canvas.delete("all")
+        self._placeholder.place_forget()
+        self._error_message = message
+        self._title_label.config(text=f"Preview: {filename}" if filename else "Preview")
+        self._page_label.config(text="")
+        self._prev_btn.config(state="disabled")
+        self._next_btn.config(state="disabled")
+        self._update_zoom_controls()
+        self._render_error()
 
     # --- Page navigation ---
 
@@ -168,6 +187,16 @@ class PreviewPanel(tk.Frame):
             self._next_btn.config(state="normal" if self._page_idx < total - 1 else "disabled")
 
     # --- Zoom ---
+
+    def _update_zoom_controls(self):
+        """Enable zoom buttons when images are loaded, disable otherwise."""
+        has_images = bool(self._images)
+        state = "normal" if has_images else "disabled"
+        self._fit_btn.config(state=state)
+        self._zout_btn.config(state=state)
+        self._zin_btn.config(state=state)
+        if not has_images:
+            self._zoom_label.config(text="")
 
     def _reset_view(self):
         self._is_fit = True
@@ -259,8 +288,27 @@ class PreviewPanel(tk.Frame):
     # --- Rendering ---
 
     def _on_resize(self, event=None):
-        if self._images:
+        if self._error_message:
+            self._render_error()
+        elif self._images:
             self._render()
+
+    def _render_error(self):
+        """Draw the error message centered on the canvas."""
+        self._canvas.delete("all")
+        cw = self._canvas.winfo_width()
+        ch = self._canvas.winfo_height()
+        if cw < 10 or ch < 10:
+            return
+        cx, cy = cw / 2, ch / 2
+        self._canvas.create_text(
+            cx, cy - 30, text="\u26A0", fill=styles.ERROR,
+            font=("Arial", 32),
+        )
+        self._canvas.create_text(
+            cx, cy + 20, text=self._error_message, fill=styles.ERROR,
+            font=styles.FONT_BODY, width=cw - 40, justify="center",
+        )
 
     def _render(self):
         if not self._images or self._page_idx >= len(self._images):

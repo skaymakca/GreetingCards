@@ -476,7 +476,7 @@ class MainWindow:
             ]
 
         if result_dict['error']:
-            card.ocr_text = f"Error: {result_dict['error']}"
+            card.error = result_dict['error']
             card.confidence = Confidence.NONE
 
         return card
@@ -525,7 +525,7 @@ class MainWindow:
                     card.selected_candidate_id = card_state['selected_candidate_id']
                     card.method = card_state['method']
             except Exception as e:
-                card.ocr_text = f"Error: {e}"
+                card.error = str(e)
                 card.confidence = Confidence.NONE
 
             self._cards_by_id[card_id] = card
@@ -580,7 +580,9 @@ class MainWindow:
     def _on_card_select(self, card_id: int):
         card = self._cards_by_id.get(card_id)
         if card:
-            if card.page_images:
+            if card.error:
+                self._preview_panel.show_error(card.error, card.filename)
+            elif card.page_images:
                 self._preview_panel.show_images(card.page_images, card.filename)
             elif card.preview_image:
                 self._preview_panel.show_images([card.preview_image], card.filename)

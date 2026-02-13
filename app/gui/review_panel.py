@@ -183,7 +183,11 @@ class ReviewPanel(tk.Frame):
         row_frame.pack(fill="x", pady=1)
 
         # Confidence dot with tooltip
-        if card.confidence == Confidence.NONE:
+        is_error = bool(card.error)
+        if is_error:
+            dot_color = styles.ERROR
+            symbol = "✕"
+        elif card.confidence == Confidence.NONE:
             dot_color = styles.TEXT_SECONDARY
             symbol = "⚠"
         else:
@@ -198,7 +202,9 @@ class ReviewPanel(tk.Frame):
         dot.pack(side="left", padx=(8, 4), pady=8)
 
         # Build tooltip with method + confidence
-        if card.confidence == Confidence.MANUAL:
+        if is_error:
+            tooltip_text = f"Error: {card.error}"
+        elif card.confidence == Confidence.MANUAL:
             tooltip_text = "Manual Entry"
         elif card.method == "missing":
             tooltip_text = "⚠️ No name extracted"
@@ -267,6 +273,13 @@ class ReviewPanel(tk.Frame):
             ai_btn_kwargs["compound"] = "left"
         ai_btn = ttk.Button(row_frame, **ai_btn_kwargs)
         ai_btn.pack(side="left", padx=(4, 8), pady=4)
+
+        # Disable controls for error cards
+        if is_error:
+            name_entry.config(state="readonly")
+            alt_combo.config(state="disabled")
+            ai_btn.config(state="disabled")
+            remove_family_check.config(state="disabled")
 
         row_data = {
             "frame": row_frame,
@@ -382,7 +395,11 @@ class ReviewPanel(tk.Frame):
             return
 
         # Update dot color based on confidence
-        if confidence == Confidence.NONE:
+        is_error = bool(card and card.error)
+        if is_error:
+            dot_color = styles.ERROR
+            symbol = "✕"
+        elif confidence == Confidence.NONE:
             dot_color = styles.TEXT_SECONDARY
             symbol = "⚠"  # Warning symbol for missing
         else:
@@ -391,13 +408,14 @@ class ReviewPanel(tk.Frame):
 
         row["dot"].delete("all")
         if symbol:
-            # Show warning symbol for missing names
             row["dot"].create_text(6, 6, text=symbol, fill=dot_color, font=("Arial", 10))
         else:
             row["dot"].create_oval(2, 2, 10, 10, fill=dot_color, outline="")
 
         # Update tooltip with method + confidence
-        if card and confidence == Confidence.MANUAL:
+        if is_error:
+            tooltip_text = f"Error: {card.error}"
+        elif card and confidence == Confidence.MANUAL:
             tooltip_text = "Manual Entry"
         elif card and card.method == "missing":
             tooltip_text = "⚠️ No name extracted"
