@@ -2,9 +2,6 @@
 
 ## High Priority
 
-### UI/UX Improvements
-- [ ] Add Help > About menu with version number and git commit hash
-
 ## Medium Priority
 
 ### App Bundle Issues
@@ -40,6 +37,7 @@
 - [x] Structured error handling for file rename (results table with success/error state)
 - [x] AI error handling: auth abort, error collection, ErrorListDialog, clean messages
 - [x] Semantic versioning (`app/version.py`, Makefile bump targets, PyInstaller bundle metadata)
+- [x] About section in Settings with app icon, version, and git commit hash
 
 ---
 

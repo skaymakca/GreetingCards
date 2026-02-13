@@ -1,6 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
-from app.version import __version__
+import re, subprocess
+__version__ = re.search(r'"(.+?)"', open('app/version.py').read()).group(1)
+__commit__ = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode().strip()
 
 datas = [('icon.png', '.')]
 binaries = []
@@ -57,6 +59,6 @@ app = BUNDLE(
     bundle_identifier='com.greetingcards.app',
     info_plist={
         'CFBundleShortVersionString': __version__,
-        'CFBundleVersion': __version__,
+        'CFBundleVersion': __commit__,
     },
 )
