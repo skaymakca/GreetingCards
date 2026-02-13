@@ -12,6 +12,38 @@
 
 ---
 
+## ⚠️ CRITICAL: ALWAYS USE VENV ⚠️
+
+**NEVER use system Python. ONLY use the virtual environment.**
+
+### Correct Python/pip usage:
+```bash
+# ✅ CORRECT - Use .venv Python
+.venv/bin/python -m pytest tests/
+.venv/bin/python main.py
+.venv/bin/python -m pip install package-name
+
+# ✅ CORRECT - Activate venv first
+source .venv/bin/activate
+python -m pytest tests/
+python main.py
+
+# ❌ WRONG - System Python (DO NOT USE)
+python3 -m pytest tests/
+python3 main.py
+/usr/bin/python3 -m pip install package-name
+/Library/Frameworks/Python.framework/Versions/3.14/bin/python3
+```
+
+### Rules:
+- **ALWAYS** use `.venv/bin/python` for all Python commands
+- **NEVER** use `python3`, `/usr/bin/python3`, or system Python paths
+- **NEVER** install packages outside the venv
+- If a command fails, check that you're using .venv Python first
+- The venv directory is `.venv` (with leading dot)
+
+---
+
 ## Project Overview
 
 Greeting Cards - macOS app for organizing and renaming greeting card PDFs using OCR and AI.

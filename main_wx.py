@@ -164,6 +164,25 @@ class TestFrame(wx.Frame):
 
         sizer.Add(dialog_sizer2, 0, wx.ALL | wx.CENTER, wx_styles.Layout.PAD)
 
+        # Phase 4 icon and context menu tests
+        phase4_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        btn_icons = wx_utils.create_button(
+            panel,
+            "SF Symbols Test",
+            self._test_icons
+        )
+        phase4_sizer.Add(btn_icons, 0, wx.ALL, wx_styles.Layout.PAD)
+
+        btn_context = wx_utils.create_button(
+            panel,
+            "Context Menu Test",
+            self._test_context_menu
+        )
+        phase4_sizer.Add(btn_context, 0, wx.ALL, wx_styles.Layout.PAD)
+
+        sizer.Add(phase4_sizer, 0, wx.ALL | wx.CENTER, wx_styles.Layout.PAD)
+
         # More spacing
         sizer.AddStretchSpacer()
 
@@ -310,6 +329,126 @@ class TestFrame(wx.Frame):
         ]
 
         dialog = ErrorListDialog(self, "AI Analysis Errors", errors, auth_aborted=True)
+        dialog.ShowModal()
+        dialog.Destroy()
+
+    def _test_icons(self):
+        """Test SF Symbol icon loading at various sizes."""
+        from app.gui import wx_icons
+
+        # Create a dialog to show various icons and sizes
+        dialog = wx.Dialog(self, title="SF Symbol Icons Test", size=(550, 550))
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        sizer.AddSpacer(wx_styles.Layout.PAD * 2)
+
+        # Title
+        title = wx_utils.create_static_text(
+            dialog,
+            "SF Symbol Icon Test",
+            font=wx_styles.Font.TITLE(),
+            colour=wx_styles.Color.ACCENT
+        )
+        sizer.Add(title, 0, wx.ALL | wx.CENTER, wx_styles.Layout.PAD)
+
+        sizer.AddSpacer(wx_styles.Layout.PAD)
+
+        # Test various icons at different sizes
+        test_configs = [
+            ("scissors", "Cut (12pt)", 12),
+            ("doc.on.doc", "Copy (12pt)", 12),
+            ("textformat.abc", "Title Case (12pt)", 12),
+            ("xmark.circle", "Clear (12pt)", 12),
+            ("scissors", "Cut (16pt)", 16),
+            ("textformat.abc", "Title Case (20pt)", 20),
+        ]
+
+        for symbol_name, label, pt_size in test_configs:
+            row = wx.BoxSizer(wx.HORIZONTAL)
+
+            # Load icon at specified size
+            bitmap = wx_icons.load_sf_symbol(symbol_name, pt_size, "#1D1D1F")
+
+            if bitmap:
+                icon_ctrl = wx.StaticBitmap(dialog, bitmap=bitmap)
+                row.Add(icon_ctrl, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, wx_styles.Layout.PAD)
+                status = "✓"
+            else:
+                # Show placeholder if icon failed to load
+                placeholder = wx_utils.create_static_text(dialog, "[?]")
+                row.Add(placeholder, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, wx_styles.Layout.PAD)
+                status = "✗"
+
+            # Label
+            text = wx_utils.create_static_text(
+                dialog,
+                f"{label} {status}",
+                font=wx_styles.Font.BODY()
+            )
+            row.Add(text, 0, wx.ALIGN_CENTER_VERTICAL)
+
+            sizer.Add(row, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, wx_styles.Layout.PAD * 2)
+
+        sizer.AddSpacer(wx_styles.Layout.PAD * 3)
+
+        # OK button
+        ok_btn = wx.Button(dialog, wx.ID_OK, "OK")
+        ok_btn.SetMinSize((120, 32))
+        ok_btn.Bind(wx.EVT_BUTTON, lambda evt: dialog.EndModal(wx.ID_OK))
+        sizer.Add(ok_btn, 0, wx.ALIGN_CENTER | wx.ALL, wx_styles.Layout.PAD * 2)
+
+        dialog.SetSizer(sizer)
+        dialog.CenterOnParent()
+        dialog.ShowModal()
+        dialog.Destroy()
+
+    def _test_context_menu(self):
+        """Test context menu with SF Symbol icons."""
+        from app.gui import wx_context_menu
+
+        # Create a dialog with a text field that has the context menu
+        dialog = wx.Dialog(self, title="Context Menu Test", size=(400, 250))
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        sizer.AddSpacer(20)
+
+        # Title
+        title = wx.StaticText(dialog, label="Context Menu Test")
+        title.SetFont(wx_styles.Font.TITLE())
+        sizer.Add(title, 0, wx.LEFT | wx.RIGHT, 20)
+
+        sizer.AddSpacer(10)
+
+        # Instructions
+        instructions = wx.StaticText(
+            dialog,
+            label="Right-click the text field below to see the context menu\n"
+                  "with SF Symbol icons (Cut, Copy, Paste, Title Case, Clear)."
+        )
+        instructions.SetFont(wx_styles.Font.BODY())
+        sizer.Add(instructions, 0, wx.LEFT | wx.RIGHT, 20)
+
+        sizer.AddSpacer(20)
+
+        # Text field with context menu
+        text_ctrl = wx.TextCtrl(
+            dialog,
+            value="hello world - right click me!",
+            size=(360, -1)
+        )
+        text_ctrl.SetFont(wx_styles.Font.BODY())
+        wx_context_menu.add_entry_context_menu(text_ctrl)
+        sizer.Add(text_ctrl, 0, wx.LEFT | wx.RIGHT, 20)
+
+        sizer.AddStretchSpacer()
+
+        # OK button
+        ok_btn = wx.Button(dialog, wx.ID_OK, "OK")
+        ok_btn.Bind(wx.EVT_BUTTON, lambda evt: dialog.EndModal(wx.ID_OK))
+        sizer.Add(ok_btn, 0, wx.ALIGN_CENTER | wx.BOTTOM, 20)
+
+        dialog.SetSizer(sizer)
+        dialog.CenterOnParent()
         dialog.ShowModal()
         dialog.Destroy()
 

@@ -1,7 +1,7 @@
 # wxPython Migration Plan
 
 **Status:** In Progress
-**Current Phase:** Phase 3 - Complex Dialogs (COMPLETE)
+**Current Phase:** Phase 4 - Context Menu & Icons (COMPLETE)
 **Branch:** `wx`
 **Start Date:** 2026-02-13
 
@@ -87,17 +87,33 @@ Migrating Greeting Cards App from tkinter to wxPython for better native macOS in
 
 ---
 
-## Phase 4: Context Menu & Icons (Day 8)
+## Phase 4: Context Menu & Icons (Day 8) ✅ COMPLETE
 
 ### Tasks
-- [ ] Migrate `context_menu.py` → `app/gui/wx_context_menu.py`
-  - [ ] wx.Menu with copy/paste/select all
-  - [ ] Bind to wx.EVT_CONTEXT_MENU
-  - [ ] Test on text controls
-- [ ] Update `icons.py` for wxPython
-  - [ ] Load SF Symbols as wx.Bitmap
-  - [ ] Test icon rendering
-  - [ ] Consider wx.ArtProvider for standard icons
+- [x] Create `app/gui/wx_icons.py`
+  - [x] Adapt SF Symbol loader to return wx.Bitmap instead of PhotoImage
+  - [x] PNG byte stream → wx.Image → wx.Bitmap conversion
+  - [x] Retina/@2x display support (automatic scaling)
+  - [x] Same PyObjC backend, caching, and graceful fallback
+- [x] Create `app/gui/wx_context_menu.py`
+  - [x] wx.Menu with Cut/Copy/Paste/Title Case/Clear
+  - [x] SF Symbol icons in menu items (using load_sf_symbol)
+  - [x] Bind to wx.EVT_CONTEXT_MENU
+  - [x] Fixed accelerator format (Cmd+X instead of ⌘X)
+  - [x] Test on TextCtrl in dialogs
+- [x] **Bonus:** Comprehensive test coverage
+  - [x] 28 tests for wx_icons.py (Level 1, 2, and 3)
+    - [x] SF Symbol loading and caching
+    - [x] Color handling
+    - [x] Edge cases
+    - [x] Integration tests (icons in dialogs)
+  - [x] 19 tests for wx_context_menu.py (Level 1, 2, and 3)
+    - [x] Context menu setup and icon loading
+    - [x] Clipboard operations (Cut/Copy/Paste)
+    - [x] Text transformations (Title Case/Clear)
+    - [x] Edge cases (Unicode, long text, multiple controls)
+    - [x] Integration tests (context menu in dialogs)
+- [x] **Total:** 47 tests, all passing
 
 ---
 
@@ -387,6 +403,30 @@ Migrating Greeting Cards App from tkinter to wxPython for better native macOS in
   - Created comprehensive tests for TableModel (25 tests, all passing)
   - All 112 tests passing (46 core + 25 TableModel + 41 other GUI)
   - Created CLAUDE.md with project instructions
+- **Phase 4 Complete:**
+  - Created `wx_icons.py` - SF Symbol loader returning wx.Bitmap instead of PhotoImage
+    - PNG byte stream → wx.Image → wx.Bitmap conversion with Retina/@2x support
+    - 6pt icons with Small scale for native-looking menu icons
+    - Module-level constants for NSImage parameters
+    - Helper function `load_menu_icon()` for DRY menu icon loading
+    - Caching by (name, size, color, scale) for performance
+  - Created `wx_context_menu.py` - Native-style context menu
+    - Cut/Copy/Paste using native wx.ID_CUT/COPY/PASTE for perfect macOS appearance
+    - Title Case and Clear with SF Symbol icons (textformat.abc, xmark.circle)
+    - Dict comprehension with walrus operator for icon loading
+    - Graceful fallback when SF Symbols unavailable
+  - Comprehensive code quality improvements:
+    - Removed dead code (_cut, _copy, _paste functions - native IDs handle these)
+    - Added type hints for all functions
+    - Extracted magic numbers to module constants
+    - Created color parsing helper function (_hex_to_rgb)
+    - Fixed exception handling (specific exceptions vs bare except)
+  - Test coverage:
+    - 24 tests for wx_icons.py (SF Symbol loading, caching, color handling, edge cases, integration)
+    - 16 tests for wx_context_menu.py (setup, clipboard ops, text transforms, edge cases, integration)
+    - All 40 Phase 4 tests passing, total test count now 159
+  - Fixed SF Symbols test dialog layout (proper spacing, larger button)
+  - Updated CLAUDE.md with correct venv path (.venv not venv)
 
 ---
 
