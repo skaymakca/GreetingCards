@@ -38,25 +38,6 @@ def _is_valid_name(name: str) -> bool:
     return True
 
 
-def _strip_family_suffix(name: str) -> str:
-    """Remove 'Family' suffix if present for normalization."""
-    return re.sub(r"\s+[Ff]amily\s*$", "", name).strip()
-
-
-def _make_family_name(name: str) -> str:
-    """Ensure name ends with 'Family' for consistent output, or strip plurals."""
-    name = _clean_name(name)
-    # "The Smiths" -> "Smith"
-    match = re.match(r"^[Tt]he\s+(.+?)s?$", name)
-    if match:
-        base = match.group(1)
-        # Remove trailing 's' for plural family names like "The Johnsons" -> "Johnson"
-        if name.endswith("s") and not name.endswith("ss"):
-            return base
-        return base
-    return name
-
-
 def extract_family_names(text: str) -> list[tuple[str, Confidence]]:
     """
     Extract family names from OCR text.

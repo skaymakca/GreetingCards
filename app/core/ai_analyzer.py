@@ -128,7 +128,7 @@ async def analyze_card_with_ai_async(images: list[Image.Image] | Image.Image) ->
 
     # Build content blocks — one image per page, then the text prompt
     content = []
-    for i, image in enumerate(images):
+    for image in images:
         img_b64 = _image_to_b64(image)
         content.append({
             "type": "image",
@@ -217,7 +217,7 @@ def analyze_card_with_ai(images: list[Image.Image] | Image.Image) -> tuple[str, 
 
     # Build content blocks — one image per page, then the text prompt
     content = []
-    for i, image in enumerate(images):
+    for image in images:
         img_b64 = _image_to_b64(image)
         content.append({
             "type": "image",
