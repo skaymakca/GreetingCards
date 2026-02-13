@@ -1,0 +1,364 @@
+# wxPython Migration Plan
+
+**Status:** Not Started
+**Current Phase:** Phase 1 - Setup & Foundation
+**Branch:** `wx`
+**Start Date:** 2026-02-13
+
+---
+
+## Overview
+
+Migrating Greeting Cards App from tkinter to wxPython for better native macOS integration, modern APIs, and improved maintainability.
+
+**Total GUI Code:** 2,722 lines across 9 files
+**Estimated Duration:** 28 days (4 weeks)
+**Strategy:** Incremental bottom-up migration
+
+---
+
+## Phase 1: Setup & Foundation (Days 1-2)
+
+**Goal:** Get wxPython running alongside tkinter
+
+### Tasks
+- [ ] Install wxPython: `pip install wxPython`
+- [ ] Create `app/gui/wx_styles.py`
+  - [ ] Port `Color` class to wx.Colour
+  - [ ] Port `Font` class to wx.Font objects
+  - [ ] Port `Layout` class dimensions
+- [ ] Create `app/gui/wx_utils.py`
+  - [ ] PIL → wx.Bitmap conversion helper
+  - [ ] Hex color → wx.Colour helper
+  - [ ] Common widget factory functions
+- [ ] Create `main_wx.py` test harness
+- [ ] Verify wxPython runs on macOS
+
+---
+
+## Phase 2: Simple Dialogs (Days 3-4)
+
+**Goal:** Migrate standalone dialogs
+
+### Tasks
+- [ ] Migrate `api_key_dialog.py` → `app/gui/wx_api_key_dialog.py`
+  - [ ] wx.Dialog with wx.TextCtrl (password mode)
+  - [ ] OK/Cancel buttons
+  - [ ] Test standalone
+- [ ] Create `app/gui/wx_dialogs.py`
+- [ ] Migrate `ProgressDialog`
+  - [ ] Use wx.ProgressDialog or custom wx.Gauge
+  - [ ] Test with mock progress updates
+- [ ] Migrate `CompletionDialog`
+  - [ ] wx.Dialog with wx.ListCtrl
+  - [ ] Test with mock rename results
+
+---
+
+## Phase 3: Complex Dialogs (Days 5-7)
+
+### Tasks
+- [ ] Migrate `help_dialog.py` → `app/gui/wx_help_dialog.py`
+  - [ ] wx.html.HtmlWindow or wx.lib.scrolledpanel
+  - [ ] Format help text
+  - [ ] Test scrolling
+- [ ] Migrate `settings_dialog.py` → `app/gui/wx_settings_dialog.py`
+  - [ ] wx.Notebook for Settings/About tabs
+  - [ ] API key input and validation
+  - [ ] Version display
+- [ ] Migrate `RenameConfirmDialog`
+  - [ ] wx.ListCtrl in report mode (multi-column)
+  - [ ] Color-coded status rows
+  - [ ] Test with mock rename plan
+- [ ] Migrate `ErrorListDialog`
+  - [ ] Similar to RenameConfirmDialog
+  - [ ] Test with mock errors
+
+---
+
+## Phase 4: Context Menu & Icons (Day 8)
+
+### Tasks
+- [ ] Migrate `context_menu.py` → `app/gui/wx_context_menu.py`
+  - [ ] wx.Menu with copy/paste/select all
+  - [ ] Bind to wx.EVT_CONTEXT_MENU
+  - [ ] Test on text controls
+- [ ] Update `icons.py` for wxPython
+  - [ ] Load SF Symbols as wx.Bitmap
+  - [ ] Test icon rendering
+  - [ ] Consider wx.ArtProvider for standard icons
+
+---
+
+## Phase 5: Preview Panel (Days 9-11)
+
+**Goal:** Image viewer with zoom and pan
+
+### Tasks
+- [ ] Create `app/gui/wx_preview_panel.py`
+- [ ] Basic image display
+  - [ ] wx.Panel with custom painting or wx.StaticBitmap
+  - [ ] PIL Image → wx.Bitmap conversion
+- [ ] Zoom functionality
+  - [ ] Mouse wheel zoom (wx.EVT_MOUSEWHEEL)
+  - [ ] Zoom in/out buttons
+  - [ ] Fit to window
+- [ ] Pan functionality
+  - [ ] Click and drag (wx.EVT_LEFT_DOWN, wx.EVT_MOTION)
+  - [ ] wx.ScrolledWindow or manual offset
+- [ ] Navigation toolbar
+  - [ ] Previous/Next page buttons
+  - [ ] Page counter display
+- [ ] Test with multi-page PDFs
+
+**Challenges:**
+- Canvas drawing → wx.DC or wx.GraphicsContext
+- Mouse event coordination
+- Performance with large images
+
+---
+
+## Phase 6: Review Panel (Days 12-15)
+
+**Goal:** Scrollable card list with editable rows
+
+### Tasks
+- [ ] Create `app/gui/wx_review_panel.py`
+- [ ] Choose implementation approach
+  - [ ] Research: wx.ListCtrl vs wx.grid.Grid vs wx.lib.scrolledpanel
+  - [ ] Decision: Recommended wx.lib.scrolledpanel
+- [ ] Create `ReviewRow` as wx.Panel
+  - [ ] wx.StaticBitmap (confidence dot)
+  - [ ] wx.StaticText (filename)
+  - [ ] wx.TextCtrl (editable name)
+  - [ ] wx.CheckBox (remove family suffix)
+  - [ ] wx.Choice (candidates dropdown)
+  - [ ] wx.Button (AI button)
+- [ ] Row layout with wx.BoxSizer
+- [ ] Selection handling
+  - [ ] Click to select (highlight row)
+  - [ ] Keyboard navigation (up/down arrows)
+  - [ ] Scroll to selected row
+- [ ] Dynamic row creation/destruction
+- [ ] Event handlers
+  - [ ] Name edit callback
+  - [ ] Candidate selection callback
+  - [ ] Checkbox toggle callback
+  - [ ] AI button click callback
+- [ ] Test with real greeting card data
+
+**Challenges:**
+- Selection highlighting (custom background painting)
+- Keyboard navigation between rows
+- Scroll performance with many cards
+- Dynamic widget creation
+
+---
+
+## Phase 7: Main Window (Days 16-20)
+
+**Goal:** Tie everything together
+
+### Tasks
+- [ ] Create `app/gui/wx_main_window.py`
+- [ ] Main window structure
+  - [ ] wx.Frame as application window
+  - [ ] Set window size and title
+- [ ] Menu bar
+  - [ ] wx.MenuBar for native macOS menus
+  - [ ] File menu: Open Folder, Exit
+  - [ ] Help menu: Show Help, About
+  - [ ] Bind menu events
+- [ ] Toolbar
+  - [ ] Folder picker button
+  - [ ] Year text input
+  - [ ] Process, Rename, Clear buttons
+  - [ ] Layout with wx.BoxSizer
+- [ ] Split layout
+  - [ ] wx.SplitterWindow for preview/review split
+  - [ ] Add wx_preview_panel to left
+  - [ ] Add wx_review_panel to right
+  - [ ] Set sash position
+- [ ] Drag-and-drop
+  - [ ] Create wx.FileDropTarget
+  - [ ] Handle folder drops
+  - [ ] Handle file drops
+  - [ ] Parse macOS path format
+- [ ] State management
+  - [ ] Load cards from folder
+  - [ ] Track current selection
+  - [ ] Update preview on selection
+- [ ] Async operations
+  - [ ] Keep current threading model
+  - [ ] wx.CallAfter for UI updates from threads
+  - [ ] Progress dialogs during processing
+- [ ] Integration testing
+  - [ ] Full workflow: load → process → review → rename
+  - [ ] Test all button actions
+  - [ ] Test keyboard shortcuts
+
+**Challenges:**
+- Coordinating preview and review panel state
+- Thread-safe UI updates
+- Drag-and-drop edge cases
+- State synchronization
+
+---
+
+## Phase 8: Integration & Polish (Days 21-25)
+
+### Tasks
+- [ ] Keyboard shortcuts
+  - [ ] wx.AcceleratorTable setup
+  - [ ] Cmd+O: Open folder
+  - [ ] Cmd+Q: Quit
+  - [ ] Arrow keys: Navigate cards
+  - [ ] Return: Focus next field
+- [ ] Native macOS integration
+  - [ ] Verify menu bar is native (not in window)
+  - [ ] Test with macOS dark mode
+  - [ ] Verify Retina/high-DPI rendering
+  - [ ] Test full-screen mode
+- [ ] Drag-and-drop refinement
+  - [ ] Test with spaces in paths
+  - [ ] Test with multiple folder drops
+  - [ ] Error handling for invalid paths
+  - [ ] Permission errors
+- [ ] Error handling
+  - [ ] Replace all tk.messagebox with wx.MessageBox
+  - [ ] Test error dialogs
+  - [ ] Verify error messages are clear
+- [ ] Styling consistency
+  - [ ] Verify colors match in light mode
+  - [ ] Verify colors match in dark mode
+  - [ ] Check font sizes and spacing
+  - [ ] Test window resizing behavior
+- [ ] Performance testing
+  - [ ] Test with 100+ cards
+  - [ ] Memory profiling (PIL images)
+  - [ ] Identify bottlenecks
+  - [ ] Optimize if needed
+
+---
+
+## Phase 9: PyInstaller Bundle (Days 26-27)
+
+### Tasks
+- [ ] Update `Greeting Cards.spec`
+  - [ ] Add wxPython to hiddenimports
+  - [ ] Add wx hooks if needed
+  - [ ] Bundle wx resources
+  - [ ] Update imports list
+- [ ] Build .app bundle
+  - [ ] Run `make build`
+  - [ ] Verify bundle builds successfully
+- [ ] Test .app bundle
+  - [ ] Launch from Finder
+  - [ ] Test all features in bundled app
+  - [ ] Verify icon displays
+  - [ ] Check for missing dependencies
+  - [ ] Test on fresh user account
+- [ ] Code signing
+  - [ ] Ad-hoc signing for local use
+  - [ ] (Optional) Developer ID for distribution
+- [ ] Notarization (if distributing)
+
+**Challenges:**
+- wxPython bundling quirks
+- Missing resources or dependencies
+- Code signing issues
+
+---
+
+## Phase 10: Cleanup & Documentation (Day 28)
+
+### Tasks
+- [ ] Remove tkinter code
+  - [ ] Delete `app/gui/main_window.py` (old)
+  - [ ] Delete `app/gui/preview_panel.py` (old)
+  - [ ] Delete `app/gui/review_panel.py` (old)
+  - [ ] Delete all old dialog files
+  - [ ] Delete `app/gui/context_menu.py` (old)
+- [ ] Rename wx files
+  - [ ] `wx_main_window.py` → `main_window.py`
+  - [ ] `wx_preview_panel.py` → `preview_panel.py`
+  - [ ] `wx_review_panel.py` → `review_panel.py`
+  - [ ] `wx_dialogs.py` → `dialogs.py`
+  - [ ] `wx_styles.py` → `styles.py`
+  - [ ] Update all imports
+- [ ] Remove tkinter dependencies
+  - [ ] Remove `tkinter` from imports
+  - [ ] Remove `tkinterdnd2` from requirements
+  - [ ] Update `requirements.txt`
+- [ ] Update `main.py`
+  - [ ] Import from wx modules
+  - [ ] Test final version
+- [ ] Documentation
+  - [ ] Update README with wxPython info
+  - [ ] Note Python and wxPython versions
+  - [ ] Update screenshots if needed
+- [ ] Final testing
+  - [ ] Complete workflow test
+  - [ ] Test .app bundle
+  - [ ] Verify no regressions
+- [ ] Merge to main
+  - [ ] Commit all changes on wx branch
+  - [ ] Test thoroughly
+  - [ ] Merge wx → main
+  - [ ] Tag new version
+  - [ ] Push to remote
+
+---
+
+## Key Differences: tkinter → wxPython
+
+| Feature | tkinter | wxPython |
+|---------|---------|----------|
+| Widgets | `tk.Frame`, `ttk.Button` | `wx.Panel`, `wx.Button` |
+| Layout | `pack()`, `grid()`, `place()` | `wx.BoxSizer`, `wx.GridSizer` |
+| Events | `bind("<Button-1>", ...)` | `Bind(wx.EVT_LEFT_DOWN, ...)` |
+| Dialogs | `messagebox.showinfo(...)` | `wx.MessageBox(...)` |
+| Images | `PhotoImage`, `ImageTk.PhotoImage` | `wx.Bitmap`, `wx.Image` |
+| Canvas | `tk.Canvas` | `wx.DC`, `wx.GraphicsContext` |
+| Menus | `tk.Menu` | `wx.MenuBar`, `wx.Menu` |
+| Styles | `ttk.Style().configure()` | Native or `wx.SystemSettings` |
+
+---
+
+## Risk Mitigation
+
+- ✅ **Business logic untouched** - All `app/core/*` stays the same
+- ✅ **Parallel development** - Keep both tk and wx versions working
+- ✅ **Incremental testing** - Test each phase before proceeding
+- ✅ **Rollback plan** - wx branch can be abandoned if needed
+- ✅ **Version control** - Git tracks all changes
+
+---
+
+## Why wxPython?
+
+- ✅ Modern & actively maintained
+- ✅ True native widgets on macOS
+- ✅ Better APIs, more Pythonic
+- ✅ Rich widget set (Grid, HTML viewer, etc.)
+- ✅ Comprehensive documentation
+- ✅ Built-in high-DPI/Retina support
+- ✅ Used by professional apps (Blender, Audacity)
+
+---
+
+## Progress Log
+
+### 2026-02-13
+- Created migration plan
+- Created wx branch
+- Status: Ready to begin Phase 1
+
+---
+
+## Notes
+
+- Keep this file updated as phases complete
+- Check off tasks with `[x]` when done
+- Add notes and lessons learned
+- Track blockers and solutions
