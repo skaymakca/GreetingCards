@@ -175,15 +175,10 @@ class MainWindow:
             accelerator="⌘Q"
         )
 
-        # Help menu
+        # Help menu — override macOS default "no help available" with our dialog
         help_menu = tk.Menu(menubar, tearoff=0, name="help")
         menubar.add_cascade(label="Help", menu=help_menu)
-
-        help_menu.add_command(
-            label="Greeting Cards Help",
-            command=self._show_help,
-            accelerator="⌘/"
-        )
+        self.root.createcommand("::tk::mac::ShowHelp", self._show_help)
 
         # Bind keyboard shortcuts using bind_all for app-level shortcuts
         # This ensures they work even when window is inactive or dialogs are open
