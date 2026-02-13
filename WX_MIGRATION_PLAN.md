@@ -1,7 +1,7 @@
 # wxPython Migration Plan
 
 **Status:** In Progress
-**Current Phase:** Phase 2 - Simple Dialogs (COMPLETE)
+**Current Phase:** Phase 3 - Complex Dialogs (COMPLETE)
 **Branch:** `wx`
 **Start Date:** 2026-02-13
 
@@ -55,24 +55,35 @@ Migrating Greeting Cards App from tkinter to wxPython for better native macOS in
 
 ---
 
-## Phase 3: Complex Dialogs (Days 5-7)
+## Phase 3: Complex Dialogs (Days 5-7) ✅ COMPLETE
 
 ### Tasks
-- [ ] Migrate `help_dialog.py` → `app/gui/wx_help_dialog.py`
-  - [ ] wx.html.HtmlWindow or wx.lib.scrolledpanel
-  - [ ] Format help text
-  - [ ] Test scrolling
-- [ ] Migrate `settings_dialog.py` → `app/gui/wx_settings_dialog.py`
-  - [ ] wx.Notebook for Settings/About tabs
-  - [ ] API key input and validation
-  - [ ] Version display
-- [ ] Migrate `RenameConfirmDialog`
-  - [ ] wx.ListCtrl in report mode (multi-column)
-  - [ ] Color-coded status rows
-  - [ ] Test with mock rename plan
-- [ ] Migrate `ErrorListDialog`
-  - [ ] Similar to RenameConfirmDialog
-  - [ ] Test with mock errors
+- [x] Migrate `help_dialog.py` → `app/gui/wx_help_dialog.py`
+  - [x] wx.html.HtmlWindow with native HTML rendering
+  - [x] Format help text as HTML
+  - [x] Test scrolling
+- [x] Migrate `settings_dialog.py` → `app/gui/wx_settings_dialog.py`
+  - [x] Single dialog with About/API Key/Database sections
+  - [x] API key input and validation
+  - [x] Version display with git commit hash
+  - [x] Database rebuild functionality
+- [x] Migrate `RenameConfirmDialog`
+  - [x] wx.dataview.DataViewCtrl with custom TableModel
+  - [x] Color-coded status rows using GetAttr()
+  - [x] Test with mock rename plan
+- [x] Migrate `ErrorListDialog`
+  - [x] DataViewCtrl with TableModel (consistent with RenameConfirm)
+  - [x] Test with mock errors
+- [x] Update `CompletionDialog` to match RenameConfirmDialog style
+  - [x] Converted from ListCtrl to DataViewCtrl
+  - [x] Same layout pattern as other dialogs
+- [x] **Bonus:** Mac-native alignment
+  - [x] Consistent 20px left margins throughout all dialogs
+  - [x] Use AddSpacer() for explicit vertical spacing
+  - [x] Remove panel wrappers, use system backgrounds
+- [x] **Bonus:** TableModel utility tests
+  - [x] Comprehensive test coverage (25 tests)
+  - [x] All PyDataViewModel methods tested
 
 ---
 
@@ -359,6 +370,23 @@ Migrating Greeting Cards App from tkinter to wxPython for better native macOS in
   - Created `main_wx.py` test harness
   - Verified wxPython working on macOS
   - Note: Font class uses factory methods to avoid wx.App requirement at import time
+- **Phase 2 Complete:**
+  - Migrated API Key Dialog with password input
+  - Migrated Progress Dialog with wx.Gauge
+  - Migrated Completion Dialog with wx.ListCtrl (later upgraded to DataViewCtrl)
+  - Added test buttons to main_wx.py harness
+  - Built and tested app bundle versions
+- **Phase 3 Complete:**
+  - Created `wx_help_dialog.py` using wx.html.HtmlWindow for native HTML rendering
+  - Created `wx_settings_dialog.py` with About, API Key, and Database sections
+  - Implemented `TableModel` class (PyDataViewModel) for colored table rows
+  - Created `RenameConfirmDialog` using DataViewCtrl with colored status rows
+  - Created `ErrorListDialog` using DataViewCtrl pattern
+  - Refactored `CompletionDialog` to match RenameConfirm style
+  - Applied Mac-native alignment: consistent 20px margins, AddSpacer() for spacing
+  - Created comprehensive tests for TableModel (25 tests, all passing)
+  - All 112 tests passing (46 core + 25 TableModel + 41 other GUI)
+  - Created CLAUDE.md with project instructions
 
 ---
 
