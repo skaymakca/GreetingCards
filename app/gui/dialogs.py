@@ -18,20 +18,19 @@ class ProgressDialog(tk.Toplevel):
         x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
         y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
         self.geometry(f"{w}x{h}+{x}+{y}")
-        self.configure(bg=styles.BG_PRIMARY)
 
-        self.label = tk.Label(
+        self.label = ttk.Label(
             self, text="Processing...", font=styles.FONT_BODY,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
+            foreground=styles.TEXT_PRIMARY,
         )
         self.label.pack(pady=(20, 8), padx=20)
 
         self.progress = ttk.Progressbar(self, maximum=total, length=350, mode="determinate")
         self.progress.pack(padx=20)
 
-        self.count_label = tk.Label(
+        self.count_label = ttk.Label(
             self, text=f"0 / {total}", font=styles.FONT_SMALL,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_SECONDARY,
+            foreground=styles.TEXT_SECONDARY,
         )
         self.count_label.pack(pady=(4, 10))
 
@@ -66,13 +65,12 @@ class RenameConfirmDialog(tk.Toplevel):
         x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
         y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
         self.geometry(f"{w}x{h}+{x}+{y}")
-        self.configure(bg=styles.BG_PRIMARY)
 
         self.result = False
 
-        header = tk.Label(
+        header = ttk.Label(
             self, text=f"Rename Plan (Year: {year})", font=styles.FONT_TITLE,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
+            foreground=styles.TEXT_PRIMARY,
         )
         header.pack(pady=(15, 5), padx=15, anchor="w")
 
@@ -89,14 +87,14 @@ class RenameConfirmDialog(tk.Toplevel):
         if error_count:
             summary += f", {error_count} error(s)"
 
-        summary_label = tk.Label(
+        summary_label = ttk.Label(
             self, text=summary, font=styles.FONT_BODY,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_SECONDARY,
+            foreground=styles.TEXT_SECONDARY,
         )
         summary_label.pack(padx=15, anchor="w")
 
         # Treeview table with resizable columns
-        table_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
+        table_frame = ttk.Frame(self)
         table_frame.pack(fill="both", expand=True, padx=15, pady=10)
 
         style = ttk.Style()
@@ -147,18 +145,18 @@ class RenameConfirmDialog(tk.Toplevel):
             tree.insert("", "end", values=(old_path.name, new_name, status_text), tags=(tag,))
 
         # Buttons
-        btn_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
+        btn_frame = ttk.Frame(self)
         btn_frame.pack(fill="x", padx=15, pady=(0, 15))
 
-        cancel_btn = tk.Button(
-            btn_frame, text="Cancel", font=styles.FONT_BODY,
-            command=self._cancel, width=10,
+        cancel_btn = ttk.Button(
+            btn_frame, text="Cancel",
+            command=self._cancel,
         )
         cancel_btn.pack(side="right", padx=(8, 0))
 
-        confirm_btn = tk.Button(
-            btn_frame, text="Rename All", font=styles.FONT_HEADING,
-            command=self._confirm, width=12,
+        confirm_btn = ttk.Button(
+            btn_frame, text="Rename All",
+            command=self._confirm,
         )
         confirm_btn.pack(side="right")
 
@@ -191,27 +189,26 @@ class ErrorListDialog(tk.Toplevel):
         x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
         y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
         self.geometry(f"{w}x{h}+{x}+{y}")
-        self.configure(bg=styles.BG_PRIMARY)
 
         # Summary header
-        header_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
+        header_frame = ttk.Frame(self)
         header_frame.pack(fill="x", padx=15, pady=(15, 5))
 
-        tk.Label(
+        ttk.Label(
             header_frame, text="\u26A0", font=(styles.FONT_FAMILY, 20),
-            bg=styles.BG_PRIMARY, fg=styles.ERROR,
+            foreground=styles.ERROR,
         ).pack(side="left", padx=(0, 8))
 
         summary = f"{len(errors)} error(s)"
         if auth_aborted:
             summary += " — batch aborted"
-        tk.Label(
+        ttk.Label(
             header_frame, text=summary, font=styles.FONT_HEADING,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
+            foreground=styles.TEXT_PRIMARY,
         ).pack(side="left")
 
         # Treeview table
-        table_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
+        table_frame = ttk.Frame(self)
         table_frame.pack(fill="both", expand=True, padx=15, pady=10)
 
         style = ttk.Style()
@@ -247,10 +244,9 @@ class ErrorListDialog(tk.Toplevel):
             tree.insert("", "end", values=(filename, error_msg), tags=(f"error_{parity}",))
 
         # OK button
-        ok_btn = tk.Button(
-            self, text="OK", font=styles.FONT_BODY,
-            command=self._close, width=8,
-            highlightthickness=0,
+        ok_btn = ttk.Button(
+            self, text="OK",
+            command=self._close,
         )
         ok_btn.pack(pady=(0, 15))
 
@@ -277,7 +273,6 @@ class CompletionDialog(tk.Toplevel):
         x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
         y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
         self.geometry(f"{w}x{h}+{x}+{y}")
-        self.configure(bg=styles.BG_PRIMARY)
 
         # Compute counts
         renamed = sum(1 for _, _, ok, msg in results if ok and msg == "Renamed")
@@ -285,7 +280,7 @@ class CompletionDialog(tk.Toplevel):
         errors = sum(1 for _, _, ok, _ in results if not ok)
 
         # Summary header
-        header_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
+        header_frame = ttk.Frame(self)
         header_frame.pack(fill="x", padx=15, pady=(15, 5))
 
         if errors:
@@ -295,17 +290,17 @@ class CompletionDialog(tk.Toplevel):
             symbol = "\u2713"
             symbol_color = styles.SUCCESS
 
-        tk.Label(
+        ttk.Label(
             header_frame, text=symbol, font=(styles.FONT_FAMILY, 20),
-            bg=styles.BG_PRIMARY, fg=symbol_color,
+            foreground=symbol_color,
         ).pack(side="left", padx=(0, 8))
 
         counts = f"{renamed} renamed, {skipped} skipped"
         if errors:
             counts += f", {errors} failed"
-        tk.Label(
+        ttk.Label(
             header_frame, text=counts, font=styles.FONT_HEADING,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
+            foreground=styles.TEXT_PRIMARY,
         ).pack(side="left")
 
         # Filter to only renamed and error rows (skip rows already shown in confirm dialog)
@@ -313,7 +308,7 @@ class CompletionDialog(tk.Toplevel):
                     if not ok or msg == "Renamed"]
 
         # Treeview table with resizable columns
-        table_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
+        table_frame = ttk.Frame(self)
         table_frame.pack(fill="both", expand=True, padx=15, pady=10)
 
         style = ttk.Style()
@@ -356,10 +351,9 @@ class CompletionDialog(tk.Toplevel):
                 tree.insert("", "end", values=(f"    {msg}", ""), tags=(f"detail_{parity}",))
 
         # OK button
-        ok_btn = tk.Button(
-            self, text="OK", font=styles.FONT_BODY,
-            command=self._close, width=8,
-            highlightthickness=0,
+        ok_btn = ttk.Button(
+            self, text="OK",
+            command=self._close,
         )
         ok_btn.pack(pady=(0, 15))
 

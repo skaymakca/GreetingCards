@@ -4,11 +4,6 @@
 
 ## Medium Priority
 
-### App Bundle Issues
-- [ ] Debug button UI glitches in .app bundle (gray areas around buttons)
-  - Possibly SF Symbols not loading in bundle
-  - May need to bundle PyObjC frameworks
-
 ## Future / Research
 
 ### wxPython Port
@@ -38,6 +33,7 @@
 - [x] AI error handling: auth abort, error collection, ErrorListDialog, clean messages
 - [x] Semantic versioning (`app/version.py`, Makefile bump targets, PyInstaller bundle metadata)
 - [x] About section in Settings with app icon, version, and git commit hash
+- [x] Fix app bundle UI glitches: refactor tk widgets to ttk for native macOS backgrounds
 
 ---
 

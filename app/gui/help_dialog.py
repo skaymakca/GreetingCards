@@ -18,15 +18,15 @@ class HelpDialog(tk.Toplevel):
         x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
         y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
         self.geometry(f"{w}x{h}+{x}+{y}")
-        self.configure(bg=styles.BG_PRIMARY)
 
         # Scrollable content
-        container = tk.Frame(self, bg=styles.BG_PRIMARY)
+        container = ttk.Frame(self)
         container.pack(fill="both", expand=True, padx=20, pady=20)
 
-        canvas = tk.Canvas(container, bg=styles.BG_PRIMARY, highlightthickness=0)
+        sys_bg = ttk.Style().lookup("TFrame", "background")
+        canvas = tk.Canvas(container, bg=sys_bg, highlightthickness=0)
         scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas, bg=styles.BG_PRIMARY)
+        scrollable_frame = ttk.Frame(canvas)
 
         scrollable_frame.bind(
             "<Configure>",
@@ -120,18 +120,18 @@ class HelpDialog(tk.Toplevel):
     def _add_section(self, parent, title: str, items: list[str]):
         """Add a help section with title and bullet points."""
         # Section title
-        title_label = tk.Label(
+        title_label = ttk.Label(
             parent, text=title, font=styles.FONT_HEADING,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY, anchor="w",
+            foreground=styles.TEXT_PRIMARY, anchor="w",
         )
         title_label.pack(fill="x", pady=(12, 4))
         title_label.bind("<MouseWheel>", self._on_mousewheel)
 
         # Section items
         for item in items:
-            item_label = tk.Label(
+            item_label = ttk.Label(
                 parent, text=item, font=styles.FONT_SMALL,
-                bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
+                foreground=styles.TEXT_PRIMARY,
                 anchor="w", justify="left", wraplength=520,
             )
             item_label.pack(fill="x", padx=(12, 0), pady=2)
