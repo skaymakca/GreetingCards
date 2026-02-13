@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
+from app.version import __version__
 
 datas = [('icon.png', '.')]
 binaries = []
@@ -53,5 +54,9 @@ app = BUNDLE(
     coll,
     name='Greeting Cards.app',
     icon='icon.icns',
-    bundle_identifier=None,
+    bundle_identifier='com.greetingcards.app',
+    info_plist={
+        'CFBundleShortVersionString': __version__,
+        'CFBundleVersion': __version__,
+    },
 )

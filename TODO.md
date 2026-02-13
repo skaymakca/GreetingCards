@@ -2,9 +2,6 @@
 
 ## High Priority
 
-### Core
-- [ ] Come up with a tractable versioning system, extra credit for "bumping" via the makefile or similar.
-
 ### UI/UX Improvements
 - [ ] Add Help > About menu with version number and git commit hash
 
@@ -49,6 +46,7 @@
 - [x] Handle bad/unreadable PDFs gracefully (error field, red ✕ icon, disabled controls, error in preview)
 - [x] Handle permissions/IO errors in file renaming with structured results table and success/error state
 - [x] AI error handling: auth errors abort batch early, other errors collected and shown in ErrorListDialog, clean error messages for single-card AI too
+- [x] Semantic versioning system with `app/version.py` + Makefile bump targets + PyInstaller bundle metadata
 
 ---
 

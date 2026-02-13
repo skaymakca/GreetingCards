@@ -1,4 +1,4 @@
-.PHONY: help run app build clean icon loc
+.PHONY: help run app build clean icon loc version bump-patch bump-minor bump-major
 
 help: ## Show this help message
 	@echo "Greeting Cards - Available make commands:"
@@ -46,6 +46,27 @@ loc: ## Count lines of code (excludes dependencies)
 	@echo ""
 	@echo "Total project LOC:"
 	@(find . -name "*.py" -not -path "./.venv/*" -not -path "./build/*" -not -path "./dist/*" -not -path "*/__pycache__/*" -exec cat {} + ; cat Makefile "Greeting Cards.spec") | wc -l | awk '{print "  " $$1 " lines"}'
+
+version: ## Show current version
+	@python3 -c "from app.version import __version__; print(__version__)"
+
+bump-patch: ## Bump patch version (0.5.0 → 0.5.1)
+	@python3 -c "\
+	p='app/version.py'; v=open(p).read().split('\"')[1].split('.'); \
+	v=[int(x) for x in v]; v[2]+=1; nv='.'.join(map(str,v)); \
+	open(p,'w').write(f'__version__ = \"{nv}\"\n'); print(nv)"
+
+bump-minor: ## Bump minor version (0.5.1 → 0.6.0)
+	@python3 -c "\
+	p='app/version.py'; v=open(p).read().split('\"')[1].split('.'); \
+	v=[int(x) for x in v]; v[1]+=1; v[2]=0; nv='.'.join(map(str,v)); \
+	open(p,'w').write(f'__version__ = \"{nv}\"\n'); print(nv)"
+
+bump-major: ## Bump major version (0.6.0 → 1.0.0)
+	@python3 -c "\
+	p='app/version.py'; v=open(p).read().split('\"')[1].split('.'); \
+	v=[int(x) for x in v]; v[0]+=1; v[1]=0; v[2]=0; nv='.'.join(map(str,v)); \
+	open(p,'w').write(f'__version__ = \"{nv}\"\n'); print(nv)"
 
 clean: ## Remove build artifacts
 	rm -rf build dist icon.iconset
