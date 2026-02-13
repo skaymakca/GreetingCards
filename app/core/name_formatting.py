@@ -24,19 +24,146 @@ def deparameterize_name(name: str) -> str:
         # Remove trailing 's' if it looks like a plural family name
         # But keep names that naturally end in 's' (Jones, Williams, etc.)
         if len(word) > 3 and word.endswith('s') and not word.endswith('ss'):
-            # Check if removing 's' leaves a valid name
-            singular = word[:-1]
-            # Common patterns: Smiths → Smith, Browns → Brown
-            # But keep: Jones, Williams, Davis (natural 's' endings)
-            if not singular.endswith(('on', 'am', 'vi', 'li')):
-                result.append(singular)
-            else:
+            # Check if the word naturally ends in 's' by looking at common patterns
+            # Natural endings: Jones, Williams, Adams, Davis, Thomas, Matthews, etc.
+            # These typically end in: -nes, -ms, -vis, -lis, -as, -es (after certain letters)
+            lower_word = word.lower()
+            natural_endings = ('nes', 'mes', 'ams', 'vis', 'lis', 'as', 'is', 'us', 'ris', 'ies')
+
+            # Check if this looks like a natural 's' ending
+            if any(lower_word.endswith(ending) for ending in natural_endings):
                 result.append(word)
+            else:
+                # Looks like a plural, remove the 's'
+                result.append(word[:-1])
         else:
             result.append(word)
 
     return ' '.join(result)
 
+
+# --- Constants ---
+
+_MAC_EXCEPTIONS = ['macintosh', 'machine', 'mach', 'macro', 'mace']
+_PARTICLES = ['van', 'von', 'de', 'del', 'der', 'den', 'la', 'le', 'da', 'di', 'st']
+_SUFFIXES = ['ii', 'iii', 'iv', 'v', 'jr', 'sr']
+
+
+# --- Helper Functions ---
+
+def _is_mac_exception(word: str) -> bool:
+    """Check if word is a Mac exception (macintosh, machine, etc.)."""
+    return word.lower() in _MAC_EXCEPTIONS
+
+
+def _apply_mc_mac_rules(word: str) -> str:
+    """Apply Mc/Mac capitalization rules.
+
+    Examples:
+        "mcdonald" → "McDonald"
+        "macdonald" → "MacDonald"
+        "macintosh" → "Macintosh" (exception)
+    """
+    if _is_mac_exception(word):
+        return word.capitalize()
+    elif word.lower().startswith('mc') and len(word) > 2:
+        return 'Mc' + word[2:].capitalize()
+    elif word.lower().startswith('mac') and len(word) > 3:
+        return 'Mac' + word[3:].capitalize()
+    else:
+        return word.capitalize()
+
+
+def _format_suffix(word: str) -> str | None:
+    """Format suffixes: jr/sr with period, roman numerals uppercase.
+
+    Returns:
+        Formatted suffix if word is a suffix, None otherwise.
+
+    Examples:
+        "jr" → "Jr."
+        "iii" → "III"
+        "smith" → None (not a suffix)
+    """
+    lower = word.lower()
+    if lower in ['jr', 'sr']:
+        return word.capitalize() + '.'
+    elif lower in _SUFFIXES:
+        return word.upper()
+    return None
+
+
+def _format_particle(word: str, is_first_word: bool) -> str | None:
+    """Format particles: lowercase unless first word.
+
+    Returns:
+        Formatted particle if word is a particle, None otherwise.
+
+    Examples:
+        "van" (first) → "Van"
+        "van" (not first) → "van"
+        "smith" → None (not a particle)
+    """
+    if word.lower() in _PARTICLES:
+        return word.capitalize() if is_first_word else word.lower()
+    return None
+
+
+def _format_word_part(part: str) -> str:
+    """Apply capitalization rules to a single part (no apostrophes or hyphens).
+
+    This is the leaf-level formatter. Checks suffixes first, then Mc/Mac rules.
+
+    Examples:
+        "mcdonald" → "McDonald"
+        "jr" → "Jr."
+        "smith" → "Smith"
+    """
+    # Check for suffixes first
+    suffix = _format_suffix(part)
+    if suffix:
+        return suffix
+
+    # Apply Mc/Mac rules (handles exceptions too)
+    return _apply_mc_mac_rules(part)
+
+
+def _format_word_with_structure(word: str) -> str:
+    """Format a word by splitting hierarchically, formatting parts, and rejoining.
+
+    Process:
+    1. Split by apostrophes
+    2. For each apostrophe part, split by hyphens
+    3. Format each leaf part (apply Mc/Mac, suffix rules, etc.)
+    4. Join hyphens back together
+    5. Join apostrophes back together
+
+    Examples:
+        "o'brien-mcdonald" → "O'Brien-McDonald"
+        "smith-jones" → "Smith-Jones"
+        "mcdonald" → "McDonald"
+    """
+    # Split by apostrophes first
+    apostrophe_parts = word.split("'")
+    formatted_apostrophe_parts = []
+
+    for apos_part in apostrophe_parts:
+        # For each apostrophe part, split by hyphens
+        if "-" in apos_part:
+            hyphen_parts = apos_part.split("-")
+            # Format each hyphen part
+            formatted_hyphen_parts = [_format_word_part(hp) for hp in hyphen_parts]
+            # Join hyphens back
+            formatted_apostrophe_parts.append("-".join(formatted_hyphen_parts))
+        else:
+            # No hyphens, just format the part
+            formatted_apostrophe_parts.append(_format_word_part(apos_part))
+
+    # Join apostrophes back
+    return "'".join(formatted_apostrophe_parts)
+
+
+# --- Main Function ---
 
 def smart_title_case(name: str) -> str:
     """Apply smart title case with special rules for names.
@@ -51,21 +178,12 @@ def smart_title_case(name: str) -> str:
     Examples:
         "o'brian" → "O'Brian"
         "mcdonald" → "McDonald"
-        "van der berg" → "van der Berg" (first word) or "Van der Berg"
+        "van der berg" → "Van der Berg" (first word) or "john van der berg" → "John van der Berg"
         "smith-jones" → "Smith-Jones"
-        "john smith jr" → "John Smith Jr"
+        "john smith jr" → "John Smith Jr."
     """
     if not name:
         return name
-
-    # Special prefixes that should have internal capitals
-    MAC_PREFIXES = ['mc', 'mac']
-    # Mac words that should NOT get internal capitals (not surnames)
-    MAC_EXCEPTIONS = ['macintosh', 'machine', 'mach', 'macro', 'mace']
-    # Particles that should be lowercase (unless first word)
-    PARTICLES = ['van', 'von', 'de', 'del', 'der', 'den', 'la', 'le', 'da', 'di', 'st']
-    # Suffixes that should be uppercase
-    SUFFIXES = ['ii', 'iii', 'iv', 'v', 'jr', 'sr']
 
     words = name.split()
     result = []
@@ -73,46 +191,14 @@ def smart_title_case(name: str) -> str:
     for i, word in enumerate(words):
         is_first_word = (i == 0)
 
-        # Handle apostrophes (O'Brian → O'Brian)
-        if "'" in word:
-            parts = word.split("'")
-            formatted = parts[0].capitalize() + "'" + "'".join(p.capitalize() for p in parts[1:])
-            result.append(formatted)
+        # Check if word is a particle (special handling for position)
+        particle = _format_particle(word, is_first_word)
+        if particle:
+            result.append(particle)
+            continue
 
-        # Handle hyphens (Smith-Jones → Smith-Jones)
-        elif "-" in word:
-            parts = word.split("-")
-            formatted = "-".join(p.capitalize() for p in parts)
-            result.append(formatted)
-
-        # Handle Mc/Mac prefixes (but skip exceptions)
-        elif word.lower() in MAC_EXCEPTIONS:
-            result.append(word.capitalize())
-        elif any(word.lower().startswith(prefix) for prefix in MAC_PREFIXES):
-            if word.lower().startswith('mc') and len(word) > 2:
-                result.append('Mc' + word[2:].capitalize())
-            elif word.lower().startswith('mac') and len(word) > 3:
-                result.append('Mac' + word[3:].capitalize())
-            else:
-                result.append(word.capitalize())
-
-        # Handle suffixes (keep uppercase)
-        elif word.lower() in SUFFIXES:
-            # Format as title with periods for Jr./Sr.
-            if word.lower() in ['jr', 'sr']:
-                result.append(word.capitalize() + '.')
-            else:
-                result.append(word.upper())
-
-        # Handle particles (keep lowercase unless first word)
-        elif word.lower() in PARTICLES:
-            if is_first_word:
-                result.append(word.capitalize())
-            else:
-                result.append(word.lower())
-
-        # Default title case
-        else:
-            result.append(word.capitalize())
+        # Format word (handles apostrophes, hyphens, Mc/Mac, suffixes)
+        formatted = _format_word_with_structure(word)
+        result.append(formatted)
 
     return ' '.join(result)
