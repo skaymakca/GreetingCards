@@ -121,8 +121,8 @@ class HelpDialog(tk.Toplevel):
         """Add a help section with title and bullet points."""
         # Section title
         title_label = ttk.Label(
-            parent, text=title, font=styles.FONT_HEADING,
-            foreground=styles.TEXT_PRIMARY, anchor="w",
+            parent, text=title, font=styles.Font.HEADING,
+            foreground=styles.Color.TEXT_PRIMARY, anchor="w",
         )
         title_label.pack(fill="x", pady=(12, 4))
         title_label.bind("<MouseWheel>", self._on_mousewheel)
@@ -130,8 +130,8 @@ class HelpDialog(tk.Toplevel):
         # Section items
         for item in items:
             item_label = ttk.Label(
-                parent, text=item, font=styles.FONT_SMALL,
-                foreground=styles.TEXT_PRIMARY,
+                parent, text=item, font=styles.Font.SMALL,
+                foreground=styles.Color.TEXT_PRIMARY,
                 anchor="w", justify="left", wraplength=520,
             )
             item_label.pack(fill="x", padx=(12, 0), pady=2)

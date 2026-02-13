@@ -1,10 +1,27 @@
 import tkinter as tk
 from tkinter import ttk
 from typing import Callable, Optional
+from dataclasses import dataclass
 from app.models.card import CardResult, Confidence
 from app.gui import styles
 from app.gui.icons import load_sf_symbol
 from app.gui.context_menu import add_entry_context_menu
+
+
+@dataclass
+class ReviewRow:
+    """Container for all widgets in a review panel row."""
+    frame: ttk.Frame
+    dot: tk.Canvas
+    dot_tooltip: "_Tooltip"
+    fn_label: ttk.Label
+    name_var: tk.StringVar
+    name_entry: ttk.Entry
+    remove_family_var: tk.BooleanVar
+    remove_family_check: ttk.Checkbutton
+    remove_family_tooltip: "_Tooltip"
+    alt_combo: ttk.Combobox
+    ai_btn: ttk.Button
 
 
 class _Tooltip:
@@ -26,7 +43,7 @@ class _Tooltip:
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
         label = tk.Label(
-            tw, text=self.text, font=styles.FONT_SMALL,
+            tw, text=self.text, font=styles.Font.SMALL,
             bg="#333333", fg="#FFFFFF", padx=6, pady=3,
             relief="flat",
         )
@@ -36,6 +53,28 @@ class _Tooltip:
         if self._tw:
             self._tw.destroy()
             self._tw = None
+
+
+def _dot_style(is_error: bool, confidence: Confidence) -> tuple[str, str | None]:
+    """Return (color, symbol) for a confidence dot. Symbol is None for a filled circle."""
+    if is_error:
+        return styles.Color.ERROR, "✕"
+    if confidence == Confidence.NONE:
+        return styles.Color.TEXT_SECONDARY, "⚠"
+    return confidence.color(), None
+
+
+def _tooltip_text(card: CardResult | None, confidence: Confidence) -> str:
+    """Build tooltip text from card state and confidence."""
+    if card and card.error:
+        return f"Error: {card.error}"
+    if confidence == Confidence.MANUAL:
+        return "Manual Entry"
+    if card and card.method == "missing":
+        return "⚠️ No name extracted"
+    if card and card.method in {"ocr", "ai"}:
+        return f"{card.method.upper()} - {confidence.value.capitalize()} confidence"
+    return confidence.tooltip()
 
 
 class ReviewPanel(ttk.Frame):
@@ -55,42 +94,42 @@ class ReviewPanel(ttk.Frame):
         self._on_name_change = on_name_change
         self._card_order: list[int] = []  # Ordered list of card IDs (display order)
         self._cards_by_id: dict[int, CardResult] = {}  # Card lookup by ID
-        self._rows_by_id: dict[int, dict] = {}  # UI row lookup by card ID
+        self._rows_by_id: dict[int, ReviewRow] = {}  # UI row lookup by card ID
         self._selected_card_id: Optional[int] = None
         self._suppress_trace = False
-        self._ai_icon = load_sf_symbol("sparkles", 6, styles.TEXT_PRIMARY)
+        self._ai_icon = load_sf_symbol("sparkles", 6, styles.Color.TEXT_PRIMARY)
         # Native system background for tk.Canvas widgets (no ttk equivalent)
         s = ttk.Style()
         self._sys_bg = s.lookup("TFrame", "background")
-        s.configure("SelectedRow.TFrame", background=styles.BG_SELECTED)
-        s.configure("SelectedRow.TLabel", background=styles.BG_SELECTED)
+        s.configure("SelectedRow.TFrame", background=styles.Color.BG_SELECTED)
+        s.configure("SelectedRow.TLabel", background=styles.Color.BG_SELECTED)
 
         # Header
         header = ttk.Frame(self)
-        header.pack(fill="x", padx=styles.PAD, pady=(styles.PAD, 4))
+        header.pack(fill="x", padx=styles.Layout.PAD, pady=(styles.Layout.PAD, 4))
         ttk.Label(
-            header, text="Cards", font=styles.FONT_HEADING,
-            foreground=styles.TEXT_PRIMARY,
+            header, text="Cards", font=styles.Font.HEADING,
+            foreground=styles.Color.TEXT_PRIMARY,
         ).pack(side="left")
         self._count_label = ttk.Label(
-            header, text="", font=styles.FONT_SMALL,
-            foreground=styles.TEXT_SECONDARY,
+            header, text="", font=styles.Font.SMALL,
+            foreground=styles.Color.TEXT_SECONDARY,
         )
         self._count_label.pack(side="right")
 
         # Column headers
         col_header = ttk.Frame(self)
-        col_header.pack(fill="x", padx=styles.PAD)
+        col_header.pack(fill="x", padx=styles.Layout.PAD)
         ttk.Label(
             col_header, text="", width=2,
         ).pack(side="left", padx=(4, 0))
         ttk.Label(
-            col_header, text="Filename", font=styles.FONT_SMALL,
-            foreground=styles.TEXT_SECONDARY, anchor="w", width=28,
+            col_header, text="Filename", font=styles.Font.SMALL,
+            foreground=styles.Color.TEXT_SECONDARY, anchor="w", width=28,
         ).pack(side="left", padx=4)
         ttk.Label(
-            col_header, text="Family Name", font=styles.FONT_SMALL,
-            foreground=styles.TEXT_SECONDARY, anchor="w",
+            col_header, text="Family Name", font=styles.Font.SMALL,
+            foreground=styles.Color.TEXT_SECONDARY, anchor="w",
         ).pack(side="left", padx=4, fill="x", expand=True)
         # Empty space for checkbox column (no header per user preference)
         ttk.Label(
@@ -99,7 +138,7 @@ class ReviewPanel(ttk.Frame):
 
         # Scrollable area
         container = ttk.Frame(self)
-        container.pack(fill="both", expand=True, padx=styles.PAD, pady=(4, styles.PAD))
+        container.pack(fill="both", expand=True, padx=styles.Layout.PAD, pady=(4, styles.Layout.PAD))
 
         self._canvas = tk.Canvas(container, bg=self._sys_bg, highlightthickness=0)
         self._scrollbar = ttk.Scrollbar(container, orient="vertical", command=self._canvas.yview)
@@ -186,15 +225,7 @@ class ReviewPanel(ttk.Frame):
 
         # Confidence dot with tooltip (tk.Canvas — no ttk equivalent)
         is_error = bool(card.error)
-        if is_error:
-            dot_color = styles.ERROR
-            symbol = "✕"
-        elif card.confidence == Confidence.NONE:
-            dot_color = styles.TEXT_SECONDARY
-            symbol = "⚠"
-        else:
-            dot_color = styles.CONFIDENCE_COLORS.get(card.confidence.value, styles.TEXT_SECONDARY)
-            symbol = None
+        dot_color, symbol = _dot_style(is_error, card.confidence)
 
         dot = tk.Canvas(row_frame, width=12, height=12, bg=self._sys_bg, highlightthickness=0)
         if symbol:
@@ -203,31 +234,19 @@ class ReviewPanel(ttk.Frame):
             dot.create_oval(2, 2, 10, 10, fill=dot_color, outline="")
         dot.pack(side="left", padx=(8, 4), pady=8)
 
-        # Build tooltip with method + confidence
-        if is_error:
-            tooltip_text = f"Error: {card.error}"
-        elif card.confidence == Confidence.MANUAL:
-            tooltip_text = "Manual Entry"
-        elif card.method == "missing":
-            tooltip_text = "⚠️ No name extracted"
-        elif card.method in ["ocr", "ai"]:
-            tooltip_text = f"{card.method.upper()} - {card.confidence.value.capitalize()} confidence"
-        else:
-            tooltip_text = styles.CONFIDENCE_TOOLTIPS.get(card.confidence.value, "")
-
-        dot_tooltip = _Tooltip(dot, tooltip_text)
+        dot_tooltip = _Tooltip(dot, _tooltip_text(card, card.confidence))
 
         # Filename label
         fn_label = ttk.Label(
-            row_frame, text=card.filename, font=styles.FONT_SMALL,
-            foreground=styles.TEXT_PRIMARY, anchor="w", width=28,
+            row_frame, text=card.filename, font=styles.Font.SMALL,
+            foreground=styles.Color.TEXT_PRIMARY, anchor="w", width=28,
         )
         fn_label.pack(side="left", padx=4, pady=4)
 
         # Editable name entry
         name_var = tk.StringVar(value=card.display_name)
         name_entry = ttk.Entry(
-            row_frame, textvariable=name_var, font=styles.FONT_BODY,
+            row_frame, textvariable=name_var, font=styles.Font.BODY,
         )
         name_entry.pack(side="left", padx=4, pady=4, fill="x", expand=True)
         name_entry.bind("<Return>", lambda e: row_frame.focus_set())
@@ -247,14 +266,14 @@ class ReviewPanel(ttk.Frame):
         candidate_labels = []
         candidate_id_map = {}
         if card.candidates:
-            for cand_id, cand_name, method, conf in card.candidates:
+            for cand in card.candidates:
                 # Format: "Name (method - confidence)"
-                label = f"{cand_name} ({method.upper()} - {conf.capitalize()})"
+                label = f"{cand.family_name} ({cand.method.upper()} - {cand.confidence.capitalize()})"
                 candidate_labels.append(label)
-                candidate_id_map[label] = cand_id
+                candidate_id_map[label] = cand.id
 
         alt_combo = ttk.Combobox(
-            row_frame, values=candidate_labels, font=styles.FONT_SMALL,
+            row_frame, values=candidate_labels, font=styles.Font.SMALL,
             state="readonly" if candidate_labels else "disabled", width=20,
         )
         if candidate_labels:
@@ -281,19 +300,19 @@ class ReviewPanel(ttk.Frame):
             ai_btn.config(state="disabled")
             remove_family_check.config(state="disabled")
 
-        row_data = {
-            "frame": row_frame,
-            "dot": dot,
-            "dot_tooltip": dot_tooltip,
-            "fn_label": fn_label,
-            "name_var": name_var,
-            "name_entry": name_entry,
-            "remove_family_var": remove_family_var,
-            "remove_family_check": remove_family_check,
-            "remove_family_tooltip": remove_family_tooltip,
-            "alt_combo": alt_combo,
-            "ai_btn": ai_btn,
-        }
+        row_data = ReviewRow(
+            frame=row_frame,
+            dot=dot,
+            dot_tooltip=dot_tooltip,
+            fn_label=fn_label,
+            name_var=name_var,
+            name_entry=name_entry,
+            remove_family_var=remove_family_var,
+            remove_family_check=remove_family_check,
+            remove_family_tooltip=remove_family_tooltip,
+            alt_combo=alt_combo,
+            ai_btn=ai_btn,
+        )
         self._rows_by_id[card_id] = row_data
 
         # Click to select
@@ -308,15 +327,15 @@ class ReviewPanel(ttk.Frame):
         # Deselect previous
         if self._selected_card_id is not None and self._selected_card_id in self._rows_by_id:
             prev = self._rows_by_id[self._selected_card_id]
-            prev["frame"].configure(style="TFrame")
-            prev["fn_label"].configure(style="TLabel")
+            prev.frame.configure(style="TFrame")
+            prev.fn_label.configure(style="TLabel")
 
         self._selected_card_id = card_id
         if card_id in self._rows_by_id:
             row = self._rows_by_id[card_id]
-            row["frame"].focus_set()
-            row["frame"].configure(style="SelectedRow.TFrame")
-            row["fn_label"].configure(style="SelectedRow.TLabel")
+            row.frame.focus_set()
+            row.frame.configure(style="SelectedRow.TFrame")
+            row.fn_label.configure(style="SelectedRow.TLabel")
 
             self._on_select(card_id)
 
@@ -344,11 +363,11 @@ class ReviewPanel(ttk.Frame):
                     selected_name = ""
                     selected_conf = "none"
                     selected_method = "missing"
-                    for cid, name, method, conf in card.candidates:
-                        if cid == candidate_id:
-                            selected_name = name
-                            selected_conf = conf
-                            selected_method = method
+                    for cand in card.candidates:
+                        if cand.id == candidate_id:
+                            selected_name = cand.family_name
+                            selected_conf = cand.confidence
+                            selected_method = cand.method
                             break
 
                     # Update card state
@@ -392,37 +411,16 @@ class ReviewPanel(ttk.Frame):
         if not row:
             return
 
-        # Update dot color based on confidence
-        is_error = bool(card and card.error)
-        if is_error:
-            dot_color = styles.ERROR
-            symbol = "✕"
-        elif confidence == Confidence.NONE:
-            dot_color = styles.TEXT_SECONDARY
-            symbol = "⚠"  # Warning symbol for missing
-        else:
-            dot_color = styles.CONFIDENCE_COLORS.get(confidence.value, styles.TEXT_SECONDARY)
-            symbol = None
+        # Update dot color and symbol
+        dot_color, symbol = _dot_style(bool(card and card.error), confidence)
 
-        row["dot"].delete("all")
+        row.dot.delete("all")
         if symbol:
-            row["dot"].create_text(6, 6, text=symbol, fill=dot_color, font=("Arial", 10))
+            row.dot.create_text(6, 6, text=symbol, fill=dot_color, font=("Arial", 10))
         else:
-            row["dot"].create_oval(2, 2, 10, 10, fill=dot_color, outline="")
+            row.dot.create_oval(2, 2, 10, 10, fill=dot_color, outline="")
 
-        # Update tooltip with method + confidence
-        if is_error:
-            tooltip_text = f"Error: {card.error}"
-        elif card and confidence == Confidence.MANUAL:
-            tooltip_text = "Manual Entry"
-        elif card and card.method == "missing":
-            tooltip_text = "⚠️ No name extracted"
-        elif card and card.method in ["ocr", "ai"]:
-            tooltip_text = f"{card.method.upper()} - {confidence.value.capitalize()} confidence"
-        else:
-            tooltip_text = styles.CONFIDENCE_TOOLTIPS.get(confidence.value, "")
-
-        row["dot_tooltip"].text = tooltip_text
+        row.dot_tooltip.text = _tooltip_text(card, confidence)
 
     def update_card(self, card_id: int, card: CardResult):
         """Update a single card's display after AI analysis."""
@@ -438,33 +436,33 @@ class ReviewPanel(ttk.Frame):
 
         # Update name (suppress trace to avoid triggering manual override)
         self._suppress_trace = True
-        row["name_var"].set(card.display_name)
+        row.name_var.set(card.display_name)
         self._suppress_trace = False
 
         # Update remove_family checkbox
-        row["remove_family_var"].set(card.remove_family)
+        row.remove_family_var.set(card.remove_family)
 
         # Update candidates dropdown
         if card.candidates:
             candidate_labels = []
             candidate_id_map = {}
-            for cand_id, cand_name, method, conf in card.candidates:
-                label = f"{cand_name} ({method.upper()} - {conf.capitalize()})"
+            for cand in card.candidates:
+                label = f"{cand.family_name} ({cand.method.upper()} - {cand.confidence.capitalize()})"
                 candidate_labels.append(label)
-                candidate_id_map[label] = cand_id
+                candidate_id_map[label] = cand.id
 
-            row["alt_combo"]["values"] = candidate_labels
-            row["alt_combo"]["state"] = "readonly"
-            row["alt_combo"].set("Candidates")
+            row.alt_combo["values"] = candidate_labels
+            row.alt_combo["state"] = "readonly"
+            row.alt_combo.set("Candidates")
             # Rebind with new mapping
-            combo = row["alt_combo"]
-            name_var = row["name_var"]
+            combo = row.alt_combo
+            name_var = row.name_var
             combo.unbind("<<ComboboxSelected>>")
             combo.bind("<<ComboboxSelected>>", lambda e, cid=card_id, c=combo, v=name_var, m=candidate_id_map: self._on_alt_select(cid, c, v, m))
         else:
-            row["alt_combo"]["values"] = []
-            row["alt_combo"]["state"] = "disabled"
-            row["alt_combo"].set("")
+            row.alt_combo["values"] = []
+            row.alt_combo["state"] = "disabled"
+            row.alt_combo.set("")
 
     def get_cards(self) -> list[CardResult]:
         """Return all cards with current edits applied, in display order."""
@@ -496,4 +494,4 @@ class ReviewPanel(ttk.Frame):
         """Set the AI button state and text for a specific card."""
         row = self._rows_by_id.get(card_id)
         if row:
-            row["ai_btn"].config(state=state, text=text)
+            row.ai_btn.config(state=state, text=text)

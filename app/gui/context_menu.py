@@ -10,7 +10,7 @@ def add_entry_context_menu(entry: tk.Entry):
     Args:
         entry: The tk.Entry widget to attach the context menu to
     """
-    menu = tk.Menu(entry, tearoff=0, font=styles.FONT_SMALL)
+    menu = tk.Menu(entry, tearoff=0, font=styles.Font.SMALL)
 
     # Load SF Symbol icons
     icons = {}
@@ -22,7 +22,7 @@ def add_entry_context_menu(entry: tk.Entry):
         "clear": ("xmark.circle", 7),
     }
     for key, (symbol, size) in icon_specs.items():
-        icon = load_sf_symbol(symbol, size, styles.TEXT_PRIMARY)
+        icon = load_sf_symbol(symbol, size, styles.Color.TEXT_PRIMARY)
         if icon:
             icons[key] = icon
 

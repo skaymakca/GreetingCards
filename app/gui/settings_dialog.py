@@ -30,12 +30,12 @@ class ApiKeyPrompt(tk.Toplevel):
         # Message
         ttk.Label(
             self, text="AI analysis requires an Anthropic API key.",
-            font=styles.FONT_BODY, foreground=styles.TEXT_PRIMARY,
+            font=styles.Font.BODY, foreground=styles.Color.TEXT_PRIMARY,
         ).pack(pady=(20, 4), padx=20)
 
         ttk.Label(
             self, text="Get one at: console.anthropic.com",
-            font=styles.FONT_SMALL, foreground=styles.TEXT_SECONDARY,
+            font=styles.Font.SMALL, foreground=styles.Color.TEXT_SECONDARY,
         ).pack(padx=20, pady=(0, 12))
 
         # Key entry
@@ -43,11 +43,11 @@ class ApiKeyPrompt(tk.Toplevel):
         key_frame.pack(fill="x", padx=20, pady=8)
 
         ttk.Label(
-            key_frame, text="API Key:", font=styles.FONT_BODY,
-            foreground=styles.TEXT_PRIMARY,
+            key_frame, text="API Key:", font=styles.Font.BODY,
+            foreground=styles.Color.TEXT_PRIMARY,
         ).pack(side="left", padx=(0, 8))
 
-        self._key_entry = tk.Entry(key_frame, font=styles.FONT_BODY, show="*", width=30)
+        self._key_entry = tk.Entry(key_frame, font=styles.Font.BODY, show="*", width=30)
         self._key_entry.pack(side="left", fill="x", expand=True)
         self._key_entry.focus_set()
         self._key_entry.bind("<Return>", lambda e: self._save())
@@ -105,8 +105,8 @@ class SettingsDialog(tk.Toplevel):
 
         # --- About section ---
         ttk.Label(
-            self, text="Greeting Cards", font=styles.FONT_TITLE,
-            foreground=styles.TEXT_PRIMARY,
+            self, text="Greeting Cards", font=styles.Font.TITLE,
+            foreground=styles.Color.TEXT_PRIMARY,
         ).pack(padx=20, pady=(16, 0), anchor="w")
 
         commit = self._get_commit_hash()
@@ -114,8 +114,8 @@ class SettingsDialog(tk.Toplevel):
         if commit:
             version_text += f" ({commit})"
         ttk.Label(
-            self, text=version_text, font=styles.FONT_SMALL,
-            foreground=styles.TEXT_SECONDARY,
+            self, text=version_text, font=styles.Font.SMALL,
+            foreground=styles.Color.TEXT_SECONDARY,
         ).pack(padx=20, anchor="w")
 
         # --- Separator ---
@@ -125,14 +125,14 @@ class SettingsDialog(tk.Toplevel):
 
         # --- API Key section ---
         ttk.Label(
-            self, text="API Key", font=styles.FONT_HEADING,
-            foreground=styles.TEXT_PRIMARY,
+            self, text="API Key", font=styles.Font.HEADING,
+            foreground=styles.Color.TEXT_PRIMARY,
         ).pack(pady=(16, 4), padx=20, anchor="w")
 
         key_frame = ttk.Frame(self)
         key_frame.pack(fill="x", padx=20)
 
-        self._key_entry = tk.Entry(key_frame, font=styles.FONT_BODY, show="*")
+        self._key_entry = tk.Entry(key_frame, font=styles.Font.BODY, show="*")
         self._key_entry.pack(side="left", fill="x", expand=True)
 
         current_key = get_api_key()
@@ -149,8 +149,8 @@ class SettingsDialog(tk.Toplevel):
 
         # Status label (keep tk.Label — changes fg dynamically)
         self._key_status = tk.Label(
-            self, text="", font=styles.FONT_SMALL,
-            fg=styles.SUCCESS,
+            self, text="", font=styles.Font.SMALL,
+            fg=styles.Color.SUCCESS,
         )
         self._key_status.pack(padx=20, anchor="w")
 
@@ -161,8 +161,8 @@ class SettingsDialog(tk.Toplevel):
 
         # --- Database section ---
         ttk.Label(
-            self, text="Database", font=styles.FONT_HEADING,
-            foreground=styles.TEXT_PRIMARY,
+            self, text="Database", font=styles.Font.HEADING,
+            foreground=styles.Color.TEXT_PRIMARY,
         ).pack(pady=(12, 4), padx=20, anchor="w")
 
         db_frame = ttk.Frame(self)
@@ -170,7 +170,7 @@ class SettingsDialog(tk.Toplevel):
 
         ttk.Label(
             db_frame, text="Clear all cached OCR/AI results and rebuild.",
-            font=styles.FONT_SMALL, foreground=styles.TEXT_SECONDARY,
+            font=styles.Font.SMALL, foreground=styles.Color.TEXT_SECONDARY,
         ).pack(side="left")
 
         self._rebuild_btn = ttk.Button(
@@ -192,7 +192,7 @@ class SettingsDialog(tk.Toplevel):
             ("save", "checkmark", self._save_key_btn),
             ("rebuild", "arrow.triangle.2.circlepath", self._rebuild_btn),
         ]:
-            icon = load_sf_symbol(symbol, 6, styles.TEXT_PRIMARY)
+            icon = load_sf_symbol(symbol, 6, styles.Color.TEXT_PRIMARY)
             if icon:
                 self._icons[key] = icon
                 btn.config(image=icon, compound="left")
@@ -215,9 +215,9 @@ class SettingsDialog(tk.Toplevel):
         key = self._key_entry.get().strip()
         if key:
             save_api_key(key)
-            self._key_status.config(text="Saved", fg=styles.SUCCESS)
+            self._key_status.config(text="Saved", fg=styles.Color.SUCCESS)
         else:
-            self._key_status.config(text="Key cannot be empty", fg=styles.ERROR)
+            self._key_status.config(text="Key cannot be empty", fg=styles.Color.ERROR)
 
     def _rebuild_db(self):
         confirm = messagebox.askyesno(

@@ -1,10 +1,18 @@
 import base64
 import io
 import re
+from dataclasses import dataclass, field
 
 from PIL import Image
 
 from app.core.config import get_api_key
+
+
+@dataclass
+class AIResult:
+    """Result from AI analysis of a greeting card."""
+    best_name: str = ""
+    alternates: list[str] = field(default_factory=list)
 
 
 def _strip_plural(name: str) -> str:
@@ -30,23 +38,10 @@ def _strip_plural(name: str) -> str:
     if name.endswith("xes") and len(name) > 3:
         return name[:-2]  # "Foxes" -> "Fox"
 
-    # Strip single 's' only after specific consonant patterns (safe plurals)
-    if name.endswith("s") and not name.endswith("ss") and len(name) >= 4:
-        # Very common plural patterns that are safe to strip
-        if name.endswith("ths"):
-            return name[:-1]  # "Smiths" -> "Smith"
-        if name.endswith("wns"):
-            return name[:-1]  # "Browns" -> "Brown"
-        if name.endswith("cks"):
-            return name[:-1]  # "Blacks" -> "Black"
-        if name.endswith("rds"):
-            return name[:-1]  # "Edwards" -> "Edward"
-        if name.endswith("rts"):
-            return name[:-1]  # "Roberts" -> "Robert"
-        if name.endswith("nds"):
-            return name[:-1]  # "Strands" -> "Strand"
-        if name.endswith("nts"):
-            return name[:-1]  # "Grants" -> "Grant"
+    # Strip single 's' after specific consonant patterns (safe plurals)
+    if len(name) >= 4 and name.endswith("s") and not name.endswith("ss"):
+        if name[-3:-1] in {"th", "wn", "ck", "rd", "rt", "nd", "nt"}:
+            return name[:-1]
 
     return name
 
@@ -107,13 +102,30 @@ def _image_to_b64(image: Image.Image) -> str:
     return base64.standard_b64encode(buf.getvalue()).decode("utf-8")
 
 
-async def analyze_card_with_ai_async(images: list[Image.Image] | Image.Image) -> tuple[str, list[str]]:
-    """
-    Async version for concurrent AI analysis of multiple cards.
-    Use Claude's vision to analyze greeting card page images and extract the family name.
-    Accepts a single image or a list of page images.
-    Returns (best_name, alternates).
-    """
+_SKIP_WORDS = {"shows", "appears", "page", "card", "signed", "written", "seems"}
+
+
+def _parse_response(response_text: str) -> AIResult:
+    """Parse raw AI response text into an AIResult."""
+    if response_text.upper() == "UNKNOWN":
+        return AIResult()
+
+    # Basic filtering to catch obvious non-name responses
+    # NOTE: Comprehensive cleaning is applied AFTER loading from DB, not here
+    lines = [
+        line for line in (l.strip() for l in response_text.split("\n"))
+        if line and len(line) <= 50
+        and not any(w in line.lower() for w in _SKIP_WORDS)
+    ]
+
+    return AIResult(
+        best_name=lines[0] if lines else "",
+        alternates=lines[1:] if len(lines) > 1 else [],
+    )
+
+
+async def analyze_card_with_ai_async(images: list[Image.Image] | Image.Image) -> AIResult:
+    """Async version: analyze greeting card images with Claude AI and extract the family name."""
     import anthropic
 
     # Normalize to list
@@ -168,41 +180,11 @@ async def analyze_card_with_ai_async(images: list[Image.Image] | Image.Image) ->
 
     response_text = message.content[0].text.strip()
 
-    if response_text.upper() == "UNKNOWN":
-        return "", []
-
-    # Parse lines and do basic filtering
-    # NOTE: Comprehensive cleaning is applied AFTER loading from DB, not here
-    lines = [line.strip() for line in response_text.split("\n") if line.strip()]
-
-    # Basic filtering to catch obvious non-name responses
-    filtered_lines = []
-    for line in lines:
-        # Skip lines that are too long (likely explanatory text)
-        if len(line) > 50:
-            continue
-
-        # Skip lines with common explanation words
-        skip_words = ["shows", "appears", "page", "card", "signed", "written", "seems"]
-        if any(word in line.lower() for word in skip_words):
-            continue
-
-        if line:
-            filtered_lines.append(line)
-
-    # Return RAW results - cleaning happens in database.py when loading
-    best = filtered_lines[0] if filtered_lines else ""
-    alternates = filtered_lines[1:] if len(filtered_lines) > 1 else []
-
-    return best, alternates
+    return _parse_response(response_text)
 
 
-def analyze_card_with_ai(images: list[Image.Image] | Image.Image) -> tuple[str, list[str]]:
-    """
-    Use Claude's vision to analyze greeting card page images and extract the family name.
-    Accepts a single image or a list of page images.
-    Returns (best_name, alternates).
-    """
+def analyze_card_with_ai(images: list[Image.Image] | Image.Image) -> AIResult:
+    """Analyze greeting card images with Claude AI and extract the family name."""
     import anthropic
 
     # Normalize to list
@@ -257,30 +239,4 @@ def analyze_card_with_ai(images: list[Image.Image] | Image.Image) -> tuple[str, 
 
     response_text = message.content[0].text.strip()
 
-    if response_text.upper() == "UNKNOWN":
-        return "", []
-
-    # Parse lines and do basic filtering
-    # NOTE: Comprehensive cleaning is applied AFTER loading from DB, not here
-    lines = [line.strip() for line in response_text.split("\n") if line.strip()]
-
-    # Basic filtering to catch obvious non-name responses
-    filtered_lines = []
-    for line in lines:
-        # Skip lines that are too long (likely explanatory text)
-        if len(line) > 50:
-            continue
-
-        # Skip lines with common explanation words
-        skip_words = ["shows", "appears", "page", "card", "signed", "written", "seems"]
-        if any(word in line.lower() for word in skip_words):
-            continue
-
-        if line:
-            filtered_lines.append(line)
-
-    # Return RAW results - cleaning happens in database.py when loading
-    best = filtered_lines[0] if filtered_lines else ""
-    alternates = filtered_lines[1:] if len(filtered_lines) > 1 else []
-
-    return best, alternates
+    return _parse_response(response_text)

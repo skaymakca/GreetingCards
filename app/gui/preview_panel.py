@@ -26,10 +26,10 @@ class PreviewPanel(ttk.Frame):
 
         # --- Title bar ---
         self._title_label = ttk.Label(
-            self, text="Preview", font=styles.FONT_HEADING,
-            foreground=styles.TEXT_PRIMARY,
+            self, text="Preview", font=styles.Font.HEADING,
+            foreground=styles.Color.TEXT_PRIMARY,
         )
-        self._title_label.pack(fill="x", padx=styles.PAD, pady=(styles.PAD, 4))
+        self._title_label.pack(fill="x", padx=styles.Layout.PAD, pady=(styles.Layout.PAD, 4))
 
         # --- Canvas ---
         sys_bg = ttk.Style().lookup("TFrame", "background")
@@ -38,13 +38,13 @@ class PreviewPanel(ttk.Frame):
 
         self._placeholder = ttk.Label(
             self._canvas, text="Select a card to preview",
-            font=styles.FONT_BODY, foreground=styles.TEXT_SECONDARY,
+            font=styles.Font.BODY, foreground=styles.Color.TEXT_SECONDARY,
         )
         self._placeholder.place(relx=0.5, rely=0.5, anchor="center")
 
         # --- Controls bar ---
         controls = ttk.Frame(self)
-        controls.pack(fill="x", padx=styles.PAD, pady=(4, styles.PAD))
+        controls.pack(fill="x", padx=styles.Layout.PAD, pady=(4, styles.Layout.PAD))
 
         # Page navigation (left side)
         page_frame = ttk.Frame(controls)
@@ -57,8 +57,8 @@ class PreviewPanel(ttk.Frame):
         self._prev_btn.pack(side="left", padx=(0, 2))
 
         self._page_label = ttk.Label(
-            page_frame, text="", font=styles.FONT_SMALL,
-            foreground=styles.TEXT_PRIMARY, width=9,
+            page_frame, text="", font=styles.Font.SMALL,
+            foreground=styles.Color.TEXT_PRIMARY, width=9,
         )
         self._page_label.pack(side="left", padx=2)
 
@@ -85,8 +85,8 @@ class PreviewPanel(ttk.Frame):
         self._zout_btn.pack(side="left", padx=2)
 
         self._zoom_label = ttk.Label(
-            zoom_frame, text="", font=styles.FONT_SMALL,
-            foreground=styles.TEXT_PRIMARY, width=6,
+            zoom_frame, text="", font=styles.Font.SMALL,
+            foreground=styles.Color.TEXT_PRIMARY, width=6,
         )
         self._zoom_label.pack(side="left", padx=2)
 
@@ -303,12 +303,12 @@ class PreviewPanel(ttk.Frame):
             return
         cx, cy = cw / 2, ch / 2
         self._canvas.create_text(
-            cx, cy - 30, text="\u26A0", fill=styles.ERROR,
+            cx, cy - 30, text="\u26A0", fill=styles.Color.ERROR,
             font=("Arial", 32),
         )
         self._canvas.create_text(
-            cx, cy + 20, text=self._error_message, fill=styles.ERROR,
-            font=styles.FONT_BODY, width=cw - 40, justify="center",
+            cx, cy + 20, text=self._error_message, fill=styles.Color.ERROR,
+            font=styles.Font.BODY, width=cw - 40, justify="center",
         )
 
     def _render(self):

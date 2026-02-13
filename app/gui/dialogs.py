@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from pathlib import Path
 from app.gui import styles
+from app.models.card import RenamePlanItem, RenameResult
 
 
 class ProgressDialog(tk.Toplevel):
@@ -20,8 +21,8 @@ class ProgressDialog(tk.Toplevel):
         self.geometry(f"{w}x{h}+{x}+{y}")
 
         self.label = ttk.Label(
-            self, text="Processing...", font=styles.FONT_BODY,
-            foreground=styles.TEXT_PRIMARY,
+            self, text="Processing...", font=styles.Font.BODY,
+            foreground=styles.Color.TEXT_PRIMARY,
         )
         self.label.pack(pady=(20, 8), padx=20)
 
@@ -29,8 +30,8 @@ class ProgressDialog(tk.Toplevel):
         self.progress.pack(padx=20)
 
         self.count_label = ttk.Label(
-            self, text=f"0 / {total}", font=styles.FONT_SMALL,
-            foreground=styles.TEXT_SECONDARY,
+            self, text=f"0 / {total}", font=styles.Font.SMALL,
+            foreground=styles.Color.TEXT_SECONDARY,
         )
         self.count_label.pack(pady=(4, 10))
 
@@ -54,7 +55,7 @@ class ProgressDialog(tk.Toplevel):
 class RenameConfirmDialog(tk.Toplevel):
     """Dialog showing the rename plan and asking for confirmation."""
 
-    def __init__(self, parent, plan: list[tuple[Path, Path, str]], year: str):
+    def __init__(self, parent, plan: list[RenamePlanItem], year: str):
         super().__init__(parent)
         self.title("Confirm Rename")
         self.resizable(True, True)
@@ -69,16 +70,16 @@ class RenameConfirmDialog(tk.Toplevel):
         self.result = False
 
         header = ttk.Label(
-            self, text=f"Rename Plan (Year: {year})", font=styles.FONT_TITLE,
-            foreground=styles.TEXT_PRIMARY,
+            self, text=f"Rename Plan (Year: {year})", font=styles.Font.TITLE,
+            foreground=styles.Color.TEXT_PRIMARY,
         )
         header.pack(pady=(15, 5), padx=15, anchor="w")
 
         # Summary counts
-        ok_count = sum(1 for _, _, s in plan if s == "ok")
-        dup_count = sum(1 for _, _, s in plan if s == "duplicate")
-        error_count = sum(1 for _, _, s in plan if s == "skip_error")
-        skip_count = sum(1 for _, _, s in plan if s.startswith("skip") and s != "skip_error")
+        ok_count = sum(1 for item in plan if item.status == "ok")
+        dup_count = sum(1 for item in plan if item.status == "duplicate")
+        error_count = sum(1 for item in plan if item.status == "skip_error")
+        skip_count = sum(1 for item in plan if item.status.startswith("skip") and item.status != "skip_error")
         summary = f"{ok_count} rename(s)"
         if dup_count:
             summary += f", {dup_count} duplicate(s)"
@@ -88,8 +89,8 @@ class RenameConfirmDialog(tk.Toplevel):
             summary += f", {error_count} error(s)"
 
         summary_label = ttk.Label(
-            self, text=summary, font=styles.FONT_BODY,
-            foreground=styles.TEXT_SECONDARY,
+            self, text=summary, font=styles.Font.BODY,
+            foreground=styles.Color.TEXT_SECONDARY,
         )
         summary_label.pack(padx=15, anchor="w")
 
@@ -99,11 +100,11 @@ class RenameConfirmDialog(tk.Toplevel):
 
         style = ttk.Style()
         style.configure(
-            "Rename.Treeview", font=styles.FONT_MONO, rowheight=26,
-            background=styles.BG_PRIMARY, fieldbackground=styles.BG_PRIMARY,
-            foreground=styles.TEXT_PRIMARY,
+            "Rename.Treeview", font=styles.Font.MONO, rowheight=26,
+            background=styles.Color.BG_PRIMARY, fieldbackground=styles.Color.BG_PRIMARY,
+            foreground=styles.Color.TEXT_PRIMARY,
         )
-        style.configure("Rename.Treeview.Heading", font=styles.FONT_SMALL)
+        style.configure("Rename.Treeview.Heading", font=styles.Font.SMALL)
         # Remove default state maps so tag_configure colors take effect
         style.map("Rename.Treeview", background=[], foreground=[])
 
@@ -129,20 +130,20 @@ class RenameConfirmDialog(tk.Toplevel):
             "skip_no_name": "SKIP", "skip_same": "SAME", "skip_error": "ERROR",
         }
         STATUS_FG = {
-            "ok": styles.SUCCESS, "duplicate": styles.TEXT_PRIMARY,
-            "skip_no_name": styles.TEXT_SECONDARY, "skip_same": styles.TEXT_SECONDARY,
-            "skip_error": styles.ERROR,
+            "ok": styles.Color.SUCCESS, "duplicate": styles.Color.TEXT_PRIMARY,
+            "skip_no_name": styles.Color.TEXT_SECONDARY, "skip_same": styles.Color.TEXT_SECONDARY,
+            "skip_error": styles.Color.ERROR,
         }
         for status_key, fg in STATUS_FG.items():
-            tree.tag_configure(f"{status_key}_even", foreground=fg, background=styles.BG_PRIMARY)
-            tree.tag_configure(f"{status_key}_odd", foreground=fg, background=styles.BG_SECONDARY)
+            tree.tag_configure(f"{status_key}_even", foreground=fg, background=styles.Color.BG_PRIMARY)
+            tree.tag_configure(f"{status_key}_odd", foreground=fg, background=styles.Color.BG_SECONDARY)
 
-        for i, (old_path, new_path, status) in enumerate(plan):
-            new_name = new_path.name if status not in ("skip_no_name", "skip_same", "skip_error") else "-"
-            status_text = STATUS_LABELS.get(status, status)
+        for i, item in enumerate(plan):
+            new_name = item.new_path.name if item.status not in ("skip_no_name", "skip_same", "skip_error") else "-"
+            status_text = STATUS_LABELS.get(item.status, item.status)
             parity = "even" if i % 2 == 0 else "odd"
-            tag = f"{status}_{parity}"
-            tree.insert("", "end", values=(old_path.name, new_name, status_text), tags=(tag,))
+            tag = f"{item.status}_{parity}"
+            tree.insert("", "end", values=(item.old_path.name, new_name, status_text), tags=(tag,))
 
         # Buttons
         btn_frame = ttk.Frame(self)
@@ -195,16 +196,16 @@ class ErrorListDialog(tk.Toplevel):
         header_frame.pack(fill="x", padx=15, pady=(15, 5))
 
         ttk.Label(
-            header_frame, text="\u26A0", font=(styles.FONT_FAMILY, 20),
-            foreground=styles.ERROR,
+            header_frame, text="\u26A0", font=(styles.Font.FAMILY, 20),
+            foreground=styles.Color.ERROR,
         ).pack(side="left", padx=(0, 8))
 
         summary = f"{len(errors)} error(s)"
         if auth_aborted:
             summary += " — batch aborted"
         ttk.Label(
-            header_frame, text=summary, font=styles.FONT_HEADING,
-            foreground=styles.TEXT_PRIMARY,
+            header_frame, text=summary, font=styles.Font.HEADING,
+            foreground=styles.Color.TEXT_PRIMARY,
         ).pack(side="left")
 
         # Treeview table
@@ -213,11 +214,11 @@ class ErrorListDialog(tk.Toplevel):
 
         style = ttk.Style()
         style.configure(
-            "Error.Treeview", font=styles.FONT_MONO, rowheight=26,
-            background=styles.BG_PRIMARY, fieldbackground=styles.BG_PRIMARY,
-            foreground=styles.TEXT_PRIMARY,
+            "Error.Treeview", font=styles.Font.MONO, rowheight=26,
+            background=styles.Color.BG_PRIMARY, fieldbackground=styles.Color.BG_PRIMARY,
+            foreground=styles.Color.TEXT_PRIMARY,
         )
-        style.configure("Error.Treeview.Heading", font=styles.FONT_SMALL)
+        style.configure("Error.Treeview.Heading", font=styles.Font.SMALL)
         style.map("Error.Treeview", background=[], foreground=[])
 
         tree = ttk.Treeview(
@@ -236,8 +237,8 @@ class ErrorListDialog(tk.Toplevel):
 
         # Row tags with alternating backgrounds
         for parity in ("even", "odd"):
-            bg = styles.BG_PRIMARY if parity == "even" else styles.BG_SECONDARY
-            tree.tag_configure(f"error_{parity}", foreground=styles.ERROR, background=bg)
+            bg = styles.Color.BG_PRIMARY if parity == "even" else styles.Color.BG_SECONDARY
+            tree.tag_configure(f"error_{parity}", foreground=styles.Color.ERROR, background=bg)
 
         for i, (filename, error_msg) in enumerate(errors):
             parity = "even" if i % 2 == 0 else "odd"
@@ -262,7 +263,7 @@ class ErrorListDialog(tk.Toplevel):
 class CompletionDialog(tk.Toplevel):
     """Dialog showing rename results in a structured table."""
 
-    def __init__(self, parent, title: str, results: list[tuple[Path, Path, bool, str]]):
+    def __init__(self, parent, title: str, results: list[RenameResult]):
         super().__init__(parent)
         self.title(title)
         self.resizable(True, True)
@@ -275,9 +276,9 @@ class CompletionDialog(tk.Toplevel):
         self.geometry(f"{w}x{h}+{x}+{y}")
 
         # Compute counts
-        renamed = sum(1 for _, _, ok, msg in results if ok and msg == "Renamed")
-        skipped = sum(1 for _, _, ok, msg in results if ok and msg != "Renamed")
-        errors = sum(1 for _, _, ok, _ in results if not ok)
+        renamed = sum(1 for r in results if r.success and r.message == "Renamed")
+        skipped = sum(1 for r in results if r.success and r.message != "Renamed")
+        errors = sum(1 for r in results if not r.success)
 
         # Summary header
         header_frame = ttk.Frame(self)
@@ -285,13 +286,13 @@ class CompletionDialog(tk.Toplevel):
 
         if errors:
             symbol = "\u26A0"
-            symbol_color = styles.ERROR
+            symbol_color = styles.Color.ERROR
         else:
             symbol = "\u2713"
-            symbol_color = styles.SUCCESS
+            symbol_color = styles.Color.SUCCESS
 
         ttk.Label(
-            header_frame, text=symbol, font=(styles.FONT_FAMILY, 20),
+            header_frame, text=symbol, font=(styles.Font.FAMILY, 20),
             foreground=symbol_color,
         ).pack(side="left", padx=(0, 8))
 
@@ -299,13 +300,12 @@ class CompletionDialog(tk.Toplevel):
         if errors:
             counts += f", {errors} failed"
         ttk.Label(
-            header_frame, text=counts, font=styles.FONT_HEADING,
-            foreground=styles.TEXT_PRIMARY,
+            header_frame, text=counts, font=styles.Font.HEADING,
+            foreground=styles.Color.TEXT_PRIMARY,
         ).pack(side="left")
 
         # Filter to only renamed and error rows (skip rows already shown in confirm dialog)
-        visible = [(old, new, ok, msg) for old, new, ok, msg in results
-                    if not ok or msg == "Renamed"]
+        visible = [r for r in results if not r.success or r.message == "Renamed"]
 
         # Treeview table with resizable columns
         table_frame = ttk.Frame(self)
@@ -313,11 +313,11 @@ class CompletionDialog(tk.Toplevel):
 
         style = ttk.Style()
         style.configure(
-            "Complete.Treeview", font=styles.FONT_MONO, rowheight=26,
-            background=styles.BG_PRIMARY, fieldbackground=styles.BG_PRIMARY,
-            foreground=styles.TEXT_PRIMARY,
+            "Complete.Treeview", font=styles.Font.MONO, rowheight=26,
+            background=styles.Color.BG_PRIMARY, fieldbackground=styles.Color.BG_PRIMARY,
+            foreground=styles.Color.TEXT_PRIMARY,
         )
-        style.configure("Complete.Treeview.Heading", font=styles.FONT_SMALL)
+        style.configure("Complete.Treeview.Heading", font=styles.Font.SMALL)
         style.map("Complete.Treeview", background=[], foreground=[])
 
         tree = ttk.Treeview(
@@ -336,19 +336,19 @@ class CompletionDialog(tk.Toplevel):
 
         # Row tags
         for parity in ("even", "odd"):
-            bg = styles.BG_PRIMARY if parity == "even" else styles.BG_SECONDARY
-            tree.tag_configure(f"ok_{parity}", foreground=styles.SUCCESS, background=bg)
-            tree.tag_configure(f"error_{parity}", foreground=styles.ERROR, background=bg)
-            tree.tag_configure(f"detail_{parity}", foreground=styles.ERROR, background=bg)
+            bg = styles.Color.BG_PRIMARY if parity == "even" else styles.Color.BG_SECONDARY
+            tree.tag_configure(f"ok_{parity}", foreground=styles.Color.SUCCESS, background=bg)
+            tree.tag_configure(f"error_{parity}", foreground=styles.Color.ERROR, background=bg)
+            tree.tag_configure(f"detail_{parity}", foreground=styles.Color.ERROR, background=bg)
 
-        for i, (old_path, new_path, ok, msg) in enumerate(visible):
+        for i, r in enumerate(visible):
             parity = "even" if i % 2 == 0 else "odd"
-            display_name = new_path.name if ok else old_path.name
-            if ok:
+            display_name = r.new_path.name if r.success else r.old_path.name
+            if r.success:
                 tree.insert("", "end", values=(display_name, "OK"), tags=(f"ok_{parity}",))
             else:
                 tree.insert("", "end", values=(display_name, "ERROR"), tags=(f"error_{parity}",))
-                tree.insert("", "end", values=(f"    {msg}", ""), tags=(f"detail_{parity}",))
+                tree.insert("", "end", values=(f"    {r.message}", ""), tags=(f"detail_{parity}",))
 
         # OK button
         ok_btn = ttk.Button(

@@ -60,6 +60,8 @@ def smart_title_case(name: str) -> str:
 
     # Special prefixes that should have internal capitals
     MAC_PREFIXES = ['mc', 'mac']
+    # Mac words that should NOT get internal capitals (not surnames)
+    MAC_EXCEPTIONS = ['macintosh', 'machine', 'mach', 'macro', 'mace']
     # Particles that should be lowercase (unless first word)
     PARTICLES = ['van', 'von', 'de', 'del', 'der', 'den', 'la', 'le', 'da', 'di', 'st']
     # Suffixes that should be uppercase
@@ -83,7 +85,9 @@ def smart_title_case(name: str) -> str:
             formatted = "-".join(p.capitalize() for p in parts)
             result.append(formatted)
 
-        # Handle Mc/Mac prefixes
+        # Handle Mc/Mac prefixes (but skip exceptions)
+        elif word.lower() in MAC_EXCEPTIONS:
+            result.append(word.capitalize())
         elif any(word.lower().startswith(prefix) for prefix in MAC_PREFIXES):
             if word.lower().startswith('mc') and len(word) > 2:
                 result.append('Mc' + word[2:].capitalize())

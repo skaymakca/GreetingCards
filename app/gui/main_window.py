@@ -90,13 +90,13 @@ def _process_pdf_worker(pdf_path_str: str) -> dict:
             # Reload state after reprocessing
             card_state = get_card_state(file_hash)
             if card_state:
-                result['family_name'] = card_state['display_name']
-                result['confidence'] = card_state['confidence']
-                result['alternates'] = [name for _, name, _, _ in card_state['candidates']]
-                result['candidates'] = card_state['candidates']
-                result['remove_family'] = card_state['remove_family']
-                result['selected_candidate_id'] = card_state['selected_candidate_id']
-                result['method'] = card_state['method']
+                result['family_name'] = card_state.display_name
+                result['confidence'] = card_state.confidence
+                result['alternates'] = [c.family_name for c in card_state.candidates]
+                result['candidates'] = card_state.candidates
+                result['remove_family'] = card_state.remove_family
+                result['selected_candidate_id'] = card_state.selected_candidate_id
+                result['method'] = card_state.method
         else:
             # New file - run OCR and save raw data
             if images:
@@ -112,13 +112,13 @@ def _process_pdf_worker(pdf_path_str: str) -> dict:
                 # Load state after processing
                 card_state = get_card_state(file_hash)
                 if card_state:
-                    result['family_name'] = card_state['display_name']
-                    result['confidence'] = card_state['confidence']
-                    result['alternates'] = [name for _, name, _, _ in card_state['candidates']]
-                    result['candidates'] = card_state['candidates']
-                    result['remove_family'] = card_state['remove_family']
-                    result['selected_candidate_id'] = card_state['selected_candidate_id']
-                    result['method'] = card_state['method']
+                    result['family_name'] = card_state.display_name
+                    result['confidence'] = card_state.confidence
+                    result['alternates'] = [c.family_name for c in card_state.candidates]
+                    result['candidates'] = card_state.candidates
+                    result['remove_family'] = card_state.remove_family
+                    result['selected_candidate_id'] = card_state.selected_candidate_id
+                    result['method'] = card_state.method
 
     except Exception as e:
         result['error'] = str(e)
@@ -132,7 +132,7 @@ class MainWindow:
     def __init__(self):
         self.root = TkinterDnD.Tk()
         self.root.title("Greeting Cards")
-        self.root.geometry(f"{styles.WINDOW_WIDTH}x{styles.WINDOW_HEIGHT}")
+        self.root.geometry(f"{styles.Layout.WINDOW_WIDTH}x{styles.Layout.WINDOW_HEIGHT}")
         self.root.minsize(800, 500)
 
         self._folder: Path | None = None
@@ -189,12 +189,12 @@ class MainWindow:
 
     def _setup_ttk_styles(self):
         s = ttk.Style()
-        s.configure("Toolbar.TButton", font=styles.FONT_BODY)
-        s.configure("ToolbarBold.TButton", font=styles.FONT_HEADING)
-        s.configure("ToolbarSmall.TButton", font=styles.FONT_SMALL)
+        s.configure("Toolbar.TButton", font=styles.Font.BODY)
+        s.configure("ToolbarBold.TButton", font=styles.Font.HEADING)
+        s.configure("ToolbarSmall.TButton", font=styles.Font.SMALL)
 
     def _build_toolbar(self):
-        toolbar = ttk.Frame(self.root, height=styles.TOOLBAR_HEIGHT)
+        toolbar = ttk.Frame(self.root, height=styles.Layout.TOOLBAR_HEIGHT)
         toolbar.pack(fill="x", side="top")
         toolbar.pack_propagate(False)
 
@@ -203,7 +203,7 @@ class MainWindow:
 
         # --- Row 1: Folder selection (left) and Year (right) ---
         row1 = ttk.Frame(toolbar)
-        row1.pack(fill="x", padx=styles.PAD, pady=(6, 0))
+        row1.pack(fill="x", padx=styles.Layout.PAD, pady=(6, 0))
 
         # Left side: Browse button + folder path
         left_frame = ttk.Frame(row1)
@@ -217,8 +217,8 @@ class MainWindow:
 
         self._folder_var = tk.StringVar(value="No folder selected")
         self._folder_label = ttk.Label(
-            left_frame, textvariable=self._folder_var, font=styles.FONT_BODY,
-            foreground=styles.TEXT_SECONDARY,
+            left_frame, textvariable=self._folder_var, font=styles.Font.BODY,
+            foreground=styles.Color.TEXT_SECONDARY,
         )
         self._folder_label.pack(side="left")
 
@@ -227,20 +227,20 @@ class MainWindow:
         right_frame.pack(side="right")
 
         ttk.Label(
-            right_frame, text="Year:", font=styles.FONT_BODY,
-            foreground=styles.TEXT_PRIMARY,
+            right_frame, text="Year:", font=styles.Font.BODY,
+            foreground=styles.Color.TEXT_PRIMARY,
         ).pack(side="left", padx=(0, 4))
 
         self._year_var = tk.StringVar(value=str(datetime.now().year - 1))
         year_entry = tk.Entry(
-            right_frame, textvariable=self._year_var, font=styles.FONT_BODY,
+            right_frame, textvariable=self._year_var, font=styles.Font.BODY,
             width=6, relief="flat",
         )
         year_entry.pack(side="left")
 
         # --- Row 2: Action buttons ---
         row2 = ttk.Frame(toolbar)
-        row2.pack(fill="x", padx=styles.PAD, pady=(6, 6))
+        row2.pack(fill="x", padx=styles.Layout.PAD, pady=(6, 6))
 
         # AI All button
         self._ai_all_btn = ttk.Button(
@@ -287,7 +287,7 @@ class MainWindow:
             "settings": ("gearshape", 6, self._settings_btn),
         }
         for key, (symbol, size, btn) in icon_map.items():
-            icon = load_sf_symbol(symbol, size, styles.TEXT_PRIMARY)
+            icon = load_sf_symbol(symbol, size, styles.Color.TEXT_PRIMARY)
             if icon:
                 self._icons[key] = icon
                 btn.config(image=icon, compound="left")
@@ -311,7 +311,7 @@ class MainWindow:
 
         # Set initial sash position once the window is mapped
         self.root.after_idle(
-            lambda: self._paned.sashpos(0, styles.WINDOW_WIDTH - styles.PREVIEW_WIDTH)
+            lambda: self._paned.sashpos(0, styles.Layout.WINDOW_WIDTH - styles.Layout.PREVIEW_WIDTH)
         )
 
     def _setup_keyboard_nav(self):
@@ -379,7 +379,7 @@ class MainWindow:
         if count == 0:
             messagebox.showwarning("No PDFs", "No PDF files found in the selected folder.")
         else:
-            self._folder_label.config(foreground=styles.TEXT_PRIMARY)
+            self._folder_label.config(foreground=styles.Color.TEXT_PRIMARY)
             if auto_process:
                 self._start_processing()
 
@@ -508,16 +508,16 @@ class MainWindow:
 
                 # Load card state
                 if card_state:
-                    card.family_name = card_state['display_name']
+                    card.family_name = card_state.display_name
                     try:
-                        card.confidence = Confidence(card_state['confidence'])
+                        card.confidence = Confidence(card_state.confidence)
                     except ValueError:
                         card.confidence = Confidence.MEDIUM
-                    card.alternates = [name for _, name, _, _ in card_state['candidates']]
-                    card.candidates = card_state['candidates']
-                    card.remove_family = card_state['remove_family']
-                    card.selected_candidate_id = card_state['selected_candidate_id']
-                    card.method = card_state['method']
+                    card.alternates = [c.family_name for c in card_state.candidates]
+                    card.candidates = card_state.candidates
+                    card.remove_family = card_state.remove_family
+                    card.selected_candidate_id = card_state.selected_candidate_id
+                    card.method = card_state.method
             except Exception as e:
                 card.error = str(e)
                 card.confidence = Confidence.NONE
@@ -554,7 +554,7 @@ class MainWindow:
         self._folder = None
         self._pdf_files = []
         self._folder_var.set("No folder selected")
-        self._folder_label.config(foreground=styles.TEXT_SECONDARY)
+        self._folder_label.config(foreground=styles.Color.TEXT_SECONDARY)
 
     def _on_name_change(self, card_id: int, name: str):
         """Persist manual name edits to the database and update confidence dot."""
@@ -623,16 +623,15 @@ class MainWindow:
             card_state = get_card_state(card.file_hash) if card.file_hash else None
             has_ai_candidates = False
             if card_state:
-                has_ai_candidates = any(method == 'ai' for _, _, method, _ in card_state['candidates'])
+                has_ai_candidates = any(c.method == 'ai' for c in card_state.candidates)
 
             if not has_ai_candidates:
                 # Run AI analysis
                 ai_images = card.page_images or [card.preview_image]
-                best_name, alternates = analyze_card_with_ai(ai_images)
+                result = analyze_card_with_ai(ai_images)
 
-                if card.file_hash and best_name:
-                    # Save raw AI result
-                    save_raw_ai(card.file_hash, best_name, alternates)
+                if card.file_hash and result.best_name:
+                    save_raw_ai(card.file_hash, result.best_name, result.alternates)
 
                     # Reprocess all candidates from raw data (includes new AI results)
                     reprocess_candidates_from_raw(card.file_hash)
@@ -641,13 +640,13 @@ class MainWindow:
             if card.file_hash:
                 card_state = get_card_state(card.file_hash)
                 if card_state:
-                    card.family_name = card_state['display_name']
-                    card.confidence = Confidence(card_state['confidence'])
-                    card.alternates = [name for _, name, _, _ in card_state['candidates']]
-                    card.candidates = card_state['candidates']
-                    card.remove_family = card_state['remove_family']
-                    card.selected_candidate_id = card_state['selected_candidate_id']
-                    card.method = card_state['method']
+                    card.family_name = card_state.display_name
+                    card.confidence = Confidence(card_state.confidence)
+                    card.alternates = [c.family_name for c in card_state.candidates]
+                    card.candidates = card_state.candidates
+                    card.remove_family = card_state.remove_family
+                    card.selected_candidate_id = card_state.selected_candidate_id
+                    card.method = card_state.method
                     card.ai_analyzed = True
                     # Only clear manual override if user hasn't manually edited
                     if not card.manual_override or card.method != "manual":
@@ -721,16 +720,15 @@ class MainWindow:
                     card_state = get_card_state(card.file_hash) if card.file_hash else None
                     has_ai_candidates = False
                     if card_state:
-                        has_ai_candidates = any(method == 'ai' for _, _, method, _ in card_state['candidates'])
+                        has_ai_candidates = any(c.method == 'ai' for c in card_state.candidates)
 
                     if not has_ai_candidates:
                         # Run AI analysis
                         ai_images = card.page_images or [card.preview_image]
-                        best_name, alternates = await analyze_card_with_ai_async(ai_images)
+                        result = await analyze_card_with_ai_async(ai_images)
 
-                        if card.file_hash and best_name:
-                            # Save raw AI result
-                            save_raw_ai(card.file_hash, best_name, alternates)
+                        if card.file_hash and result.best_name:
+                            save_raw_ai(card.file_hash, result.best_name, result.alternates)
 
                             # Reprocess all candidates from raw data (includes new AI results)
                             reprocess_candidates_from_raw(card.file_hash)
@@ -739,13 +737,13 @@ class MainWindow:
                     if card.file_hash:
                         card_state = get_card_state(card.file_hash)
                         if card_state:
-                            card.family_name = card_state['display_name']
-                            card.confidence = Confidence(card_state['confidence'])
-                            card.alternates = [name for _, name, _, _ in card_state['candidates']]
-                            card.candidates = card_state['candidates']
-                            card.remove_family = card_state['remove_family']
-                            card.selected_candidate_id = card_state['selected_candidate_id']
-                            card.method = card_state['method']
+                            card.family_name = card_state.display_name
+                            card.confidence = Confidence(card_state.confidence)
+                            card.alternates = [c.family_name for c in card_state.candidates]
+                            card.candidates = card_state.candidates
+                            card.remove_family = card_state.remove_family
+                            card.selected_candidate_id = card_state.selected_candidate_id
+                            card.method = card_state.method
                             card.ai_analyzed = True
                             # Only clear manual override if user hasn't manually edited
                             if not card.manual_override or card.method != "manual":
@@ -799,7 +797,7 @@ class MainWindow:
 
         if dialog.result:
             results = execute_rename_plan(plan)
-            errors = sum(1 for _, _, ok, _ in results if not ok)
+            errors = sum(1 for r in results if not r.success)
             title = "Rename Complete" if not errors else "Rename Complete (with errors)"
             dialog = CompletionDialog(self.root, title, results)
             self.root.wait_window(dialog)

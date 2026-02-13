@@ -12,6 +12,72 @@ class Confidence(Enum):
     MANUAL = "manual"
     NONE = "none"
 
+    def color(self) -> str:
+        """Return the color for this confidence level."""
+        colors = {
+            Confidence.HIGH: "#34C759",      # SUCCESS green
+            Confidence.MEDIUM: "#FF9500",    # WARNING orange
+            Confidence.LOW: "#FF3B30",       # ERROR red
+            Confidence.MANUAL: "#1E90FF",    # MANUAL_BLUE
+            Confidence.NONE: "#6E6E73",      # TEXT_SECONDARY gray
+        }
+        return colors[self]
+
+    def tooltip(self) -> str:
+        """Return the tooltip description for this confidence level."""
+        tooltips = {
+            Confidence.HIGH: "High confidence — strong pattern match or AI result",
+            Confidence.MEDIUM: "Medium confidence — partial pattern match",
+            Confidence.LOW: "Low confidence — weak/fallback match",
+            Confidence.MANUAL: "Manually entered name",
+            Confidence.NONE: "No name extracted",
+        }
+        return tooltips[self]
+
+
+@dataclass
+class CandidateInfo:
+    """Represents a candidate family name from database."""
+    id: int
+    family_name: str
+    method: str  # 'ocr' | 'ai'
+    confidence: str  # 'high' | 'medium' | 'low'
+
+
+@dataclass
+class CardState:
+    """Complete card state from database for display."""
+    display_name: str
+    method: str  # 'manual' | 'ocr' | 'ai' | 'missing'
+    confidence: str  # 'manual' | 'high' | 'medium' | 'low' | 'none'
+    candidates: list[CandidateInfo]
+    remove_family: bool
+    selected_candidate_id: Optional[int]
+
+
+@dataclass
+class NameMatch:
+    """Represents a family name extracted from OCR."""
+    name: str
+    confidence: Confidence
+
+
+@dataclass
+class RenamePlanItem:
+    """Item in a rename plan."""
+    old_path: Path
+    new_path: Path
+    status: str  # 'ok' | 'skip_no_name' | 'skip_same' | 'skip_error' | 'duplicate'
+
+
+@dataclass
+class RenameResult:
+    """Result of executing a rename operation."""
+    old_path: Path
+    new_path: Path
+    success: bool
+    message: str
+
 
 @dataclass
 class CardResult:
@@ -20,7 +86,7 @@ class CardResult:
     family_name: str = ""
     confidence: Confidence = Confidence.NONE
     alternates: list[str] = field(default_factory=list)  # Just names for backward compat
-    candidates: list[tuple[int, str, str, str]] = field(default_factory=list)  # (id, name, method, confidence)
+    candidates: list[CandidateInfo] = field(default_factory=list)
     ocr_text: str = ""
     preview_image: Optional[Image.Image] = None  # first page (for AI analysis)
     page_images: list[Image.Image] = field(default_factory=list)  # all pages
