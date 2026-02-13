@@ -1,6 +1,6 @@
 import fitz  # PyMuPDF
 from pathlib import Path
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageFilter
 import io
 
 
@@ -18,10 +18,15 @@ def _capped_zoom(page, dpi: int) -> fitz.Matrix:
 
 
 def autocrop_whitespace(image: Image.Image, threshold: int = 245, padding: int = 10) -> Image.Image:
-    """Crop near-white borders from a scanned page image."""
+    """Crop near-white borders from a scanned page image.
+
+    Applies a Gaussian blur before thresholding to ignore scanner speckle
+    noise that would otherwise prevent effective cropping.
+    """
     gray = image.convert("L")
-    bg = Image.new("L", gray.size, threshold)
-    diff = ImageChops.subtract(bg, gray)
+    blurred = gray.filter(ImageFilter.GaussianBlur(radius=5))
+    bg = Image.new("L", blurred.size, threshold)
+    diff = ImageChops.subtract(bg, blurred)
     bbox = diff.getbbox()
     if not bbox:
         return image
