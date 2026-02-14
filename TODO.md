@@ -1,7 +1,10 @@
 # TODO
 
 ## High Priority
-- [ ] check teh search filtering code, we need to filter on filenames AND family names but not candidates.  The category filters then need to be populated with the post search filtered results.  Their counts should be updated.  I had asked for either disabling unpopulated category filters or removing them from view but this never happened.  lets implement this here as well. so the flow is search -> category filters with proper counts and disable or visiblity based on n>=1 -> cards table
+- [ ] If there are multiple folders loaded investigate dynamically adding folder filters to the filter sidebar. See about making sections in there in a Mac-native looking way. If we can, then come up with a section name for the quality filters. Think through the dynamics of each of the filter sets influencing one another and evaluate what is the most flexible option, what is the most "correct" option and what could be the option a user would expect at first blush.
+- [ ] Icons look terrible
+- [ ] Mac Info.app style help menus
+- [ ] Autogenerate screenshots for help system?
 
 ## Medium Priority
 
@@ -40,6 +43,7 @@
 - [x] Semantic versioning (`app/version.py`, Makefile bump targets, PyInstaller bundle metadata)
 - [x] About section in Settings with app icon, version, and git commit hash
 - [x] Fix app bundle UI glitches: refactor tk widgets to ttk for native macOS backgrounds
+- [x] Search filtering: search → category counts → category filter → cards table. Zero-count filters disabled. Finder-style clicks (regular=exclusive, Option=multi-select).
 
 ---
 

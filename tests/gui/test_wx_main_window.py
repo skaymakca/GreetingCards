@@ -335,30 +335,30 @@ def test_search_filtering(wx_app):
 
     # Test filtering by filename
     window._search_ctrl.SetValue("smith")
-    filtered = window._get_filtered_cards()
+    filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 1
     assert filtered[0].id == 0
 
     # Test filtering by family name
     window._search_ctrl.SetValue("Jones")
-    filtered = window._get_filtered_cards()
+    filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 1
     assert filtered[0].id == 1
 
     # Test partial match
     window._search_ctrl.SetValue("john")
-    filtered = window._get_filtered_cards()
+    filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 1
     assert filtered[0].id == 2
 
     # Test no match
     window._search_ctrl.SetValue("xyz")
-    filtered = window._get_filtered_cards()
+    filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 0
 
     # Test empty query returns all
     window._search_ctrl.SetValue("")
-    filtered = window._get_filtered_cards()
+    filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 3
 
     window._frame.Destroy()
@@ -514,30 +514,30 @@ def test_sidebar_filter_changes_cards(wx_app):
 
     # Test "all" filter (default)
     window._current_filters = ["all"]
-    filtered = window._get_filtered_cards()
+    filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 4
 
     # Test "high" filter only
     window._current_filters = ["high"]
-    filtered = window._get_filtered_cards()
+    filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 1
     assert filtered[0].id == 0
 
     # Test multi-select: "high" and "manual"
     window._current_filters = ["high", "manual"]
-    filtered = window._get_filtered_cards()
+    filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 2
     assert {c.id for c in filtered} == {0, 2}
 
     # Test "needs_review" filter
     window._current_filters = ["needs_review"]
-    filtered = window._get_filtered_cards()
+    filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 1
     assert filtered[0].id == 1
 
     # Test "errors" filter
     window._current_filters = ["errors"]
-    filtered = window._get_filtered_cards()
+    filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 1
     assert filtered[0].id == 3
 
@@ -571,20 +571,20 @@ def test_combined_search_and_sidebar_filter(wx_app):
     # Filter by "high" confidence only
     window._current_filters = ["high"]
     window._search_ctrl.SetValue("")
-    filtered = window._get_filtered_cards()
+    filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 2  # card1 and card2
 
     # Filter by "high" confidence AND search for "smith"
     window._current_filters = ["high"]
     window._search_ctrl.SetValue("smith")
-    filtered = window._get_filtered_cards()
+    filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 1  # Only card1
     assert filtered[0].id == 0
 
     # Search for "smith" with "all" filter
     window._current_filters = ["all"]
     window._search_ctrl.SetValue("smith")
-    filtered = window._get_filtered_cards()
+    filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 2  # card1 and card3
 
     window._frame.Destroy()

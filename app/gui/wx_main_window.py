@@ -312,14 +312,12 @@ class MainWindow:
 
     def _on_search_text(self, event):
         """Filter cards as user types in search field."""
-        filtered_cards = self._get_filtered_cards()
-        self._review_panel.load_cards(filtered_cards)
+        self._refresh_display()
 
     def _on_search_cancel(self, event):
         """Clear filter when cancel button clicked."""
         self._search_ctrl.SetValue("")
-        filtered_cards = self._get_filtered_cards()
-        self._review_panel.load_cards(filtered_cards)
+        self._refresh_display()
 
     def _on_filter_change(self, filter_keys: list[str]):
         """Handle sidebar filter change (multi-select).
@@ -328,38 +326,43 @@ class MainWindow:
             filter_keys: List of selected filters (e.g., ["high", "manual"])
         """
         self._current_filters = filter_keys
-        filtered_cards = self._get_filtered_cards()
-        self._review_panel.load_cards(filtered_cards)
+        self._refresh_display()
 
-    def _get_filtered_cards(self) -> list[CardResult]:
-        """Get cards filtered by search query AND sidebar filters (multi-select)."""
-        # Start with all cards (unique by content hash)
+    def _refresh_display(self):
+        """Refresh sidebar counts and cards table from current search + filters.
+
+        Pipeline: search → category counts (from search results) → category filter → cards table
+        """
+        search_cards = self._get_search_filtered_cards()
+        self._sidebar.update_card_counts(search_cards)
+        filtered = self._apply_category_filters(search_cards)
+        self._review_panel.load_cards(filtered)
+
+    def _get_search_filtered_cards(self) -> list[CardResult]:
+        """Get cards filtered by search query only."""
         cards = list(self._cards_by_hash.values())
-
-        # Apply sidebar filters (OR logic - show cards matching ANY selected filter)
-        if "all" not in self._current_filters:
-            filtered = []
-            for filter_key in self._current_filters:
-                if filter_key == "manual":
-                    filtered.extend([c for c in cards if c.confidence == Confidence.MANUAL])
-                elif filter_key == "high":
-                    filtered.extend([c for c in cards if c.confidence == Confidence.HIGH])
-                elif filter_key == "needs_review":
-                    filtered.extend([c for c in cards if c.confidence in (Confidence.MEDIUM, Confidence.LOW)])
-                elif filter_key == "errors":
-                    filtered.extend([c for c in cards if c.error or c.confidence == Confidence.NONE])
-
-            # Remove duplicates (card might match multiple filters)
-            cards = list({c.id: c for c in filtered}.values())
-
-        # Then apply search query
         query = self._search_ctrl.GetValue().lower().strip()
         if query:
             cards = [
                 c for c in cards
                 if query in c.filename.lower() or query in c.family_name.lower()
             ]
+        return cards
 
+    def _apply_category_filters(self, cards: list[CardResult]) -> list[CardResult]:
+        """Apply sidebar category filters to a card list."""
+        if "all" not in self._current_filters:
+            filtered = []
+            for filter_key in self._current_filters:
+                if filter_key == "manual":
+                    filtered.extend(c for c in cards if c.confidence == Confidence.MANUAL)
+                elif filter_key == "high":
+                    filtered.extend(c for c in cards if c.confidence == Confidence.HIGH)
+                elif filter_key == "needs_review":
+                    filtered.extend(c for c in cards if c.confidence in (Confidence.MEDIUM, Confidence.LOW))
+                elif filter_key == "errors":
+                    filtered.extend(c for c in cards if c.error or c.confidence == Confidence.NONE)
+            cards = list({c.id: c for c in filtered}.values())
         return sorted(cards, key=lambda c: c.filename.lower())
 
     def _build_content_area(self) -> wx.SplitterWindow:
@@ -785,13 +788,8 @@ class MainWindow:
         if hasattr(self, "_progress") and not self._progress.IsBeingDeleted():
             self._progress.finish()
 
-        # Update sidebar with card counts
-        all_cards = list(self._cards_by_hash.values())
-        self._sidebar.update_card_counts(all_cards)
-
-        # Load cards into review panel (respects search and sidebar filters)
-        filtered_cards = self._get_filtered_cards()
-        self._review_panel.load_cards(filtered_cards)
+        # Update sidebar counts and cards table (respects search + category filters)
+        self._refresh_display()
 
         # Enable toolbar buttons
         self._rename_btn.Enable(True)
@@ -1074,9 +1072,8 @@ class MainWindow:
         self._ai_all_btn.Enable(True)
         self._rename_btn.Enable(True)
 
-        # Update sidebar counts (confidence levels may have changed)
-        all_cards = list(self._cards_by_hash.values())
-        self._sidebar.update_card_counts(all_cards)
+        # Update sidebar counts and cards table (confidence levels may have changed)
+        self._refresh_display()
 
         if errors:
             suffix = " (auth error)" if auth_aborted else " (with errors)"

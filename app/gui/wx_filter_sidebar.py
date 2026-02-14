@@ -27,6 +27,7 @@ class FilterSidebar(wx.Panel):
         self._on_filter = on_filter
         self._selected_filters = ["all"]  # Default to "all"
         self._card_counts = {}  # Track card count per category
+        self._disabled_keys: set[str] = set()  # Zero-count filter keys
 
         # Filter definitions (in priority order)
         self._filters = [
@@ -42,7 +43,7 @@ class FilterSidebar(wx.Panel):
         self._build_ui()
 
     def _build_ui(self):
-        """Build sidebar UI with native checkbox list control."""
+        """Build sidebar UI with individual checkboxes for per-item enable/disable."""
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         # Header
@@ -51,24 +52,26 @@ class FilterSidebar(wx.Panel):
         header.SetForegroundColour(wx_styles.Color.TEXT_SECONDARY)
         sizer.Add(header, 0, wx.ALL, 10)
 
-        # Native checkbox list control (multi-select)
-        self._checklist = wx.CheckListBox(
-            self,
-            choices=[label for _, label in self._filters],
-            style=wx.LB_NEEDED_SB
-        )
-        self._checklist.Check(0)  # Check "All Cards" by default
-        self._checklist.Bind(wx.EVT_CHECKLISTBOX, self._on_check_change)
+        # Individual checkboxes (enables native grayed-out appearance per item)
+        self._checkboxes: list[wx.CheckBox] = []
+        for key, label in self._filters:
+            cb = wx.CheckBox(self, label=label)
+            cb.Bind(wx.EVT_CHECKBOX, lambda evt, k=key: self._on_check_change_key(k))
+            self._checkboxes.append(cb)
+            sizer.Add(cb, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
 
-        self._checklist.SetToolTip(
-            "Select one or more categories to filter cards.\n"
-            "All Cards clears other selections."
+        # Check "All Cards" by default
+        self._checkboxes[0].SetValue(True)
+
+        self.SetToolTip(
+            "Click to select a filter.\n"
+            "Option-click to select multiple filters."
         )
 
-        sizer.Add(self._checklist, 1, wx.EXPAND | wx.ALL, 5)
+        sizer.AddSpacer(10)
 
         # Info text at bottom
-        info = wx.StaticText(self, label="Tip: Use ⌘F to search")
+        info = wx.StaticText(self, label="⌥-click to multi-select")
         info.SetFont(wx_styles.Font.SMALL())
         info.SetForegroundColour(wx_styles.Color.TEXT_SECONDARY)
         sizer.Add(info, 0, wx.ALL, 10)
@@ -76,54 +79,56 @@ class FilterSidebar(wx.Panel):
         self.SetSizer(sizer)
         self.SetMinSize((150, -1))
 
-    def _on_check_change(self, event):
-        """Handle checkbox change.
+    def _on_check_change_key(self, filter_key: str, option_held: bool | None = None):
+        """Handle checkbox change with Finder-style click behavior.
+
+        Regular click: select this filter exclusively.
+        Option+click: toggle this filter in/out of a multi-selection.
 
         Args:
-            event: wx.EVT_CHECKLISTBOX event
+            filter_key: The filter key that was clicked
+            option_held: Override for Option key state (for testing; None = detect)
         """
-        checked_index = event.GetSelection()
-        is_checked = self._checklist.IsChecked(checked_index)
-        filter_key = self._filter_keys[checked_index]
+        if option_held is None:
+            option_held = wx.GetKeyState(wx.WXK_ALT)
 
-        # Special handling for "All Cards"
+        idx = self._filter_keys.index(filter_key)
+
         if filter_key == "all":
-            if is_checked:
-                # "All Cards" selected - uncheck all others
-                for i in range(len(self._filter_keys)):
-                    if i != 0:  # Don't uncheck "All Cards" itself
-                        self._checklist.Check(i, False)
-                self._selected_filters = ["all"]
-            else:
-                # If "All Cards" unchecked and nothing else checked, re-check it
-                if not any(self._checklist.IsChecked(i) for i in range(1, len(self._filter_keys))):
-                    self._checklist.Check(0, True)
-                    self._selected_filters = ["all"]
-                else:
-                    self._selected_filters = [
-                        self._filter_keys[i]
-                        for i in range(1, len(self._filter_keys))
-                        if self._checklist.IsChecked(i)
-                    ]
-        else:
-            # Other filter selected - uncheck "All Cards"
-            if is_checked:
-                self._checklist.Check(0, False)
+            # "All Cards" always selects exclusively
+            self._select_exclusive(0)
+            self._selected_filters = ["all"]
+        elif option_held:
+            # Option+click: toggle in/out of multi-selection
+            is_checked = self._checkboxes[idx].GetValue()  # already toggled by wx
 
-            # Get all checked filters (excluding "All Cards")
+            if is_checked:
+                # Adding — uncheck "All Cards"
+                self._checkboxes[0].SetValue(False)
+            else:
+                # Removing — if nothing left, fall back to "All Cards"
+                pass
+
             self._selected_filters = [
                 self._filter_keys[i]
                 for i in range(1, len(self._filter_keys))
-                if self._checklist.IsChecked(i)
+                if self._checkboxes[i].GetValue()
             ]
 
-            # If nothing selected, re-check "All Cards"
             if not self._selected_filters:
-                self._checklist.Check(0, True)
+                self._checkboxes[0].SetValue(True)
                 self._selected_filters = ["all"]
+        else:
+            # Regular click: exclusive selection of this filter
+            self._select_exclusive(idx)
+            self._selected_filters = [filter_key]
 
-        # Notify parent with list of selected filters
         self._on_filter(self._selected_filters)
+
+    def _select_exclusive(self, index: int):
+        """Check only the checkbox at index, uncheck all others."""
+        for i, cb in enumerate(self._checkboxes):
+            cb.SetValue(i == index)
 
     def update_card_counts(self, cards: list[CardResult]):
         """Update card counts for each category and disable/enable accordingly.
@@ -142,18 +147,31 @@ class FilterSidebar(wx.Panel):
 
         self._card_counts = counts
 
-        # Update labels with counts and enable/disable
+        # Update labels, enable/disable, and track disabled keys
+        self._disabled_keys.clear()
         for i, (key, base_label) in enumerate(self._filters):
             count = counts.get(key, 0)
-            label = f"{base_label} ({count})"
-            self._checklist.SetString(i, label)
+            self._checkboxes[i].SetLabel(f"{base_label} ({count})")
 
-            # Disable if count is 0 (except "All Cards")
+            # Disable zero-count categories (except "All Cards")
             if key != "all" and count == 0:
-                # Can't directly disable individual items in CheckListBox
-                # But we can uncheck them if they were checked
-                if self._checklist.IsChecked(i):
-                    self._checklist.Check(i, False)
+                self._disabled_keys.add(key)
+                self._checkboxes[i].SetValue(False)
+                self._checkboxes[i].Enable(False)
+            else:
+                self._checkboxes[i].Enable(True)
+
+        # If all selected filters went to zero, fall back to "All Cards"
+        if "all" not in self._selected_filters:
+            remaining = [k for k in self._selected_filters if k not in self._disabled_keys]
+            if not remaining:
+                for i in range(len(self._filter_keys)):
+                    self._checkboxes[i].SetValue(False)
+                self._checkboxes[0].SetValue(True)
+                self._selected_filters = ["all"]
+                self._on_filter(self._selected_filters)
+            elif remaining != self._selected_filters:
+                self._selected_filters = remaining
 
     def get_selected_filters(self) -> list[str]:
         """Get currently selected filter keys.
@@ -170,13 +188,13 @@ class FilterSidebar(wx.Panel):
             filter_keys: List of filter keys to activate
         """
         # Clear all checks
-        for i in range(len(self._filter_keys)):
-            self._checklist.Check(i, False)
+        for cb in self._checkboxes:
+            cb.SetValue(False)
 
         # Check specified filters
         for key in filter_keys:
             if key in self._filter_keys:
                 index = self._filter_keys.index(key)
-                self._checklist.Check(index, True)
+                self._checkboxes[index].SetValue(True)
 
         self._selected_filters = filter_keys if filter_keys else ["all"]
