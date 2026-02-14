@@ -9,6 +9,29 @@ def _is_same_file(a: Path, b: Path) -> bool:
         return False
 
 
+def _read_directory_names(directory: Path) -> set[str]:
+    """Read all filenames in a directory into a lowercase set."""
+    try:
+        return {f.name.lower() for f in directory.iterdir() if f.is_file()}
+    except OSError:
+        return set()
+
+
+def _find_available_name(
+    directory: Path, stem: str, suffix: str, existing: set[str]
+) -> Path:
+    """Find the next available numbered filename not in the existing set.
+
+    Tries: stem (2).suffix, stem (3).suffix, ... until one is not taken.
+    """
+    n = 2
+    while True:
+        candidate = f"{stem} ({n}){suffix}"
+        if candidate.lower() not in existing:
+            return directory / candidate
+        n += 1
+
+
 def build_rename_plan(
     cards: list[CardResult], year: str
 ) -> list[RenamePlanItem]:
@@ -22,65 +45,61 @@ def build_rename_plan(
     Status is one of: 'ok', 'skip_no_name', 'skip_same', 'skip_error', 'duplicate'.
     """
     plan = []
-    # Per-directory tracking: dir → {lowercase_name → count}
-    used_names: dict[Path, dict[str, int]] = {}
+    # Per-directory tracking: dir → set of lowercase filenames (seeded from disk)
+    dir_files: dict[Path, set[str]] = {}
 
     for card in cards:
         for file_path in card.file_paths:
             directory = file_path.parent
 
-            # Ensure directory has a tracking dict
-            if directory not in used_names:
-                used_names[directory] = {}
-            dir_names = used_names[directory]
+            # Seed from disk on first encounter
+            if directory not in dir_files:
+                dir_files[directory] = _read_directory_names(directory)
+            existing = dir_files[directory]
 
             if card.error:
                 plan.append(RenamePlanItem(file_path, file_path, "skip_error", card=card))
-                dir_names[file_path.name.lower()] = 1
+                existing.add(file_path.name.lower())
                 continue
 
             target_name = card.target_filename(year)
 
             if not target_name:
                 plan.append(RenamePlanItem(file_path, file_path, "skip_no_name", card=card))
-                dir_names[file_path.name.lower()] = 1
+                existing.add(file_path.name.lower())
                 continue
 
             new_path = directory / target_name
 
             if new_path == file_path or _is_same_file(new_path, file_path):
                 plan.append(RenamePlanItem(file_path, new_path, "skip_same", card=card))
-                dir_names[target_name.lower()] = 1
+                existing.add(target_name.lower())
                 continue
 
             # Handle duplicates (per-directory)
-            base_name = target_name
-            key = base_name.lower()
-            if key in dir_names:
-                dir_names[key] += 1
-                stem = new_path.stem
-                suffix = new_path.suffix
-                new_path = directory / f"{stem} ({dir_names[key]}){suffix}"
-                # If duplicate would rename to itself, treat as skip_same
+            if target_name.lower() in existing:
+                # Temporarily remove own filename so the card can "see through"
+                # its own slot — if it already occupies a correctly-numbered name,
+                # _find_available_name will return that slot back as available.
+                own_name = file_path.name.lower()
+                had_own = own_name in existing
+                existing.discard(own_name)
+
+                new_path = _find_available_name(directory, new_path.stem, new_path.suffix, existing)
+
                 if new_path == file_path:
+                    # File already sits at the right numbered slot — skip_same
+                    existing.add(own_name)
                     plan.append(RenamePlanItem(file_path, new_path, "skip_same", card=card))
                 else:
+                    # File moves to a new numbered slot
+                    if had_own:
+                        existing.add(own_name)
+                    existing.add(new_path.name.lower())
                     plan.append(RenamePlanItem(file_path, new_path, "duplicate", card=card))
             else:
-                dir_names[key] = 1
-                # Check if file already exists on disk
-                if new_path.exists() and not _is_same_file(new_path, file_path):
-                    dir_names[key] += 1
-                    stem = new_path.stem
-                    suffix = new_path.suffix
-                    new_path = directory / f"{stem} ({dir_names[key]}){suffix}"
-                    # If duplicate would rename to itself, treat as skip_same
-                    if new_path == file_path:
-                        plan.append(RenamePlanItem(file_path, new_path, "skip_same", card=card))
-                    else:
-                        plan.append(RenamePlanItem(file_path, new_path, "duplicate", card=card))
-                else:
-                    plan.append(RenamePlanItem(file_path, new_path, "ok", card=card))
+                existing.add(target_name.lower())
+                plan.append(RenamePlanItem(file_path, new_path, "ok", card=card))
 
     return plan
 

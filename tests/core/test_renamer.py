@@ -3,7 +3,12 @@
 import pytest
 from pathlib import Path
 from app.models.card import CardResult, Confidence, RenamePlanItem
-from app.core.renamer import build_rename_plan, execute_rename_plan
+from app.core.renamer import (
+    build_rename_plan,
+    execute_rename_plan,
+    _read_directory_names,
+    _find_available_name,
+)
 
 
 def _make_card(
@@ -162,6 +167,151 @@ class TestBuildRenamePlan:
         assert len(plan) == 1
         assert plan[0].new_path == Path("/dir/Holiday Cards 2024 - The Smiths.pdf")
         assert plan[0].status == "ok"
+
+
+    def test_disk_has_base_and_numbered_files(self, tmp_path):
+        """Disk has base + (2) + (3), new card should get (4)."""
+        (tmp_path / "Holiday Cards 2024 - Walsh Family.pdf").touch()
+        (tmp_path / "Holiday Cards 2024 - Walsh Family (2).pdf").touch()
+        (tmp_path / "Holiday Cards 2024 - Walsh Family (3).pdf").touch()
+
+        card = _make_card(1, [tmp_path / "new_card.pdf"], family_name="Walsh")
+        plan = build_rename_plan([card], "2024")
+
+        assert len(plan) == 1
+        assert plan[0].new_path == tmp_path / "Holiday Cards 2024 - Walsh Family (4).pdf"
+        assert plan[0].status == "duplicate"
+
+    def test_disk_has_numbered_two_new_cards(self, tmp_path):
+        """Disk has base + (2) + (3), two new Walsh cards → get (4) and (5)."""
+        (tmp_path / "Holiday Cards 2024 - Walsh Family.pdf").touch()
+        (tmp_path / "Holiday Cards 2024 - Walsh Family (2).pdf").touch()
+        (tmp_path / "Holiday Cards 2024 - Walsh Family (3).pdf").touch()
+
+        card_a = _make_card(1, [tmp_path / "a.pdf"], family_name="Walsh")
+        card_b = _make_card(2, [tmp_path / "b.pdf"], family_name="Walsh")
+        plan = build_rename_plan([card_a, card_b], "2024")
+
+        assert len(plan) == 2
+        assert plan[0].new_path == tmp_path / "Holiday Cards 2024 - Walsh Family (4).pdf"
+        assert plan[0].status == "duplicate"
+        assert plan[1].new_path == tmp_path / "Holiday Cards 2024 - Walsh Family (5).pdf"
+        assert plan[1].status == "duplicate"
+
+    def test_only_base_file_exists_on_disk(self, tmp_path):
+        """Only base file on disk → new card gets (2)."""
+        (tmp_path / "Holiday Cards 2024 - Smith Family.pdf").touch()
+
+        card = _make_card(1, [tmp_path / "card.pdf"], family_name="Smith")
+        plan = build_rename_plan([card], "2024")
+
+        assert len(plan) == 1
+        assert plan[0].new_path == tmp_path / "Holiday Cards 2024 - Smith Family (2).pdf"
+        assert plan[0].status == "duplicate"
+
+    def test_disk_has_gap_two_new_cards(self, tmp_path):
+        """Disk has (2), two new cards → first gets (3), second gets (4)."""
+        (tmp_path / "Holiday Cards 2024 - Walsh Family (2).pdf").touch()
+
+        card_a = _make_card(1, [tmp_path / "a.pdf"], family_name="Walsh")
+        card_b = _make_card(2, [tmp_path / "b.pdf"], family_name="Walsh")
+        plan = build_rename_plan([card_a, card_b], "2024")
+
+        assert len(plan) == 2
+        # Base name not taken on disk, first card gets it
+        assert plan[0].new_path == tmp_path / "Holiday Cards 2024 - Walsh Family.pdf"
+        assert plan[0].status == "ok"
+        # Second card clashes with first planned + (2) on disk → gets (3)
+        assert plan[1].new_path == tmp_path / "Holiday Cards 2024 - Walsh Family (3).pdf"
+        assert plan[1].status == "duplicate"
+
+    def test_source_file_already_correctly_numbered(self, tmp_path):
+        """Card sees through its own slot: card_b keeps (2), card_c gets (3)."""
+        # card_a already named correctly (skip_same)
+        # card_b already named with (2) (skip_same)
+        # card_c is new, all three target "Walsh Family"
+        base = tmp_path / "Holiday Cards 2024 - Walsh Family.pdf"
+        num2 = tmp_path / "Holiday Cards 2024 - Walsh Family (2).pdf"
+        src_c = tmp_path / "card_c.pdf"
+        base.touch()
+        num2.touch()
+        src_c.touch()
+
+        card_a = _make_card(1, [base], family_name="Walsh")
+        card_b = _make_card(2, [num2], family_name="Walsh")
+        card_c = _make_card(3, [src_c], family_name="Walsh")
+        plan = build_rename_plan([card_a, card_b, card_c], "2024")
+
+        assert len(plan) == 3
+        assert plan[0].status == "skip_same"
+        assert plan[1].status == "skip_same"
+        assert plan[2].new_path == tmp_path / "Holiday Cards 2024 - Walsh Family (3).pdf"
+        assert plan[2].status == "duplicate"
+
+    def test_cross_card_slot_not_freed(self, tmp_path):
+        """Other cards' source slots stay visible — conservative but safe for execution."""
+        # card_a's source is "Walsh Family (2).pdf" but it targets "Jones Family"
+        # card_c targets "Walsh Family" — (2) is still visible in the set (card_a
+        # hasn't been executed yet), so card_c conservatively skips to (3).
+        walsh2 = tmp_path / "Holiday Cards 2024 - Walsh Family (2).pdf"
+        walsh_base = tmp_path / "Holiday Cards 2024 - Walsh Family.pdf"
+        walsh2.touch()
+        walsh_base.touch()
+
+        card_a = _make_card(1, [walsh2], family_name="Jones")
+        card_b = _make_card(2, [walsh_base], family_name="Walsh")
+        card_c = _make_card(3, [tmp_path / "new.pdf"], family_name="Walsh")
+        (tmp_path / "new.pdf").touch()
+        plan = build_rename_plan([card_a, card_b, card_c], "2024")
+
+        assert len(plan) == 3
+        # card_a: renamed to Jones
+        assert plan[0].new_path == tmp_path / "Holiday Cards 2024 - Jones Family.pdf"
+        assert plan[0].status == "ok"
+        # card_b: already named correctly
+        assert plan[1].status == "skip_same"
+        # card_c: (2) still visible in set → gets (3)
+        assert plan[2].new_path == tmp_path / "Holiday Cards 2024 - Walsh Family (3).pdf"
+        assert plan[2].status == "duplicate"
+
+
+class TestReadDirectoryNames:
+    """Tests for _read_directory_names()."""
+
+    def test_empty_directory(self, tmp_path):
+        """Empty directory → empty set."""
+        assert _read_directory_names(tmp_path) == set()
+
+    def test_directory_with_files(self, tmp_path):
+        """Directory with files → lowercase set of names."""
+        (tmp_path / "File_A.pdf").touch()
+        (tmp_path / "file_b.TXT").touch()
+        (tmp_path / "subdir").mkdir()
+
+        result = _read_directory_names(tmp_path)
+        assert result == {"file_a.pdf", "file_b.txt"}
+
+
+class TestFindAvailableName:
+    """Tests for _find_available_name()."""
+
+    def test_no_conflicts(self):
+        """No conflicts → returns (2)."""
+        existing: set[str] = set()
+        result = _find_available_name(Path("/dir"), "Smith", ".pdf", existing)
+        assert result == Path("/dir/Smith (2).pdf")
+
+    def test_two_taken(self):
+        """(2) already taken → returns (3)."""
+        existing = {"smith (2).pdf"}
+        result = _find_available_name(Path("/dir"), "Smith", ".pdf", existing)
+        assert result == Path("/dir/Smith (3).pdf")
+
+    def test_gap_in_sequence(self):
+        """(2) and (3) taken → returns (4)."""
+        existing = {"smith (2).pdf", "smith (3).pdf"}
+        result = _find_available_name(Path("/dir"), "Smith", ".pdf", existing)
+        assert result == Path("/dir/Smith (4).pdf")
 
 
 class TestExecuteRenamePlan:
