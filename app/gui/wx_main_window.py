@@ -144,7 +144,8 @@ class MainWindow:
         self._hash_by_path: dict[Path, str] = {}  # path → hash (many:1)
         self._pdf_files: list[Path] = []
         self._year = datetime.now().year - 1
-        self._current_filters = ["all"]  # Current sidebar filters (can be multiple)
+        self._current_category_filters = ["all"]  # Current sidebar category filters
+        self._current_folder_filters = ["all_folders"]  # Current sidebar folder filters
 
         # Build UI
         self._setup_menu_bar()
@@ -319,24 +320,40 @@ class MainWindow:
         self._search_ctrl.SetValue("")
         self._refresh_display()
 
-    def _on_filter_change(self, filter_keys: list[str]):
-        """Handle sidebar filter change (multi-select).
+    def _on_category_filter_change(self, filter_keys: list[str]):
+        """Handle sidebar category filter change.
 
         Args:
-            filter_keys: List of selected filters (e.g., ["high", "manual"])
+            filter_keys: List of selected category filters (e.g., ["high", "manual"])
         """
-        self._current_filters = filter_keys
+        self._current_category_filters = filter_keys
+        self._refresh_display()
+
+    def _on_folder_filter_change(self, filter_keys: list[str]):
+        """Handle sidebar folder filter change.
+
+        Args:
+            filter_keys: List of selected folder filters (e.g., ["all_folders"] or ["/path/to/dir"])
+        """
+        self._current_folder_filters = filter_keys
         self._refresh_display()
 
     def _refresh_display(self):
-        """Refresh sidebar counts and cards table from current search + filters.
+        """Refresh sidebar counts and cards table using cross-filtered pipeline.
 
-        Pipeline: search → category counts (from search results) → category filter → cards table
+        Pipeline:
+          search_cards = search-filtered cards
+          folder_filtered = search_cards + folder filters   → used for category counts
+          category_filtered = search_cards + category filters → used for folder counts
+          display_cards = search_cards + both filters         → shown in table
         """
         search_cards = self._get_search_filtered_cards()
-        self._sidebar.update_card_counts(search_cards)
-        filtered = self._apply_category_filters(search_cards)
-        self._review_panel.load_cards(filtered)
+        folder_filtered = self._apply_folder_filters(search_cards)
+        category_filtered = self._apply_category_filters(search_cards)
+        self._sidebar.update_category_counts(folder_filtered)
+        self._sidebar.update_folder_counts(category_filtered)
+        display_cards = self._apply_category_filters(folder_filtered)
+        self._review_panel.load_cards(display_cards)
 
     def _get_search_filtered_cards(self) -> list[CardResult]:
         """Get cards filtered by search query only."""
@@ -349,11 +366,18 @@ class MainWindow:
             ]
         return cards
 
+    def _apply_folder_filters(self, cards: list[CardResult]) -> list[CardResult]:
+        """Apply sidebar folder filters to a card list."""
+        if "all_folders" in self._current_folder_filters:
+            return cards
+        folder_set = set(self._current_folder_filters)
+        return [c for c in cards if any(str(p.parent) in folder_set for p in c.file_paths)]
+
     def _apply_category_filters(self, cards: list[CardResult]) -> list[CardResult]:
         """Apply sidebar category filters to a card list."""
-        if "all" not in self._current_filters:
+        if "all" not in self._current_category_filters:
             filtered = []
-            for filter_key in self._current_filters:
+            for filter_key in self._current_category_filters:
                 if filter_key == "manual":
                     filtered.extend(c for c in cards if c.confidence == Confidence.MANUAL)
                 elif filter_key == "high":
@@ -374,7 +398,11 @@ class MainWindow:
         )
 
         # Left: Filter sidebar
-        self._sidebar = FilterSidebar(main_splitter, on_filter=self._on_filter_change)
+        self._sidebar = FilterSidebar(
+            main_splitter,
+            on_category_filter=self._on_category_filter_change,
+            on_folder_filter=self._on_folder_filter_change,
+        )
 
         # Right: Nested splitter for [review | preview]
         content_splitter = wx.SplitterWindow(
@@ -567,6 +595,7 @@ class MainWindow:
         self._review_panel.load_cards([])
         self._preview_panel.clear()
         self._sidebar.update_card_counts([])
+        self._sidebar.update_folders([])
 
         # Disable toolbar buttons
         self._ai_all_btn.Enable(False)
@@ -577,7 +606,8 @@ class MainWindow:
         self._search_ctrl.SetValue("")
 
         # Reset sidebar filters
-        self._current_filters = ["all"]
+        self._current_category_filters = ["all"]
+        self._current_folder_filters = ["all_folders"]
         self._sidebar.set_filters(["all"])
 
         # Show confirmation
@@ -779,6 +809,10 @@ class MainWindow:
         if hasattr(self, "_progress") and not self._progress.IsBeingDeleted():
             self._progress.update_progress(current, f"Processing: {name}")
 
+    def _derive_folders(self) -> list[Path]:
+        """Derive sorted unique source folders from all loaded cards."""
+        return sorted({p.parent for card in self._cards_by_hash.values() for p in card.file_paths})
+
     def _processing_complete(self):
         """Called when processing finishes."""
         # End busy cursor
@@ -788,8 +822,11 @@ class MainWindow:
         if hasattr(self, "_progress") and not self._progress.IsBeingDeleted():
             self._progress.finish()
 
-        # Update sidebar counts and cards table (respects search + category filters)
+        # Update sidebar counts and cards table (respects search + category + folder filters)
         self._refresh_display()
+
+        # Update folder section (after refresh so counts are correct)
+        self._sidebar.update_folders(self._derive_folders())
 
         # Enable toolbar buttons
         self._rename_btn.Enable(True)

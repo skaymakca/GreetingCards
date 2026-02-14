@@ -513,30 +513,30 @@ def test_sidebar_filter_changes_cards(wx_app):
     window._cards_by_hash = {"hash_high": card_high, "hash_medium": card_medium, "hash_manual": card_manual, "hash_error": card_error}
 
     # Test "all" filter (default)
-    window._current_filters = ["all"]
+    window._current_category_filters = ["all"]
     filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 4
 
     # Test "high" filter only
-    window._current_filters = ["high"]
+    window._current_category_filters = ["high"]
     filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 1
     assert filtered[0].id == 0
 
     # Test multi-select: "high" and "manual"
-    window._current_filters = ["high", "manual"]
+    window._current_category_filters = ["high", "manual"]
     filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 2
     assert {c.id for c in filtered} == {0, 2}
 
     # Test "needs_review" filter
-    window._current_filters = ["needs_review"]
+    window._current_category_filters = ["needs_review"]
     filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 1
     assert filtered[0].id == 1
 
     # Test "errors" filter
-    window._current_filters = ["errors"]
+    window._current_category_filters = ["errors"]
     filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 1
     assert filtered[0].id == 3
@@ -569,20 +569,20 @@ def test_combined_search_and_sidebar_filter(wx_app):
     window._cards_by_hash = {"hash1": card1, "hash2": card2, "hash3": card3}
 
     # Filter by "high" confidence only
-    window._current_filters = ["high"]
+    window._current_category_filters = ["high"]
     window._search_ctrl.SetValue("")
     filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 2  # card1 and card2
 
     # Filter by "high" confidence AND search for "smith"
-    window._current_filters = ["high"]
+    window._current_category_filters = ["high"]
     window._search_ctrl.SetValue("smith")
     filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 1  # Only card1
     assert filtered[0].id == 0
 
     # Search for "smith" with "all" filter
-    window._current_filters = ["all"]
+    window._current_category_filters = ["all"]
     window._search_ctrl.SetValue("smith")
     filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 2  # card1 and card3
@@ -603,11 +603,11 @@ def test_on_filter_change_callback(wx_app):
     card.file_hash = "hash1"
     window._cards_by_hash = {"hash1": card}
 
-    # Trigger filter change (now takes a list)
-    window._on_filter_change(["high"])
+    # Trigger category filter change (now takes a list)
+    window._on_category_filter_change(["high"])
 
     # Verify state updated
-    assert window._current_filters == ["high"]
+    assert window._current_category_filters == ["high"]
 
     window._frame.Destroy()
 
@@ -617,14 +617,193 @@ def test_clear_resets_sidebar_filter(wx_app):
     window = MainWindow()
 
     # Change filters
-    window._current_filters = ["high", "manual"]
+    window._current_category_filters = ["high", "manual"]
     window._sidebar.set_filters(["high", "manual"])
 
     # Clear
     window._clear_all()
 
     # Verify reset
-    assert window._current_filters == ["all"]
+    assert window._current_category_filters == ["all"]
+    assert window._current_folder_filters == ["all_folders"]
     assert window._sidebar.get_selected_filters() == ["all"]
+
+    window._frame.Destroy()
+
+
+# --- Cross-filter and folder tests ---
+
+
+def test_cross_filtered_category_counts(wx_app):
+    """Test selecting a folder updates category counts to that folder's distribution."""
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    folder1 = Path("/test/folder1")
+    folder2 = Path("/test/folder2")
+
+    card1 = CardResult(id=0, file_paths=[folder1 / "a.pdf"], primary_path=folder1 / "a.pdf")
+    card1.family_name = "A"
+    card1.confidence = Confidence.HIGH
+    card1.file_hash = "h1"
+
+    card2 = CardResult(id=1, file_paths=[folder2 / "b.pdf"], primary_path=folder2 / "b.pdf")
+    card2.family_name = "B"
+    card2.confidence = Confidence.MEDIUM
+    card2.file_hash = "h2"
+
+    window._cards_by_hash = {"h1": card1, "h2": card2}
+
+    # Select only folder1
+    window._current_folder_filters = [str(folder1)]
+    window._current_category_filters = ["all"]
+    window._refresh_display()
+
+    # Category counts should reflect only folder1's cards
+    assert window._sidebar._category_card_counts["all"] == 1
+    assert window._sidebar._category_card_counts["high"] == 1
+    assert window._sidebar._category_card_counts["needs_review"] == 0
+
+    window._frame.Destroy()
+
+
+def test_cross_filtered_folder_counts(wx_app):
+    """Test selecting a category updates folder counts to that category's distribution."""
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    folder1 = Path("/test/folder1")
+    folder2 = Path("/test/folder2")
+
+    card1 = CardResult(id=0, file_paths=[folder1 / "a.pdf"], primary_path=folder1 / "a.pdf")
+    card1.family_name = "A"
+    card1.confidence = Confidence.HIGH
+    card1.file_hash = "h1"
+
+    card2 = CardResult(id=1, file_paths=[folder2 / "b.pdf"], primary_path=folder2 / "b.pdf")
+    card2.family_name = "B"
+    card2.confidence = Confidence.MEDIUM
+    card2.file_hash = "h2"
+
+    card3 = CardResult(id=2, file_paths=[folder1 / "c.pdf"], primary_path=folder1 / "c.pdf")
+    card3.family_name = "C"
+    card3.confidence = Confidence.MEDIUM
+    card3.file_hash = "h3"
+
+    window._cards_by_hash = {"h1": card1, "h2": card2, "h3": card3}
+    window._sidebar.update_folders([folder1, folder2])
+
+    # Select "needs_review" category
+    window._current_category_filters = ["needs_review"]
+    window._current_folder_filters = ["all_folders"]
+    window._refresh_display()
+
+    # Folder counts should reflect only needs_review cards
+    # folder1 has card3 (medium), folder2 has card2 (medium)
+    folder1_key = str(folder1)
+    folder2_key = str(folder2)
+    # Find the count for each folder in the checkboxes
+    folder1_label = None
+    folder2_label = None
+    for i, (key, _) in enumerate(window._sidebar._folder_filters):
+        if key == folder1_key:
+            folder1_label = window._sidebar._folder_checkboxes[i].GetLabel()
+        elif key == folder2_key:
+            folder2_label = window._sidebar._folder_checkboxes[i].GetLabel()
+
+    assert "(1)" in folder1_label  # card3 is needs_review in folder1
+    assert "(1)" in folder2_label  # card2 is needs_review in folder2
+
+    window._frame.Destroy()
+
+
+def test_both_filters_intersection(wx_app):
+    """Test both filters active shows only the intersection."""
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    folder1 = Path("/test/folder1")
+    folder2 = Path("/test/folder2")
+
+    card1 = CardResult(id=0, file_paths=[folder1 / "a.pdf"], primary_path=folder1 / "a.pdf")
+    card1.family_name = "A"
+    card1.confidence = Confidence.HIGH
+    card1.file_hash = "h1"
+
+    card2 = CardResult(id=1, file_paths=[folder2 / "b.pdf"], primary_path=folder2 / "b.pdf")
+    card2.family_name = "B"
+    card2.confidence = Confidence.HIGH
+    card2.file_hash = "h2"
+
+    card3 = CardResult(id=2, file_paths=[folder1 / "c.pdf"], primary_path=folder1 / "c.pdf")
+    card3.family_name = "C"
+    card3.confidence = Confidence.MEDIUM
+    card3.file_hash = "h3"
+
+    window._cards_by_hash = {"h1": card1, "h2": card2, "h3": card3}
+
+    # Apply both: folder1 + high confidence
+    window._current_folder_filters = [str(folder1)]
+    window._current_category_filters = ["high"]
+
+    search_cards = window._get_search_filtered_cards()
+    folder_filtered = window._apply_folder_filters(search_cards)
+    display = window._apply_category_filters(folder_filtered)
+
+    # Only card1 (folder1 + high)
+    assert len(display) == 1
+    assert display[0].id == 0
+
+    window._frame.Destroy()
+
+
+def test_derive_folders(wx_app):
+    """Test _derive_folders returns sorted unique parent paths."""
+    from app.models.card import CardResult
+
+    window = MainWindow()
+
+    folder_a = Path("/test/aaa")
+    folder_b = Path("/test/bbb")
+
+    card1 = CardResult(id=0, file_paths=[folder_b / "x.pdf"], primary_path=folder_b / "x.pdf")
+    card1.file_hash = "h1"
+    card2 = CardResult(id=1, file_paths=[folder_a / "y.pdf"], primary_path=folder_a / "y.pdf")
+    card2.file_hash = "h2"
+    card3 = CardResult(id=2, file_paths=[folder_b / "z.pdf"], primary_path=folder_b / "z.pdf")
+    card3.file_hash = "h3"
+
+    window._cards_by_hash = {"h1": card1, "h2": card2, "h3": card3}
+
+    folders = window._derive_folders()
+    assert folders == [folder_a, folder_b]  # sorted, unique
+
+    window._frame.Destroy()
+
+
+def test_clear_all_hides_folders(wx_app):
+    """Test _clear_all hides the folder section."""
+    from app.models.card import CardResult
+
+    window = MainWindow()
+
+    folder1 = Path("/test/folder1")
+    folder2 = Path("/test/folder2")
+
+    # Set up folders in sidebar
+    window._sidebar.update_folders([folder1, folder2])
+    assert window._sidebar._folder_separator.IsShown()
+
+    # Clear
+    window._clear_all()
+
+    # Folder section should be hidden
+    assert not window._sidebar._folder_separator.IsShown()
+    assert not window._sidebar._folder_header.IsShown()
+    assert len(window._sidebar._folder_checkboxes) == 0
+    assert window._current_folder_filters == ["all_folders"]
 
     window._frame.Destroy()
