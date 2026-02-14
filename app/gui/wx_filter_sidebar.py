@@ -281,7 +281,6 @@ class FilterSidebar(wx.Panel):
                     self._category_checkboxes[i].SetValue(False)
                 self._category_checkboxes[0].SetValue(True)
                 self._selected_category_filters = ["all"]
-                self._on_category_filter(self._selected_category_filters)
             elif remaining != self._selected_category_filters:
                 self._selected_category_filters = remaining
 
@@ -324,7 +323,6 @@ class FilterSidebar(wx.Panel):
                     self._folder_checkboxes[i].SetValue(False)
                 self._folder_checkboxes[0].SetValue(True)
                 self._selected_folder_filters = ["all_folders"]
-                self._on_folder_filter(self._selected_folder_filters)
             elif remaining != self._selected_folder_filters:
                 self._selected_folder_filters = remaining
 

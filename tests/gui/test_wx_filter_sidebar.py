@@ -653,3 +653,77 @@ def test_folder_rebuild_resets_selection(wx_app):
     assert sidebar._folder_checkboxes[0].GetValue() is True
 
     parent.Destroy()
+
+
+# --- No-callback fallback tests ---
+
+
+def test_update_category_counts_does_not_fire_callback_on_fallback(wx_app):
+    """Test sidebar resets internal state but does NOT fire callback when all selected go to zero."""
+    parent = wx.Frame(None)
+    called_with = []
+    sidebar = FilterSidebar(parent, on_category_filter=lambda k: called_with.append(k))
+
+    # Start with cards that have errors
+    cards_with_errors = [
+        CardResult(id=0, file_paths=[Path("/test/card1.pdf")], primary_path=Path("/test/card1.pdf")),
+    ]
+    cards_with_errors[0].confidence = Confidence.NONE
+
+    sidebar.update_category_counts(cards_with_errors)
+
+    # Select "errors" filter
+    sidebar.set_filters(["errors"])
+    called_with.clear()  # Reset tracking
+
+    # Now update with cards that have NO errors — "errors" goes to zero
+    cards_no_errors = [
+        CardResult(id=1, file_paths=[Path("/test/card2.pdf")], primary_path=Path("/test/card2.pdf")),
+    ]
+    cards_no_errors[0].confidence = Confidence.HIGH
+
+    sidebar.update_category_counts(cards_no_errors)
+
+    # Internal state should have reset to "all"
+    assert sidebar.get_selected_filters() == ["all"]
+    assert sidebar._category_checkboxes[0].GetValue() is True
+
+    # But callback should NOT have been fired (prevents re-entrancy)
+    assert called_with == []
+
+    parent.Destroy()
+
+
+def test_update_folder_counts_does_not_fire_callback_on_fallback(wx_app):
+    """Test sidebar resets internal folder state but does NOT fire callback when all selected go to zero."""
+    parent = wx.Frame(None)
+    folder_called_with = []
+    sidebar = FilterSidebar(
+        parent,
+        on_category_filter=lambda k: None,
+        on_folder_filter=lambda k: folder_called_with.append(k),
+    )
+
+    folder1 = Path("/test/folder1")
+    folder2 = Path("/test/folder2")
+    sidebar.update_folders([folder1, folder2])
+
+    # Select folder2
+    sidebar.set_folder_filters([str(folder2)])
+    folder_called_with.clear()  # Reset tracking
+
+    # Now update with cards only in folder1 — folder2 goes to zero
+    cards = [
+        CardResult(id=0, file_paths=[folder1 / "card1.pdf"], primary_path=folder1 / "card1.pdf"),
+    ]
+    cards[0].confidence = Confidence.HIGH
+
+    sidebar.update_folder_counts(cards)
+
+    # Internal state should have reset to "all_folders"
+    assert sidebar._selected_folder_filters == ["all_folders"]
+
+    # But callback should NOT have been fired (prevents re-entrancy)
+    assert folder_called_with == []
+
+    parent.Destroy()

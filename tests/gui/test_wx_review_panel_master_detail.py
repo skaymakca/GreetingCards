@@ -1111,6 +1111,84 @@ class TestMultiPathCardDisplay:
         assert detail._notebook.GetPageCount() == 1
         assert detail._locations_tab_index is None
 
+    def test_load_cards_preserves_selection(self, parent_frame, mock_cards):
+        """load_cards preserves selection when the selected card is still in the new list."""
+        on_select = Mock()
+        on_ai = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
+        panel.load_cards(mock_cards)
+
+        # Select card #2
+        item = panel._model.get_item_by_card_id(2)
+        panel._list_ctrl.Select(item)
+        wx.GetApp().Yield()
+        assert panel._selected_card_id == 2
+
+        on_select.reset_mock()
+
+        # Reload same cards — card #2 should stay selected
+        panel.load_cards(mock_cards)
+        wx.GetApp().Yield()
+
+        assert panel._selected_card_id == 2
+
+    def test_load_cards_falls_back_when_selected_removed(self, parent_frame, mock_cards):
+        """load_cards selects first card when previously selected card is no longer in the list."""
+        on_select = Mock()
+        on_ai = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
+        panel.load_cards(mock_cards)
+
+        # Select card #2
+        item = panel._model.get_item_by_card_id(2)
+        panel._list_ctrl.Select(item)
+        wx.GetApp().Yield()
+        assert panel._selected_card_id == 2
+
+        on_select.reset_mock()
+
+        # Reload without card #2
+        without_card2 = [c for c in mock_cards if c.id != 2]
+        panel.load_cards(without_card2)
+        wx.GetApp().Yield()
+
+        # Should fall back to first card
+        assert panel._selected_card_id == without_card2[0].id
+
+    def test_load_cards_empty_fires_none_select(self, parent_frame, mock_cards):
+        """load_cards with empty list fires on_select(None)."""
+        on_select = Mock()
+        on_ai = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
+        panel.load_cards(mock_cards)
+
+        on_select.reset_mock()
+
+        # Load empty list
+        panel.load_cards([])
+
+        assert panel._selected_card_id is None
+        on_select.assert_called_with(None)
+
+    def test_handle_candidate_fires_on_card_edited(self, parent_frame, mock_cards):
+        """Selecting a candidate fires on_card_edited callback."""
+        on_select = Mock()
+        on_ai = Mock()
+        on_card_edited = Mock()
+        panel = ReviewPanelMasterDetail(
+            parent_frame, on_select, on_ai, on_card_edited=on_card_edited
+        )
+        panel.load_cards(mock_cards)
+
+        # Card 1 has candidates — set up hash so _handle_candidate works
+        card = mock_cards[0]
+        card.file_hash = "test_hash"
+
+        with patch("app.core.database.select_candidate"):
+            panel._handle_candidate(card.id, card.candidates[0].id)
+
+        on_card_edited.assert_called_once_with(card.id)
+
     def test_blue_text_for_multi_path_card(self, wx_app, parent_frame):
         """Filename shows in blue for multi-path cards."""
         model = CardListModel()

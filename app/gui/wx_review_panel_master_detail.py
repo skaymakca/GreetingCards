@@ -484,11 +484,13 @@ class ReviewPanelMasterDetail(wx.Panel):
         on_select: Callable[[int], None],
         on_ai_request: Callable[[int], None],
         on_name_change: Callable[[int, str], None] | None = None,
+        on_card_edited: Callable[[int], None] | None = None,
     ):
         super().__init__(parent)
         self._on_select = on_select
         self._on_ai_request = on_ai_request
         self._on_name_change = on_name_change
+        self._on_card_edited = on_card_edited
         self._selected_card_id: int | None = None
         self._cards_by_id: dict[int, CardResult] = {}
 
@@ -606,6 +608,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         else:
             self._selected_card_id = None
             self._detail_panel.clear()
+            self._on_select(None)
 
     def _handle_name_change(self, card_id: int, new_name: str):
         """Handle name change from detail panel."""
@@ -653,18 +656,33 @@ class ReviewPanelMasterDetail(wx.Panel):
         self._model.update_card(card_id, card)
         self._detail_panel.load_card(card)
 
+        if self._on_card_edited:
+            self._on_card_edited(card_id)
+
     # Public API (matches original ReviewPanel)
 
     def load_cards(self, cards: list[CardResult]):
-        """Load cards into the panel."""
+        """Load cards into the panel, preserving current selection if possible."""
+        prev_selected_id = self._selected_card_id
         self._cards_by_id = {card.id: card for card in cards}
         self._model.load_cards(cards)
         self._count_label.SetLabel(f"{len(cards)} cards")
 
-        # Select first card if any
         if cards:
+            # Try to restore previous selection
+            if prev_selected_id is not None:
+                item = self._model.get_item_by_card_id(prev_selected_id)
+                if item.IsOk():
+                    self._list_ctrl.Select(item)
+                    self._list_ctrl.EnsureVisible(item)
+                    return
+            # Fallback: select first card
             item = self._model.get_item_by_card_id(cards[0].id)
             self._list_ctrl.Select(item)
+        else:
+            self._selected_card_id = None
+            self._detail_panel.clear()
+            self._on_select(None)
 
     def get_cards(self) -> list[CardResult]:
         """Return all cards with edits, in display order."""

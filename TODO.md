@@ -1,25 +1,19 @@
 # TODO
 
 ## High Priority
-- [ ] If there are multiple folders loaded investigate dynamically adding folder filters to the filter sidebar. See about making sections in there in a Mac-native looking way. If we can, then come up with a section name for the quality filters. Think through the dynamics of each of the filter sets influencing one another and evaluate what is the most flexible option, what is the most "correct" option and what could be the option a user would expect at first blush.
 - [ ] Icons look terrible
 - [ ] Mac Info.app style help menus
-- [ ] Autogenerate screenshots for help system?
+- [ ] **Manual test: filter auto-reset behavior** — Load cards from 2+ folders, test these scenarios:
+  - Select "High Confidence", edit last high card's name → card disappears, filter resets to "All Cards", all cards shown
+  - Select "Manual Entry", pick a candidate → filter resets to "All Cards"
+  - Search "xyz" (no match) → shows 0 cards, checkboxes NOT reset, search preserved
+  - Select folder + category combo that yields 0 → auto-resets checkboxes, cards appear
+  - Verify no stale/duplicate table states (re-entrancy bug was here)
 
 ## Medium Priority
-
-## Future / Research
-
-### wxPython Port
-- [ ] Create `wx` branch and port GUI to wxPython
-  - Keep `app/core/` identical
-  - Rewrite `app/gui/` with wxPython
-  - Compare performance and code size
-  - Use native widgets (DataViewListCtrl for cards table)
-- [ ] Preview panel: Add help button/info icon showing controls (scroll wheel, Shift+Click, Option+Click, drag)
-  - Could be small "?" button next to zoom controls
-  - Or use SF Symbol "questionmark.circle" for Mac-native look
-  - Show tooltip or small popup with keyboard/mouse shortcuts
+- [ ] Autogenerate screenshots for help system?
+- [ ] Create architecture/notes subdocs for subsystems (reduce LLM context window usage)
+- [ ] Preview panel: Add help button/info icon showing keyboard/mouse shortcuts
 
 ---
 
@@ -44,6 +38,8 @@
 - [x] About section in Settings with app icon, version, and git commit hash
 - [x] Fix app bundle UI glitches: refactor tk widgets to ttk for native macOS backgrounds
 - [x] Search filtering: search → category counts → category filter → cards table. Zero-count filters disabled. Finder-style clicks (regular=exclusive, Option=multi-select).
+- [x] Dynamic folder filters with cross-filtered counts in sidebar
+- [x] Fix re-entrant `_refresh_display()` and auto-reset empty filters
 
 ---
 

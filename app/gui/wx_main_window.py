@@ -147,6 +147,10 @@ class MainWindow:
         self._current_category_filters = ["all"]  # Current sidebar category filters
         self._current_folder_filters = ["all_folders"]  # Current sidebar folder filters
 
+        # Debounce timer for name edits (fires _refresh_display after user stops typing)
+        self._edit_debounce_timer = wx.Timer(self._frame)
+        self._frame.Bind(wx.EVT_TIMER, self._on_edit_debounce_fire, self._edit_debounce_timer)
+
         # Build UI
         self._setup_menu_bar()
         self._build_ui()
@@ -341,18 +345,41 @@ class MainWindow:
     def _refresh_display(self):
         """Refresh sidebar counts and cards table using cross-filtered pipeline.
 
-        Pipeline:
-          search_cards = search-filtered cards
-          folder_filtered = search_cards + folder filters   → used for category counts
-          category_filtered = search_cards + category filters → used for folder counts
-          display_cards = search_cards + both filters         → shown in table
+        Re-entrancy-free: sidebar count updates may auto-reset internal filter
+        state (e.g. when all selected categories go to zero count). We sync
+        MainWindow's filter state from sidebar after count updates, then
+        recompute display. If display is still empty but search has results,
+        auto-reset checkbox filters (keep search text).
         """
         search_cards = self._get_search_filtered_cards()
+
+        # First pass: compute cross-filtered counts
         folder_filtered = self._apply_folder_filters(search_cards)
         category_filtered = self._apply_category_filters(search_cards)
         self._sidebar.update_category_counts(folder_filtered)
         self._sidebar.update_folder_counts(category_filtered)
+
+        # Sync filter state back (sidebar may have auto-reset empty categories/folders)
+        self._current_category_filters = self._sidebar.get_selected_category_filters()
+        self._current_folder_filters = self._sidebar.get_selected_folder_filters()
+
+        # Recompute display with synced filters
+        folder_filtered = self._apply_folder_filters(search_cards)
         display_cards = self._apply_category_filters(folder_filtered)
+
+        # Auto-reset checkbox filters when display is empty but cards exist
+        if not display_cards and search_cards:
+            self._current_category_filters = ["all"]
+            self._current_folder_filters = self._sidebar.get_selected_folder_filters()
+            self._sidebar.set_category_filters(["all"])
+            self._sidebar.set_folder_filters(self._current_folder_filters)
+            # Recompute with reset filters
+            folder_filtered = self._apply_folder_filters(search_cards)
+            display_cards = self._apply_category_filters(folder_filtered)
+            # Update counts to reflect reset state
+            self._sidebar.update_category_counts(folder_filtered)
+            self._sidebar.update_folder_counts(display_cards)
+
         self._review_panel.load_cards(display_cards)
 
     def _get_search_filtered_cards(self) -> list[CardResult]:
@@ -416,6 +443,7 @@ class MainWindow:
             on_select=self._on_card_select,
             on_ai_request=self._on_ai_request,
             on_name_change=self._on_name_change,
+            on_card_edited=self._on_card_edited,
         )
 
         # Preview panel
@@ -822,11 +850,14 @@ class MainWindow:
         if hasattr(self, "_progress") and not self._progress.IsBeingDeleted():
             self._progress.finish()
 
-        # Update sidebar counts and cards table (respects search + category + folder filters)
-        self._refresh_display()
-
-        # Update folder section (after refresh so counts are correct)
+        # Update folder section FIRST (creates checkboxes before _refresh_display populates counts)
         self._sidebar.update_folders(self._derive_folders())
+        # Sync main window state — update_folders resets sidebar to "all_folders"
+        # but doesn't fire callback, so we must sync manually
+        self._current_folder_filters = self._sidebar.get_selected_folder_filters()
+
+        # Now refresh display (folder checkboxes exist, counts will populate)
+        self._refresh_display()
 
         # Enable toolbar buttons
         self._rename_btn.Enable(True)
@@ -840,8 +871,12 @@ class MainWindow:
             wx.ICON_INFORMATION
         )
 
-    def _on_card_select(self, card_id: int):
+    def _on_card_select(self, card_id: int | None):
         """Handle card selection - update preview panel."""
+        if card_id is None:
+            self._preview_panel.clear()
+            return
+
         card = self._get_card_by_id(card_id)
         if not card:
             return
@@ -878,6 +913,18 @@ class MainWindow:
 
         # Update review panel
         self._review_panel.update_card(card_id, card)
+
+        # Debounce: restart 1-second timer on each keystroke
+        self._edit_debounce_timer.Stop()
+        self._edit_debounce_timer.StartOnce(1000)
+
+    def _on_card_edited(self, card_id: int):
+        """Handle discrete card edits (e.g. candidate selection) that change confidence."""
+        self._refresh_display()
+
+    def _on_edit_debounce_fire(self, event):
+        """Fire after user stops typing for 1 second — refresh filters."""
+        self._refresh_display()
 
     def _ensure_api_key(self) -> bool:
         """Check for an API key; prompt the user if missing. Returns True if a key is available."""
@@ -1178,6 +1225,7 @@ class MainWindow:
 
     def _on_close(self, event):
         """Handle window close event."""
+        self._edit_debounce_timer.Stop()
         self._frame.Destroy()
 
     def run(self):

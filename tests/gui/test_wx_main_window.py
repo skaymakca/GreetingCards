@@ -172,6 +172,7 @@ def test_callbacks_connected(wx_app):
     assert window._review_panel._on_select == window._on_card_select
     assert window._review_panel._on_ai_request == window._on_ai_request
     assert window._review_panel._on_name_change == window._on_name_change
+    assert window._review_panel._on_card_edited == window._on_card_edited
 
     window._frame.Destroy()
 
@@ -568,14 +569,16 @@ def test_combined_search_and_sidebar_filter(wx_app):
 
     window._cards_by_hash = {"hash1": card1, "hash2": card2, "hash3": card3}
 
-    # Filter by "high" confidence only
+    # Filter by "high" confidence only (must sync sidebar state too)
     window._current_category_filters = ["high"]
+    window._sidebar.set_category_filters(["high"])
     window._search_ctrl.SetValue("")
     filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 2  # card1 and card2
 
     # Filter by "high" confidence AND search for "smith"
     window._current_category_filters = ["high"]
+    window._sidebar.set_category_filters(["high"])
     window._search_ctrl.SetValue("smith")
     filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 1  # Only card1
@@ -583,6 +586,7 @@ def test_combined_search_and_sidebar_filter(wx_app):
 
     # Search for "smith" with "all" filter
     window._current_category_filters = ["all"]
+    window._sidebar.set_category_filters(["all"])
     window._search_ctrl.SetValue("smith")
     filtered = window._apply_category_filters(window._get_search_filtered_cards())
     assert len(filtered) == 2  # card1 and card3
@@ -603,7 +607,8 @@ def test_on_filter_change_callback(wx_app):
     card.file_hash = "hash1"
     window._cards_by_hash = {"hash1": card}
 
-    # Trigger category filter change (now takes a list)
+    # Simulate sidebar click: sidebar updates its own state, then fires callback
+    window._sidebar.set_category_filters(["high"])
     window._on_category_filter_change(["high"])
 
     # Verify state updated
@@ -805,5 +810,184 @@ def test_clear_all_hides_folders(wx_app):
     assert not window._sidebar._folder_header.IsShown()
     assert len(window._sidebar._folder_checkboxes) == 0
     assert window._current_folder_filters == ["all_folders"]
+
+    window._frame.Destroy()
+
+
+# --- Panel sync, debounce, and selection tests ---
+
+
+def test_on_card_select_none_clears_preview(wx_app):
+    """Test _on_card_select(None) clears preview panel."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+
+    with patch.object(window._preview_panel, "clear") as mock_clear:
+        window._on_card_select(None)
+        mock_clear.assert_called_once()
+
+    window._frame.Destroy()
+
+
+def test_name_change_starts_debounce_timer(wx_app):
+    """Test _on_name_change starts the debounce timer."""
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    # Add a card
+    card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+    card.family_name = "Smith"
+    card.confidence = Confidence.HIGH
+    card.file_hash = "hash1"
+    window._cards_by_hash = {"hash1": card}
+
+    # Load cards so review panel knows about them
+    window._review_panel.load_cards([card])
+
+    # Call _on_name_change
+    window._on_name_change(0, "NewName")
+
+    # Timer should be running
+    assert window._edit_debounce_timer.IsRunning()
+
+    window._edit_debounce_timer.Stop()
+    window._frame.Destroy()
+
+
+def test_card_edited_immediate_refresh(wx_app):
+    """Test _on_card_edited calls _refresh_display immediately."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+
+    with patch.object(window, "_refresh_display") as mock_refresh:
+        window._on_card_edited(0)
+        mock_refresh.assert_called_once()
+
+    window._frame.Destroy()
+
+
+def test_close_stops_debounce_timer(wx_app):
+    """Test _on_close stops the debounce timer."""
+    window = MainWindow()
+
+    # Start the timer
+    window._edit_debounce_timer.StartOnce(5000)
+    assert window._edit_debounce_timer.IsRunning()
+
+    # Close should stop it
+    window._on_close(None)
+
+    assert not window._edit_debounce_timer.IsRunning()
+
+
+# --- Auto-reset and re-entrancy tests ---
+
+
+def test_refresh_display_auto_resets_when_filtered_empty(wx_app):
+    """Test _refresh_display auto-resets category filter when filtered result is empty but cards exist."""
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    # Add cards — one high, one manual
+    card_high = CardResult(id=0, file_paths=[Path("/test/high.pdf")], primary_path=Path("/test/high.pdf"))
+    card_high.family_name = "High"
+    card_high.confidence = Confidence.HIGH
+    card_high.file_hash = "hash_high"
+
+    card_manual = CardResult(id=1, file_paths=[Path("/test/manual.pdf")], primary_path=Path("/test/manual.pdf"))
+    card_manual.family_name = "Manual"
+    card_manual.confidence = Confidence.MANUAL
+    card_manual.file_hash = "hash_manual"
+
+    window._cards_by_hash = {"hash_high": card_high, "hash_manual": card_manual}
+
+    # Select "high" filter — shows 1 card
+    window._current_category_filters = ["high"]
+    window._sidebar.set_category_filters(["high"])
+    window._refresh_display()
+    assert window._current_category_filters == ["high"]
+
+    # Now change the high card to manual (simulating an edit)
+    card_high.confidence = Confidence.MANUAL
+    window._refresh_display()
+
+    # Category should have auto-reset to "all" since "high" now has 0 cards
+    assert window._current_category_filters == ["all"]
+    assert window._sidebar.get_selected_category_filters() == ["all"]
+
+    window._frame.Destroy()
+
+
+def test_refresh_display_keeps_search_on_empty(wx_app):
+    """Test search text is preserved when auto-reset happens (only checkboxes reset)."""
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    card = CardResult(id=0, file_paths=[Path("/test/smith.pdf")], primary_path=Path("/test/smith.pdf"))
+    card.family_name = "Smith"
+    card.confidence = Confidence.HIGH
+    card.file_hash = "hash1"
+
+    window._cards_by_hash = {"hash1": card}
+
+    # Set search to "smith" and filter to "high"
+    window._search_ctrl.SetValue("smith")
+    window._current_category_filters = ["high"]
+    window._sidebar.set_category_filters(["high"])
+
+    # Change card confidence — "high" goes to zero
+    card.confidence = Confidence.MANUAL
+    window._refresh_display()
+
+    # Search text should be preserved
+    assert window._search_ctrl.GetValue() == "smith"
+    # Category should have auto-reset
+    assert window._current_category_filters == ["all"]
+
+    window._frame.Destroy()
+
+
+def test_refresh_display_syncs_sidebar_fallback(wx_app):
+    """Test _refresh_display picks up sidebar's internal auto-reset of category filter."""
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    folder1 = Path("/test/folder1")
+    folder2 = Path("/test/folder2")
+
+    card1 = CardResult(id=0, file_paths=[folder1 / "a.pdf"], primary_path=folder1 / "a.pdf")
+    card1.family_name = "A"
+    card1.confidence = Confidence.HIGH
+    card1.file_hash = "h1"
+
+    card2 = CardResult(id=1, file_paths=[folder2 / "b.pdf"], primary_path=folder2 / "b.pdf")
+    card2.family_name = "B"
+    card2.confidence = Confidence.MEDIUM
+    card2.file_hash = "h2"
+
+    window._cards_by_hash = {"h1": card1, "h2": card2}
+    window._sidebar.update_folders([folder1, folder2])
+
+    # Select folder1 + high confidence — only card1 should show
+    window._current_folder_filters = [str(folder1)]
+    window._sidebar.set_folder_filters([str(folder1)])
+    window._current_category_filters = ["high"]
+    window._sidebar.set_category_filters(["high"])
+    window._refresh_display()
+    assert window._current_category_filters == ["high"]
+
+    # Now change card1 to MEDIUM — "high" goes to zero in folder1
+    card1.confidence = Confidence.MEDIUM
+    window._refresh_display()
+
+    # Sidebar should have auto-reset category, and MainWindow should have synced it
+    assert window._current_category_filters == ["all"]
+    assert window._sidebar.get_selected_category_filters() == ["all"]
 
     window._frame.Destroy()
