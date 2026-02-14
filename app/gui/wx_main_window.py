@@ -302,8 +302,8 @@ class MainWindow:
     def _apply_tooltips(self):
         """Add helpful tooltips to all toolbar controls."""
         self._browse_btn.SetToolTip("Add PDF files or folders to analyze (can add from multiple sources)")
-        self._search_ctrl.SetToolTip("Filter cards by filename or family name")
-        self._year_ctrl.SetToolTip("Year to use in renamed filenames (e.g., 2024)")
+        self._search_ctrl.SetToolTip("Filter cards by file name or family name")
+        self._year_ctrl.SetToolTip("Year to use in renamed file names (e.g., 2024)")
         self._ai_all_btn.SetToolTip("Analyze all loaded cards with AI to extract family names")
         self._rename_btn.SetToolTip("Rename all files based on detected family names")
         self._clear_btn.SetToolTip("Clear all loaded cards and reset the application")
@@ -943,7 +943,7 @@ class MainWindow:
 
     def _start_ai_all(self):
         """Start AI analysis for all cards."""
-        if not self._cards_by_id:
+        if not self._cards_by_hash:
             return
 
         if not self._ensure_api_key():
@@ -1108,6 +1108,13 @@ class MainWindow:
         if dialog.ShowModal() == wx.ID_OK:
             # Execute rename
             results = execute_rename_plan(plan)
+
+            # Update _hash_by_path mapping for renamed files
+            for result in results:
+                if result.success and result.message == "Renamed":
+                    if result.old_path in self._hash_by_path:
+                        file_hash = self._hash_by_path.pop(result.old_path)
+                        self._hash_by_path[result.new_path] = file_hash
 
             # Show completion
             errors = sum(1 for r in results if not r.success)

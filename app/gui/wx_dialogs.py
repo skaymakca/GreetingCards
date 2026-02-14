@@ -7,6 +7,14 @@ from app.gui import wx_styles
 from app.models.card import RenamePlanItem, RenameResult
 
 
+def _display_path(path: Path) -> str:
+    """Format a path as ~/relative for display (or just filename if under home)."""
+    try:
+        return "~/" + str(path.relative_to(Path.home()))
+    except ValueError:
+        return str(path)
+
+
 class TableModel(dv.PyDataViewModel):
     """DataViewModel for tables with colored rows."""
 
@@ -163,6 +171,9 @@ class RenameConfirmDialog(wx.Dialog):
         error_count = sum(1 for item in plan if item.status == "skip_error")
         skip_count = sum(1 for item in plan if item.status.startswith("skip") and item.status != "skip_error")
 
+        # Count unique directories
+        directories = {item.old_path.parent for item in plan}
+
         summary = f"{ok_count} rename(s)"
         if dup_count:
             summary += f", {dup_count} duplicate(s)"
@@ -170,6 +181,8 @@ class RenameConfirmDialog(wx.Dialog):
             summary += f", {skip_count} skipped"
         if error_count:
             summary += f", {error_count} error(s)"
+        if len(directories) > 1:
+            summary += f" across {len(directories)} directories"
 
         summary_label = wx.StaticText(self, label=summary)
         summary_label.SetFont(wx_styles.Font.BODY())
@@ -191,13 +204,20 @@ class RenameConfirmDialog(wx.Dialog):
             "skip_error": wx_styles.Color.ERROR,
         }
 
+        # Show full paths only when multiple directories
+        multi_dir = len(directories) > 1
+
         # Prepare data and colors
         data = []
         colors = []
         for item in plan:
-            new_name = item.new_path.name if item.status not in ("skip_no_name", "skip_same", "skip_error") else "-"
+            old_display = _display_path(item.old_path) if multi_dir else item.old_path.name
+            if item.status not in ("skip_no_name", "skip_same", "skip_error"):
+                new_display = _display_path(item.new_path) if multi_dir else item.new_path.name
+            else:
+                new_display = "-"
             status_text = STATUS_LABELS.get(item.status, item.status)
-            data.append([item.old_path.name, new_name, status_text])
+            data.append([old_display, new_display, status_text])
             colors.append(STATUS_COLORS.get(item.status, wx_styles.Color.TEXT_PRIMARY))
 
         # Create model and ctrl
@@ -210,8 +230,10 @@ class RenameConfirmDialog(wx.Dialog):
         self.list_ctrl.AssociateModel(self.model)
 
         # Add columns
-        self.list_ctrl.AppendTextColumn("Original Filename", 0, width=270)
-        self.list_ctrl.AppendTextColumn("New Filename", 1, width=270)
+        col_label = "Original" if multi_dir else "Original File Name"
+        new_label = "New" if multi_dir else "New File Name"
+        self.list_ctrl.AppendTextColumn(col_label, 0, width=270)
+        self.list_ctrl.AppendTextColumn(new_label, 1, width=270)
         self.list_ctrl.AppendTextColumn("Status", 2, width=70)
 
         sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
@@ -313,7 +335,7 @@ class ErrorListDialog(wx.Dialog):
         self.list_ctrl.AssociateModel(self.model)
 
         # Add columns
-        self.list_ctrl.AppendTextColumn("Filename", 0, width=300)
+        self.list_ctrl.AppendTextColumn("File Name", 0, width=300)
         self.list_ctrl.AppendTextColumn("Error", 1, width=300)
 
         sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
@@ -386,11 +408,16 @@ class CompletionDialog(wx.Dialog):
         # Filter to only renamed and error rows (skip rows already shown in confirm dialog)
         visible = [r for r in results if not r.success or r.message == "Renamed"]
 
+        # Show full paths only when multiple directories
+        directories = {(r.new_path if r.success else r.old_path).parent for r in results}
+        multi_dir = len(directories) > 1
+
         # Prepare data and colors
         data = []
         colors = []
         for r in visible:
-            display_name = r.new_path.name if r.success else r.old_path.name
+            path = r.new_path if r.success else r.old_path
+            display_name = _display_path(path) if multi_dir else path.name
             if r.success:
                 result_text = "OK"
                 colors.append(wx_styles.Color.SUCCESS)
@@ -409,7 +436,7 @@ class CompletionDialog(wx.Dialog):
         self.list_ctrl.AssociateModel(self.model)
 
         # Add columns
-        self.list_ctrl.AppendTextColumn("Filename", 0, width=490)
+        self.list_ctrl.AppendTextColumn("File Name", 0, width=490)
         self.list_ctrl.AppendTextColumn("Result", 1, width=140)
 
         sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)

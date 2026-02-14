@@ -72,7 +72,7 @@ class HelpDialog(wx.Dialog):
         <h3>Toolbar Buttons</h3>
         <ul>
             <li><b>Add Files/Folders</b> — Add PDF files or folders from anywhere (can add multiple sources)</li>
-            <li><b>Search</b> — Filter cards by filename or family name</li>
+            <li><b>Search</b> — Filter cards by file name or family name</li>
             <li><b>AI All</b> — Analyze all loaded cards with Claude AI (requires API key)</li>
             <li><b>Rename All</b> — Rename files based on extracted names (handles multiple directories)</li>
             <li><b>Clear</b> — Remove all loaded cards and start over</li>
@@ -84,7 +84,7 @@ class HelpDialog(wx.Dialog):
             <li>Confidence dots show extraction quality (green=high, yellow=medium, red=low, blue=manual)</li>
             <li>Click a row to view the card in the preview panel</li>
             <li>Edit family name directly in the text field</li>
-            <li>Checkbox to remove 'Family' suffix from filename (e.g., 'Smith.pdf' instead of 'Smith Family.pdf')</li>
+            <li>Checkbox to remove 'Family' suffix from file name (e.g., 'Smith.pdf' instead of 'Smith Family.pdf')</li>
             <li>Candidates dropdown shows alternate name suggestions</li>
             <li>AI button analyzes a single card with Claude AI</li>
             <li>Right-click text fields for Cut, Copy, Paste, Clear</li>

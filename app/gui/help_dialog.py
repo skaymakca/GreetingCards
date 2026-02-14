@@ -74,7 +74,7 @@ class HelpDialog(tk.Toplevel):
             "• Confidence dots show extraction quality (green=high, yellow=medium, red=low, blue=manual)",
             "• Click a row to view the card in the preview panel",
             "• Edit family name directly in the text field",
-            "• Checkbox to remove 'Family' suffix from filename (e.g., 'Smith.pdf' instead of 'Smith Family.pdf')",
+            "• Checkbox to remove 'Family' suffix from file name (e.g., 'Smith.pdf' instead of 'Smith Family.pdf')",
             "• Candidates dropdown shows alternate name suggestions",
             "• AI button analyzes a single card with Claude AI",
             "• Right-click text fields for Cut, Copy, Paste, Clear",

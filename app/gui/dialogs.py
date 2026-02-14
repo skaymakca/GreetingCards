@@ -5,6 +5,14 @@ from app.gui import styles
 from app.models.card import RenamePlanItem, RenameResult
 
 
+def _display_path(path: Path) -> str:
+    """Format a path as ~/relative for display (or just filename if under home)."""
+    try:
+        return "~/" + str(path.relative_to(Path.home()))
+    except ValueError:
+        return str(path)
+
+
 class ProgressDialog(tk.Toplevel):
     """Modal progress dialog for batch processing."""
 
@@ -80,6 +88,9 @@ class RenameConfirmDialog(tk.Toplevel):
         dup_count = sum(1 for item in plan if item.status == "duplicate")
         error_count = sum(1 for item in plan if item.status == "skip_error")
         skip_count = sum(1 for item in plan if item.status.startswith("skip") and item.status != "skip_error")
+        # Count unique directories
+        directories = {item.old_path.parent for item in plan}
+
         summary = f"{ok_count} rename(s)"
         if dup_count:
             summary += f", {dup_count} duplicate(s)"
@@ -87,6 +98,8 @@ class RenameConfirmDialog(tk.Toplevel):
             summary += f", {skip_count} skipped"
         if error_count:
             summary += f", {error_count} error(s)"
+        if len(directories) > 1:
+            summary += f" across {len(directories)} directories"
 
         summary_label = ttk.Label(
             self, text=summary, font=styles.Font.BODY,
@@ -112,8 +125,10 @@ class RenameConfirmDialog(tk.Toplevel):
             table_frame, columns=("original", "new_name", "status"),
             show="headings", selectmode="none", style="Rename.Treeview",
         )
-        tree.heading("original", text="Original Filename", anchor="w")
-        tree.heading("new_name", text="New Filename", anchor="w")
+        # Show full paths only when multiple directories
+        multi_dir = len(directories) > 1
+        tree.heading("original", text="Original" if multi_dir else "Original File Name", anchor="w")
+        tree.heading("new_name", text="New" if multi_dir else "New File Name", anchor="w")
         tree.heading("status", text="Status", anchor="w")
         tree.column("original", width=270, minwidth=100, stretch=True)
         tree.column("new_name", width=270, minwidth=100, stretch=True)
@@ -139,11 +154,15 @@ class RenameConfirmDialog(tk.Toplevel):
             tree.tag_configure(f"{status_key}_odd", foreground=fg, background=styles.Color.BG_SECONDARY)
 
         for i, item in enumerate(plan):
-            new_name = item.new_path.name if item.status not in ("skip_no_name", "skip_same", "skip_error") else "-"
+            old_display = _display_path(item.old_path) if multi_dir else item.old_path.name
+            if item.status not in ("skip_no_name", "skip_same", "skip_error"):
+                new_display = _display_path(item.new_path) if multi_dir else item.new_path.name
+            else:
+                new_display = "-"
             status_text = STATUS_LABELS.get(item.status, item.status)
             parity = "even" if i % 2 == 0 else "odd"
             tag = f"{item.status}_{parity}"
-            tree.insert("", "end", values=(item.old_path.name, new_name, status_text), tags=(tag,))
+            tree.insert("", "end", values=(old_display, new_display, status_text), tags=(tag,))
 
         # Buttons
         btn_frame = ttk.Frame(self)
@@ -225,7 +244,7 @@ class ErrorListDialog(tk.Toplevel):
             table_frame, columns=("filename", "error"),
             show="headings", selectmode="none", style="Error.Treeview",
         )
-        tree.heading("filename", text="Filename", anchor="w")
+        tree.heading("filename", text="File Name", anchor="w")
         tree.heading("error", text="Error", anchor="w")
         tree.column("filename", width=300, minwidth=100, stretch=True)
         tree.column("error", width=300, minwidth=100, stretch=True)
@@ -324,7 +343,7 @@ class CompletionDialog(tk.Toplevel):
             table_frame, columns=("filename", "result"),
             show="headings", selectmode="none", style="Complete.Treeview",
         )
-        tree.heading("filename", text="Filename", anchor="w")
+        tree.heading("filename", text="File Name", anchor="w")
         tree.heading("result", text="Result", anchor="w")
         tree.column("filename", width=500, minwidth=150, stretch=True)
         tree.column("result", width=70, minwidth=50, stretch=False)
@@ -341,9 +360,14 @@ class CompletionDialog(tk.Toplevel):
             tree.tag_configure(f"error_{parity}", foreground=styles.Color.ERROR, background=bg)
             tree.tag_configure(f"detail_{parity}", foreground=styles.Color.ERROR, background=bg)
 
+        # Show full paths only when multiple directories
+        directories = {(r.new_path if r.success else r.old_path).parent for r in results}
+        multi_dir = len(directories) > 1
+
         for i, r in enumerate(visible):
             parity = "even" if i % 2 == 0 else "odd"
-            display_name = r.new_path.name if r.success else r.old_path.name
+            path = r.new_path if r.success else r.old_path
+            display_name = _display_path(path) if multi_dir else path.name
             if r.success:
                 tree.insert("", "end", values=(display_name, "OK"), tags=(f"ok_{parity}",))
             else:

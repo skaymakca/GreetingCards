@@ -124,7 +124,7 @@ class ReviewPanel(ttk.Frame):
             col_header, text="", width=2,
         ).pack(side="left", padx=(4, 0))
         ttk.Label(
-            col_header, text="Filename", font=styles.Font.SMALL,
+            col_header, text="File Name", font=styles.Font.SMALL,
             foreground=styles.Color.TEXT_SECONDARY, anchor="w", width=28,
         ).pack(side="left", padx=4)
         ttk.Label(

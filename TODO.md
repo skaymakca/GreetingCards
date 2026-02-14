@@ -1,6 +1,8 @@
 # TODO
 
 ## High Priority
+- [ ] multiple walsh problem.  read each target dir and check with the proposed changes what will really be teh duplicates and correcltly increment the (x+1) deduper 
+- [ ] check teh search filtering code, we need to filter on filenames AND family names but not candidates.  The category filters then need to be populated with the post search filtered results.  Their counts should be updated.  I had asked for either disabling unpopulated category filters or removing them from view but this never happened.  lets implement this here as well. so the flow is search -> category filters with proper counts and disable or visiblity based on n>=1 -> cards table
 
 ## Medium Priority
 
