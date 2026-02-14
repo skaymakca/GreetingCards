@@ -4,14 +4,17 @@ Scans holiday/greeting card PDFs, extracts family names via OCR and AI, and batc
 
 ## Features
 
+- **Multi-source loading** — add PDF files or folders from multiple locations without clearing previous loads; cards accumulate across sessions
+- **Content-based deduplication** — identical files at different locations are automatically detected (by content hash) and displayed as a single card with multiple file paths
 - **PDF rendering** — renders all pages of each PDF using PyMuPDF for preview and analysis
 - **Offline OCR** — extracts text from card images with Tesseract, then pattern-matches family names (e.g. "The Smiths", "Love, John & Jane Smith") at high/medium/low confidence levels
 - **AI analysis** — sends page images to Claude's vision API for name extraction; available per-card or as a batch "AI All" operation
-- **Caching** — OCR results, AI results, and manual edits are all persisted to a local SQLite database keyed by file content hash, so re-processing the same files is instant
-- **Batch rename** — builds a rename plan (with duplicate/skip detection), shows a confirmation dialog, then renames files to `Holiday Cards Year - FamilyName Family.pdf` (or without "Family" suffix if checkbox is checked)
+- **Intelligent caching** — OCR results, AI results, and manual edits are persisted to a local SQLite database keyed by file content hash, so re-processing the same files (even from different locations) is instant
+- **Smart batch rename** — builds a rename plan with per-directory duplicate detection, shows a confirmation dialog, then renames files to `Holiday Cards Year - FamilyName Family.pdf` (or without "Family" suffix if checkbox is checked)
 - **Per-file options** — checkbox to omit "Family" suffix from individual filenames (e.g., `Holiday Cards 2024 - Smith.pdf` instead of `Holiday Cards 2024 - Smith Family.pdf`)
-- **Drag and drop** — drop a folder or PDF onto the window to load it
-- **Keyboard navigation** — Up/Down to select cards, Left/Right to page through previews, Escape to defocus text entries
+- **Drag and drop** — drop files or folders (even multiple at once) onto the window to add them
+- **Search and filter** — quick search by filename or family name; filter by confidence level (Manual Entry, High Confidence, Needs Review, Errors)
+- **Keyboard navigation** — Up/Down to select cards, Left/Right to page through previews, Cmd+F to search, Escape to defocus text entries
 - **API key management** — prompts for the Anthropic API key on first AI use; key is saved to a plist in bundled mode or read from `.env` in dev mode
 
 ## Prerequisites

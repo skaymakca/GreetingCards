@@ -59,21 +59,23 @@ class HelpDialog(wx.Dialog):
 
         <h3>Workflow</h3>
         <ol>
-            <li>Browse or drag-drop a folder containing greeting card PDFs</li>
-            <li>Click Process to extract family names using OCR</li>
-            <li>Review extracted names in the cards list</li>
+            <li>Click Add Files/Folders or drag-drop PDFs/folders to load cards</li>
+            <li>Cards are automatically processed with OCR to extract family names</li>
+            <li>Review extracted names in the cards list (filter by confidence level)</li>
             <li>Click AI button (per card or AI All) for better accuracy</li>
             <li>Edit names manually or select from Candidates dropdown</li>
             <li>Click Rename All to rename files with extracted names</li>
         </ol>
 
+        <p><b>Note:</b> You can load cards from multiple folders! They accumulate rather than replacing previous loads. Identical files at different locations are automatically detected and merged.</p>
+
         <h3>Toolbar Buttons</h3>
         <ul>
-            <li><b>Browse</b> — Select a folder of PDF files</li>
-            <li><b>Process</b> — Extract names from all cards using OCR</li>
-            <li><b>AI All</b> — Analyze all cards with Claude AI (requires API key)</li>
-            <li><b>Rename All</b> — Rename files based on extracted names</li>
-            <li><b>Clear</b> — Remove all cards and start over</li>
+            <li><b>Add Files/Folders</b> — Add PDF files or folders from anywhere (can add multiple sources)</li>
+            <li><b>Search</b> — Filter cards by filename or family name</li>
+            <li><b>AI All</b> — Analyze all loaded cards with Claude AI (requires API key)</li>
+            <li><b>Rename All</b> — Rename files based on extracted names (handles multiple directories)</li>
+            <li><b>Clear</b> — Remove all loaded cards and start over</li>
             <li><b>Settings</b> — Configure API key and database</li>
         </ul>
 

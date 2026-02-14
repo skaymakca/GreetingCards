@@ -79,10 +79,37 @@ class RenameResult:
     message: str
 
 
+class RenameStatus(Enum):
+    """Status codes for rename operations."""
+    READY = "ready"                  # Ready to rename
+    DUPLICATE = "duplicate"          # Would create duplicate (added number)
+    SKIP = "skip"                    # User chose to skip
+    UNCHANGED = "unchanged"          # Same name, no rename needed
+
+
+class RenameResultStatus(Enum):
+    """Result status codes for executed renames."""
+    SUCCESS = "success"              # Renamed successfully
+    COLLISION = "collision"          # Target file exists (race condition)
+    ERROR = "error"                  # Other error (permissions, file not found, etc.)
+
+
+@dataclass
+class RenameOperation:
+    """Represents a single file rename operation (for unified rename function)."""
+    directory: Path                              # Target directory
+    original_filename: str                       # Original filename (e.g., "card.pdf")
+    final_filename: str                          # Final filename (e.g., "2024_Smith_Family.pdf")
+    status: RenameStatus                         # Status before execution
+    result: Optional[RenameResultStatus] = None  # Result after execution (if executed)
+    error_message: Optional[str] = None          # Error details if failed
+
+
 @dataclass
 class CardResult:
     id: int  # Unique, monotonically increasing identifier
-    pdf_path: Path
+    file_paths: list[Path] = field(default_factory=list)  # All paths with same content
+    primary_path: Path = field(default_factory=lambda: Path())  # First path found
     family_name: str = ""
     confidence: Confidence = Confidence.NONE
     alternates: list[str] = field(default_factory=list)  # Just names for backward compat
@@ -100,6 +127,11 @@ class CardResult:
     error: str = ""  # Non-empty when PDF processing failed (corrupt, encrypted, etc.)
 
     @property
+    def pdf_path(self) -> Path:
+        """Backward compatibility - returns primary path."""
+        return self.primary_path
+
+    @property
     def display_name(self) -> str:
         if self.manual_override:
             return self.manual_override
@@ -107,7 +139,7 @@ class CardResult:
 
     @property
     def filename(self) -> str:
-        return self.pdf_path.name
+        return self.primary_path.name
 
     def target_filename(self, year: str) -> str:
         name = self.display_name

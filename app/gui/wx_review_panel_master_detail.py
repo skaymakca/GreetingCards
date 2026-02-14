@@ -128,33 +128,40 @@ class CardListModel(dv.PyDataViewModel):
         return False
 
     def GetAttr(self, item, col, attr):
-        """Set color for confidence dot."""
-        if col != 0:  # Only color the dot column
-            return False
-
+        """Set color for confidence dot and filename (blue for multi-path cards)."""
         row = self.ItemToObject(item)
         if row < 0 or row >= len(self._cards):
             return False
 
         card = self._cards[row]
 
-        # Set foreground color based on confidence
-        if card.error:
-            attr.SetColour(Color.ERROR)
-        elif card.confidence == Confidence.NONE:
-            attr.SetColour(Color.TEXT_SECONDARY)
-        elif card.confidence == Confidence.HIGH:
-            attr.SetColour(Color.SUCCESS)
-        elif card.confidence == Confidence.MEDIUM:
-            attr.SetColour(Color.WARNING)
-        elif card.confidence == Confidence.LOW:
-            attr.SetColour(Color.ERROR)
-        elif card.confidence == Confidence.MANUAL:
-            attr.SetColour(Color.MANUAL_BLUE)
-        else:
-            attr.SetColour(Color.TEXT_PRIMARY)
+        # Column 0: Confidence dot - set color based on confidence
+        if col == 0:
+            if card.error:
+                attr.SetColour(Color.ERROR)
+            elif card.confidence == Confidence.NONE:
+                attr.SetColour(Color.TEXT_SECONDARY)
+            elif card.confidence == Confidence.HIGH:
+                attr.SetColour(Color.SUCCESS)
+            elif card.confidence == Confidence.MEDIUM:
+                attr.SetColour(Color.WARNING)
+            elif card.confidence == Confidence.LOW:
+                attr.SetColour(Color.ERROR)
+            elif card.confidence == Confidence.MANUAL:
+                attr.SetColour(Color.MANUAL_BLUE)
+            else:
+                attr.SetColour(Color.TEXT_PRIMARY)
+            return True
 
-        return True
+        # Column 1: Filename - show in blue if card has multiple paths
+        elif col == 1:
+            if len(card.file_paths) > 1:
+                # macOS system blue for multi-path indicator
+                attr.SetColour(wx.Colour(0, 122, 255))
+                return True
+            return False
+
+        return False
 
 
 class DetailPanel(wx.Panel):
@@ -186,50 +193,44 @@ class DetailPanel(wx.Panel):
         """Build the detail panel UI."""
         sizer = wx.BoxSizer(wx.VERTICAL)
 
-        # Title (will update with filename when card selected)
-        self._title = create_static_text(
-            self,
-            "Edit Card",
-            font=Font.HEADING(),
-            colour=Color.TEXT_PRIMARY
-        )
-        sizer.Add(self._title, 0, wx.ALL, Layout.PAD)
+        # Create notebook for tabs (no title/separator - filename shown in tab)
+        self._notebook = wx.Notebook(self)
 
-        # Separator
-        sep = wx.StaticLine(self)
-        sizer.Add(sep, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, Layout.PAD)
+        # === EDIT TAB (always present) ===
+        self._edit_panel = wx.Panel(self._notebook)
+        edit_sizer = wx.BoxSizer(wx.VERTICAL)
 
-        sizer.AddSpacer(Layout.PAD)
+        edit_sizer.AddSpacer(Layout.PAD)
 
         # Family Name (editable)
         name_label = create_static_text(
-            self,
+            self._edit_panel,
             "Family Name:",
             font=Font.SMALL(),
             colour=Color.TEXT_SECONDARY
         )
-        sizer.Add(name_label, 0, wx.LEFT | wx.RIGHT, Layout.PAD)
+        edit_sizer.Add(name_label, 0, wx.LEFT | wx.RIGHT, Layout.PAD)
 
-        self._name_text = wx.TextCtrl(self, style=wx.TE_PROCESS_ENTER)
+        self._name_text = wx.TextCtrl(self._edit_panel, style=wx.TE_PROCESS_ENTER)
         self._name_text.SetFont(Font.BODY())
         self._name_text.Bind(wx.EVT_TEXT, self._on_name_edit)
         self._name_text.Bind(wx.EVT_TEXT_ENTER, lambda e: self._name_text.Navigate())
         add_entry_context_menu(self._name_text)
-        sizer.Add(self._name_text, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, Layout.PAD)
+        edit_sizer.Add(self._name_text, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, Layout.PAD)
 
         # Candidates dropdown (moved directly below Family Name)
         cand_label = create_static_text(
-            self,
+            self._edit_panel,
             "Alternative Candidates:",
             font=Font.SMALL(),
             colour=Color.TEXT_SECONDARY
         )
-        sizer.Add(cand_label, 0, wx.LEFT | wx.RIGHT, Layout.PAD)
+        edit_sizer.Add(cand_label, 0, wx.LEFT | wx.RIGHT, Layout.PAD)
 
-        self._candidates_choice = wx.Choice(self)
+        self._candidates_choice = wx.Choice(self._edit_panel)
         self._candidates_choice.SetFont(Font.BODY())
         self._candidates_choice.Bind(wx.EVT_CHOICE, self._on_candidate)
-        sizer.Add(self._candidates_choice, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, Layout.PAD)
+        edit_sizer.Add(self._candidates_choice, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, Layout.PAD)
 
         # Horizontal row: AI button + Remove Family checkbox
         action_row = wx.BoxSizer(wx.HORIZONTAL)
@@ -238,10 +239,10 @@ class DetailPanel(wx.Panel):
         # Use 9pt icon for compact size
         ai_icon = load_sf_symbol("sparkles", 9, "#1D1D1F")
         if ai_icon:
-            self._ai_btn = wx.Button(self, label="  AI Analyze")
+            self._ai_btn = wx.Button(self._edit_panel, label="  AI Analyze")
             self._ai_btn.SetBitmap(ai_icon)
         else:
-            self._ai_btn = wx.Button(self, label="AI Analyze")
+            self._ai_btn = wx.Button(self._edit_panel, label="AI Analyze")
 
         self._ai_btn.SetFont(Font.BODY())
         # Match OK button height (standard macOS button)
@@ -252,12 +253,56 @@ class DetailPanel(wx.Panel):
         action_row.AddSpacer(Layout.PAD * 2)
 
         # Remove Family checkbox
-        self._remove_family_check = wx.CheckBox(self, label="Remove 'Family' from File Name")
+        self._remove_family_check = wx.CheckBox(self._edit_panel, label="Remove 'Family' from File Name")
         self._remove_family_check.SetFont(Font.BODY())
         self._remove_family_check.Bind(wx.EVT_CHECKBOX, self._on_checkbox)
         action_row.Add(self._remove_family_check, 0, wx.ALIGN_CENTER_VERTICAL)
 
-        sizer.Add(action_row, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, Layout.PAD)
+        edit_sizer.Add(action_row, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, Layout.PAD)
+
+        self._edit_panel.SetSizer(edit_sizer)
+        self._notebook.AddPage(self._edit_panel, "Edit")
+
+        # === FILE PATHS TAB (only added for multi-path cards) ===
+        self._locations_panel = wx.Panel(self._notebook)
+        locations_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        locations_sizer.AddSpacer(Layout.PAD)
+
+        # Header
+        self._locations_header = create_static_text(
+            self._locations_panel,
+            "File Locations:",
+            font=Font.BODY(),
+            colour=Color.TEXT_PRIMARY
+        )
+        locations_sizer.Add(self._locations_header, 0, wx.ALL, Layout.PAD)
+
+        # List of file paths
+        self._locations_list = dv.DataViewListCtrl(
+            self._locations_panel,
+            style=dv.DV_NO_HEADER | dv.DV_SINGLE | dv.DV_ROW_LINES
+        )
+        self._locations_list.AppendTextColumn("", width=400)
+        self._locations_list.SetMinSize((-1, 100))
+        locations_sizer.Add(self._locations_list, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, Layout.PAD)
+
+        # Info text (for multiple paths)
+        self._duplicate_info = create_static_text(
+            self._locations_panel,
+            "ℹ️ These files have identical content (same hash).",
+            font=Font.SMALL(),
+            colour=Color.TEXT_SECONDARY
+        )
+        locations_sizer.Add(self._duplicate_info, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, Layout.PAD)
+
+        self._locations_panel.SetSizer(locations_sizer)
+
+        # Track whether locations tab is currently added
+        self._locations_tab_index = None
+
+        # Add notebook to main sizer
+        sizer.Add(self._notebook, 1, wx.EXPAND | wx.ALL, Layout.PAD)
 
         self.SetSizer(sizer)
 
@@ -275,8 +320,8 @@ class DetailPanel(wx.Panel):
             self._suppress_events = False
             return
 
-        # Update title with filename
-        self._title.SetLabel(f"Edit Card - {card.filename}")
+        # Edit tab always labeled "Edit Card"
+        self._notebook.SetPageText(0, "Edit Card")
 
         # Update controls
         self._name_text.SetValue(card.display_name)
@@ -305,11 +350,51 @@ class DetailPanel(wx.Panel):
         self._remove_family_check.Enable(not has_error)
         self._ai_btn.Enable(not has_error)
 
+        # Update file locations section
+        self._update_locations(card)
+
         self._suppress_events = False
+
+    def _update_locations(self, card: CardResult):
+        """Update the file locations tab (always shown)."""
+        num_paths = len(card.file_paths)
+
+        # Update header
+        plural = "copies" if num_paths > 1 else "copy"
+        self._locations_header.SetLabel(f"File Locations ({num_paths} {plural}):")
+
+        # Populate list
+        self._locations_list.DeleteAllItems()
+        for path in card.file_paths:
+            # Show relative path from home if possible
+            try:
+                rel_path = path.relative_to(Path.home())
+                display_path = f"~/{rel_path}"
+            except ValueError:
+                display_path = str(path)
+
+            self._locations_list.AppendItem([display_path])
+
+        # Highlight primary path (first one)
+        if num_paths > 0:
+            self._locations_list.SelectRow(0)
+
+        # Add/update File Paths tab (always present now)
+        if self._locations_tab_index is None:
+            self._locations_tab_index = self._notebook.AddPage(
+                self._locations_panel,
+                f"File Paths ({num_paths})"
+            )
+        else:
+            # Update tab label
+            self._notebook.SetPageText(self._locations_tab_index, f"File Paths ({num_paths})")
 
     def clear(self):
         """Clear the detail panel (no card selected)."""
-        self._title.SetLabel("Edit Card")
+        # Reset current card first to prevent any event handlers from using it
+        self._current_card = None
+        self._suppress_events = True
+
         self._name_text.SetValue("")
         self._name_text.Enable(False)
         self._remove_family_check.SetValue(False)
@@ -319,6 +404,18 @@ class DetailPanel(wx.Panel):
         self._candidates_choice.SetSelection(0)
         self._candidates_choice.Enable(False)
         self._ai_btn.Enable(False)
+
+        # Clear file locations and remove tab if present
+        self._locations_list.DeleteAllItems()
+        if self._locations_tab_index is not None:
+            self._notebook.RemovePage(self._locations_tab_index)
+            self._locations_tab_index = None
+
+        # Reset Edit tab to default label (do this after removing File Paths tab)
+        if self._notebook.GetPageCount() > 0:
+            self._notebook.SetPageText(0, "Edit Card")
+
+        self._suppress_events = False
 
     def _on_name_edit(self, event):
         """Handle name text change."""
@@ -429,7 +526,7 @@ class ReviewPanelMasterDetail(wx.Panel):
 
         # Add columns
         self._list_ctrl.AppendTextColumn("", 0, width=30, mode=dv.DATAVIEW_CELL_INERT)
-        self._list_ctrl.AppendTextColumn("Filename", 1, width=280, mode=dv.DATAVIEW_CELL_INERT)
+        self._list_ctrl.AppendTextColumn("File Name", 1, width=280, mode=dv.DATAVIEW_CELL_INERT)
         self._list_ctrl.AppendTextColumn("Family Name", 2, width=200, mode=dv.DATAVIEW_CELL_INERT)
 
         # Bind selection event

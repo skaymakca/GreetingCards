@@ -37,7 +37,7 @@ def mock_cards():
     # Card 1: High confidence with candidates
     card1 = CardResult(
         id=1,
-        pdf_path=Path("card-001.pdf"),
+        file_paths=[Path("card-001.pdf")], primary_path=Path("card-001.pdf"),
         family_name="Smith",
         confidence=Confidence.HIGH,
         method="ocr",
@@ -53,7 +53,7 @@ def mock_cards():
     # Card 2: Medium confidence
     card2 = CardResult(
         id=2,
-        pdf_path=Path("card-002.pdf"),
+        file_paths=[Path("card-002.pdf")], primary_path=Path("card-002.pdf"),
         family_name="Johnson",
         confidence=Confidence.MEDIUM,
         method="ai",
@@ -68,7 +68,7 @@ def mock_cards():
     # Card 3: Low confidence
     card3 = CardResult(
         id=3,
-        pdf_path=Path("card-003.pdf"),
+        file_paths=[Path("card-003.pdf")], primary_path=Path("card-003.pdf"),
         family_name="Williams",
         confidence=Confidence.LOW,
         method="ocr",
@@ -80,7 +80,7 @@ def mock_cards():
     # Card 4: NONE confidence (no name extracted)
     card4 = CardResult(
         id=4,
-        pdf_path=Path("card-004.pdf"),
+        file_paths=[Path("card-004.pdf")], primary_path=Path("card-004.pdf"),
         family_name="",
         confidence=Confidence.NONE,
         method="missing",
@@ -92,7 +92,7 @@ def mock_cards():
     # Card 5: Manual entry
     card5 = CardResult(
         id=5,
-        pdf_path=Path("card-005.pdf"),
+        file_paths=[Path("card-005.pdf")], primary_path=Path("card-005.pdf"),
         family_name="Brown",
         confidence=Confidence.MANUAL,
         method="manual",
@@ -104,7 +104,7 @@ def mock_cards():
     # Card 6: Error card
     card6 = CardResult(
         id=6,
-        pdf_path=Path("card-006.pdf"),
+        file_paths=[Path("card-006.pdf")], primary_path=Path("card-006.pdf"),
         family_name="",
         confidence=Confidence.NONE,
         method="missing",
@@ -568,7 +568,10 @@ class TestDetailPanel:
         detail = DetailPanel(parent_frame, None, None, None, None)
         detail.load_card(mock_cards[0])
 
-        assert "card-001.pdf" in detail._title.GetLabel()
+        # Check Edit tab label is fixed
+        edit_tab_label = detail._notebook.GetPageText(0)
+        assert edit_tab_label == "Edit Card"
+
         assert detail._name_text.GetValue() == "Smith"
         assert detail._remove_family_check.GetValue() is True
 
@@ -577,10 +580,12 @@ class TestDetailPanel:
         detail = DetailPanel(parent_frame, None, None, None, None)
         detail.load_card(mock_cards[0])
         detail.clear()
+        wx.GetApp().Yield()  # Process UI updates
 
         assert detail._name_text.GetValue() == ""
         assert detail._remove_family_check.GetValue() is False
-        assert "Edit Card" in detail._title.GetLabel()
+        # Check Edit tab returns to default label
+        assert detail._notebook.GetPageText(0) == "Edit Card"
 
     def test_detail_panel_shows_candidates(self, parent_frame, mock_cards):
         """load_card populates candidate dropdown."""
@@ -856,3 +861,191 @@ class TestEdgeCases:
         wx.GetApp().Yield()
 
         assert panel._selected_card_id is None
+
+
+# ============================================================================
+# Multi-Path Card Display Tests
+# ============================================================================
+
+
+class TestMultiPathCardDisplay:
+    """Tests for multi-path card file locations display with tabs."""
+
+    def test_single_path_card_has_two_tabs(self, parent_frame):
+        """Single-path cards show Edit tab + File Paths (1) tab."""
+        detail = DetailPanel(parent_frame, None, None, None, None)
+        card = CardResult(
+            id=1,
+            file_paths=[Path("/test/card.pdf")],
+            primary_path=Path("/test/card.pdf"),
+            family_name="Smith",
+            confidence=Confidence.HIGH,
+            method="ocr",
+            remove_family=False,
+        )
+
+        detail.load_card(card)
+
+        # Should have Edit tab + File Paths tab (always present now)
+        assert detail._notebook.GetPageCount() == 2
+        assert detail._notebook.GetPageText(0) == "Edit Card"
+        assert "File Paths (1)" in detail._notebook.GetPageText(1)
+        assert detail._locations_tab_index is not None
+
+    def test_multi_path_card_has_two_tabs(self, parent_frame):
+        """Multi-path cards show Edit and File Paths (N) tabs."""
+        detail = DetailPanel(parent_frame, None, None, None, None)
+        card = CardResult(
+            id=1,
+            file_paths=[Path("/test1/card.pdf"), Path("/test2/card.pdf")],
+            primary_path=Path("/test1/card.pdf"),
+            family_name="Smith",
+            confidence=Confidence.HIGH,
+            method="ocr",
+            remove_family=False,
+        )
+
+        detail.load_card(card)
+
+        # Should have Edit tab + File Paths tab
+        assert detail._notebook.GetPageCount() == 2
+        assert detail._notebook.GetPageText(0) == "Edit Card"
+        assert "File Paths (2)" in detail._notebook.GetPageText(1)
+        assert detail._locations_tab_index is not None
+
+    def test_file_paths_tab_label_shows_count(self, parent_frame):
+        """File Paths tab label shows correct count."""
+        detail = DetailPanel(parent_frame, None, None, None, None)
+        card = CardResult(
+            id=1,
+            file_paths=[Path("/a.pdf"), Path("/b.pdf"), Path("/c.pdf")],
+            primary_path=Path("/a.pdf"),
+            family_name="Smith",
+            confidence=Confidence.HIGH,
+            method="ocr",
+            remove_family=False,
+        )
+
+        detail.load_card(card)
+
+        assert detail._notebook.GetPageCount() == 2
+        assert "File Paths (3)" in detail._notebook.GetPageText(1)
+
+    def test_switching_to_file_paths_tab(self, parent_frame):
+        """Can switch to File Paths tab and see content."""
+        detail = DetailPanel(parent_frame, None, None, None, None)
+        card = CardResult(
+            id=1,
+            file_paths=[Path("/test1.pdf"), Path("/test2.pdf")],
+            primary_path=Path("/test1.pdf"),
+            family_name="Smith",
+            confidence=Confidence.HIGH,
+            method="ocr",
+            remove_family=False,
+        )
+
+        detail.load_card(card)
+
+        # Switch to File Paths tab
+        detail._notebook.SetSelection(1)
+
+        # Verify we're on the locations panel
+        assert detail._notebook.GetCurrentPage() == detail._locations_panel
+
+    def test_locations_list_populated(self, parent_frame):
+        """Locations list shows all file paths."""
+        detail = DetailPanel(parent_frame, None, None, None, None)
+        card = CardResult(
+            id=1,
+            file_paths=[Path.home() / "test1.pdf", Path.home() / "test2.pdf"],
+            primary_path=Path.home() / "test1.pdf",
+            family_name="Smith",
+            confidence=Confidence.HIGH,
+            method="ocr",
+            remove_family=False,
+        )
+
+        detail.load_card(card)
+
+        # Check locations list is populated
+        assert detail._locations_list.GetItemCount() == 2
+        assert "~/test1.pdf" in detail._locations_list.GetTextValue(0, 0)
+        assert "~/test2.pdf" in detail._locations_list.GetTextValue(1, 0)
+
+    def test_locations_header_shows_count(self, parent_frame):
+        """Locations header shows correct count."""
+        detail = DetailPanel(parent_frame, None, None, None, None)
+        card = CardResult(
+            id=1,
+            file_paths=[Path("/a.pdf"), Path("/b.pdf"), Path("/c.pdf")],
+            primary_path=Path("/a.pdf"),
+            family_name="Smith",
+            confidence=Confidence.HIGH,
+            method="ocr",
+            remove_family=False,
+        )
+
+        detail.load_card(card)
+
+        assert "File Locations (3 copies):" in detail._locations_header.GetLabel()
+
+    def test_duplicate_info_shown_for_multi_path(self, parent_frame):
+        """Duplicate info text is shown for multi-path cards."""
+        detail = DetailPanel(parent_frame, None, None, None, None)
+        card = CardResult(
+            id=1,
+            file_paths=[Path("/test1.pdf"), Path("/test2.pdf")],
+            primary_path=Path("/test1.pdf"),
+            family_name="Smith",
+            confidence=Confidence.HIGH,
+            method="ocr",
+            remove_family=False,
+        )
+
+        detail.load_card(card)
+
+        # Info text should be present (always visible in File Paths tab)
+        assert "identical content" in detail._duplicate_info.GetLabel()
+
+    def test_clear_removes_file_paths_tab(self, parent_frame):
+        """clear() removes File Paths tab if present."""
+        detail = DetailPanel(parent_frame, None, None, None, None)
+        card = CardResult(
+            id=1,
+            file_paths=[Path("/test1.pdf"), Path("/test2.pdf")],
+            primary_path=Path("/test1.pdf"),
+            family_name="Smith",
+            confidence=Confidence.HIGH,
+            method="ocr",
+            remove_family=False,
+        )
+
+        detail.load_card(card)
+        assert detail._notebook.GetPageCount() == 2
+
+        detail.clear()
+
+        # Should only have Edit tab after clear
+        assert detail._notebook.GetPageCount() == 1
+        assert detail._locations_tab_index is None
+
+    def test_blue_text_for_multi_path_card(self, wx_app, parent_frame):
+        """Filename shows in blue for multi-path cards."""
+        model = CardListModel()
+        card = CardResult(
+            id=1,
+            file_paths=[Path("/test1.pdf"), Path("/test2.pdf")],
+            primary_path=Path("/test1.pdf"),
+            family_name="Smith",
+            confidence=Confidence.HIGH,
+            method="ocr",
+            remove_family=False,
+        )
+        model.load_cards([card])
+
+        item = model.ObjectToItem(0)
+        attr = dv.DataViewItemAttr()
+        result = model.GetAttr(item, 1, attr)  # Column 1 (filename)
+
+        # Should return True for multi-path cards (blue color applied)
+        assert result is True
