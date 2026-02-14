@@ -749,6 +749,88 @@ class TestUpdateMethods:
 
 
 # ============================================================================
+# Input Validation Tests
+# ============================================================================
+
+
+class TestNameCharFiltering:
+    """Tests for _on_name_char blocking invalid filename characters."""
+
+    def test_blocks_all_invalid_chars(self, parent_frame):
+        """_on_name_char blocks every filesystem-invalid character."""
+        from app.core.name_formatting import INVALID_FILENAME_CHARS
+
+        detail = DetailPanel(parent_frame, None, None, None, None)
+        for char in INVALID_FILENAME_CHARS:
+            event = Mock(spec=wx.KeyEvent)
+            event.GetUnicodeKey.return_value = ord(char)
+            detail._on_name_char(event)
+            event.Skip.assert_not_called(), f"Should block '{char}'"
+
+    def test_allows_normal_letters(self, parent_frame):
+        """_on_name_char allows regular letters through."""
+        detail = DetailPanel(parent_frame, None, None, None, None)
+        for char in "AaBbZz":
+            event = Mock(spec=wx.KeyEvent)
+            event.GetUnicodeKey.return_value = ord(char)
+            detail._on_name_char(event)
+            event.Skip.assert_called_once()
+
+    def test_allows_apostrophe_and_hyphen(self, parent_frame):
+        """_on_name_char allows apostrophe and hyphen (valid in names)."""
+        detail = DetailPanel(parent_frame, None, None, None, None)
+        for char in "'-":
+            event = Mock(spec=wx.KeyEvent)
+            event.GetUnicodeKey.return_value = ord(char)
+            detail._on_name_char(event)
+            event.Skip.assert_called_once()
+
+    def test_allows_non_character_keys(self, parent_frame):
+        """_on_name_char allows non-character keys like backspace/arrows."""
+        detail = DetailPanel(parent_frame, None, None, None, None)
+        event = Mock(spec=wx.KeyEvent)
+        event.GetUnicodeKey.return_value = wx.WXK_NONE
+        detail._on_name_char(event)
+        event.Skip.assert_called_once()
+
+
+# ============================================================================
+# Update Card Refresh Tests
+# ============================================================================
+
+
+class TestUpdateCardRefresh:
+    """Tests for update_card triggering list Refresh."""
+
+    def test_update_card_calls_refresh(self, parent_frame, mock_cards):
+        """update_card calls Refresh() on list control."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+
+        with patch.object(panel._list_ctrl, "Refresh") as mock_refresh:
+            updated = mock_cards[0]
+            updated.family_name = "Updated"
+            panel.update_card(1, updated)
+            mock_refresh.assert_called_once()
+
+    def test_update_card_refreshes_for_unselected_card(self, parent_frame, mock_cards):
+        """update_card calls Refresh() even for a card that is not selected."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+
+        # Select card 2
+        item = panel._model.get_item_by_card_id(2)
+        panel._list_ctrl.Select(item)
+
+        with patch.object(panel._list_ctrl, "Refresh") as mock_refresh:
+            # Update card 1 (not selected)
+            updated = mock_cards[0]
+            updated.family_name = "Updated"
+            panel.update_card(1, updated)
+            mock_refresh.assert_called_once()
+
+
+# ============================================================================
 # AI Button State Tests
 # ============================================================================
 

@@ -213,6 +213,7 @@ class DetailPanel(wx.Panel):
 
         self._name_text = wx.TextCtrl(self._edit_panel, style=wx.TE_PROCESS_ENTER)
         self._name_text.SetFont(Font.BODY())
+        self._name_text.Bind(wx.EVT_CHAR, self._on_name_char)
         self._name_text.Bind(wx.EVT_TEXT, self._on_name_edit)
         self._name_text.Bind(wx.EVT_TEXT_ENTER, lambda e: self._name_text.Navigate())
         add_entry_context_menu(self._name_text)
@@ -417,6 +418,14 @@ class DetailPanel(wx.Panel):
 
         self._suppress_events = False
 
+    def _on_name_char(self, event: wx.KeyEvent) -> None:
+        """Block filesystem-invalid characters from being typed."""
+        from app.core.name_formatting import INVALID_FILENAME_CHARS
+        key = event.GetUnicodeKey()
+        if key != wx.WXK_NONE and chr(key) in INVALID_FILENAME_CHARS:
+            return  # Swallow the keystroke
+        event.Skip()
+
     def _on_name_edit(self, event):
         """Handle name text change."""
         if self._suppress_events or not self._current_card:
@@ -603,11 +612,6 @@ class ReviewPanelMasterDetail(wx.Panel):
         if self._on_name_change:
             self._on_name_change(card_id, new_name)
 
-        # Update list display
-        card = self._cards_by_id.get(card_id)
-        if card:
-            self._model.update_card(card_id, card)
-
     def _handle_checkbox(self, card_id: int, new_value: bool):
         """Handle checkbox toggle from detail panel."""
         card = self._cards_by_id.get(card_id)
@@ -670,6 +674,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         """Update a single card after AI analysis."""
         self._cards_by_id[card_id] = card
         self._model.update_card(card_id, card)
+        self._list_ctrl.Refresh()
 
         # If this card is selected, update detail panel
         if self._selected_card_id == card_id:

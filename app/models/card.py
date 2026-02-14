@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Optional
 from PIL import Image
+
+from app.core.name_formatting import sanitize_for_filename
 
 
 class Confidence(Enum):
@@ -68,6 +72,7 @@ class RenamePlanItem:
     old_path: Path
     new_path: Path
     status: str  # 'ok' | 'skip_no_name' | 'skip_same' | 'skip_error' | 'duplicate'
+    card: Optional[CardResult] = None  # Back-reference to source card
 
 
 @dataclass
@@ -78,31 +83,6 @@ class RenameResult:
     success: bool
     message: str
 
-
-class RenameStatus(Enum):
-    """Status codes for rename operations."""
-    READY = "ready"                  # Ready to rename
-    DUPLICATE = "duplicate"          # Would create duplicate (added number)
-    SKIP = "skip"                    # User chose to skip
-    UNCHANGED = "unchanged"          # Same name, no rename needed
-
-
-class RenameResultStatus(Enum):
-    """Result status codes for executed renames."""
-    SUCCESS = "success"              # Renamed successfully
-    COLLISION = "collision"          # Target file exists (race condition)
-    ERROR = "error"                  # Other error (permissions, file not found, etc.)
-
-
-@dataclass
-class RenameOperation:
-    """Represents a single file rename operation (for unified rename function)."""
-    directory: Path                              # Target directory
-    original_filename: str                       # Original filename (e.g., "card.pdf")
-    final_filename: str                          # Final filename (e.g., "2024_Smith_Family.pdf")
-    status: RenameStatus                         # Status before execution
-    result: Optional[RenameResultStatus] = None  # Result after execution (if executed)
-    error_message: Optional[str] = None          # Error details if failed
 
 
 @dataclass
@@ -145,6 +125,8 @@ class CardResult:
         name = self.display_name
         if not name:
             return ""
+        # Sanitize filesystem-invalid characters (safety net)
+        name = sanitize_for_filename(name)
         # Only append "Family" if checkbox is not checked and name doesn't already end with it
         if not self.remove_family and not name.lower().endswith("family"):
             name = f"{name} Family"

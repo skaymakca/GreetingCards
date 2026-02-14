@@ -171,7 +171,7 @@ def _clean_and_filter_names(names: list[str]) -> list[str]:
     Raw data is persisted in the DB and cleaned on load.
     """
     from app.core.ai_analyzer import clean_family_name
-    from app.core.name_formatting import deparameterize_name
+    from app.core.name_formatting import deparameterize_name, sanitize_for_filename
 
     # Filter words that are not family names
     FILTER_OUT = {
@@ -188,6 +188,8 @@ def _clean_and_filter_names(names: list[str]) -> list[str]:
         clean_name = clean_family_name(name)
         # Remove plural 's' (Smiths → Smith)
         clean_name = deparameterize_name(clean_name)
+        # Replace filesystem-invalid characters (cross-platform)
+        clean_name = sanitize_for_filename(clean_name)
         # Filter out unwanted values
         if clean_name and clean_name.lower() not in FILTER_OUT:
             cleaned.append(clean_name)
