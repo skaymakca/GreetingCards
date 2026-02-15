@@ -21,5 +21,5 @@
 - [ ] `app/gui/styles.py`
 
 ## Cleanup
-- [ ] Delete `.wxmigration` file (migration complete)
-- [ ] Audit `docs/architecture/` for post-migration accuracy
+- [x] Delete `.wxmigration` file (migration complete)
+- [x] Audit `docs/architecture/` for post-migration accuracy — all 5 docs are accurate
