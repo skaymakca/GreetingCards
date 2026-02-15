@@ -38,7 +38,7 @@ class _Tooltip:
             self._tw = None
 
 
-class ReviewPanel(tk.Frame):
+class ReviewPanel(ttk.Frame):
     """Scrollable card list with edit controls for reviewing extracted names."""
 
     def __init__(
@@ -49,7 +49,7 @@ class ReviewPanel(tk.Frame):
         on_name_change: Callable[[int, str], None] | None = None,
         **kwargs,
     ):
-        super().__init__(parent, bg=styles.BG_PRIMARY, **kwargs)
+        super().__init__(parent, **kwargs)
         self._on_select = on_select
         self._on_ai_request = on_ai_request
         self._on_name_change = on_name_change
@@ -59,48 +59,51 @@ class ReviewPanel(tk.Frame):
         self._selected_card_id: Optional[int] = None
         self._suppress_trace = False
         self._ai_icon = load_sf_symbol("sparkles", 6, styles.TEXT_PRIMARY)
+        # Native system background for tk.Canvas widgets (no ttk equivalent)
+        s = ttk.Style()
+        self._sys_bg = s.lookup("TFrame", "background")
+        s.configure("SelectedRow.TFrame", background=styles.BG_SELECTED)
+        s.configure("SelectedRow.TLabel", background=styles.BG_SELECTED)
 
         # Header
-        header = tk.Frame(self, bg=styles.BG_PRIMARY)
+        header = ttk.Frame(self)
         header.pack(fill="x", padx=styles.PAD, pady=(styles.PAD, 4))
-        tk.Label(
+        ttk.Label(
             header, text="Cards", font=styles.FONT_HEADING,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
+            foreground=styles.TEXT_PRIMARY,
         ).pack(side="left")
-        self._count_label = tk.Label(
+        self._count_label = ttk.Label(
             header, text="", font=styles.FONT_SMALL,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_SECONDARY,
+            foreground=styles.TEXT_SECONDARY,
         )
         self._count_label.pack(side="right")
 
         # Column headers
-        col_header = tk.Frame(self, bg=styles.BG_PRIMARY)
+        col_header = ttk.Frame(self)
         col_header.pack(fill="x", padx=styles.PAD)
-        tk.Label(
+        ttk.Label(
             col_header, text="", width=2,
-            bg=styles.BG_PRIMARY,
         ).pack(side="left", padx=(4, 0))
-        tk.Label(
+        ttk.Label(
             col_header, text="Filename", font=styles.FONT_SMALL,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_SECONDARY, anchor="w", width=28,
+            foreground=styles.TEXT_SECONDARY, anchor="w", width=28,
         ).pack(side="left", padx=4)
-        tk.Label(
+        ttk.Label(
             col_header, text="Family Name", font=styles.FONT_SMALL,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_SECONDARY, anchor="w",
+            foreground=styles.TEXT_SECONDARY, anchor="w",
         ).pack(side="left", padx=4, fill="x", expand=True)
         # Empty space for checkbox column (no header per user preference)
-        tk.Label(
+        ttk.Label(
             col_header, text="", width=2,
-            bg=styles.BG_PRIMARY,
         ).pack(side="left", padx=4)
 
         # Scrollable area
-        container = tk.Frame(self, bg=styles.BG_PRIMARY)
+        container = ttk.Frame(self)
         container.pack(fill="both", expand=True, padx=styles.PAD, pady=(4, styles.PAD))
 
-        self._canvas = tk.Canvas(container, bg=styles.BG_PRIMARY, highlightthickness=0)
+        self._canvas = tk.Canvas(container, bg=self._sys_bg, highlightthickness=0)
         self._scrollbar = ttk.Scrollbar(container, orient="vertical", command=self._canvas.yview)
-        self._inner = tk.Frame(self._canvas, bg=styles.BG_PRIMARY)
+        self._inner = ttk.Frame(self._canvas)
 
         self._inner.bind("<Configure>", self._on_inner_configure)
         self._canvas_window = self._canvas.create_window((0, 0), window=self._inner, anchor="nw")
@@ -176,13 +179,12 @@ class ReviewPanel(tk.Frame):
             self._create_row(card)
 
     def _create_row(self, card: CardResult):
-        bg = styles.BG_PRIMARY
         card_id = card.id
 
-        row_frame = tk.Frame(self._inner, bg=bg, cursor="hand2")
+        row_frame = ttk.Frame(self._inner, cursor="pointinghand")
         row_frame.pack(fill="x", pady=1)
 
-        # Confidence dot with tooltip
+        # Confidence dot with tooltip (tk.Canvas — no ttk equivalent)
         is_error = bool(card.error)
         if is_error:
             dot_color = styles.ERROR
@@ -194,7 +196,7 @@ class ReviewPanel(tk.Frame):
             dot_color = styles.CONFIDENCE_COLORS.get(card.confidence.value, styles.TEXT_SECONDARY)
             symbol = None
 
-        dot = tk.Canvas(row_frame, width=12, height=12, bg=bg, highlightthickness=0)
+        dot = tk.Canvas(row_frame, width=12, height=12, bg=self._sys_bg, highlightthickness=0)
         if symbol:
             dot.create_text(6, 6, text=symbol, fill=dot_color, font=("Arial", 10))
         else:
@@ -216,17 +218,16 @@ class ReviewPanel(tk.Frame):
         dot_tooltip = _Tooltip(dot, tooltip_text)
 
         # Filename label
-        fn_label = tk.Label(
+        fn_label = ttk.Label(
             row_frame, text=card.filename, font=styles.FONT_SMALL,
-            bg=bg, fg=styles.TEXT_PRIMARY, anchor="w", width=28,
+            foreground=styles.TEXT_PRIMARY, anchor="w", width=28,
         )
         fn_label.pack(side="left", padx=4, pady=4)
 
         # Editable name entry
         name_var = tk.StringVar(value=card.display_name)
-        name_entry = tk.Entry(
+        name_entry = ttk.Entry(
             row_frame, textvariable=name_var, font=styles.FONT_BODY,
-            relief="flat", bg=styles.BG_SECONDARY,
         )
         name_entry.pack(side="left", padx=4, pady=4, fill="x", expand=True)
         name_entry.bind("<Return>", lambda e: row_frame.focus_set())
@@ -235,9 +236,8 @@ class ReviewPanel(tk.Frame):
 
         # Remove Family checkbox
         remove_family_var = tk.BooleanVar(value=card.remove_family)
-        remove_family_check = tk.Checkbutton(
+        remove_family_check = ttk.Checkbutton(
             row_frame, variable=remove_family_var,
-            bg=bg, highlightthickness=0,
             command=lambda cid=card_id, v=remove_family_var: self._on_remove_family_toggle(cid, v)
         )
         remove_family_check.pack(side="left", padx=4, pady=4)
@@ -308,17 +308,15 @@ class ReviewPanel(tk.Frame):
         # Deselect previous
         if self._selected_card_id is not None and self._selected_card_id in self._rows_by_id:
             prev = self._rows_by_id[self._selected_card_id]
-            prev["frame"].configure(bg=styles.BG_PRIMARY)
-            prev["fn_label"].configure(bg=styles.BG_PRIMARY)
-            prev["dot"].configure(bg=styles.BG_PRIMARY)
+            prev["frame"].configure(style="TFrame")
+            prev["fn_label"].configure(style="TLabel")
 
         self._selected_card_id = card_id
         if card_id in self._rows_by_id:
             row = self._rows_by_id[card_id]
             row["frame"].focus_set()
-            row["frame"].configure(bg=styles.BG_SELECTED)
-            row["fn_label"].configure(bg=styles.BG_SELECTED)
-            row["dot"].configure(bg=styles.BG_SELECTED)
+            row["frame"].configure(style="SelectedRow.TFrame")
+            row["fn_label"].configure(style="SelectedRow.TLabel")
 
             self._on_select(card_id)
 

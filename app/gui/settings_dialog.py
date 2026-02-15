@@ -2,8 +2,6 @@ import subprocess
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from PIL import Image, ImageTk
-
 from app.gui import styles
 from app.gui.icons import load_sf_symbol
 from app.gui.context_menu import add_entry_context_menu
@@ -26,28 +24,27 @@ class ApiKeyPrompt(tk.Toplevel):
         x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
         y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
         self.geometry(f"{w}x{h}+{x}+{y}")
-        self.configure(bg=styles.BG_PRIMARY)
 
         self.result = None
 
         # Message
-        tk.Label(
+        ttk.Label(
             self, text="AI analysis requires an Anthropic API key.",
-            font=styles.FONT_BODY, bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
+            font=styles.FONT_BODY, foreground=styles.TEXT_PRIMARY,
         ).pack(pady=(20, 4), padx=20)
 
-        tk.Label(
+        ttk.Label(
             self, text="Get one at: console.anthropic.com",
-            font=styles.FONT_SMALL, bg=styles.BG_PRIMARY, fg=styles.TEXT_SECONDARY,
+            font=styles.FONT_SMALL, foreground=styles.TEXT_SECONDARY,
         ).pack(padx=20, pady=(0, 12))
 
         # Key entry
-        key_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
+        key_frame = ttk.Frame(self)
         key_frame.pack(fill="x", padx=20, pady=8)
 
-        tk.Label(
+        ttk.Label(
             key_frame, text="API Key:", font=styles.FONT_BODY,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
+            foreground=styles.TEXT_PRIMARY,
         ).pack(side="left", padx=(0, 8))
 
         self._key_entry = tk.Entry(key_frame, font=styles.FONT_BODY, show="*", width=30)
@@ -57,7 +54,7 @@ class ApiKeyPrompt(tk.Toplevel):
         add_entry_context_menu(self._key_entry)
 
         # Buttons
-        btn_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
+        btn_frame = ttk.Frame(self)
         btn_frame.pack(pady=(16, 24))
 
         ttk.Button(
@@ -103,52 +100,36 @@ class SettingsDialog(tk.Toplevel):
         x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
         y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
         self.geometry(f"{w}x{h}+{x}+{y}")
-        self.configure(bg=styles.BG_PRIMARY)
 
         self._on_db_reset = on_db_reset
 
         # --- About section ---
-        about_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
-        about_frame.pack(fill="x", padx=20, pady=(16, 0))
-
-        # App icon
-        self._app_icon = self._load_app_icon(48)
-        if self._app_icon:
-            tk.Label(
-                about_frame, image=self._app_icon,
-                bg=styles.BG_PRIMARY,
-            ).pack(side="left", padx=(0, 12))
-
-        # Name and version info
-        info_frame = tk.Frame(about_frame, bg=styles.BG_PRIMARY)
-        info_frame.pack(side="left", anchor="w")
-
-        tk.Label(
-            info_frame, text="Greeting Cards", font=styles.FONT_TITLE,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
-        ).pack(anchor="w")
+        ttk.Label(
+            self, text="Greeting Cards", font=styles.FONT_TITLE,
+            foreground=styles.TEXT_PRIMARY,
+        ).pack(padx=20, pady=(16, 0), anchor="w")
 
         commit = self._get_commit_hash()
         version_text = f"Version {__version__}"
         if commit:
             version_text += f" ({commit})"
-        tk.Label(
-            info_frame, text=version_text, font=styles.FONT_SMALL,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_SECONDARY,
-        ).pack(anchor="w")
+        ttk.Label(
+            self, text=version_text, font=styles.FONT_SMALL,
+            foreground=styles.TEXT_SECONDARY,
+        ).pack(padx=20, anchor="w")
 
         # --- Separator ---
-        tk.Frame(self, height=1, bg=styles.TEXT_SECONDARY).pack(
+        ttk.Separator(self, orient="horizontal").pack(
             fill="x", padx=20, pady=(12, 0)
         )
 
         # --- API Key section ---
-        tk.Label(
+        ttk.Label(
             self, text="API Key", font=styles.FONT_HEADING,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
+            foreground=styles.TEXT_PRIMARY,
         ).pack(pady=(16, 4), padx=20, anchor="w")
 
-        key_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
+        key_frame = ttk.Frame(self)
         key_frame.pack(fill="x", padx=20)
 
         self._key_entry = tk.Entry(key_frame, font=styles.FONT_BODY, show="*")
@@ -166,30 +147,30 @@ class SettingsDialog(tk.Toplevel):
         )
         self._save_key_btn.pack(side="left", padx=(8, 0))
 
-        # Status label
+        # Status label (keep tk.Label — changes fg dynamically)
         self._key_status = tk.Label(
             self, text="", font=styles.FONT_SMALL,
-            bg=styles.BG_PRIMARY, fg=styles.SUCCESS,
+            fg=styles.SUCCESS,
         )
         self._key_status.pack(padx=20, anchor="w")
 
         # --- Separator ---
-        tk.Frame(self, height=1, bg=styles.TEXT_SECONDARY).pack(
+        ttk.Separator(self, orient="horizontal").pack(
             fill="x", padx=20, pady=(12, 0)
         )
 
         # --- Database section ---
-        tk.Label(
+        ttk.Label(
             self, text="Database", font=styles.FONT_HEADING,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
+            foreground=styles.TEXT_PRIMARY,
         ).pack(pady=(12, 4), padx=20, anchor="w")
 
-        db_frame = tk.Frame(self, bg=styles.BG_PRIMARY)
+        db_frame = ttk.Frame(self)
         db_frame.pack(fill="x", padx=20)
 
-        tk.Label(
+        ttk.Label(
             db_frame, text="Clear all cached OCR/AI results and rebuild.",
-            font=styles.FONT_SMALL, bg=styles.BG_PRIMARY, fg=styles.TEXT_SECONDARY,
+            font=styles.FONT_SMALL, foreground=styles.TEXT_SECONDARY,
         ).pack(side="left")
 
         self._rebuild_btn = ttk.Button(
@@ -199,9 +180,9 @@ class SettingsDialog(tk.Toplevel):
         self._rebuild_btn.pack(side="right")
 
         # --- Close ---
-        close_btn = tk.Button(
-            self, text="Close", font=styles.FONT_BODY,
-            command=self._close, width=8,
+        close_btn = ttk.Button(
+            self, text="Close",
+            command=self._close,
         )
         close_btn.pack(pady=(16, 16))
 
@@ -218,26 +199,6 @@ class SettingsDialog(tk.Toplevel):
 
         self.protocol("WM_DELETE_WINDOW", self._close)
         self.bind("<Escape>", lambda e: self._close())
-
-    @staticmethod
-    def _load_app_icon(size: int):
-        """Load the app icon as a PhotoImage, resized to size x size."""
-        import sys
-        from pathlib import Path
-
-        if getattr(sys, "_MEIPASS", None):
-            icon_path = Path(sys._MEIPASS) / "icon.png"
-        else:
-            icon_path = Path(__file__).resolve().parent.parent.parent / "icon.png"
-
-        if not icon_path.exists():
-            return None
-
-        try:
-            img = Image.open(icon_path).resize((size, size), Image.LANCZOS)
-            return ImageTk.PhotoImage(img)
-        except Exception:
-            return None
 
     @staticmethod
     def _get_commit_hash() -> str:

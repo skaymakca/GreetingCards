@@ -133,7 +133,6 @@ class MainWindow:
         self.root = TkinterDnD.Tk()
         self.root.title("Greeting Cards")
         self.root.geometry(f"{styles.WINDOW_WIDTH}x{styles.WINDOW_HEIGHT}")
-        self.root.configure(bg=styles.BG_PRIMARY)
         self.root.minsize(800, 500)
 
         self._folder: Path | None = None
@@ -200,7 +199,7 @@ class MainWindow:
         s.configure("ToolbarSmall.TButton", font=styles.FONT_SMALL)
 
     def _build_toolbar(self):
-        toolbar = tk.Frame(self.root, bg=styles.BG_PRIMARY, height=styles.TOOLBAR_HEIGHT)
+        toolbar = ttk.Frame(self.root, height=styles.TOOLBAR_HEIGHT)
         toolbar.pack(fill="x", side="top")
         toolbar.pack_propagate(False)
 
@@ -208,11 +207,11 @@ class MainWindow:
         ttk.Separator(self.root, orient="horizontal").pack(fill="x", side="top")
 
         # --- Row 1: Folder selection (left) and Year (right) ---
-        row1 = tk.Frame(toolbar, bg=styles.BG_PRIMARY)
+        row1 = ttk.Frame(toolbar)
         row1.pack(fill="x", padx=styles.PAD, pady=(6, 0))
 
         # Left side: Browse button + folder path
-        left_frame = tk.Frame(row1, bg=styles.BG_PRIMARY)
+        left_frame = ttk.Frame(row1)
         left_frame.pack(side="left")
 
         self._browse_btn = ttk.Button(
@@ -222,30 +221,30 @@ class MainWindow:
         self._browse_btn.pack(side="left", padx=(0, 8))
 
         self._folder_var = tk.StringVar(value="No folder selected")
-        self._folder_label = tk.Label(
+        self._folder_label = ttk.Label(
             left_frame, textvariable=self._folder_var, font=styles.FONT_BODY,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_SECONDARY, anchor="w",
+            foreground=styles.TEXT_SECONDARY,
         )
         self._folder_label.pack(side="left")
 
         # Right side: Year label + entry
-        right_frame = tk.Frame(row1, bg=styles.BG_PRIMARY)
+        right_frame = ttk.Frame(row1)
         right_frame.pack(side="right")
 
-        tk.Label(
+        ttk.Label(
             right_frame, text="Year:", font=styles.FONT_BODY,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY,
+            foreground=styles.TEXT_PRIMARY,
         ).pack(side="left", padx=(0, 4))
 
         self._year_var = tk.StringVar(value=str(datetime.now().year - 1))
         year_entry = tk.Entry(
             right_frame, textvariable=self._year_var, font=styles.FONT_BODY,
-            width=6, relief="flat", bg=styles.BG_PRIMARY,
+            width=6, relief="flat",
         )
         year_entry.pack(side="left")
 
         # --- Row 2: Action buttons ---
-        row2 = tk.Frame(toolbar, bg=styles.BG_PRIMARY)
+        row2 = ttk.Frame(toolbar)
         row2.pack(fill="x", padx=styles.PAD, pady=(6, 6))
 
         # AI All button
@@ -385,7 +384,7 @@ class MainWindow:
         if count == 0:
             messagebox.showwarning("No PDFs", "No PDF files found in the selected folder.")
         else:
-            self._folder_label.config(fg=styles.TEXT_PRIMARY)
+            self._folder_label.config(foreground=styles.TEXT_PRIMARY)
             if auto_process:
                 self._start_processing()
 
@@ -560,7 +559,7 @@ class MainWindow:
         self._folder = None
         self._pdf_files = []
         self._folder_var.set("No folder selected")
-        self._folder_label.config(fg=styles.TEXT_SECONDARY)
+        self._folder_label.config(foreground=styles.TEXT_SECONDARY)
 
     def _on_name_change(self, card_id: int, name: str):
         """Persist manual name edits to the database and update confidence dot."""

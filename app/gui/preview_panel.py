@@ -4,7 +4,7 @@ from PIL import Image, ImageTk
 from app.gui import styles
 
 
-class PreviewPanel(tk.Frame):
+class PreviewPanel(ttk.Frame):
     """Panel that displays a multi-page, zoomable, pannable PDF preview."""
 
     ZOOM_STEP = 1.25
@@ -12,7 +12,7 @@ class PreviewPanel(tk.Frame):
     MAX_ZOOM = 10.0
 
     def __init__(self, parent, **kwargs):
-        super().__init__(parent, bg=styles.BG_PRIMARY, **kwargs)
+        super().__init__(parent, **kwargs)
         self._photo = None  # prevent GC
         self._images: list[Image.Image] = []
         self._page_idx = 0
@@ -25,28 +25,29 @@ class PreviewPanel(tk.Frame):
         self._error_message = ""  # Non-empty when showing an error
 
         # --- Title bar ---
-        self._title_label = tk.Label(
+        self._title_label = ttk.Label(
             self, text="Preview", font=styles.FONT_HEADING,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY, anchor="w",
+            foreground=styles.TEXT_PRIMARY,
         )
         self._title_label.pack(fill="x", padx=styles.PAD, pady=(styles.PAD, 4))
 
         # --- Canvas ---
-        self._canvas = tk.Canvas(self, bg=styles.BG_PRIMARY, highlightthickness=0)
+        sys_bg = ttk.Style().lookup("TFrame", "background")
+        self._canvas = tk.Canvas(self, bg=sys_bg, highlightthickness=0)
         self._canvas.pack(fill="both", expand=True, padx=0, pady=0)
 
-        self._placeholder = tk.Label(
+        self._placeholder = ttk.Label(
             self._canvas, text="Select a card to preview",
-            font=styles.FONT_BODY, fg=styles.TEXT_SECONDARY, bg=styles.BG_PRIMARY,
+            font=styles.FONT_BODY, foreground=styles.TEXT_SECONDARY,
         )
         self._placeholder.place(relx=0.5, rely=0.5, anchor="center")
 
         # --- Controls bar ---
-        controls = tk.Frame(self, bg=styles.BG_PRIMARY)
+        controls = ttk.Frame(self)
         controls.pack(fill="x", padx=styles.PAD, pady=(4, styles.PAD))
 
         # Page navigation (left side)
-        page_frame = tk.Frame(controls, bg=styles.BG_PRIMARY)
+        page_frame = ttk.Frame(controls)
         page_frame.pack(side="left")
 
         self._prev_btn = ttk.Button(
@@ -55,9 +56,9 @@ class PreviewPanel(tk.Frame):
         )
         self._prev_btn.pack(side="left", padx=(0, 2))
 
-        self._page_label = tk.Label(
+        self._page_label = ttk.Label(
             page_frame, text="", font=styles.FONT_SMALL,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY, width=9,
+            foreground=styles.TEXT_PRIMARY, width=9,
         )
         self._page_label.pack(side="left", padx=2)
 
@@ -68,7 +69,7 @@ class PreviewPanel(tk.Frame):
         self._next_btn.pack(side="left", padx=(2, 0))
 
         # Zoom controls (right side)
-        zoom_frame = tk.Frame(controls, bg=styles.BG_PRIMARY)
+        zoom_frame = ttk.Frame(controls)
         zoom_frame.pack(side="right")
 
         self._fit_btn = ttk.Button(
@@ -83,9 +84,9 @@ class PreviewPanel(tk.Frame):
         )
         self._zout_btn.pack(side="left", padx=2)
 
-        self._zoom_label = tk.Label(
+        self._zoom_label = ttk.Label(
             zoom_frame, text="", font=styles.FONT_SMALL,
-            bg=styles.BG_PRIMARY, fg=styles.TEXT_PRIMARY, width=6,
+            foreground=styles.TEXT_PRIMARY, width=6,
         )
         self._zoom_label.pack(side="left", padx=2)
 
