@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Optional
 from PIL import Image
+
+from app.core.name_formatting import sanitize_for_filename
 
 
 class Confidence(Enum):
@@ -68,6 +72,7 @@ class RenamePlanItem:
     old_path: Path
     new_path: Path
     status: str  # 'ok' | 'skip_no_name' | 'skip_same' | 'skip_error' | 'duplicate'
+    card: Optional[CardResult] = None  # Back-reference to source card
 
 
 @dataclass
@@ -79,10 +84,12 @@ class RenameResult:
     message: str
 
 
+
 @dataclass
 class CardResult:
     id: int  # Unique, monotonically increasing identifier
-    pdf_path: Path
+    file_paths: list[Path] = field(default_factory=list)  # All paths with same content
+    primary_path: Path = field(default_factory=lambda: Path())  # First path found
     family_name: str = ""
     confidence: Confidence = Confidence.NONE
     alternates: list[str] = field(default_factory=list)  # Just names for backward compat
@@ -100,6 +107,11 @@ class CardResult:
     error: str = ""  # Non-empty when PDF processing failed (corrupt, encrypted, etc.)
 
     @property
+    def pdf_path(self) -> Path:
+        """Backward compatibility - returns primary path."""
+        return self.primary_path
+
+    @property
     def display_name(self) -> str:
         if self.manual_override:
             return self.manual_override
@@ -107,12 +119,14 @@ class CardResult:
 
     @property
     def filename(self) -> str:
-        return self.pdf_path.name
+        return self.primary_path.name
 
     def target_filename(self, year: str) -> str:
         name = self.display_name
         if not name:
             return ""
+        # Sanitize filesystem-invalid characters (safety net)
+        name = sanitize_for_filename(name)
         # Only append "Family" if checkbox is not checked and name doesn't already end with it
         if not self.remove_family and not name.lower().endswith("family"):
             name = f"{name} Family"

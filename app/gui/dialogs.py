@@ -1,85 +1,179 @@
-import tkinter as tk
-from tkinter import ttk
+"""wxPython dialog classes for the application."""
+
+import wx
+import wx.dataview as dv
 from pathlib import Path
 from app.gui import styles
 from app.models.card import RenamePlanItem, RenameResult
 
 
-class ProgressDialog(tk.Toplevel):
+def _display_path(path: Path) -> str:
+    """Format a path as ~/relative for display (or just filename if under home)."""
+    try:
+        return "~/" + str(path.relative_to(Path.home()))
+    except ValueError:
+        return str(path)
+
+
+class TableModel(dv.PyDataViewModel):
+    """DataViewModel for tables with colored rows."""
+
+    def __init__(self, data, colors):
+        """Initialize model.
+
+        Args:
+            data: List of lists (rows x columns)
+            colors: List of wx.Colour for each row
+        """
+        dv.PyDataViewModel.__init__(self)
+        self.data = data
+        self.colors = colors
+
+    def GetColumnCount(self):
+        """Return number of columns."""
+        return len(self.data[0]) if self.data else 0
+
+    def GetChildren(self, parent, children):
+        """Return list of children for parent item."""
+        # For a flat list, root has all items as children
+        if not parent:
+            for i in range(len(self.data)):
+                children.append(self.ObjectToItem(i))
+            return len(self.data)
+        return 0
+
+    def IsContainer(self, item):
+        """Check if item is a container (has children)."""
+        # Only root is a container
+        return not item
+
+    def GetParent(self, item):
+        """Return parent of item."""
+        # All items have root as parent
+        return dv.NullDataViewItem
+
+    def GetValue(self, item, col):
+        """Return value for item and column."""
+        row = self.ItemToObject(item)
+        return self.data[row][col]
+
+    def GetAttr(self, item, col, attr):
+        """Set display attributes for item."""
+        row = self.ItemToObject(item)
+        if row < len(self.colors):
+            attr.SetColour(self.colors[row])
+            return True
+        return False
+
+
+class ProgressDialog(wx.Dialog):
     """Modal progress dialog for batch processing."""
 
     def __init__(self, parent, title: str, total: int):
-        super().__init__(parent)
-        self.title(title)
-        self.resizable(False, False)
-        self.transient(parent)
-        self.grab_set()
-
-        w, h = 400, 130
-        x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
-        y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
-        self.geometry(f"{w}x{h}+{x}+{y}")
-
-        self.label = ttk.Label(
-            self, text="Processing...", font=styles.Font.BODY,
-            foreground=styles.Color.TEXT_PRIMARY,
+        super().__init__(
+            parent,
+            title=title,
+            style=wx.CAPTION  # No close button
         )
-        self.label.pack(pady=(20, 8), padx=20)
-
-        self.progress = ttk.Progressbar(self, maximum=total, length=350, mode="determinate")
-        self.progress.pack(padx=20)
-
-        self.count_label = ttk.Label(
-            self, text=f"0 / {total}", font=styles.Font.SMALL,
-            foreground=styles.Color.TEXT_SECONDARY,
-        )
-        self.count_label.pack(pady=(4, 10))
 
         self._total = total
         self._current = 0
-        self.protocol("WM_DELETE_WINDOW", lambda: None)  # prevent close
+
+        # Create panel
+        panel = wx.Panel(self)
+        panel.SetBackgroundColour(styles.Color.BG_PRIMARY)
+
+        # Main sizer
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Message label
+        self.label = wx.StaticText(panel, label="Processing...")
+        self.label.SetFont(styles.Font.BODY())
+        self.label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        sizer.Add(self.label, 0, wx.ALL, 20)
+
+        # Progress bar
+        self.progress = wx.Gauge(panel, range=total, size=(350, -1))
+        sizer.Add(self.progress, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 20)
+
+        # Count label
+        self.count_label = wx.StaticText(panel, label=f"0 / {total}")
+        self.count_label.SetFont(styles.Font.SMALL())
+        self.count_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
+        sizer.Add(self.count_label, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        # Set sizers
+        panel.SetSizer(sizer)
+        sizer.Fit(panel)
+
+        dialog_sizer = wx.BoxSizer(wx.VERTICAL)
+        dialog_sizer.Add(panel, 1, wx.EXPAND)
+        self.SetSizer(dialog_sizer)
+        dialog_sizer.Fit(self)
+
+        # Center on parent
+        self.CenterOnParent()
+
+        # Prevent closing
+        self.Bind(wx.EVT_CLOSE, lambda evt: None)
 
     def update_progress(self, current: int, message: str = ""):
+        """Update progress bar and labels.
+
+        Args:
+            current: Current progress value
+            message: Optional message to display
+        """
         self._current = current
-        self.progress["value"] = current
-        self.count_label.config(text=f"{current} / {self._total}")
+        self.progress.SetValue(current)
+        self.count_label.SetLabel(f"{current} / {self._total}")
         if message:
-            self.label.config(text=message)
-        self.update_idletasks()
+            self.label.SetLabel(message)
+
+        # Force UI update
+        wx.SafeYield()
 
     def finish(self):
-        self.grab_release()
-        self.destroy()
+        """Close the dialog."""
+        self.EndModal(wx.ID_OK)
+        self.Destroy()
 
 
-class RenameConfirmDialog(tk.Toplevel):
+class RenameConfirmDialog(wx.Dialog):
     """Dialog showing the rename plan and asking for confirmation."""
 
     def __init__(self, parent, plan: list[RenamePlanItem], year: str):
-        super().__init__(parent)
-        self.title("Confirm Rename")
-        self.resizable(True, True)
-        self.transient(parent)
-        self.grab_set()
-
-        w, h = 700, 500
-        x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
-        y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
-        self.geometry(f"{w}x{h}+{x}+{y}")
+        super().__init__(
+            parent,
+            title="Confirm Rename",
+            size=(700, 500),
+            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
+        )
 
         self.result = False
 
-        header = ttk.Label(
-            self, text=f"Rename Plan (Year: {year})", font=styles.Font.TITLE,
-            foreground=styles.Color.TEXT_PRIMARY,
-        )
-        header.pack(pady=(15, 5), padx=15, anchor="w")
+        # Main sizer
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        sizer.AddSpacer(20)
+
+        # Header
+        header = wx.StaticText(self, label="Rename Plan")
+        header.SetFont(styles.Font.TITLE())
+        header.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        sizer.Add(header, 0, wx.LEFT | wx.RIGHT, 20)
+
+        sizer.AddSpacer(4)
 
         # Summary counts
         ok_count = sum(1 for item in plan if item.status == "ok")
         dup_count = sum(1 for item in plan if item.status == "duplicate")
         error_count = sum(1 for item in plan if item.status == "skip_error")
         skip_count = sum(1 for item in plan if item.status.startswith("skip") and item.status != "skip_error")
+
+        # Count unique directories
+        directories = {item.old_path.parent for item in plan}
+
         summary = f"{ok_count} rename(s)"
         if dup_count:
             summary += f", {dup_count} duplicate(s)"
@@ -87,280 +181,285 @@ class RenameConfirmDialog(tk.Toplevel):
             summary += f", {skip_count} skipped"
         if error_count:
             summary += f", {error_count} error(s)"
+        if len(directories) > 1:
+            summary += f" across {len(directories)} directories"
 
-        summary_label = ttk.Label(
-            self, text=summary, font=styles.Font.BODY,
-            foreground=styles.Color.TEXT_SECONDARY,
-        )
-        summary_label.pack(padx=15, anchor="w")
+        summary_label = wx.StaticText(self, label=summary)
+        summary_label.SetFont(styles.Font.BODY())
+        summary_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
+        sizer.Add(summary_label, 0, wx.LEFT | wx.RIGHT, 20)
 
-        # Treeview table with resizable columns
-        table_frame = ttk.Frame(self)
-        table_frame.pack(fill="both", expand=True, padx=15, pady=10)
+        sizer.AddSpacer(12)
 
-        style = ttk.Style()
-        style.configure(
-            "Rename.Treeview", font=styles.Font.MONO, rowheight=26,
-            background=styles.Color.BG_PRIMARY, fieldbackground=styles.Color.BG_PRIMARY,
-            foreground=styles.Color.TEXT_PRIMARY,
-        )
-        style.configure("Rename.Treeview.Heading", font=styles.Font.SMALL)
-        # Remove default state maps so tag_configure colors take effect
-        style.map("Rename.Treeview", background=[], foreground=[])
-
-        tree = ttk.Treeview(
-            table_frame, columns=("original", "new_name", "status"),
-            show="headings", selectmode="none", style="Rename.Treeview",
-        )
-        tree.heading("original", text="Original Filename", anchor="w")
-        tree.heading("new_name", text="New Filename", anchor="w")
-        tree.heading("status", text="Status", anchor="w")
-        tree.column("original", width=270, minwidth=100, stretch=True)
-        tree.column("new_name", width=270, minwidth=100, stretch=True)
-        tree.column("status", width=70, minwidth=50, stretch=False)
-
-        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=tree.yview)
-        tree.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
-        tree.pack(fill="both", expand=True)
-
-        # Row tags: combine status color with alternating background
+        # Status labels and colors
         STATUS_LABELS = {
             "ok": "OK", "duplicate": "DUP",
             "skip_no_name": "SKIP", "skip_same": "SAME", "skip_error": "ERROR",
         }
-        STATUS_FG = {
-            "ok": styles.Color.SUCCESS, "duplicate": styles.Color.TEXT_PRIMARY,
-            "skip_no_name": styles.Color.TEXT_SECONDARY, "skip_same": styles.Color.TEXT_SECONDARY,
+        STATUS_COLORS = {
+            "ok": styles.Color.SUCCESS,
+            "duplicate": styles.Color.TEXT_PRIMARY,
+            "skip_no_name": styles.Color.TEXT_SECONDARY,
+            "skip_same": styles.Color.TEXT_SECONDARY,
             "skip_error": styles.Color.ERROR,
         }
-        for status_key, fg in STATUS_FG.items():
-            tree.tag_configure(f"{status_key}_even", foreground=fg, background=styles.Color.BG_PRIMARY)
-            tree.tag_configure(f"{status_key}_odd", foreground=fg, background=styles.Color.BG_SECONDARY)
 
-        for i, item in enumerate(plan):
-            new_name = item.new_path.name if item.status not in ("skip_no_name", "skip_same", "skip_error") else "-"
+        # Show full paths only when multiple directories
+        multi_dir = len(directories) > 1
+
+        # Prepare data and colors
+        data = []
+        colors = []
+        for item in plan:
+            old_display = _display_path(item.old_path) if multi_dir else item.old_path.name
+            if item.status not in ("skip_no_name", "skip_same", "skip_error"):
+                new_display = _display_path(item.new_path) if multi_dir else item.new_path.name
+            else:
+                new_display = "-"
             status_text = STATUS_LABELS.get(item.status, item.status)
-            parity = "even" if i % 2 == 0 else "odd"
-            tag = f"{item.status}_{parity}"
-            tree.insert("", "end", values=(item.old_path.name, new_name, status_text), tags=(tag,))
+            data.append([old_display, new_display, status_text])
+            colors.append(STATUS_COLORS.get(item.status, styles.Color.TEXT_PRIMARY))
+
+        # Create model and ctrl
+        self.model = TableModel(data, colors)
+        self.list_ctrl = dv.DataViewCtrl(
+            self,
+            style=dv.DV_ROW_LINES | dv.DV_VERT_RULES
+        )
+        self.list_ctrl.SetFont(styles.Font.MONO())
+        self.list_ctrl.AssociateModel(self.model)
+
+        # Add columns
+        col_label = "Original" if multi_dir else "Original File Name"
+        new_label = "New" if multi_dir else "New File Name"
+        self.list_ctrl.AppendTextColumn(col_label, 0, width=270)
+        self.list_ctrl.AppendTextColumn(new_label, 1, width=270)
+        self.list_ctrl.AppendTextColumn("Status", 2, width=70)
+
+        sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
+
+        sizer.AddSpacer(20)
 
         # Buttons
-        btn_frame = ttk.Frame(self)
-        btn_frame.pack(fill="x", padx=15, pady=(0, 15))
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        btn_sizer.AddStretchSpacer()
 
-        cancel_btn = ttk.Button(
-            btn_frame, text="Cancel",
-            command=self._cancel,
-        )
-        cancel_btn.pack(side="right", padx=(8, 0))
+        confirm_btn = wx.Button(self, wx.ID_OK, "Rename All")
+        confirm_btn.Bind(wx.EVT_BUTTON, self._on_confirm)
+        btn_sizer.Add(confirm_btn, 0, wx.RIGHT, 8)
 
-        confirm_btn = ttk.Button(
-            btn_frame, text="Rename All",
-            command=self._confirm,
-        )
-        confirm_btn.pack(side="right")
+        cancel_btn = wx.Button(self, wx.ID_CANCEL, "Cancel")
+        cancel_btn.Bind(wx.EVT_BUTTON, self._on_cancel)
+        btn_sizer.Add(cancel_btn, 0)
 
-        self.protocol("WM_DELETE_WINDOW", self._cancel)
-        self.bind("<Return>", lambda e: self._confirm())
-        self.bind("<Escape>", lambda e: self._cancel())
+        sizer.Add(btn_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
 
-    def _confirm(self):
+        sizer.AddSpacer(20)
+
+        self.SetSizer(sizer)
+        self.CenterOnParent()
+
+        # Keyboard shortcuts
+        self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
+
+    def _on_confirm(self, event):
+        """Handle Rename All button."""
         self.result = True
-        self.grab_release()
-        self.destroy()
+        self.EndModal(wx.ID_OK)
 
-    def _cancel(self):
+    def _on_cancel(self, event):
+        """Handle Cancel button."""
         self.result = False
-        self.grab_release()
-        self.destroy()
+        self.EndModal(wx.ID_CANCEL)
+
+    def _on_key(self, event):
+        """Handle keyboard shortcuts."""
+        key_code = event.GetKeyCode()
+        if key_code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
+            self._on_confirm(event)
+        elif key_code == wx.WXK_ESCAPE:
+            self._on_cancel(event)
+        else:
+            event.Skip()
 
 
-class ErrorListDialog(tk.Toplevel):
+class ErrorListDialog(wx.Dialog):
     """Dialog showing AI analysis errors in a structured table."""
 
     def __init__(self, parent, title: str, errors: list[tuple[str, str]], auth_aborted: bool = False):
-        super().__init__(parent)
-        self.title(title)
-        self.resizable(True, True)
-        self.transient(parent)
-        self.grab_set()
+        super().__init__(
+            parent,
+            title=title,
+            size=(650, 400),
+            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
+        )
 
-        w, h = 650, 400
-        x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
-        y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
-        self.geometry(f"{w}x{h}+{x}+{y}")
+        # Main sizer
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        sizer.AddSpacer(20)
 
         # Summary header
-        header_frame = ttk.Frame(self)
-        header_frame.pack(fill="x", padx=15, pady=(15, 5))
+        header_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        ttk.Label(
-            header_frame, text="\u26A0", font=(styles.Font.FAMILY, 20),
-            foreground=styles.Color.ERROR,
-        ).pack(side="left", padx=(0, 8))
+        symbol = wx.StaticText(self, label="\u26A0")
+        symbol_font = styles.Font.TITLE()
+        symbol_font.SetPointSize(20)
+        symbol.SetFont(symbol_font)
+        symbol.SetForegroundColour(styles.Color.ERROR)
+        header_sizer.Add(symbol, 0, wx.RIGHT, 8)
 
         summary = f"{len(errors)} error(s)"
         if auth_aborted:
             summary += " — batch aborted"
-        ttk.Label(
-            header_frame, text=summary, font=styles.Font.HEADING,
-            foreground=styles.Color.TEXT_PRIMARY,
-        ).pack(side="left")
+        summary_label = wx.StaticText(self, label=summary)
+        summary_label.SetFont(styles.Font.HEADING())
+        summary_label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        header_sizer.Add(summary_label, 0, wx.ALIGN_CENTER_VERTICAL)
 
-        # Treeview table
-        table_frame = ttk.Frame(self)
-        table_frame.pack(fill="both", expand=True, padx=15, pady=10)
+        sizer.Add(header_sizer, 0, wx.LEFT | wx.RIGHT, 20)
 
-        style = ttk.Style()
-        style.configure(
-            "Error.Treeview", font=styles.Font.MONO, rowheight=26,
-            background=styles.Color.BG_PRIMARY, fieldbackground=styles.Color.BG_PRIMARY,
-            foreground=styles.Color.TEXT_PRIMARY,
+        sizer.AddSpacer(12)
+
+        # Prepare data and colors (all errors in red)
+        data = [[filename, error_msg] for filename, error_msg in errors]
+        colors = [styles.Color.ERROR] * len(errors)
+
+        # Create model and ctrl
+        self.model = TableModel(data, colors)
+        self.list_ctrl = dv.DataViewCtrl(
+            self,
+            style=dv.DV_ROW_LINES | dv.DV_VERT_RULES
         )
-        style.configure("Error.Treeview.Heading", font=styles.Font.SMALL)
-        style.map("Error.Treeview", background=[], foreground=[])
+        self.list_ctrl.SetFont(styles.Font.MONO())
+        self.list_ctrl.AssociateModel(self.model)
 
-        tree = ttk.Treeview(
-            table_frame, columns=("filename", "error"),
-            show="headings", selectmode="none", style="Error.Treeview",
-        )
-        tree.heading("filename", text="Filename", anchor="w")
-        tree.heading("error", text="Error", anchor="w")
-        tree.column("filename", width=300, minwidth=100, stretch=True)
-        tree.column("error", width=300, minwidth=100, stretch=True)
+        # Add columns
+        self.list_ctrl.AppendTextColumn("File Name", 0, width=300)
+        self.list_ctrl.AppendTextColumn("Error", 1, width=300)
 
-        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=tree.yview)
-        tree.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
-        tree.pack(fill="both", expand=True)
+        sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
 
-        # Row tags with alternating backgrounds
-        for parity in ("even", "odd"):
-            bg = styles.Color.BG_PRIMARY if parity == "even" else styles.Color.BG_SECONDARY
-            tree.tag_configure(f"error_{parity}", foreground=styles.Color.ERROR, background=bg)
-
-        for i, (filename, error_msg) in enumerate(errors):
-            parity = "even" if i % 2 == 0 else "odd"
-            tree.insert("", "end", values=(filename, error_msg), tags=(f"error_{parity}",))
+        sizer.AddSpacer(20)
 
         # OK button
-        ok_btn = ttk.Button(
-            self, text="OK",
-            command=self._close,
-        )
-        ok_btn.pack(pady=(0, 15))
+        ok_btn = wx.Button(self, wx.ID_OK, "OK")
+        ok_btn.Bind(wx.EVT_BUTTON, lambda evt: self.EndModal(wx.ID_OK))
+        sizer.Add(ok_btn, 0, wx.ALIGN_CENTER)
 
-        self.protocol("WM_DELETE_WINDOW", self._close)
-        self.bind("<Return>", lambda e: self._close())
-        self.bind("<Escape>", lambda e: self._close())
+        sizer.AddSpacer(20)
 
-    def _close(self):
-        self.grab_release()
-        self.destroy()
+        self.SetSizer(sizer)
+        self.CenterOnParent()
+
+        # Keyboard shortcuts
+        self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
+
+    def _on_key(self, event):
+        """Handle keyboard shortcuts."""
+        key_code = event.GetKeyCode()
+        if key_code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER, wx.WXK_ESCAPE):
+            self.EndModal(wx.ID_OK)
+        else:
+            event.Skip()
 
 
-class CompletionDialog(tk.Toplevel):
+class CompletionDialog(wx.Dialog):
     """Dialog showing rename results in a structured table."""
 
     def __init__(self, parent, title: str, results: list[RenameResult]):
-        super().__init__(parent)
-        self.title(title)
-        self.resizable(True, True)
-        self.transient(parent)
-        self.grab_set()
-
-        w, h = 650, 420
-        x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
-        y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
-        self.geometry(f"{w}x{h}+{x}+{y}")
+        super().__init__(
+            parent,
+            title=title,
+            size=(650, 420),
+            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
+        )
 
         # Compute counts
         renamed = sum(1 for r in results if r.success and r.message == "Renamed")
         skipped = sum(1 for r in results if r.success and r.message != "Renamed")
         errors = sum(1 for r in results if not r.success)
 
-        # Summary header
-        header_frame = ttk.Frame(self)
-        header_frame.pack(fill="x", padx=15, pady=(15, 5))
+        # Main sizer
+        sizer = wx.BoxSizer(wx.VERTICAL)
 
+        sizer.AddSpacer(20)
+
+        # Header
+        header = wx.StaticText(self, label="Rename Complete")
+        header.SetFont(styles.Font.TITLE())
+        header.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        sizer.Add(header, 0, wx.LEFT | wx.RIGHT, 20)
+
+        sizer.AddSpacer(4)
+
+        # Summary counts
+        summary = f"{renamed} renamed, {skipped} skipped"
         if errors:
-            symbol = "\u26A0"
-            symbol_color = styles.Color.ERROR
-        else:
-            symbol = "\u2713"
-            symbol_color = styles.Color.SUCCESS
+            summary += f", {errors} failed"
 
-        ttk.Label(
-            header_frame, text=symbol, font=(styles.Font.FAMILY, 20),
-            foreground=symbol_color,
-        ).pack(side="left", padx=(0, 8))
+        summary_label = wx.StaticText(self, label=summary)
+        summary_label.SetFont(styles.Font.BODY())
+        summary_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
+        sizer.Add(summary_label, 0, wx.LEFT | wx.RIGHT, 20)
 
-        counts = f"{renamed} renamed, {skipped} skipped"
-        if errors:
-            counts += f", {errors} failed"
-        ttk.Label(
-            header_frame, text=counts, font=styles.Font.HEADING,
-            foreground=styles.Color.TEXT_PRIMARY,
-        ).pack(side="left")
+        sizer.AddSpacer(12)
 
         # Filter to only renamed and error rows (skip rows already shown in confirm dialog)
         visible = [r for r in results if not r.success or r.message == "Renamed"]
 
-        # Treeview table with resizable columns
-        table_frame = ttk.Frame(self)
-        table_frame.pack(fill="both", expand=True, padx=15, pady=10)
+        # Show full paths only when multiple directories
+        directories = {(r.new_path if r.success else r.old_path).parent for r in results}
+        multi_dir = len(directories) > 1
 
-        style = ttk.Style()
-        style.configure(
-            "Complete.Treeview", font=styles.Font.MONO, rowheight=26,
-            background=styles.Color.BG_PRIMARY, fieldbackground=styles.Color.BG_PRIMARY,
-            foreground=styles.Color.TEXT_PRIMARY,
-        )
-        style.configure("Complete.Treeview.Heading", font=styles.Font.SMALL)
-        style.map("Complete.Treeview", background=[], foreground=[])
-
-        tree = ttk.Treeview(
-            table_frame, columns=("filename", "result"),
-            show="headings", selectmode="none", style="Complete.Treeview",
-        )
-        tree.heading("filename", text="Filename", anchor="w")
-        tree.heading("result", text="Result", anchor="w")
-        tree.column("filename", width=500, minwidth=150, stretch=True)
-        tree.column("result", width=70, minwidth=50, stretch=False)
-
-        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=tree.yview)
-        tree.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
-        tree.pack(fill="both", expand=True)
-
-        # Row tags
-        for parity in ("even", "odd"):
-            bg = styles.Color.BG_PRIMARY if parity == "even" else styles.Color.BG_SECONDARY
-            tree.tag_configure(f"ok_{parity}", foreground=styles.Color.SUCCESS, background=bg)
-            tree.tag_configure(f"error_{parity}", foreground=styles.Color.ERROR, background=bg)
-            tree.tag_configure(f"detail_{parity}", foreground=styles.Color.ERROR, background=bg)
-
-        for i, r in enumerate(visible):
-            parity = "even" if i % 2 == 0 else "odd"
-            display_name = r.new_path.name if r.success else r.old_path.name
+        # Prepare data and colors
+        data = []
+        colors = []
+        for r in visible:
+            path = r.new_path if r.success else r.old_path
+            display_name = _display_path(path) if multi_dir else path.name
             if r.success:
-                tree.insert("", "end", values=(display_name, "OK"), tags=(f"ok_{parity}",))
+                result_text = "OK"
+                colors.append(styles.Color.SUCCESS)
             else:
-                tree.insert("", "end", values=(display_name, "ERROR"), tags=(f"error_{parity}",))
-                tree.insert("", "end", values=(f"    {r.message}", ""), tags=(f"detail_{parity}",))
+                result_text = f"ERROR: {r.message}"
+                colors.append(styles.Color.ERROR)
+            data.append([display_name, result_text])
+
+        # Create model and ctrl
+        self.model = TableModel(data, colors)
+        self.list_ctrl = dv.DataViewCtrl(
+            self,
+            style=dv.DV_ROW_LINES | dv.DV_VERT_RULES
+        )
+        self.list_ctrl.SetFont(styles.Font.MONO())
+        self.list_ctrl.AssociateModel(self.model)
+
+        # Add columns
+        self.list_ctrl.AppendTextColumn("File Name", 0, width=490)
+        self.list_ctrl.AppendTextColumn("Result", 1, width=140)
+
+        sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
+
+        sizer.AddSpacer(20)
 
         # OK button
-        ok_btn = ttk.Button(
-            self, text="OK",
-            command=self._close,
-        )
-        ok_btn.pack(pady=(0, 15))
+        ok_btn = wx.Button(self, wx.ID_OK, "OK")
+        ok_btn.Bind(wx.EVT_BUTTON, lambda evt: self.EndModal(wx.ID_OK))
+        sizer.Add(ok_btn, 0, wx.ALIGN_CENTER)
 
-        self.protocol("WM_DELETE_WINDOW", self._close)
-        self.bind("<Return>", lambda e: self._close())
-        self.bind("<Escape>", lambda e: self._close())
+        sizer.AddSpacer(20)
 
-    def _close(self):
-        self.grab_release()
-        self.destroy()
+        self.SetSizer(sizer)
+        self.CenterOnParent()
+
+        # Keyboard shortcuts
+        self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
+
+    def _on_key(self, event):
+        """Handle keyboard shortcuts."""
+        key_code = event.GetKeyCode()
+        if key_code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER, wx.WXK_ESCAPE):
+            self.EndModal(wx.ID_OK)
+        else:
+            event.Skip()

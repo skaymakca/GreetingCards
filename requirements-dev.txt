@@ -1,0 +1,12 @@
+# Development dependencies
+# Includes all production dependencies plus testing/dev tools
+
+# Include production dependencies
+-r requirements.txt
+
+# Testing framework
+pytest==8.3.4
+pytest-cov==6.0.0          # Coverage reporting
+pytest-mock==3.14.0        # Mocking helpers
+pytest-xdist==3.6.1        # Parallel test execution
+pytest-watch==4.2.0        # Watch mode for tests

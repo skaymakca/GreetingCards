@@ -1,204 +1,254 @@
+"""Settings dialog with API key management and database controls."""
 import subprocess
-import tkinter as tk
-from tkinter import messagebox, ttk
-
+import wx
 from app.gui import styles
-from app.gui.icons import load_sf_symbol
-from app.gui.context_menu import add_entry_context_menu
 from app.core.config import get_api_key, save_api_key
 from app.core.database import reset_database
 from app.version import __version__
 
 
-class ApiKeyPrompt(tk.Toplevel):
+def show_settings_dialog(parent, on_db_reset=None):
+    """Show settings dialog.
+
+    Args:
+        parent: Parent window
+        on_db_reset: Optional callback when database is reset
+    """
+    dialog = SettingsDialog(parent, on_db_reset)
+    dialog.ShowModal()
+    dialog.Destroy()
+
+
+class ApiKeyPrompt(wx.Dialog):
     """Simple prompt for API key when needed for AI features."""
 
     def __init__(self, parent):
-        super().__init__(parent)
-        self.title("API Key Required")
-        self.resizable(False, False)
-        self.transient(parent)
-        self.grab_set()
-
-        w, h = 500, 200
-        x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
-        y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
-        self.geometry(f"{w}x{h}+{x}+{y}")
+        super().__init__(
+            parent,
+            title="API Key Required",
+            size=(500, 200),
+            style=wx.DEFAULT_DIALOG_STYLE
+        )
 
         self.result = None
 
-        # Message
-        ttk.Label(
-            self, text="AI analysis requires an Anthropic API key.",
-            font=styles.Font.BODY, foreground=styles.Color.TEXT_PRIMARY,
-        ).pack(pady=(20, 4), padx=20)
+        # Main sizer
+        sizer = wx.BoxSizer(wx.VERTICAL)
 
-        ttk.Label(
-            self, text="Get one at: console.anthropic.com",
-            font=styles.Font.SMALL, foreground=styles.Color.TEXT_SECONDARY,
-        ).pack(padx=20, pady=(0, 12))
+        # Message
+        msg = wx.StaticText(
+            self,
+            label="AI analysis requires an Anthropic API key."
+        )
+        msg.SetFont(styles.Font.BODY())
+        msg.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        sizer.Add(msg, 0, wx.ALL, 20)
+
+        link = wx.StaticText(
+            self,
+            label="Get one at: console.anthropic.com"
+        )
+        link.SetFont(styles.Font.SMALL())
+        link.SetForegroundColour(styles.Color.TEXT_SECONDARY)
+        sizer.Add(link, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 20)
 
         # Key entry
-        key_frame = ttk.Frame(self)
-        key_frame.pack(fill="x", padx=20, pady=8)
+        key_frame = wx.Panel(self)
+        key_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        ttk.Label(
-            key_frame, text="API Key:", font=styles.Font.BODY,
-            foreground=styles.Color.TEXT_PRIMARY,
-        ).pack(side="left", padx=(0, 8))
+        key_label = wx.StaticText(key_frame, label="API Key:")
+        key_label.SetFont(styles.Font.BODY())
+        key_label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        key_sizer.Add(key_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
 
-        self._key_entry = tk.Entry(key_frame, font=styles.Font.BODY, show="*", width=30)
-        self._key_entry.pack(side="left", fill="x", expand=True)
-        self._key_entry.focus_set()
-        self._key_entry.bind("<Return>", lambda e: self._save())
-        add_entry_context_menu(self._key_entry)
+        self._key_entry = wx.TextCtrl(
+            key_frame,
+            style=wx.TE_PASSWORD,
+            size=(300, -1)
+        )
+        self._key_entry.SetFont(styles.Font.BODY())
+        key_sizer.Add(self._key_entry, 1, wx.EXPAND)
+
+        key_frame.SetSizer(key_sizer)
+        sizer.Add(key_frame, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
 
         # Buttons
-        btn_frame = ttk.Frame(self)
-        btn_frame.pack(pady=(16, 24))
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        btn_sizer.AddStretchSpacer()
 
-        ttk.Button(
-            btn_frame, text="Cancel",
-            command=self._cancel,
-        ).pack(side="left", padx=6)
+        cancel_btn = wx.Button(self, wx.ID_CANCEL, "Cancel")
+        cancel_btn.Bind(wx.EVT_BUTTON, self._on_cancel)
+        btn_sizer.Add(cancel_btn, 0, wx.RIGHT, 8)
 
-        ttk.Button(
-            btn_frame, text="Save",
-            command=self._save,
-        ).pack(side="left", padx=6)
+        save_btn = wx.Button(self, wx.ID_OK, "Save")
+        save_btn.Bind(wx.EVT_BUTTON, self._on_save)
+        btn_sizer.Add(save_btn, 0)
 
-        self.protocol("WM_DELETE_WINDOW", self._cancel)
-        self.bind("<Escape>", lambda e: self._cancel())
+        sizer.Add(btn_sizer, 0, wx.EXPAND | wx.ALL, 20)
 
-    def _save(self):
-        key = self._key_entry.get().strip()
+        self.SetSizer(sizer)
+        self.CenterOnParent()
+
+        # Focus key entry
+        self._key_entry.SetFocus()
+
+        # Keyboard shortcuts
+        self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
+
+    def _on_save(self, event):
+        """Handle Save button click."""
+        key = self._key_entry.GetValue().strip()
         if key:
             save_api_key(key)
             self.result = True
-            self.grab_release()
-            self.destroy()
+            self.EndModal(wx.ID_OK)
         else:
-            messagebox.showwarning("Empty Key", "Please enter an API key.", parent=self)
+            wx.MessageBox(
+                "Please enter an API key.",
+                "Empty Key",
+                wx.OK | wx.ICON_WARNING,
+                self
+            )
 
-    def _cancel(self):
+    def _on_cancel(self, event):
+        """Handle Cancel button click."""
         self.result = False
-        self.grab_release()
-        self.destroy()
+        self.EndModal(wx.ID_CANCEL)
+
+    def _on_key(self, event):
+        """Handle keyboard shortcuts."""
+        key_code = event.GetKeyCode()
+        if key_code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
+            self._on_save(event)
+        elif key_code == wx.WXK_ESCAPE:
+            self._on_cancel(event)
+        else:
+            event.Skip()
 
 
-class SettingsDialog(tk.Toplevel):
+class SettingsDialog(wx.Dialog):
     """Settings window with API key management and database controls."""
 
     def __init__(self, parent, on_db_reset=None):
-        super().__init__(parent)
-        self.title("Settings")
-        self.resizable(False, False)
-        self.transient(parent)
-        self.grab_set()
-
-        w, h = 420, 330
-        x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
-        y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
-        self.geometry(f"{w}x{h}+{x}+{y}")
+        super().__init__(
+            parent,
+            title="Settings",
+            size=(420, 330),
+            style=wx.DEFAULT_DIALOG_STYLE
+        )
 
         self._on_db_reset = on_db_reset
 
+        # Main sizer
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
         # --- About section ---
-        ttk.Label(
-            self, text="Greeting Cards", font=styles.Font.TITLE,
-            foreground=styles.Color.TEXT_PRIMARY,
-        ).pack(padx=20, pady=(16, 0), anchor="w")
+        sizer.AddSpacer(20)
+
+        app_name = wx.StaticText(self, label="Greeting Cards")
+        app_name.SetFont(styles.Font.TITLE())
+        app_name.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        sizer.Add(app_name, 0, wx.LEFT | wx.RIGHT, 20)
+
+        sizer.AddSpacer(4)
 
         commit = self._get_commit_hash()
         version_text = f"Version {__version__}"
         if commit:
             version_text += f" ({commit})"
-        ttk.Label(
-            self, text=version_text, font=styles.Font.SMALL,
-            foreground=styles.Color.TEXT_SECONDARY,
-        ).pack(padx=20, anchor="w")
+        version_label = wx.StaticText(self, label=version_text)
+        version_label.SetFont(styles.Font.SMALL())
+        version_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
+        sizer.Add(version_label, 0, wx.LEFT | wx.RIGHT, 20)
 
-        # --- Separator ---
-        ttk.Separator(self, orient="horizontal").pack(
-            fill="x", padx=20, pady=(12, 0)
-        )
+        sizer.AddSpacer(16)
+
+        # Separator
+        sep1 = wx.StaticLine(self)
+        sizer.Add(sep1, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
+
+        sizer.AddSpacer(16)
 
         # --- API Key section ---
-        ttk.Label(
-            self, text="API Key", font=styles.Font.HEADING,
-            foreground=styles.Color.TEXT_PRIMARY,
-        ).pack(pady=(16, 4), padx=20, anchor="w")
+        api_heading = wx.StaticText(self, label="API Key")
+        api_heading.SetFont(styles.Font.HEADING())
+        api_heading.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        sizer.Add(api_heading, 0, wx.LEFT | wx.RIGHT, 20)
 
-        key_frame = ttk.Frame(self)
-        key_frame.pack(fill="x", padx=20)
+        sizer.AddSpacer(8)
 
-        self._key_entry = tk.Entry(key_frame, font=styles.Font.BODY, show="*")
-        self._key_entry.pack(side="left", fill="x", expand=True)
+        # Key entry frame
+        key_frame = wx.Panel(self)
+        key_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
+        self._key_entry = wx.TextCtrl(key_frame, style=wx.TE_PASSWORD)
+        self._key_entry.SetFont(styles.Font.BODY())
         current_key = get_api_key()
         if current_key:
-            self._key_entry.insert(0, current_key)
+            self._key_entry.SetValue(current_key)
+        key_sizer.Add(self._key_entry, 1, wx.EXPAND)
 
-        add_entry_context_menu(self._key_entry)
+        self._save_key_btn = wx.Button(key_frame, label="Save")
+        self._save_key_btn.Bind(wx.EVT_BUTTON, self._save_api_key)
+        key_sizer.Add(self._save_key_btn, 0, wx.LEFT, 8)
 
-        self._save_key_btn = ttk.Button(
-            key_frame, text="Save",
-            command=self._save_api_key,
-        )
-        self._save_key_btn.pack(side="left", padx=(8, 0))
+        key_frame.SetSizer(key_sizer)
+        sizer.Add(key_frame, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
 
-        # Status label (keep tk.Label — changes fg dynamically)
-        self._key_status = tk.Label(
-            self, text="", font=styles.Font.SMALL,
-            fg=styles.Color.SUCCESS,
-        )
-        self._key_status.pack(padx=20, anchor="w")
+        sizer.AddSpacer(4)
 
-        # --- Separator ---
-        ttk.Separator(self, orient="horizontal").pack(
-            fill="x", padx=20, pady=(12, 0)
-        )
+        # Status label
+        self._key_status = wx.StaticText(self, label="")
+        self._key_status.SetFont(styles.Font.SMALL())
+        sizer.Add(self._key_status, 0, wx.LEFT | wx.RIGHT, 20)
+
+        sizer.AddSpacer(16)
+
+        # Separator
+        sep2 = wx.StaticLine(self)
+        sizer.Add(sep2, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
+
+        sizer.AddSpacer(16)
 
         # --- Database section ---
-        ttk.Label(
-            self, text="Database", font=styles.Font.HEADING,
-            foreground=styles.Color.TEXT_PRIMARY,
-        ).pack(pady=(12, 4), padx=20, anchor="w")
+        db_heading = wx.StaticText(self, label="Database")
+        db_heading.SetFont(styles.Font.HEADING())
+        db_heading.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        sizer.Add(db_heading, 0, wx.LEFT | wx.RIGHT, 20)
 
-        db_frame = ttk.Frame(self)
-        db_frame.pack(fill="x", padx=20)
+        sizer.AddSpacer(8)
 
-        ttk.Label(
-            db_frame, text="Clear all cached OCR/AI results and rebuild.",
-            font=styles.Font.SMALL, foreground=styles.Color.TEXT_SECONDARY,
-        ).pack(side="left")
+        db_frame = wx.Panel(self)
+        db_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        self._rebuild_btn = ttk.Button(
-            db_frame, text="Rebuild",
-            command=self._rebuild_db,
+        db_desc = wx.StaticText(
+            db_frame,
+            label="Clear all cached OCR/AI results and rebuild."
         )
-        self._rebuild_btn.pack(side="right")
+        db_desc.SetFont(styles.Font.SMALL())
+        db_desc.SetForegroundColour(styles.Color.TEXT_SECONDARY)
+        db_sizer.Add(db_desc, 1, wx.ALIGN_CENTER_VERTICAL)
 
-        # --- Close ---
-        close_btn = ttk.Button(
-            self, text="Close",
-            command=self._close,
-        )
-        close_btn.pack(pady=(16, 16))
+        self._rebuild_btn = wx.Button(db_frame, label="Rebuild")
+        self._rebuild_btn.Bind(wx.EVT_BUTTON, self._rebuild_db)
+        db_sizer.Add(self._rebuild_btn, 0, wx.LEFT, 8)
 
-        # Apply SF Symbol icons
-        self._icons = {}
-        for key, symbol, btn in [
-            ("save", "checkmark", self._save_key_btn),
-            ("rebuild", "arrow.triangle.2.circlepath", self._rebuild_btn),
-        ]:
-            icon = load_sf_symbol(symbol, 6, styles.Color.TEXT_PRIMARY)
-            if icon:
-                self._icons[key] = icon
-                btn.config(image=icon, compound="left")
+        db_frame.SetSizer(db_sizer)
+        sizer.Add(db_frame, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
 
-        self.protocol("WM_DELETE_WINDOW", self._close)
-        self.bind("<Escape>", lambda e: self._close())
+        # Add spacer before close button
+        sizer.AddStretchSpacer()
+
+        # Close button
+        close_btn = wx.Button(self, wx.ID_CLOSE, "Close")
+        close_btn.Bind(wx.EVT_BUTTON, lambda evt: self.EndModal(wx.ID_CLOSE))
+        sizer.Add(close_btn, 0, wx.ALIGN_CENTER | wx.BOTTOM, 20)
+
+        self.SetSizer(sizer)
+        self.CenterOnParent()
+
+        # Keyboard shortcuts
+        self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
 
     @staticmethod
     def _get_commit_hash() -> str:
@@ -211,27 +261,43 @@ class SettingsDialog(tk.Toplevel):
         except Exception:
             return ""
 
-    def _save_api_key(self):
-        key = self._key_entry.get().strip()
+    def _save_api_key(self, event):
+        """Save API key and show status."""
+        key = self._key_entry.GetValue().strip()
         if key:
             save_api_key(key)
-            self._key_status.config(text="Saved", fg=styles.Color.SUCCESS)
+            self._key_status.SetLabel("Saved")
+            self._key_status.SetForegroundColour(styles.Color.SUCCESS)
         else:
-            self._key_status.config(text="Key cannot be empty", fg=styles.Color.ERROR)
+            self._key_status.SetLabel("Key cannot be empty")
+            self._key_status.SetForegroundColour(styles.Color.ERROR)
+        self.Layout()
 
-    def _rebuild_db(self):
-        confirm = messagebox.askyesno(
-            "Rebuild Database",
+    def _rebuild_db(self, event):
+        """Rebuild database after confirmation."""
+        result = wx.MessageBox(
             "This will delete all cached OCR results, AI results, and manual edits.\n\nContinue?",
-            parent=self,
+            "Rebuild Database",
+            wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION,
+            self
         )
-        if not confirm:
+        if result != wx.YES:
             return
+
         reset_database()
-        messagebox.showinfo("Database Rebuilt", "The cache has been cleared.", parent=self)
+        wx.MessageBox(
+            "The cache has been cleared.",
+            "Database Rebuilt",
+            wx.OK | wx.ICON_INFORMATION,
+            self
+        )
+
         if self._on_db_reset:
             self._on_db_reset()
 
-    def _close(self):
-        self.grab_release()
-        self.destroy()
+    def _on_key(self, event):
+        """Handle keyboard shortcuts."""
+        if event.GetKeyCode() == wx.WXK_ESCAPE:
+            self.EndModal(wx.ID_CLOSE)
+        else:
+            event.Skip()

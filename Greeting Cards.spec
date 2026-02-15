@@ -7,7 +7,9 @@ __commit__ = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).de
 datas = [('icon.png', '.')]
 binaries = []
 hiddenimports = []
-tmp_ret = collect_all('tkinterdnd2')
+
+# Collect wxPython dependencies
+tmp_ret = collect_all('wx')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
