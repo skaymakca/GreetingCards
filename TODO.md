@@ -2,23 +2,23 @@
 
 ## Test Coverage Gaps
 
-### Core Modules (no tests)
-- [ ] `app/core/database.py` — persistence layer, schema management
-- [ ] `app/core/ai_analyzer.py` — AI analysis with Anthropic API
-- [ ] `app/core/name_extractor.py` — name extraction pipeline
-- [ ] `app/core/ocr_engine.py` — OCR processing
-- [ ] `app/core/pdf_renderer.py` — PDF rendering
-- [ ] `app/core/config.py` — configuration management
-- [ ] `app/core/paths.py` — path utilities
+### Core Modules
+- [x] `app/core/database.py` — persistence layer, schema management
+- [x] `app/core/ai_analyzer.py` — AI analysis with Anthropic API
+- [x] `app/core/name_extractor.py` — name extraction pipeline
+- [x] `app/core/ocr_engine.py` — OCR processing
+- [x] `app/core/pdf_renderer.py` — PDF rendering
+- [x] `app/core/config.py` — configuration management
+- [x] `app/core/paths.py` — path utilities
 
-### Models (no tests)
-- [ ] `app/models/card.py` — card data model
+### Models
+- [x] `app/models/card.py` — card data model
 
-### GUI Modules (no tests)
-- [ ] `app/gui/api_key_dialog.py`
-- [ ] `app/gui/help_dialog.py`
-- [ ] `app/gui/settings_dialog.py`
-- [ ] `app/gui/styles.py`
+### GUI Modules
+- [x] `app/gui/api_key_dialog.py`
+- [x] `app/gui/help_dialog.py`
+- [x] `app/gui/settings_dialog.py`
+- [x] `app/gui/styles.py`
 
 ## Cleanup
 - [x] Delete `.wxmigration` file (migration complete)

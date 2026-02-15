@@ -63,7 +63,7 @@ def extract_family_names(text: str) -> list[NameMatch]:
             # Remove trailing 's' to get family name
             base = name[:-1] if not name.endswith("ss") else name
             if _is_valid_name(base) and base.lower() not in GREETING_WORDS:
-                results.append((base, Confidence.HIGH))
+                results.append(NameMatch(base, Confidence.HIGH))
 
     # "From the Johnsons" / "From the Smith Family"
     for line in lines:
