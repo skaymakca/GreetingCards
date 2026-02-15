@@ -2,7 +2,7 @@
 
 import wx
 from pathlib import Path
-from app.gui import wx_styles
+from app.gui import styles
 from app.models.card import CardResult, Confidence
 
 
@@ -58,7 +58,7 @@ class FilterSidebar(wx.Panel):
         # --- Category section ---
         header = wx.StaticText(self, label="CONFIDENCE")
         header.SetFont(wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
-        header.SetForegroundColour(wx_styles.Color.TEXT_SECONDARY)
+        header.SetForegroundColour(styles.Color.TEXT_SECONDARY)
         sizer.Add(header, 0, wx.ALL, 10)
 
         self._category_checkboxes: list[wx.CheckBox] = []
@@ -78,7 +78,7 @@ class FilterSidebar(wx.Panel):
 
         self._folder_header = wx.StaticText(self, label="FOLDERS")
         self._folder_header.SetFont(wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
-        self._folder_header.SetForegroundColour(wx_styles.Color.TEXT_SECONDARY)
+        self._folder_header.SetForegroundColour(styles.Color.TEXT_SECONDARY)
         sizer.Add(self._folder_header, 0, wx.LEFT | wx.RIGHT, 10)
         self._folder_header.Hide()
 
@@ -95,8 +95,8 @@ class FilterSidebar(wx.Panel):
         sizer.AddSpacer(10)
 
         info = wx.StaticText(self, label="\u2325-click to multi-select")
-        info.SetFont(wx_styles.Font.SMALL())
-        info.SetForegroundColour(wx_styles.Color.TEXT_SECONDARY)
+        info.SetFont(styles.Font.SMALL())
+        info.SetForegroundColour(styles.Color.TEXT_SECONDARY)
         sizer.Add(info, 0, wx.ALL, 10)
 
         self.SetSizer(sizer)

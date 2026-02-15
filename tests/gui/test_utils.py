@@ -3,7 +3,7 @@
 import pytest
 import wx
 from PIL import Image
-from app.gui import wx_utils
+from app.gui import utils
 
 
 class TestColorConversion:
@@ -12,7 +12,7 @@ class TestColorConversion:
     @pytest.mark.unit
     def test_hex_to_colour_with_hash(self):
         """Should convert hex string with # prefix to wx.Colour."""
-        colour = wx_utils.hex_to_colour("#FFFFFF")
+        colour = utils.hex_to_colour("#FFFFFF")
         assert colour.Red() == 255
         assert colour.Green() == 255
         assert colour.Blue() == 255
@@ -20,7 +20,7 @@ class TestColorConversion:
     @pytest.mark.unit
     def test_hex_to_colour_without_hash(self):
         """Should convert hex string without # prefix to wx.Colour."""
-        colour = wx_utils.hex_to_colour("000000")
+        colour = utils.hex_to_colour("000000")
         assert colour.Red() == 0
         assert colour.Green() == 0
         assert colour.Blue() == 0
@@ -38,7 +38,7 @@ class TestColorConversion:
     ])
     def test_hex_to_colour_various_colors(self, hex_str, r, g, b):
         """Test hex to colour conversion for various colors."""
-        colour = wx_utils.hex_to_colour(hex_str)
+        colour = utils.hex_to_colour(hex_str)
         assert colour.Red() == r
         assert colour.Green() == g
         assert colour.Blue() == b
@@ -47,14 +47,14 @@ class TestColorConversion:
     def test_colour_to_hex_white(self):
         """Should convert white wx.Colour to hex string."""
         colour = wx.Colour(255, 255, 255)
-        hex_str = wx_utils.colour_to_hex(colour)
+        hex_str = utils.colour_to_hex(colour)
         assert hex_str == "#FFFFFF"
 
     @pytest.mark.unit
     def test_colour_to_hex_black(self):
         """Should convert black wx.Colour to hex string."""
         colour = wx.Colour(0, 0, 0)
-        hex_str = wx_utils.colour_to_hex(colour)
+        hex_str = utils.colour_to_hex(colour)
         assert hex_str == "#000000"
 
     @pytest.mark.unit
@@ -69,23 +69,23 @@ class TestColorConversion:
     def test_colour_to_hex_various_colors(self, r, g, b, expected_hex):
         """Test colour to hex conversion for various colors."""
         colour = wx.Colour(r, g, b)
-        hex_str = wx_utils.colour_to_hex(colour)
+        hex_str = utils.colour_to_hex(colour)
         assert hex_str == expected_hex
 
     @pytest.mark.unit
     def test_hex_to_colour_round_trip(self):
         """Should convert hex -> colour -> hex without loss."""
         original_hex = "#34C759"
-        colour = wx_utils.hex_to_colour(original_hex)
-        result_hex = wx_utils.colour_to_hex(colour)
+        colour = utils.hex_to_colour(original_hex)
+        result_hex = utils.colour_to_hex(colour)
         assert result_hex == original_hex
 
     @pytest.mark.unit
     def test_colour_to_hex_round_trip(self):
         """Should convert colour -> hex -> colour without loss."""
         original = wx.Colour(0, 122, 255)
-        hex_str = wx_utils.colour_to_hex(original)
-        result = wx_utils.hex_to_colour(hex_str)
+        hex_str = utils.colour_to_hex(original)
+        result = utils.hex_to_colour(hex_str)
         assert result.Red() == original.Red()
         assert result.Green() == original.Green()
         assert result.Blue() == original.Blue()
@@ -104,7 +104,7 @@ class TestImageConversion:
         pil_img = Image.new('RGB', (100, 50), color=(255, 0, 0))
 
         # Convert to wx.Bitmap
-        bitmap = wx_utils.pil_to_bitmap(pil_img)
+        bitmap = utils.pil_to_bitmap(pil_img)
 
         # Verify dimensions
         assert bitmap.GetWidth() == 100
@@ -117,7 +117,7 @@ class TestImageConversion:
         pil_img = Image.new('RGBA', (100, 50), color=(0, 255, 0, 128))
 
         # Convert to wx.Bitmap
-        bitmap = wx_utils.pil_to_bitmap(pil_img)
+        bitmap = utils.pil_to_bitmap(pil_img)
 
         # Verify dimensions
         assert bitmap.GetWidth() == 100
@@ -130,7 +130,7 @@ class TestImageConversion:
         pil_img = Image.new('L', (100, 50), color=128)
 
         # Convert to wx.Bitmap
-        bitmap = wx_utils.pil_to_bitmap(pil_img)
+        bitmap = utils.pil_to_bitmap(pil_img)
 
         # Verify dimensions
         assert bitmap.GetWidth() == 100
@@ -143,7 +143,7 @@ class TestImageConversion:
         pil_img = Image.new('RGB', (100, 50), color=(0, 0, 255))
 
         # Convert to wx.Image
-        wx_img = wx_utils.pil_to_image(pil_img)
+        wx_img = utils.pil_to_image(pil_img)
 
         # Verify dimensions
         assert wx_img.GetWidth() == 100
@@ -156,7 +156,7 @@ class TestImageConversion:
         pil_img = Image.new('RGBA', (100, 50), color=(255, 255, 0, 200))
 
         # Convert to wx.Image
-        wx_img = wx_utils.pil_to_image(pil_img)
+        wx_img = utils.pil_to_image(pil_img)
 
         # Verify dimensions
         assert wx_img.GetWidth() == 100
@@ -167,10 +167,10 @@ class TestImageConversion:
         """Should scale bitmap to double size."""
         # Create a small bitmap
         pil_img = Image.new('RGB', (50, 25), color=(255, 0, 0))
-        bitmap = wx_utils.pil_to_bitmap(pil_img)
+        bitmap = utils.pil_to_bitmap(pil_img)
 
         # Scale to double size
-        scaled = wx_utils.scale_bitmap(bitmap, 2.0)
+        scaled = utils.scale_bitmap(bitmap, 2.0)
 
         assert scaled.GetWidth() == 100
         assert scaled.GetHeight() == 50
@@ -180,10 +180,10 @@ class TestImageConversion:
         """Should scale bitmap to half size."""
         # Create a bitmap
         pil_img = Image.new('RGB', (100, 50), color=(0, 255, 0))
-        bitmap = wx_utils.pil_to_bitmap(pil_img)
+        bitmap = utils.pil_to_bitmap(pil_img)
 
         # Scale to half size
-        scaled = wx_utils.scale_bitmap(bitmap, 0.5)
+        scaled = utils.scale_bitmap(bitmap, 0.5)
 
         assert scaled.GetWidth() == 50
         assert scaled.GetHeight() == 25
@@ -193,10 +193,10 @@ class TestImageConversion:
         """Should return same size bitmap when scale = 1.0."""
         # Create a bitmap
         pil_img = Image.new('RGB', (100, 50), color=(0, 0, 255))
-        bitmap = wx_utils.pil_to_bitmap(pil_img)
+        bitmap = utils.pil_to_bitmap(pil_img)
 
         # Scale to same size
-        scaled = wx_utils.scale_bitmap(bitmap, 1.0)
+        scaled = utils.scale_bitmap(bitmap, 1.0)
 
         assert scaled.GetWidth() == 100
         assert scaled.GetHeight() == 50
@@ -212,7 +212,7 @@ class TestWidgetCreation:
 
     def test_create_button_basic(self, wx_frame):
         """Should create a button with label."""
-        btn = wx_utils.create_button(wx_frame, "Test Button")
+        btn = utils.create_button(wx_frame, "Test Button")
 
         assert btn.GetLabel() == "Test Button"
         assert isinstance(btn, wx.Button)
@@ -224,7 +224,7 @@ class TestWidgetCreation:
         def callback():
             callback_called.append(True)
 
-        btn = wx_utils.create_button(wx_frame, "Click Me", callback)
+        btn = utils.create_button(wx_frame, "Click Me", callback)
 
         # Simulate button click
         event = wx.CommandEvent(wx.wxEVT_BUTTON, btn.GetId())
@@ -234,7 +234,7 @@ class TestWidgetCreation:
 
     def test_create_button_with_tooltip(self, wx_frame):
         """Should create a button with tooltip."""
-        btn = wx_utils.create_button(wx_frame, "Test", tooltip="This is a tooltip")
+        btn = utils.create_button(wx_frame, "Test", tooltip="This is a tooltip")
 
         tooltip = btn.GetToolTip()
         assert tooltip is not None
@@ -242,27 +242,27 @@ class TestWidgetCreation:
 
     def test_create_text_ctrl_basic(self, wx_frame):
         """Should create a text control with initial value."""
-        text = wx_utils.create_text_ctrl(wx_frame, value="Initial Text")
+        text = utils.create_text_ctrl(wx_frame, value="Initial Text")
 
         assert text.GetValue() == "Initial Text"
         assert isinstance(text, wx.TextCtrl)
 
     def test_create_text_ctrl_empty(self, wx_frame):
         """Should create an empty text control."""
-        text = wx_utils.create_text_ctrl(wx_frame)
+        text = utils.create_text_ctrl(wx_frame)
 
         assert text.GetValue() == ""
 
     def test_create_text_ctrl_with_style(self, wx_frame):
         """Should create a text control with custom style."""
-        text = wx_utils.create_text_ctrl(wx_frame, style=wx.TE_PASSWORD)
+        text = utils.create_text_ctrl(wx_frame, style=wx.TE_PASSWORD)
 
         # Check that it has the password style
         assert text.GetWindowStyle() & wx.TE_PASSWORD
 
     def test_create_static_text_basic(self, wx_frame):
         """Should create a static text label."""
-        label = wx_utils.create_static_text(wx_frame, "Test Label")
+        label = utils.create_static_text(wx_frame, "Test Label")
 
         assert label.GetLabel() == "Test Label"
         assert isinstance(label, wx.StaticText)
@@ -270,7 +270,7 @@ class TestWidgetCreation:
     def test_create_static_text_with_font(self, wx_frame):
         """Should create a static text with custom font."""
         font = wx.Font(wx.FontInfo(16).Bold())
-        label = wx_utils.create_static_text(wx_frame, "Test", font=font)
+        label = utils.create_static_text(wx_frame, "Test", font=font)
 
         result_font = label.GetFont()
         assert result_font.GetPointSize() == 16
@@ -279,7 +279,7 @@ class TestWidgetCreation:
     def test_create_static_text_with_colour(self, wx_frame):
         """Should create a static text with custom colour."""
         red = wx.Colour(255, 0, 0)
-        label = wx_utils.create_static_text(wx_frame, "Test", colour=red)
+        label = utils.create_static_text(wx_frame, "Test", colour=red)
 
         colour = label.GetForegroundColour()
         assert colour.Red() == 255
@@ -289,7 +289,7 @@ class TestWidgetCreation:
     def test_center_window(self, wx_frame):
         """Should center a window (no assertion, just verify no crash)."""
         # This is mainly to verify the function doesn't crash
-        wx_utils.center_window(wx_frame)
+        utils.center_window(wx_frame)
         # If we get here without exception, the test passes
 
 
@@ -305,16 +305,16 @@ class TestMessageDialogs:
         """Verify show_error is callable (doesn't test display)."""
         # We can't easily test modal dialogs in unit tests,
         # but we can verify the function signature works
-        assert callable(wx_utils.show_error)
+        assert callable(utils.show_error)
 
     def test_show_info_callable(self, wx_frame):
         """Verify show_info is callable (doesn't test display)."""
-        assert callable(wx_utils.show_info)
+        assert callable(utils.show_info)
 
     def test_show_warning_callable(self, wx_frame):
         """Verify show_warning is callable (doesn't test display)."""
-        assert callable(wx_utils.show_warning)
+        assert callable(utils.show_warning)
 
     def test_confirm_callable(self, wx_frame):
         """Verify confirm is callable (doesn't test display)."""
-        assert callable(wx_utils.confirm)
+        assert callable(utils.confirm)

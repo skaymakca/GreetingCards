@@ -3,7 +3,7 @@
 import pytest
 import wx
 import wx.dataview as dv
-from app.gui.wx_dialogs import TableModel
+from app.gui.dialogs import TableModel
 
 
 @pytest.mark.gui

@@ -2,7 +2,7 @@
 
 import wx
 from PIL import Image
-from app.gui import wx_styles, wx_utils
+from app.gui import styles, utils
 
 
 class PreviewPanel(wx.Panel):
@@ -41,7 +41,7 @@ class PreviewPanel(wx.Panel):
 
         # Load custom SF Symbol cursors (with fallback)
         try:
-            from app.gui.wx_icons import load_cursor_from_symbol
+            from app.gui.icons import load_cursor_from_symbol
             self._zoom_in_cursor = load_cursor_from_symbol(
                 "plus.magnifyingglass",
                 point_size=7,
@@ -69,16 +69,16 @@ class PreviewPanel(wx.Panel):
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         # Title
-        self._title_label = wx_utils.create_static_text(
+        self._title_label = utils.create_static_text(
             self, "Preview",
-            font=wx_styles.Font.HEADING(),
-            colour=wx_styles.Color.TEXT_PRIMARY
+            font=styles.Font.HEADING(),
+            colour=styles.Color.TEXT_PRIMARY
         )
-        sizer.Add(self._title_label, 0, wx.ALL, wx_styles.Layout.PAD)
+        sizer.Add(self._title_label, 0, wx.ALL, styles.Layout.PAD)
 
         # Canvas panel (custom painting)
         self._canvas = wx.Panel(self, style=wx.BORDER_NONE)
-        self._canvas.SetBackgroundColour(wx_styles.Color.BG_PRIMARY)
+        self._canvas.SetBackgroundColour(styles.Color.BG_PRIMARY)
         self._canvas.Bind(wx.EVT_PAINT, self._on_paint)
         self._canvas.Bind(wx.EVT_SIZE, self._on_resize)
 
@@ -105,10 +105,10 @@ class PreviewPanel(wx.Panel):
         self._prev_btn.Enable(False)
         page_sizer.Add(self._prev_btn, 0, wx.RIGHT, 2)
 
-        self._page_label = wx_utils.create_static_text(
+        self._page_label = utils.create_static_text(
             controls, "",
-            font=wx_styles.Font.SMALL(),
-            colour=wx_styles.Color.TEXT_PRIMARY
+            font=styles.Font.SMALL(),
+            colour=styles.Color.TEXT_PRIMARY
         )
         self._page_label.SetMinSize((70, -1))
         page_sizer.Add(self._page_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT | wx.RIGHT, 2)
@@ -134,10 +134,10 @@ class PreviewPanel(wx.Panel):
         self._zout_btn.Enable(False)
         zoom_sizer.Add(self._zout_btn, 0, wx.LEFT | wx.RIGHT, 2)
 
-        self._zoom_label = wx_utils.create_static_text(
+        self._zoom_label = utils.create_static_text(
             controls, "",
-            font=wx_styles.Font.SMALL(),
-            colour=wx_styles.Color.TEXT_PRIMARY
+            font=styles.Font.SMALL(),
+            colour=styles.Color.TEXT_PRIMARY
         )
         self._zoom_label.SetMinSize((50, -1))
         zoom_sizer.Add(self._zoom_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT | wx.RIGHT, 2)
@@ -150,7 +150,7 @@ class PreviewPanel(wx.Panel):
         controls_sizer.Add(zoom_sizer, 0, wx.ALIGN_CENTER_VERTICAL)
         controls.SetSizer(controls_sizer)
 
-        sizer.Add(controls, 0, wx.EXPAND | wx.ALL, wx_styles.Layout.PAD)
+        sizer.Add(controls, 0, wx.EXPAND | wx.ALL, styles.Layout.PAD)
 
         self.SetSizer(sizer)
 
@@ -474,7 +474,7 @@ class PreviewPanel(wx.Panel):
         resized = img.resize((new_w, new_h), Image.LANCZOS)
 
         # Convert to wx.Bitmap
-        self._bitmap_cache = wx_utils.pil_to_bitmap(resized)
+        self._bitmap_cache = utils.pil_to_bitmap(resized)
 
         # Trigger repaint
         self._canvas.Refresh()
@@ -505,8 +505,8 @@ class PreviewPanel(wx.Panel):
 
     def _paint_placeholder(self, dc):
         """Draw placeholder text when no images are loaded."""
-        dc.SetTextForeground(wx_styles.Color.TEXT_SECONDARY)
-        dc.SetFont(wx_styles.Font.BODY())
+        dc.SetTextForeground(styles.Color.TEXT_SECONDARY)
+        dc.SetFont(styles.Font.BODY())
         text = "Select a card to preview"
         tw, th = dc.GetTextExtent(text)
         cw, ch = self._canvas.GetSize()
@@ -521,14 +521,14 @@ class PreviewPanel(wx.Panel):
         cx, cy = cw // 2, ch // 2
 
         # Draw warning symbol
-        dc.SetTextForeground(wx_styles.Color.ERROR)
+        dc.SetTextForeground(styles.Color.ERROR)
         dc.SetFont(wx.Font(wx.FontInfo(32)))
         warning = "⚠"
         tw, th = dc.GetTextExtent(warning)
         dc.DrawText(warning, cx - tw // 2, cy - 30 - th // 2)
 
         # Draw error message
-        dc.SetFont(wx_styles.Font.BODY())
+        dc.SetFont(styles.Font.BODY())
         lines = self._wrap_text(dc, self._error_message, cw - 40)
         y_offset = cy + 20
         for line in lines:

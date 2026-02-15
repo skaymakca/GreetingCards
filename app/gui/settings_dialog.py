@@ -1,7 +1,7 @@
 """Settings dialog with API key management and database controls."""
 import subprocess
 import wx
-from app.gui import wx_styles
+from app.gui import styles
 from app.core.config import get_api_key, save_api_key
 from app.core.database import reset_database
 from app.version import __version__
@@ -40,16 +40,16 @@ class ApiKeyPrompt(wx.Dialog):
             self,
             label="AI analysis requires an Anthropic API key."
         )
-        msg.SetFont(wx_styles.Font.BODY())
-        msg.SetForegroundColour(wx_styles.Color.TEXT_PRIMARY)
+        msg.SetFont(styles.Font.BODY())
+        msg.SetForegroundColour(styles.Color.TEXT_PRIMARY)
         sizer.Add(msg, 0, wx.ALL, 20)
 
         link = wx.StaticText(
             self,
             label="Get one at: console.anthropic.com"
         )
-        link.SetFont(wx_styles.Font.SMALL())
-        link.SetForegroundColour(wx_styles.Color.TEXT_SECONDARY)
+        link.SetFont(styles.Font.SMALL())
+        link.SetForegroundColour(styles.Color.TEXT_SECONDARY)
         sizer.Add(link, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 20)
 
         # Key entry
@@ -57,8 +57,8 @@ class ApiKeyPrompt(wx.Dialog):
         key_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
         key_label = wx.StaticText(key_frame, label="API Key:")
-        key_label.SetFont(wx_styles.Font.BODY())
-        key_label.SetForegroundColour(wx_styles.Color.TEXT_PRIMARY)
+        key_label.SetFont(styles.Font.BODY())
+        key_label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
         key_sizer.Add(key_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
 
         self._key_entry = wx.TextCtrl(
@@ -66,7 +66,7 @@ class ApiKeyPrompt(wx.Dialog):
             style=wx.TE_PASSWORD,
             size=(300, -1)
         )
-        self._key_entry.SetFont(wx_styles.Font.BODY())
+        self._key_entry.SetFont(styles.Font.BODY())
         key_sizer.Add(self._key_entry, 1, wx.EXPAND)
 
         key_frame.SetSizer(key_sizer)
@@ -146,8 +146,8 @@ class SettingsDialog(wx.Dialog):
         sizer.AddSpacer(20)
 
         app_name = wx.StaticText(self, label="Greeting Cards")
-        app_name.SetFont(wx_styles.Font.TITLE())
-        app_name.SetForegroundColour(wx_styles.Color.TEXT_PRIMARY)
+        app_name.SetFont(styles.Font.TITLE())
+        app_name.SetForegroundColour(styles.Color.TEXT_PRIMARY)
         sizer.Add(app_name, 0, wx.LEFT | wx.RIGHT, 20)
 
         sizer.AddSpacer(4)
@@ -157,8 +157,8 @@ class SettingsDialog(wx.Dialog):
         if commit:
             version_text += f" ({commit})"
         version_label = wx.StaticText(self, label=version_text)
-        version_label.SetFont(wx_styles.Font.SMALL())
-        version_label.SetForegroundColour(wx_styles.Color.TEXT_SECONDARY)
+        version_label.SetFont(styles.Font.SMALL())
+        version_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
         sizer.Add(version_label, 0, wx.LEFT | wx.RIGHT, 20)
 
         sizer.AddSpacer(16)
@@ -171,8 +171,8 @@ class SettingsDialog(wx.Dialog):
 
         # --- API Key section ---
         api_heading = wx.StaticText(self, label="API Key")
-        api_heading.SetFont(wx_styles.Font.HEADING())
-        api_heading.SetForegroundColour(wx_styles.Color.TEXT_PRIMARY)
+        api_heading.SetFont(styles.Font.HEADING())
+        api_heading.SetForegroundColour(styles.Color.TEXT_PRIMARY)
         sizer.Add(api_heading, 0, wx.LEFT | wx.RIGHT, 20)
 
         sizer.AddSpacer(8)
@@ -182,7 +182,7 @@ class SettingsDialog(wx.Dialog):
         key_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
         self._key_entry = wx.TextCtrl(key_frame, style=wx.TE_PASSWORD)
-        self._key_entry.SetFont(wx_styles.Font.BODY())
+        self._key_entry.SetFont(styles.Font.BODY())
         current_key = get_api_key()
         if current_key:
             self._key_entry.SetValue(current_key)
@@ -199,7 +199,7 @@ class SettingsDialog(wx.Dialog):
 
         # Status label
         self._key_status = wx.StaticText(self, label="")
-        self._key_status.SetFont(wx_styles.Font.SMALL())
+        self._key_status.SetFont(styles.Font.SMALL())
         sizer.Add(self._key_status, 0, wx.LEFT | wx.RIGHT, 20)
 
         sizer.AddSpacer(16)
@@ -212,8 +212,8 @@ class SettingsDialog(wx.Dialog):
 
         # --- Database section ---
         db_heading = wx.StaticText(self, label="Database")
-        db_heading.SetFont(wx_styles.Font.HEADING())
-        db_heading.SetForegroundColour(wx_styles.Color.TEXT_PRIMARY)
+        db_heading.SetFont(styles.Font.HEADING())
+        db_heading.SetForegroundColour(styles.Color.TEXT_PRIMARY)
         sizer.Add(db_heading, 0, wx.LEFT | wx.RIGHT, 20)
 
         sizer.AddSpacer(8)
@@ -225,8 +225,8 @@ class SettingsDialog(wx.Dialog):
             db_frame,
             label="Clear all cached OCR/AI results and rebuild."
         )
-        db_desc.SetFont(wx_styles.Font.SMALL())
-        db_desc.SetForegroundColour(wx_styles.Color.TEXT_SECONDARY)
+        db_desc.SetFont(styles.Font.SMALL())
+        db_desc.SetForegroundColour(styles.Color.TEXT_SECONDARY)
         db_sizer.Add(db_desc, 1, wx.ALIGN_CENTER_VERTICAL)
 
         self._rebuild_btn = wx.Button(db_frame, label="Rebuild")
@@ -267,10 +267,10 @@ class SettingsDialog(wx.Dialog):
         if key:
             save_api_key(key)
             self._key_status.SetLabel("Saved")
-            self._key_status.SetForegroundColour(wx_styles.Color.SUCCESS)
+            self._key_status.SetForegroundColour(styles.Color.SUCCESS)
         else:
             self._key_status.SetLabel("Key cannot be empty")
-            self._key_status.SetForegroundColour(wx_styles.Color.ERROR)
+            self._key_status.SetForegroundColour(styles.Color.ERROR)
         self.Layout()
 
     def _rebuild_db(self, event):

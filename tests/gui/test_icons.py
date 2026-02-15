@@ -2,7 +2,7 @@
 
 import pytest
 import wx
-from app.gui.wx_icons import load_sf_symbol, load_menu_icon, _hex_to_rgb
+from app.gui.icons import load_sf_symbol, load_menu_icon, _hex_to_rgb
 
 
 @pytest.mark.gui

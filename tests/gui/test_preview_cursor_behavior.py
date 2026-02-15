@@ -8,7 +8,7 @@ import pytest
 import wx
 from unittest.mock import Mock, patch
 from PIL import Image
-from app.gui.wx_preview_panel import PreviewPanel
+from app.gui.preview_panel import PreviewPanel
 
 
 @pytest.fixture

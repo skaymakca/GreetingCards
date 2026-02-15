@@ -2,7 +2,7 @@
 
 import pytest
 import wx
-from app.gui.wx_context_menu import add_entry_context_menu, _title_case, _clear
+from app.gui.context_menu import add_entry_context_menu, _title_case, _clear
 
 
 @pytest.mark.gui

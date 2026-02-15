@@ -2,7 +2,7 @@
 
 Multiprocessing for PDF rendering, asyncio for AI batch, and thread-safety patterns.
 
-**Key files:** `app/gui/wx_main_window.py` (processing methods), `app/core/ai_analyzer.py`
+**Key files:** `app/gui/main_window.py` (processing methods), `app/core/ai_analyzer.py`
 
 ## Architecture Overview
 

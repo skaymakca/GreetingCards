@@ -107,7 +107,7 @@ python main.py
 Build the `.app` bundle (requires `pip install pyinstaller`):
 
 ```bash
-pyinstaller -y --windowed --name="Greeting Cards" --collect-all tkinterdnd2 main.py
+pyinstaller -y "Greeting Cards.spec"
 ```
 
 ## Testing
@@ -138,7 +138,7 @@ tests/
 ├── core/
 │   └── test_name_formatting.py   # Name parsing and formatting logic
 └── gui/
-    └── test_wx_utils.py          # wxPython utility functions
+    └── test_utils.py             # wxPython utility functions
 ```
 
 **Test markers:**
@@ -165,7 +165,7 @@ tests/
   - Apostrophe names ("o'brien" → "O'Brien")
   - Hyphenated names ("smith-jones" → "Smith-Jones")
   - Particles (van/von/de), suffixes (Jr./Sr./III), complex combinations
-- **GUI utilities** (wx_utils.py): Color conversion, image handling, widget creation
+- **GUI utilities** (utils.py): Color conversion, image handling, widget creation
 
 ### Adding Tests
 

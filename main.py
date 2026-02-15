@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 import wx
-from app.gui.wx_main_window import MainWindow
+from app.gui.main_window import MainWindow
 
 
 def main():

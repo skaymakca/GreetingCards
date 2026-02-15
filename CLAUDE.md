@@ -50,17 +50,12 @@ Greeting Cards - macOS app for organizing and renaming greeting card PDFs using 
 
 ### Tech Stack
 - Python 3.14 (from python.org)
-- wxPython (migrating from tkinter)
+- wxPython for native macOS GUI
 - PyMuPDF for PDF rendering
 - Anthropic Claude API for AI analysis
 
-### Active Work
-- **Branch:** `wx`
-- **Goal:** Migrate from tkinter to wxPython for native macOS appearance
-- See `WX_MIGRATION_PLAN.md` for full migration plan
-
 ### Key Notes
-- macOS native widgets: use ttk/wx widgets without explicit bg colors
+- macOS native widgets: use wx widgets without explicit bg colors
 - Python 3.14: exception variables cleared after except block
 - Always test both source version and app bundle when making UI changes
 
@@ -72,12 +67,12 @@ When editing files in these areas, **read the corresponding doc first**, then **
 
 | Files Being Edited | Read First |
 |---|---|
-| `app/gui/wx_main_window.py` (filters, `_refresh_display`) | `docs/architecture/filter-pipeline.md` |
-| `app/gui/wx_filter_sidebar.py` | `docs/architecture/filter-pipeline.md` |
-| `app/gui/wx_main_window.py` (card loading, state, dedup) | `docs/architecture/card-data-model.md` |
+| `app/gui/main_window.py` (filters, `_refresh_display`) | `docs/architecture/filter-pipeline.md` |
+| `app/gui/filter_sidebar.py` | `docs/architecture/filter-pipeline.md` |
+| `app/gui/main_window.py` (card loading, state, dedup) | `docs/architecture/card-data-model.md` |
 | `app/models/card.py` | `docs/architecture/card-data-model.md` |
-| `app/gui/wx_review_panel_master_detail.py` | `docs/architecture/review-panel.md` |
-| `app/gui/wx_main_window.py` (processing, AI, threads) | `docs/architecture/async-processing.md` |
+| `app/gui/review_panel.py` | `docs/architecture/review-panel.md` |
+| `app/gui/main_window.py` (processing, AI, threads) | `docs/architecture/async-processing.md` |
 | `app/core/ai_analyzer.py` | `docs/architecture/async-processing.md` |
 | `app/core/name_extractor.py`, `app/core/name_formatting.py` | `docs/architecture/name-pipeline.md` |
 | `app/core/database.py`, `app/core/renamer.py` | `docs/architecture/name-pipeline.md` |

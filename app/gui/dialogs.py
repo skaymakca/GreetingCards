@@ -3,7 +3,7 @@
 import wx
 import wx.dataview as dv
 from pathlib import Path
-from app.gui import wx_styles
+from app.gui import styles
 from app.models.card import RenamePlanItem, RenameResult
 
 
@@ -81,15 +81,15 @@ class ProgressDialog(wx.Dialog):
 
         # Create panel
         panel = wx.Panel(self)
-        panel.SetBackgroundColour(wx_styles.Color.BG_PRIMARY)
+        panel.SetBackgroundColour(styles.Color.BG_PRIMARY)
 
         # Main sizer
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         # Message label
         self.label = wx.StaticText(panel, label="Processing...")
-        self.label.SetFont(wx_styles.Font.BODY())
-        self.label.SetForegroundColour(wx_styles.Color.TEXT_PRIMARY)
+        self.label.SetFont(styles.Font.BODY())
+        self.label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
         sizer.Add(self.label, 0, wx.ALL, 20)
 
         # Progress bar
@@ -98,8 +98,8 @@ class ProgressDialog(wx.Dialog):
 
         # Count label
         self.count_label = wx.StaticText(panel, label=f"0 / {total}")
-        self.count_label.SetFont(wx_styles.Font.SMALL())
-        self.count_label.SetForegroundColour(wx_styles.Color.TEXT_SECONDARY)
+        self.count_label.SetFont(styles.Font.SMALL())
+        self.count_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
         sizer.Add(self.count_label, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         # Set sizers
@@ -159,8 +159,8 @@ class RenameConfirmDialog(wx.Dialog):
 
         # Header
         header = wx.StaticText(self, label="Rename Plan")
-        header.SetFont(wx_styles.Font.TITLE())
-        header.SetForegroundColour(wx_styles.Color.TEXT_PRIMARY)
+        header.SetFont(styles.Font.TITLE())
+        header.SetForegroundColour(styles.Color.TEXT_PRIMARY)
         sizer.Add(header, 0, wx.LEFT | wx.RIGHT, 20)
 
         sizer.AddSpacer(4)
@@ -185,8 +185,8 @@ class RenameConfirmDialog(wx.Dialog):
             summary += f" across {len(directories)} directories"
 
         summary_label = wx.StaticText(self, label=summary)
-        summary_label.SetFont(wx_styles.Font.BODY())
-        summary_label.SetForegroundColour(wx_styles.Color.TEXT_SECONDARY)
+        summary_label.SetFont(styles.Font.BODY())
+        summary_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
         sizer.Add(summary_label, 0, wx.LEFT | wx.RIGHT, 20)
 
         sizer.AddSpacer(12)
@@ -197,11 +197,11 @@ class RenameConfirmDialog(wx.Dialog):
             "skip_no_name": "SKIP", "skip_same": "SAME", "skip_error": "ERROR",
         }
         STATUS_COLORS = {
-            "ok": wx_styles.Color.SUCCESS,
-            "duplicate": wx_styles.Color.TEXT_PRIMARY,
-            "skip_no_name": wx_styles.Color.TEXT_SECONDARY,
-            "skip_same": wx_styles.Color.TEXT_SECONDARY,
-            "skip_error": wx_styles.Color.ERROR,
+            "ok": styles.Color.SUCCESS,
+            "duplicate": styles.Color.TEXT_PRIMARY,
+            "skip_no_name": styles.Color.TEXT_SECONDARY,
+            "skip_same": styles.Color.TEXT_SECONDARY,
+            "skip_error": styles.Color.ERROR,
         }
 
         # Show full paths only when multiple directories
@@ -218,7 +218,7 @@ class RenameConfirmDialog(wx.Dialog):
                 new_display = "-"
             status_text = STATUS_LABELS.get(item.status, item.status)
             data.append([old_display, new_display, status_text])
-            colors.append(STATUS_COLORS.get(item.status, wx_styles.Color.TEXT_PRIMARY))
+            colors.append(STATUS_COLORS.get(item.status, styles.Color.TEXT_PRIMARY))
 
         # Create model and ctrl
         self.model = TableModel(data, colors)
@@ -226,7 +226,7 @@ class RenameConfirmDialog(wx.Dialog):
             self,
             style=dv.DV_ROW_LINES | dv.DV_VERT_RULES
         )
-        self.list_ctrl.SetFont(wx_styles.Font.MONO())
+        self.list_ctrl.SetFont(styles.Font.MONO())
         self.list_ctrl.AssociateModel(self.model)
 
         # Add columns
@@ -303,18 +303,18 @@ class ErrorListDialog(wx.Dialog):
         header_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
         symbol = wx.StaticText(self, label="\u26A0")
-        symbol_font = wx_styles.Font.TITLE()
+        symbol_font = styles.Font.TITLE()
         symbol_font.SetPointSize(20)
         symbol.SetFont(symbol_font)
-        symbol.SetForegroundColour(wx_styles.Color.ERROR)
+        symbol.SetForegroundColour(styles.Color.ERROR)
         header_sizer.Add(symbol, 0, wx.RIGHT, 8)
 
         summary = f"{len(errors)} error(s)"
         if auth_aborted:
             summary += " — batch aborted"
         summary_label = wx.StaticText(self, label=summary)
-        summary_label.SetFont(wx_styles.Font.HEADING())
-        summary_label.SetForegroundColour(wx_styles.Color.TEXT_PRIMARY)
+        summary_label.SetFont(styles.Font.HEADING())
+        summary_label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
         header_sizer.Add(summary_label, 0, wx.ALIGN_CENTER_VERTICAL)
 
         sizer.Add(header_sizer, 0, wx.LEFT | wx.RIGHT, 20)
@@ -323,7 +323,7 @@ class ErrorListDialog(wx.Dialog):
 
         # Prepare data and colors (all errors in red)
         data = [[filename, error_msg] for filename, error_msg in errors]
-        colors = [wx_styles.Color.ERROR] * len(errors)
+        colors = [styles.Color.ERROR] * len(errors)
 
         # Create model and ctrl
         self.model = TableModel(data, colors)
@@ -331,7 +331,7 @@ class ErrorListDialog(wx.Dialog):
             self,
             style=dv.DV_ROW_LINES | dv.DV_VERT_RULES
         )
-        self.list_ctrl.SetFont(wx_styles.Font.MONO())
+        self.list_ctrl.SetFont(styles.Font.MONO())
         self.list_ctrl.AssociateModel(self.model)
 
         # Add columns
@@ -387,8 +387,8 @@ class CompletionDialog(wx.Dialog):
 
         # Header
         header = wx.StaticText(self, label="Rename Complete")
-        header.SetFont(wx_styles.Font.TITLE())
-        header.SetForegroundColour(wx_styles.Color.TEXT_PRIMARY)
+        header.SetFont(styles.Font.TITLE())
+        header.SetForegroundColour(styles.Color.TEXT_PRIMARY)
         sizer.Add(header, 0, wx.LEFT | wx.RIGHT, 20)
 
         sizer.AddSpacer(4)
@@ -399,8 +399,8 @@ class CompletionDialog(wx.Dialog):
             summary += f", {errors} failed"
 
         summary_label = wx.StaticText(self, label=summary)
-        summary_label.SetFont(wx_styles.Font.BODY())
-        summary_label.SetForegroundColour(wx_styles.Color.TEXT_SECONDARY)
+        summary_label.SetFont(styles.Font.BODY())
+        summary_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
         sizer.Add(summary_label, 0, wx.LEFT | wx.RIGHT, 20)
 
         sizer.AddSpacer(12)
@@ -420,10 +420,10 @@ class CompletionDialog(wx.Dialog):
             display_name = _display_path(path) if multi_dir else path.name
             if r.success:
                 result_text = "OK"
-                colors.append(wx_styles.Color.SUCCESS)
+                colors.append(styles.Color.SUCCESS)
             else:
                 result_text = f"ERROR: {r.message}"
-                colors.append(wx_styles.Color.ERROR)
+                colors.append(styles.Color.ERROR)
             data.append([display_name, result_text])
 
         # Create model and ctrl
@@ -432,7 +432,7 @@ class CompletionDialog(wx.Dialog):
             self,
             style=dv.DV_ROW_LINES | dv.DV_VERT_RULES
         )
-        self.list_ctrl.SetFont(wx_styles.Font.MONO())
+        self.list_ctrl.SetFont(styles.Font.MONO())
         self.list_ctrl.AssociateModel(self.model)
 
         # Add columns

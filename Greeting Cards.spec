@@ -14,7 +14,7 @@ datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
 a = Analysis(
-    ['main_wx.py'],
+    ['main.py'],
     pathex=[],
     binaries=binaries,
     datas=datas,
@@ -33,7 +33,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='Greeting Cards WX',
+    name='Greeting Cards',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -52,13 +52,13 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='Greeting Cards WX',
+    name='Greeting Cards',
 )
 app = BUNDLE(
     coll,
-    name='Greeting Cards WX.app',
+    name='Greeting Cards.app',
     icon='icon.icns',
-    bundle_identifier='com.greetingcards.wx.test',
+    bundle_identifier='com.greetingcards.app',
     info_plist={
         'CFBundleShortVersionString': __version__,
         'CFBundleVersion': __commit__,

@@ -2,7 +2,7 @@
 
 Mac-native master-detail pattern using DataViewCtrl for the card list.
 
-**Key file:** `app/gui/wx_review_panel_master_detail.py`
+**Key file:** `app/gui/review_panel.py`
 
 ## Layout
 

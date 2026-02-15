@@ -1,6 +1,6 @@
 """Context menu helper for wxPython text entry widgets."""
 import wx
-from app.gui.wx_icons import load_menu_icon
+from app.gui.icons import load_menu_icon
 
 
 def add_entry_context_menu(text_ctrl: wx.TextCtrl) -> None:

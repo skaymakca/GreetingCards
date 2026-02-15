@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev run run-wx app build build-wx clean icon loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-unit test-gui test-watch
+.PHONY: help setup setup-dev run app build clean icon loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-unit test-gui test-watch
 
 help: ## Show this help message
 	@echo "Greeting Cards - Available make commands:"
@@ -32,9 +32,6 @@ run: ## Run the app from source
 	fi
 	.venv/bin/python main.py
 
-run-wx: ## Run the wxPython test harness
-	.venv/bin/python main_wx.py
-
 test: ## Run all tests
 	.venv/bin/python -m pytest -v
 
@@ -56,9 +53,6 @@ build: app ## Build the macOS .app bundle (alias for 'app')
 
 app: icon ## Build the macOS .app bundle
 	.venv/bin/pyinstaller -y "Greeting Cards.spec"
-
-build-wx: icon ## Build the wxPython test harness .app bundle
-	.venv/bin/pyinstaller -y "Greeting Cards WX.spec"
 
 icon: icon.png ## Generate icon.icns from icon.png
 	@mkdir -p icon.iconset

@@ -1,7 +1,7 @@
 """Selection icon picker - shows various SF Symbols for the selection indicator."""
 
 import wx
-from app.gui.wx_icons import load_sf_symbol
+from app.gui.icons import load_sf_symbol
 
 
 def create_selection_icon_picker():

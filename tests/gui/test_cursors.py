@@ -7,7 +7,7 @@ wx.Cursor objects from SF Symbols for use as mouse cursors in the preview panel.
 import pytest
 import wx
 from unittest.mock import Mock, patch
-from app.gui.wx_icons import load_cursor_from_symbol
+from app.gui.icons import load_cursor_from_symbol
 
 
 @pytest.mark.gui

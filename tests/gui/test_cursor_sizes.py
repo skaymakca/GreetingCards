@@ -5,8 +5,8 @@ Run this to visually compare cursor sizes:
 """
 
 import wx
-from app.gui import wx_styles
-from app.gui.wx_icons import load_cursor_from_symbol
+from app.gui import styles
+from app.gui.icons import load_cursor_from_symbol
 
 
 class CursorSizeTestDialog(wx.Dialog):
@@ -38,7 +38,7 @@ class CursorSizeTestDialog(wx.Dialog):
                   "Click a size to see details in the console."
         )
         instructions.Wrap(850)
-        main_sizer.Add(instructions, 0, wx.ALL | wx.EXPAND, wx_styles.Layout.PAD)
+        main_sizer.Add(instructions, 0, wx.ALL | wx.EXPAND, styles.Layout.PAD)
 
         # Scrolled window for cursor samples
         scroll = wx.ScrolledWindow(self, style=wx.VSCROLL)
@@ -51,12 +51,12 @@ class CursorSizeTestDialog(wx.Dialog):
             scroll_sizer.Add(panel, 0, wx.EXPAND | wx.ALL, 4)
 
         scroll.SetSizer(scroll_sizer)
-        main_sizer.Add(scroll, 1, wx.EXPAND | wx.ALL, wx_styles.Layout.PAD)
+        main_sizer.Add(scroll, 1, wx.EXPAND | wx.ALL, styles.Layout.PAD)
 
         # Close button
         close_btn = wx.Button(self, wx.ID_CLOSE, "Close")
         close_btn.Bind(wx.EVT_BUTTON, lambda e: self.Close())
-        main_sizer.Add(close_btn, 0, wx.ALIGN_CENTER | wx.ALL, wx_styles.Layout.PAD)
+        main_sizer.Add(close_btn, 0, wx.ALIGN_CENTER | wx.ALL, styles.Layout.PAD)
 
         self.SetSizer(main_sizer)
 
@@ -72,7 +72,7 @@ class CursorSizeTestDialog(wx.Dialog):
         """
         # Container panel with border
         container = wx.Panel(parent, style=wx.BORDER_SIMPLE)
-        container.SetBackgroundColour(wx_styles.Color.BG_SECONDARY)
+        container.SetBackgroundColour(styles.Color.BG_SECONDARY)
         sizer = wx.BoxSizer(wx.HORIZONTAL)
 
         # Size label
@@ -109,14 +109,14 @@ class CursorSizeTestDialog(wx.Dialog):
         zoom_in_sizer = wx.BoxSizer(wx.VERTICAL)
 
         zoom_in_title = wx.StaticText(zoom_in_area, label="Zoom In (Shift)")
-        font = wx_styles.Font.SMALL()
+        font = styles.Font.SMALL()
         font.MakeBold()
         zoom_in_title.SetFont(font)
         zoom_in_sizer.Add(zoom_in_title, 0, wx.ALIGN_CENTER | wx.TOP, 8)
 
         zoom_in_desc = wx.StaticText(zoom_in_area, label="Hover to preview")
-        zoom_in_desc.SetFont(wx_styles.Font.SMALL())
-        zoom_in_desc.SetForegroundColour(wx_styles.Color.TEXT_SECONDARY)
+        zoom_in_desc.SetFont(styles.Font.SMALL())
+        zoom_in_desc.SetForegroundColour(styles.Color.TEXT_SECONDARY)
         zoom_in_sizer.Add(zoom_in_desc, 0, wx.ALIGN_CENTER | wx.TOP, 4)
 
         zoom_in_area.SetSizer(zoom_in_sizer)
@@ -135,14 +135,14 @@ class CursorSizeTestDialog(wx.Dialog):
         zoom_out_sizer = wx.BoxSizer(wx.VERTICAL)
 
         zoom_out_title = wx.StaticText(zoom_out_area, label="Zoom Out (Option)")
-        font = wx_styles.Font.SMALL()
+        font = styles.Font.SMALL()
         font.MakeBold()
         zoom_out_title.SetFont(font)
         zoom_out_sizer.Add(zoom_out_title, 0, wx.ALIGN_CENTER | wx.TOP, 8)
 
         zoom_out_desc = wx.StaticText(zoom_out_area, label="Hover to preview")
-        zoom_out_desc.SetFont(wx_styles.Font.SMALL())
-        zoom_out_desc.SetForegroundColour(wx_styles.Color.TEXT_SECONDARY)
+        zoom_out_desc.SetFont(styles.Font.SMALL())
+        zoom_out_desc.SetForegroundColour(styles.Color.TEXT_SECONDARY)
         zoom_out_sizer.Add(zoom_out_desc, 0, wx.ALIGN_CENTER | wx.TOP, 4)
 
         zoom_out_area.SetSizer(zoom_out_sizer)
@@ -171,7 +171,7 @@ class CursorSizeTestDialog(wx.Dialog):
     def _on_click(self, event, size: int, cursor_type: str):
         """Print cursor info when clicked."""
         print(f"✓ Selected: {size}pt for {cursor_type}")
-        print(f"  To use this size, update wx_preview_panel.py:")
+        print(f"  To use this size, update preview_panel.py:")
         print(f"  load_cursor_from_symbol(..., point_size={size}, ...)")
         print()
 

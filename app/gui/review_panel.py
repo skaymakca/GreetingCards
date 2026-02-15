@@ -29,10 +29,10 @@ import wx.dataview as dv
 from typing import Callable, Optional
 from pathlib import Path
 from app.models.card import CardResult, Confidence, CandidateInfo
-from app.gui.wx_styles import Color, Font, Layout
-from app.gui.wx_utils import create_static_text, create_button
-from app.gui.wx_icons import load_sf_symbol
-from app.gui.wx_context_menu import add_entry_context_menu
+from app.gui.styles import Color, Font, Layout
+from app.gui.utils import create_static_text, create_button
+from app.gui.icons import load_sf_symbol
+from app.gui.context_menu import add_entry_context_menu
 
 
 class CardListModel(dv.PyDataViewModel):

@@ -1,7 +1,6 @@
 """wxPython style definitions for the application.
 
-This module provides wxPython-compatible styles ported from the tkinter styles.py.
-Colors are converted to wx.Colour objects, fonts to wx.Font objects.
+Colors are wx.Colour objects, fonts are wx.Font objects.
 """
 
 import wx
@@ -78,7 +77,7 @@ class Font:
 
     @staticmethod
     def from_tuple(font_tuple: tuple) -> wx.Font:
-        """Convert tkinter font tuple to wx.Font.
+        """Convert font tuple to wx.Font.
 
         Args:
             font_tuple: Tuple like ("Helvetica Neue", 12) or ("Helvetica Neue", 12, "bold")
@@ -104,7 +103,7 @@ class Font:
 
 
 class Layout:
-    """Layout dimensions for the application (same as tkinter version)."""
+    """Layout dimensions for the application."""
 
     WINDOW_WIDTH = 1200
     WINDOW_HEIGHT = 750

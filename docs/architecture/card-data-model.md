@@ -2,7 +2,7 @@
 
 CardResult lifecycle, content-based deduplication, and state management.
 
-**Key files:** `app/models/card.py`, `app/gui/wx_main_window.py` (state management), `app/core/database.py` (DB models)
+**Key files:** `app/models/card.py`, `app/gui/main_window.py` (state management), `app/core/database.py` (DB models)
 
 ## Core Data Structures
 

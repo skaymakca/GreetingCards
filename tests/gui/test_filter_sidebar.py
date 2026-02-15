@@ -3,7 +3,7 @@
 import pytest
 import wx
 from pathlib import Path
-from app.gui.wx_filter_sidebar import FilterSidebar
+from app.gui.filter_sidebar import FilterSidebar
 from app.models.card import CardResult, Confidence
 
 

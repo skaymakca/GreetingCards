@@ -1,11 +1,11 @@
-"""Tests for wx_review_panel_master_detail.py - Master-Detail Review Panel."""
+"""Tests for review_panel.py - Master-Detail Review Panel."""
 
 import wx
 import wx.dataview as dv
 import pytest
 from pathlib import Path
 from unittest.mock import Mock, MagicMock, patch
-from app.gui.wx_review_panel_master_detail import (
+from app.gui.review_panel import (
     CardListModel,
     DetailPanel,
     ReviewPanelMasterDetail,
