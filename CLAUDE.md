@@ -63,3 +63,27 @@ Greeting Cards - macOS app for organizing and renaming greeting card PDFs using 
 - macOS native widgets: use ttk/wx widgets without explicit bg colors
 - Python 3.14: exception variables cleared after except block
 - Always test both source version and app bundle when making UI changes
+
+---
+
+## Architecture Docs
+
+When editing files in these areas, **read the corresponding doc first**, then **update the doc** if your changes alter the documented behavior.
+
+| Files Being Edited | Read First |
+|---|---|
+| `app/gui/wx_main_window.py` (filters, `_refresh_display`) | `docs/architecture/filter-pipeline.md` |
+| `app/gui/wx_filter_sidebar.py` | `docs/architecture/filter-pipeline.md` |
+| `app/gui/wx_main_window.py` (card loading, state, dedup) | `docs/architecture/card-data-model.md` |
+| `app/models/card.py` | `docs/architecture/card-data-model.md` |
+| `app/gui/wx_review_panel_master_detail.py` | `docs/architecture/review-panel.md` |
+| `app/gui/wx_main_window.py` (processing, AI, threads) | `docs/architecture/async-processing.md` |
+| `app/core/ai_analyzer.py` | `docs/architecture/async-processing.md` |
+| `app/core/name_extractor.py`, `app/core/name_formatting.py` | `docs/architecture/name-pipeline.md` |
+| `app/core/database.py`, `app/core/renamer.py` | `docs/architecture/name-pipeline.md` |
+
+### Keeping Docs in Sync
+
+- **After modifying code:** If your changes affect control flow, data structures, callback contracts, or gotchas described in an architecture doc, update the doc in the same work session. Don't leave stale docs behind.
+- **If docs contradict code:** The code is the source of truth. Update the doc to match. If the code seems wrong based on the doc's described intent, flag the discrepancy to the user before changing either — it may be an out-of-date doc or a misaligned implementation that needs discussion.
+- **New subsystems:** If you add a major new subsystem (new panel, new processing pipeline, etc.), create a new doc in `docs/architecture/` and add it to the table above.
