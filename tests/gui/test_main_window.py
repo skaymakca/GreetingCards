@@ -3,7 +3,7 @@
 import pytest
 import wx
 from pathlib import Path
-from app.gui.wx_main_window import MainWindow, FileDropTarget
+from app.gui.main_window import MainWindow, FileDropTarget
 
 
 @pytest.fixture
@@ -23,14 +23,6 @@ def test_main_window_creation(wx_app):
     assert window._frame.GetMinSize()[0] == 800  # Min width
     window._frame.Destroy()
 
-
-def test_toolbar_buttons_initial_state(wx_app):
-    """Test toolbar tools start in correct state (now using native toolbar)."""
-    window = MainWindow()
-    # This test is now covered by test_toolbar_tools_initial_state
-    # Keeping for backwards compatibility but no-op
-    assert window._toolbar is not None
-    window._frame.Destroy()
 
 
 def test_folder_state_management(wx_app):
@@ -113,21 +105,24 @@ def test_file_drop_target_callback():
 
 
 def test_toolbar_icons_applied(wx_app):
-    """Test SF Symbol icons are loaded in toolbar buttons."""
+    """Test toolbar tools exist and have bitmaps assigned."""
     window = MainWindow()
 
-    # Verify toolbar buttons have bitmaps
-    buttons = [
-        window._browse_btn,
-        window._ai_all_btn,
-        window._rename_btn,
-        window._clear_btn,
-        window._help_btn,
-        window._settings_btn,
+    # Verify all toolbar tools are registered
+    tool_ids = [
+        window._browse_id,
+        window._ai_all_id,
+        window._rename_id,
+        window._clear_id,
+        window._help_id,
+        window._settings_id,
     ]
 
-    for btn in buttons:
-        assert hasattr(btn, 'GetBitmap')
+    for tool_id in tool_ids:
+        tool = window._toolbar.FindById(tool_id)
+        assert tool is not None
+        # Bitmap may be NullBitmap in test environments without SF Symbols
+        assert tool.GetBitmap() is not None
 
     window._frame.Destroy()
 
@@ -277,22 +272,30 @@ def test_info_bar_exists(wx_app):
 
 
 def test_tooltips_applied(wx_app):
-    """Test tooltips are set on all toolbar controls."""
+    """Test tooltips/shortHelp are set on all toolbar controls and tools."""
     window = MainWindow()
 
-    # Check all toolbar controls have tooltips
-    controls = [
-        (window._browse_btn, "Add PDF files"),  # Updated for multi-load
-        (window._search_ctrl, "Filter"),
-        (window._year_ctrl, "Year"),
-        (window._ai_all_btn, "Analyze"),
-        (window._rename_btn, "Rename"),
-        (window._clear_btn, "Clear"),
-        (window._help_btn, "help"),
-        (window._settings_btn, "Configure"),
+    # Check toolbar tools have shortHelp text
+    tool_checks = [
+        (window._browse_id, "Add PDF files"),
+        (window._ai_all_id, "Analyze"),
+        (window._rename_id, "Rename"),
+        (window._clear_id, "Clear"),
+        (window._help_id, "help"),
+        (window._settings_id, "Configure"),
     ]
 
-    for ctrl, expected_text in controls:
+    for tool_id, expected_text in tool_checks:
+        short_help = window._toolbar.GetToolShortHelp(tool_id)
+        assert expected_text.lower() in short_help.lower(), f"Expected '{expected_text}' in '{short_help}'"
+
+    # Check embedded controls have tooltips
+    ctrl_checks = [
+        (window._search_ctrl, "Filter"),
+        (window._year_ctrl, "Year"),
+    ]
+
+    for ctrl, expected_text in ctrl_checks:
         tooltip = ctrl.GetToolTip()
         assert tooltip is not None
         assert expected_text.lower() in tooltip.GetTip().lower()
@@ -420,29 +423,29 @@ def test_accelerator_table_exists(wx_app):
 
 
 def test_native_toolbar_created(wx_app):
-    """Test toolbar panel is created."""
+    """Test native toolbar is created."""
     window = MainWindow()
 
-    # Verify toolbar panel exists
+    # Verify native toolbar exists
     assert window._toolbar is not None
-    assert isinstance(window._toolbar, wx.Panel)
+    assert isinstance(window._toolbar, wx.ToolBar)
 
     window._frame.Destroy()
 
 
 def test_toolbar_tools_initial_state(wx_app):
-    """Test toolbar buttons start in correct state."""
+    """Test toolbar tools start in correct state."""
     window = MainWindow()
 
     # AI All, Rename, Clear should be disabled initially
-    assert not window._ai_all_btn.IsEnabled()
-    assert not window._rename_btn.IsEnabled()
-    assert not window._clear_btn.IsEnabled()
+    assert not window._toolbar.GetToolEnabled(window._ai_all_id)
+    assert not window._toolbar.GetToolEnabled(window._rename_id)
+    assert not window._toolbar.GetToolEnabled(window._clear_id)
 
     # Browse, Help, Settings should be enabled
-    assert window._browse_btn.IsEnabled()
-    assert window._help_btn.IsEnabled()
-    assert window._settings_btn.IsEnabled()
+    assert window._toolbar.GetToolEnabled(window._browse_id)
+    assert window._toolbar.GetToolEnabled(window._help_id)
+    assert window._toolbar.GetToolEnabled(window._settings_id)
 
     window._frame.Destroy()
 

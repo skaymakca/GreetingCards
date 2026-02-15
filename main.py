@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
-"""Greeting Card PDF Analyzer & Renamer"""
+"""wxPython version of Greeting Cards App."""
 
 import sys
 import multiprocessing
 from pathlib import Path
 
-# Ensure the project root is on the path
+# Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from app.gui.main_window import MainWindow
+import wx
+from app.gui.wx_main_window import MainWindow
 
 
 def main():
-    app = MainWindow()
-    app.run()
+    """Main entry point for wxPython version."""
+    multiprocessing.freeze_support()  # PyInstaller support
+
+    app = wx.App()
+    window = MainWindow()
+    window.run()
+    app.MainLoop()
 
 
 if __name__ == "__main__":
-    # Required for PyInstaller bundled apps with multiprocessing
-    multiprocessing.freeze_support()
     main()

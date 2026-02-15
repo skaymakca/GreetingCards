@@ -7,12 +7,14 @@ __commit__ = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).de
 datas = [('icon.png', '.')]
 binaries = []
 hiddenimports = []
-tmp_ret = collect_all('tkinterdnd2')
+
+# Collect wxPython dependencies
+tmp_ret = collect_all('wx')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
 a = Analysis(
-    ['main.py'],
+    ['main_wx.py'],
     pathex=[],
     binaries=binaries,
     datas=datas,
@@ -31,7 +33,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='Greeting Cards',
+    name='Greeting Cards WX',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -50,13 +52,13 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='Greeting Cards',
+    name='Greeting Cards WX',
 )
 app = BUNDLE(
     coll,
-    name='Greeting Cards.app',
+    name='Greeting Cards WX.app',
     icon='icon.icns',
-    bundle_identifier='com.greetingcards.app',
+    bundle_identifier='com.greetingcards.wx.test',
     info_plist={
         'CFBundleShortVersionString': __version__,
         'CFBundleVersion': __commit__,

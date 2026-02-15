@@ -1,117 +1,65 @@
-"""Context menu helper for text entry widgets."""
-import tkinter as tk
-from app.gui import styles
-from app.gui.icons import load_sf_symbol
+"""Context menu helper for wxPython text entry widgets."""
+import wx
+from app.gui.wx_icons import load_menu_icon
 
 
-def add_entry_context_menu(entry: tk.Entry):
-    """Add a native-style context menu to an Entry widget with Cut, Copy, Paste, Title Case, Clear.
+def add_entry_context_menu(text_ctrl: wx.TextCtrl) -> None:
+    """Add a native-style context menu to a TextCtrl widget with Cut, Copy, Paste, Title Case, Clear.
+
+    Uses native wx IDs for Cut/Copy/Paste so they render with native macOS styling.
+    Adds custom Title Case and Clear items with SF Symbol icons.
 
     Args:
-        entry: The tk.Entry widget to attach the context menu to
+        text_ctrl: The wx.TextCtrl widget to attach the context menu to
     """
-    menu = tk.Menu(entry, tearoff=0, font=styles.Font.SMALL)
-
-    # Load SF Symbol icons
-    icons = {}
+    # Load SF Symbol icons for custom menu items (dict comprehension with walrus operator)
     icon_specs = {
-        "cut": ("scissors", 7),
-        "copy": ("doc.on.doc", 7),
-        "paste": ("doc.on.clipboard", 7),
-        "title_case": ("textformat.abc", 7),
-        "clear": ("xmark.circle", 7),
+        "title_case": "textformat.abc",
+        "clear": "xmark.circle",
     }
-    for key, (symbol, size) in icon_specs.items():
-        icon = load_sf_symbol(symbol, size, styles.Color.TEXT_PRIMARY)
-        if icon:
-            icons[key] = icon
+    icons = {key: icon for key, symbol in icon_specs.items() if (icon := load_menu_icon(symbol))}
 
-    # Cut
-    menu.add_command(
-        label="Cut",
-        command=lambda: _cut(entry),
-        accelerator="⌘X",
-        image=icons.get("cut"),
-        compound="left",
-    )
+    def on_context_menu(event: wx.Event) -> None:
+        """Show context menu on right-click."""
+        menu = wx.Menu()
 
-    # Copy
-    menu.add_command(
-        label="Copy",
-        command=lambda: _copy(entry),
-        accelerator="⌘C",
-        image=icons.get("copy"),
-        compound="left",
-    )
+        # Use native wx IDs for Cut/Copy/Paste - these should render natively on macOS
+        menu.Append(wx.ID_CUT, "Cut")
+        menu.Append(wx.ID_COPY, "Copy")
+        menu.Append(wx.ID_PASTE, "Paste")
 
-    # Paste
-    menu.add_command(
-        label="Paste",
-        command=lambda: _paste(entry),
-        accelerator="⌘V",
-        image=icons.get("paste"),
-        compound="left",
-    )
+        menu.AppendSeparator()
 
-    menu.add_separator()
+        # Add our custom items with icons
+        title_item = menu.Append(wx.ID_ANY, "Title Case")
+        if icons.get("title_case"):
+            title_item.SetBitmap(icons["title_case"])
+        menu.Bind(wx.EVT_MENU, lambda evt: _title_case(text_ctrl), title_item)
 
-    # Title Case
-    menu.add_command(
-        label="Title Case",
-        command=lambda: _title_case(entry),
-        image=icons.get("title_case"),
-        compound="left",
-    )
+        clear_item = menu.Append(wx.ID_ANY, "Clear")
+        if icons.get("clear"):
+            clear_item.SetBitmap(icons["clear"])
+        menu.Bind(wx.EVT_MENU, lambda evt: _clear(text_ctrl), clear_item)
 
-    # Clear
-    menu.add_command(
-        label="Clear",
-        command=lambda: _clear(entry),
-        image=icons.get("clear"),
-        compound="left",
-    )
+        # Show the menu
+        text_ctrl.PopupMenu(menu)
+        menu.Destroy()
 
-    # Store menu reference to prevent garbage collection
-    entry._context_menu = menu
-    entry._context_menu_icons = icons
+    # Store icons reference to prevent garbage collection
+    text_ctrl._context_menu_icons = icons
 
-    # Bind right-click (Button-2 on macOS, Button-3 on others)
-    def show_menu(event):
-        try:
-            menu.post(event.x_root, event.y_root)
-        finally:
-            menu.grab_release()
-
-    entry.bind("<Button-2>", show_menu)  # macOS right-click
-    entry.bind("<Control-Button-1>", show_menu)  # macOS Ctrl+click
+    # Bind right-click event
+    text_ctrl.Bind(wx.EVT_CONTEXT_MENU, on_context_menu)
 
 
-def _cut(entry: tk.Entry):
-    """Cut selected text to clipboard."""
-    if entry.selection_present():
-        entry.event_generate("<<Cut>>")
-
-
-def _copy(entry: tk.Entry):
-    """Copy selected text to clipboard."""
-    if entry.selection_present():
-        entry.event_generate("<<Copy>>")
-
-
-def _paste(entry: tk.Entry):
-    """Paste from clipboard."""
-    entry.event_generate("<<Paste>>")
-
-
-def _title_case(entry: tk.Entry):
+def _title_case(text_ctrl: wx.TextCtrl) -> None:
     """Convert text to Title Case."""
-    current_text = entry.get()
+    current_text = text_ctrl.GetValue()
     if current_text:
         title_cased = current_text.title()
-        entry.delete(0, tk.END)
-        entry.insert(0, title_cased)
+        text_ctrl.SetValue(title_cased)
 
 
-def _clear(entry: tk.Entry):
+def _clear(text_ctrl: wx.TextCtrl) -> None:
     """Clear all text."""
-    entry.delete(0, tk.END)
+    text_ctrl.Clear()

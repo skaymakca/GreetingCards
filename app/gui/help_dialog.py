@@ -1,142 +1,127 @@
 """Help dialog showing app instructions and keyboard shortcuts."""
-import tkinter as tk
-from tkinter import ttk
-from app.gui import styles
+import wx
+import wx.html
 
 
-class HelpDialog(tk.Toplevel):
+def show_help_dialog(parent):
+    """Show help dialog with workflow instructions and shortcuts.
+
+    Args:
+        parent: Parent window
+    """
+    dialog = HelpDialog(parent)
+    dialog.ShowModal()
+    dialog.Destroy()
+
+
+class HelpDialog(wx.Dialog):
     """Help window with workflow instructions and keyboard shortcuts."""
 
     def __init__(self, parent):
-        super().__init__(parent)
-        self.title("Help")
-        self.resizable(False, False)
-        self.transient(parent)
-        self.grab_set()
-
-        w, h = 600, 650
-        x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
-        y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
-        self.geometry(f"{w}x{h}+{x}+{y}")
-
-        # Scrollable content
-        container = ttk.Frame(self)
-        container.pack(fill="both", expand=True, padx=20, pady=20)
-
-        sys_bg = ttk.Style().lookup("TFrame", "background")
-        canvas = tk.Canvas(container, bg=sys_bg, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
-
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        super().__init__(
+            parent,
+            title="Help",
+            size=(600, 650),
+            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
         )
 
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
+        # Main sizer
+        sizer = wx.BoxSizer(wx.VERTICAL)
 
-        scrollbar.pack(side="right", fill="y")
-        canvas.pack(side="left", fill="both", expand=True)
-
-        # Bind mousewheel to canvas and frame for native macOS scroll behavior
-        def on_mousewheel(e):
-            canvas.yview_scroll(-1 * (e.delta // 120 or e.delta), "units")
-
-        canvas.bind("<MouseWheel>", on_mousewheel)
-        scrollable_frame.bind("<MouseWheel>", on_mousewheel)
-
-        # Store for binding to child widgets
-        self._canvas = canvas
-        self._scrollable_frame = scrollable_frame
-        self._on_mousewheel = on_mousewheel
-
-        # --- Content ---
-        self._add_section(scrollable_frame, "Workflow", [
-            "1. Browse or drag-drop a folder containing greeting card PDFs",
-            "2. Click Process to extract family names using OCR",
-            "3. Review extracted names in the cards list",
-            "4. Click AI button (per card or AI All) for better accuracy",
-            "5. Edit names manually or select from Candidates dropdown",
-            "6. Click Rename All to rename files with extracted names",
-        ])
-
-        self._add_section(scrollable_frame, "Toolbar Buttons", [
-            "Browse — Select a folder of PDF files",
-            "Process — Extract names from all cards using OCR",
-            "AI All — Analyze all cards with Claude AI (requires API key)",
-            "Rename All — Rename files based on extracted names",
-            "Clear — Remove all cards and start over",
-            "Settings — Configure API key and database",
-        ])
-
-        self._add_section(scrollable_frame, "Card List Features", [
-            "• Confidence dots show extraction quality (green=high, yellow=medium, red=low, blue=manual)",
-            "• Click a row to view the card in the preview panel",
-            "• Edit family name directly in the text field",
-            "• Checkbox to remove 'Family' suffix from file name (e.g., 'Smith.pdf' instead of 'Smith Family.pdf')",
-            "• Candidates dropdown shows alternate name suggestions",
-            "• AI button analyzes a single card with Claude AI",
-            "• Right-click text fields for Cut, Copy, Paste, Clear",
-        ])
-
-        self._add_section(scrollable_frame, "Preview Panel", [
-            "• View all pages of the selected card",
-            "• Navigate pages with ◀ and ▶ buttons",
-            "• Click and drag to pan when zoomed in",
-            "• Scroll wheel to zoom in/out",
-        ])
-
-        self._add_section(scrollable_frame, "Keyboard Shortcuts", [
-            "↑  ↓  — Navigate cards in list (select previous/next)",
-            "←  →  — Navigate pages in preview",
-            "Esc — Defocus text entries",
-            "⌘X, ⌘C, ⌘V — Cut, Copy, Paste (in text fields)",
-        ])
-
-        self._add_section(scrollable_frame, "Zoom Controls", [
-            "Shift + Click — Zoom in (cursor shows ✚)",
-            "Ctrl/⌘ + Click — Zoom out (cursor shows ✖)",
-            "Scroll Wheel — Zoom in/out at cursor",
-            "Fit button — Reset to fit window",
-        ])
-
-        self._add_section(scrollable_frame, "Tips", [
-            "• Cards are cached in the database for faster reprocessing",
-            "• AI analysis gives more accurate results than OCR alone",
-            "• Manual edits override all automatic extractions",
-            "• Rebuild database in Settings to clear all cached results",
-        ])
+        # HTML window for content
+        html = wx.html.HtmlWindow(self, style=wx.html.HW_SCROLLBAR_AUTO)
+        html.SetPage(self._generate_html())
+        sizer.Add(html, 1, wx.EXPAND | wx.ALL, 15)
 
         # Close button
-        ttk.Button(
-            self, text="Close",
-            command=self._close,
-        ).pack(pady=(0, 16))
+        close_btn = wx.Button(self, wx.ID_CLOSE, "Close")
+        close_btn.Bind(wx.EVT_BUTTON, lambda evt: self.EndModal(wx.ID_CLOSE))
+        sizer.Add(close_btn, 0, wx.ALIGN_CENTER | wx.BOTTOM, 15)
 
-        self.protocol("WM_DELETE_WINDOW", self._close)
-        self.bind("<Escape>", lambda e: self._close())
+        self.SetSizer(sizer)
+        self.CenterOnParent()
 
-    def _add_section(self, parent, title: str, items: list[str]):
-        """Add a help section with title and bullet points."""
-        # Section title
-        title_label = ttk.Label(
-            parent, text=title, font=styles.Font.HEADING,
-            foreground=styles.Color.TEXT_PRIMARY, anchor="w",
-        )
-        title_label.pack(fill="x", pady=(12, 4))
-        title_label.bind("<MouseWheel>", self._on_mousewheel)
+        # Keyboard shortcuts
+        self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
 
-        # Section items
-        for item in items:
-            item_label = ttk.Label(
-                parent, text=item, font=styles.Font.SMALL,
-                foreground=styles.Color.TEXT_PRIMARY,
-                anchor="w", justify="left", wraplength=520,
-            )
-            item_label.pack(fill="x", padx=(12, 0), pady=2)
-            item_label.bind("<MouseWheel>", self._on_mousewheel)
+    def _on_key(self, event):
+        """Handle keyboard shortcuts."""
+        if event.GetKeyCode() == wx.WXK_ESCAPE:
+            self.EndModal(wx.ID_CLOSE)
+        else:
+            event.Skip()
 
-    def _close(self):
-        self.grab_release()
-        self.destroy()
+    def _generate_html(self) -> str:
+        """Generate HTML content for help dialog."""
+        return """
+        <html>
+        <body>
+
+        <h3>Workflow</h3>
+        <ol>
+            <li>Click Add Files/Folders or drag-drop PDFs/folders to load cards</li>
+            <li>Cards are automatically processed with OCR to extract family names</li>
+            <li>Review extracted names in the cards list (filter by confidence level)</li>
+            <li>Click AI button (per card or AI All) for better accuracy</li>
+            <li>Edit names manually or select from Candidates dropdown</li>
+            <li>Click Rename All to rename files with extracted names</li>
+        </ol>
+
+        <p><b>Note:</b> You can load cards from multiple folders! They accumulate rather than replacing previous loads. Identical files at different locations are automatically detected and merged.</p>
+
+        <h3>Toolbar Buttons</h3>
+        <ul>
+            <li><b>Add Files/Folders</b> — Add PDF files or folders from anywhere (can add multiple sources)</li>
+            <li><b>Search</b> — Filter cards by file name or family name</li>
+            <li><b>AI All</b> — Analyze all loaded cards with Claude AI (requires API key)</li>
+            <li><b>Rename All</b> — Rename files based on extracted names (handles multiple directories)</li>
+            <li><b>Clear</b> — Remove all loaded cards and start over</li>
+            <li><b>Settings</b> — Configure API key and database</li>
+        </ul>
+
+        <h3>Card List Features</h3>
+        <ul>
+            <li>Confidence dots show extraction quality (green=high, yellow=medium, red=low, blue=manual)</li>
+            <li>Click a row to view the card in the preview panel</li>
+            <li>Edit family name directly in the text field</li>
+            <li>Checkbox to remove 'Family' suffix from file name (e.g., 'Smith.pdf' instead of 'Smith Family.pdf')</li>
+            <li>Candidates dropdown shows alternate name suggestions</li>
+            <li>AI button analyzes a single card with Claude AI</li>
+            <li>Right-click text fields for Cut, Copy, Paste, Clear</li>
+        </ul>
+
+        <h3>Preview Panel</h3>
+        <ul>
+            <li>View all pages of the selected card</li>
+            <li>Navigate pages with ◀ and ▶ buttons</li>
+            <li>Click and drag to pan when zoomed in</li>
+            <li>Scroll wheel to zoom in/out</li>
+        </ul>
+
+        <h3>Keyboard Shortcuts</h3>
+        <ul>
+            <li><b>↑  ↓</b> — Navigate cards in list (select previous/next)</li>
+            <li><b>←  →</b> — Navigate pages in preview</li>
+            <li><b>Esc</b> — Defocus text entries</li>
+            <li><b>⌘X, ⌘C, ⌘V</b> — Cut, Copy, Paste (in text fields)</li>
+        </ul>
+
+        <h3>Zoom Controls</h3>
+        <ul>
+            <li><b>Shift + Click</b> — Zoom in (cursor shows ✚)</li>
+            <li><b>Ctrl/⌘ + Click</b> — Zoom out (cursor shows ✖)</li>
+            <li><b>Scroll Wheel</b> — Zoom in/out at cursor</li>
+            <li><b>Fit button</b> — Reset to fit window</li>
+        </ul>
+
+        <h3>Tips</h3>
+        <ul>
+            <li>Cards are cached in the database for faster reprocessing</li>
+            <li>AI analysis gives more accurate results than OCR alone</li>
+            <li>Manual edits override all automatic extractions</li>
+            <li>Rebuild database in Settings to clear all cached results</li>
+        </ul>
+
+        </body>
+        </html>
+        """
