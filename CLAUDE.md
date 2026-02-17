@@ -12,6 +12,16 @@
 
 ---
 
+## 🚫 CRITICAL: DO NOT MODIFY TODO.md 🚫
+
+**NEVER edit TODO.md without explicit user permission.**
+
+- ❌ Do NOT remove, reorder, or edit items in TODO.md
+- ❌ Do NOT mark items as done or delete completed items
+- ✅ ONLY modify TODO.md when user explicitly asks you to
+
+---
+
 ## ⚠️ CRITICAL: ALWAYS USE VENV ⚠️
 
 **NEVER use system Python. ONLY use the virtual environment.**

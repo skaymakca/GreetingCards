@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock
 import wx
 import pytest
 
-from app.gui.settings_dialog import SettingsDialog, ApiKeyPrompt
+from app.gui.settings_dialog import SettingsDialog, ApiKeyPrompt, get_commit_hash
 
 
 class TestSettingsDialog:
@@ -32,15 +32,13 @@ class TestSettingsDialog:
         assert dlg is not None
         dlg.Destroy()
 
-    @patch("app.gui.settings_dialog.get_api_key", return_value=None)
     @patch("app.gui.settings_dialog.subprocess.check_output", return_value=b"abc1234\n")
-    def test_commit_hash(self, mock_git, mock_key, wx_app, wx_frame):
-        assert SettingsDialog._get_commit_hash() == "abc1234"
+    def test_commit_hash(self, mock_git, wx_app, wx_frame):
+        assert get_commit_hash() == "abc1234"
 
-    @patch("app.gui.settings_dialog.get_api_key", return_value=None)
     @patch("app.gui.settings_dialog.subprocess.check_output", side_effect=Exception("no git"))
-    def test_commit_hash_fallback(self, mock_git, mock_key, wx_app, wx_frame):
-        assert SettingsDialog._get_commit_hash() == ""
+    def test_commit_hash_fallback(self, mock_git, wx_app, wx_frame):
+        assert get_commit_hash() == ""
 
     @patch("app.gui.settings_dialog.get_api_key", return_value="sk-existing")
     @patch("app.gui.settings_dialog.subprocess.check_output", return_value=b"abc1234\n")

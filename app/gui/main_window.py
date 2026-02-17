@@ -2,6 +2,7 @@
 
 import io
 import wx
+import wx.adv
 from pathlib import Path
 from datetime import datetime
 import threading
@@ -12,7 +13,7 @@ from app.gui.preview_panel import PreviewPanel
 from app.gui.review_panel import ReviewPanelMasterDetail
 from app.gui.filter_sidebar import FilterSidebar
 from app.gui.dialogs import ProgressDialog, RenameConfirmDialog, CompletionDialog, ErrorListDialog
-from app.gui.settings_dialog import show_settings_dialog
+from app.gui.settings_dialog import show_settings_dialog, get_commit_hash
 from app.gui.help_dialog import show_help_dialog
 from app.gui.icons import load_sf_symbol
 from app.gui.api_key_dialog import show_api_key_dialog
@@ -189,16 +190,34 @@ class MainWindow:
 
         # Help menu
         help_menu = wx.Menu()
+        help_menu.Append(wx.ID_ABOUT, "About Greeting Cards")
+        help_menu.AppendSeparator()
         help_menu.Append(wx.ID_HELP, "Greeting Cards Help")
         menubar.Append(help_menu, "&Help")
 
         self._frame.SetMenuBar(menubar)
 
         # Bind events
+        self._frame.Bind(wx.EVT_MENU, lambda e: self._show_about(), id=wx.ID_ABOUT)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._add_files_folders(), id=wx.ID_OPEN)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._frame.Close(), id=wx.ID_CLOSE)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._frame.Close(), id=wx.ID_EXIT)
         self._frame.Bind(wx.EVT_MENU, lambda e: show_help_dialog(self._frame), id=wx.ID_HELP)
+
+    def _show_about(self):
+        """Show the native macOS About dialog."""
+        info = wx.adv.AboutDialogInfo()
+        info.SetName("Greeting Cards")
+        info.SetCopyright("(c) 2026")
+        # Do not call SetIcon() — it forces the generic About box on macOS.
+        # The native About panel automatically uses the app bundle icon
+        # from Contents/Resources/icon.icns via CFBundleIconFile in Info.plist.
+        # Only set the commit hash as the version — the native About panel
+        # already shows CFBundleShortVersionString from Info.plist as the main version.
+        commit = get_commit_hash()
+        if commit:
+            info.SetVersion(commit)
+        wx.adv.AboutBox(info)
 
     def _build_ui(self):
         """Assemble main UI layout with toolbar and three-column layout."""

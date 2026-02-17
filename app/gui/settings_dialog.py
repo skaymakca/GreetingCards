@@ -7,6 +7,17 @@ from app.core.database import reset_database
 from app.version import __version__
 
 
+def get_commit_hash() -> str:
+    """Get short git commit hash, or empty string if unavailable."""
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stderr=subprocess.DEVNULL,
+        ).decode().strip()
+    except Exception:
+        return ""
+
+
 def show_settings_dialog(parent, on_db_reset=None):
     """Show settings dialog.
 
@@ -152,7 +163,7 @@ class SettingsDialog(wx.Dialog):
 
         sizer.AddSpacer(4)
 
-        commit = self._get_commit_hash()
+        commit = get_commit_hash()
         version_text = f"Version {__version__}"
         if commit:
             version_text += f" ({commit})"
@@ -249,17 +260,6 @@ class SettingsDialog(wx.Dialog):
 
         # Keyboard shortcuts
         self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
-
-    @staticmethod
-    def _get_commit_hash() -> str:
-        """Get short git commit hash, or empty string if unavailable."""
-        try:
-            return subprocess.check_output(
-                ["git", "rev-parse", "--short", "HEAD"],
-                stderr=subprocess.DEVNULL,
-            ).decode().strip()
-        except Exception:
-            return ""
 
     def _save_api_key(self, event):
         """Save API key and show status."""
