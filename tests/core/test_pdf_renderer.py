@@ -49,7 +49,7 @@ class TestAutocropWhitespace:
                 img.putpixel((x, y), (10, 10, 10))
         result = autocrop_whitespace(img, padding=5)
         # The result should not be all white
-        pixels = list(result.getdata())
+        pixels = list(result.get_flattened_data())
         has_dark = any(p[0] < 50 for p in pixels)
         assert has_dark
 

@@ -1,10 +1,40 @@
 """Tests for wxPython dialog components."""
 
+from pathlib import Path
+
 import pytest
 import wx
 import wx.dataview as dv
-from app.gui.dialogs import TableModel
+from app.gui.dialogs import (
+    _display_path,
+    TableModel,
+    ProgressDialog,
+    RenameConfirmDialog,
+    ErrorListDialog,
+    CompletionDialog,
+)
+from app.models.card import RenamePlanItem, RenameResult
 
+
+# --- _display_path ---
+
+class TestDisplayPath:
+    """Tests for _display_path() helper."""
+
+    def test_home_relative(self):
+        home = Path.home()
+        p = home / "Documents" / "file.pdf"
+        result = _display_path(p)
+        assert result.startswith("~/")
+        assert "Documents/file.pdf" in result
+
+    def test_non_home_path(self):
+        p = Path("/tmp/file.pdf")
+        result = _display_path(p)
+        assert result == "/tmp/file.pdf"
+
+
+# --- TableModel (pre-existing tests preserved) ---
 
 @pytest.mark.gui
 class TestTableModel:
@@ -281,3 +311,180 @@ class TestTableModel:
         attr = dv.DataViewItemAttr()
         result = model.GetAttr(children[0], 0, attr)
         assert result is True
+
+
+# --- ProgressDialog ---
+
+@pytest.mark.gui
+class TestProgressDialog:
+    """Tests for ProgressDialog."""
+
+    def test_creation(self, wx_app, wx_frame):
+        dlg = ProgressDialog(wx_frame, "Processing", 10)
+        assert dlg.GetTitle() == "Processing"
+        assert dlg._total == 10
+        assert dlg._current == 0
+        dlg.Destroy()
+
+    def test_update_progress(self, wx_app, wx_frame):
+        dlg = ProgressDialog(wx_frame, "Test", 5)
+        dlg.update_progress(3, "Working...")
+        assert dlg._current == 3
+        assert dlg.progress.GetValue() == 3
+        assert dlg.label.GetLabel() == "Working..."
+        dlg.Destroy()
+
+    def test_update_progress_no_message(self, wx_app, wx_frame):
+        dlg = ProgressDialog(wx_frame, "Test", 5)
+        dlg.update_progress(2)
+        assert dlg._current == 2
+        assert dlg.label.GetLabel() == "Processing..."
+        dlg.Destroy()
+
+    def test_count_label_format(self, wx_app, wx_frame):
+        dlg = ProgressDialog(wx_frame, "Test", 10)
+        dlg.update_progress(7)
+        assert dlg.count_label.GetLabel() == "7 / 10"
+        dlg.Destroy()
+
+    def test_initial_count_label(self, wx_app, wx_frame):
+        dlg = ProgressDialog(wx_frame, "Test", 20)
+        assert dlg.count_label.GetLabel() == "0 / 20"
+        dlg.Destroy()
+
+
+# --- RenameConfirmDialog ---
+
+@pytest.mark.gui
+class TestRenameConfirmDialog:
+    """Tests for RenameConfirmDialog."""
+
+    def _make_plan(self, statuses):
+        items = []
+        for i, status in enumerate(statuses):
+            items.append(RenamePlanItem(
+                old_path=Path(f"/cards/card{i}.pdf"),
+                new_path=Path(f"/cards/Smith Family {i}.pdf"),
+                status=status,
+            ))
+        return items
+
+    def test_creation(self, wx_app, wx_frame):
+        plan = self._make_plan(["ok", "skip_no_name"])
+        dlg = RenameConfirmDialog(wx_frame, plan, "2025")
+        assert dlg.GetTitle() == "Confirm Rename"
+        assert dlg.result is False
+        dlg.Destroy()
+
+    def test_all_ok(self, wx_app, wx_frame):
+        plan = self._make_plan(["ok", "ok", "ok"])
+        dlg = RenameConfirmDialog(wx_frame, plan, "2025")
+        assert dlg is not None
+        dlg.Destroy()
+
+    def test_with_duplicates_and_errors(self, wx_app, wx_frame):
+        plan = self._make_plan(["ok", "duplicate", "skip_error", "skip_same"])
+        dlg = RenameConfirmDialog(wx_frame, plan, "2025")
+        assert dlg is not None
+        dlg.Destroy()
+
+    def test_multi_directory(self, wx_app, wx_frame):
+        """Plans spanning multiple directories show full paths."""
+        plan = [
+            RenamePlanItem(Path("/dir1/card1.pdf"), Path("/dir1/Smith.pdf"), "ok"),
+            RenamePlanItem(Path("/dir2/card2.pdf"), Path("/dir2/Jones.pdf"), "ok"),
+        ]
+        dlg = RenameConfirmDialog(wx_frame, plan, "2025")
+        assert dlg is not None
+        dlg.Destroy()
+
+    def test_single_directory(self, wx_app, wx_frame):
+        """Single directory plan shows just filenames."""
+        plan = [
+            RenamePlanItem(Path("/cards/a.pdf"), Path("/cards/b.pdf"), "ok"),
+            RenamePlanItem(Path("/cards/c.pdf"), Path("/cards/d.pdf"), "ok"),
+        ]
+        dlg = RenameConfirmDialog(wx_frame, plan, "2025")
+        assert dlg is not None
+        dlg.Destroy()
+
+
+# --- ErrorListDialog ---
+
+@pytest.mark.gui
+class TestErrorListDialog:
+    """Tests for ErrorListDialog."""
+
+    def test_creation(self, wx_app, wx_frame):
+        errors = [("card1.pdf", "Rate limit"), ("card2.pdf", "Timeout")]
+        dlg = ErrorListDialog(wx_frame, "Errors", errors)
+        assert dlg.GetTitle() == "Errors"
+        dlg.Destroy()
+
+    def test_auth_aborted(self, wx_app, wx_frame):
+        errors = [("card1.pdf", "Invalid API key")]
+        dlg = ErrorListDialog(wx_frame, "Errors", errors, auth_aborted=True)
+        assert dlg is not None
+        dlg.Destroy()
+
+    def test_single_error(self, wx_app, wx_frame):
+        errors = [("test.pdf", "Connection failed")]
+        dlg = ErrorListDialog(wx_frame, "Error", errors)
+        assert dlg is not None
+        dlg.Destroy()
+
+    def test_many_errors(self, wx_app, wx_frame):
+        errors = [(f"card{i}.pdf", f"Error {i}") for i in range(20)]
+        dlg = ErrorListDialog(wx_frame, "Errors", errors)
+        assert dlg is not None
+        dlg.Destroy()
+
+
+# --- CompletionDialog ---
+
+@pytest.mark.gui
+class TestCompletionDialog:
+    """Tests for CompletionDialog."""
+
+    def _make_results(self):
+        return [
+            RenameResult(Path("/cards/card1.pdf"), Path("/cards/Smith Family.pdf"), True, "Renamed"),
+            RenameResult(Path("/cards/card2.pdf"), Path("/cards/card2.pdf"), True, "Skipped (same name)"),
+            RenameResult(Path("/cards/card3.pdf"), Path("/cards/Jones Family.pdf"), False, "Permission denied"),
+        ]
+
+    def test_creation(self, wx_app, wx_frame):
+        results = self._make_results()
+        dlg = CompletionDialog(wx_frame, "Done", results)
+        assert dlg.GetTitle() == "Done"
+        dlg.Destroy()
+
+    def test_all_success(self, wx_app, wx_frame):
+        results = [RenameResult(Path("/a.pdf"), Path("/b.pdf"), True, "Renamed")]
+        dlg = CompletionDialog(wx_frame, "Done", results)
+        assert dlg is not None
+        dlg.Destroy()
+
+    def test_with_errors(self, wx_app, wx_frame):
+        results = self._make_results()
+        dlg = CompletionDialog(wx_frame, "Done", results)
+        assert dlg is not None
+        dlg.Destroy()
+
+    def test_multi_directory(self, wx_app, wx_frame):
+        results = [
+            RenameResult(Path("/dir1/a.pdf"), Path("/dir1/b.pdf"), True, "Renamed"),
+            RenameResult(Path("/dir2/c.pdf"), Path("/dir2/d.pdf"), True, "Renamed"),
+        ]
+        dlg = CompletionDialog(wx_frame, "Done", results)
+        assert dlg is not None
+        dlg.Destroy()
+
+    def test_all_skipped(self, wx_app, wx_frame):
+        results = [
+            RenameResult(Path("/a.pdf"), Path("/a.pdf"), True, "Skipped"),
+            RenameResult(Path("/b.pdf"), Path("/b.pdf"), True, "Skipped"),
+        ]
+        dlg = CompletionDialog(wx_frame, "Done", results)
+        assert dlg is not None
+        dlg.Destroy()
