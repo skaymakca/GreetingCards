@@ -114,7 +114,6 @@ def test_toolbar_icons_applied(wx_app):
         window._ai_all_id,
         window._rename_id,
         window._clear_id,
-        window._help_id,
     ]
 
     for tool_id in tool_ids:
@@ -280,7 +279,6 @@ def test_tooltips_applied(wx_app):
         (window._ai_all_id, "Analyze"),
         (window._rename_id, "Rename"),
         (window._clear_id, "Clear"),
-        (window._help_id, "help"),
     ]
 
     for tool_id, expected_text in tool_checks:
@@ -440,9 +438,8 @@ def test_toolbar_tools_initial_state(wx_app):
     assert not window._toolbar.GetToolEnabled(window._rename_id)
     assert not window._toolbar.GetToolEnabled(window._clear_id)
 
-    # Browse, Help should be enabled
+    # Browse should be enabled
     assert window._toolbar.GetToolEnabled(window._browse_id)
-    assert window._toolbar.GetToolEnabled(window._help_id)
 
     window._frame.Destroy()
 

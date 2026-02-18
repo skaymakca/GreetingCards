@@ -4,7 +4,7 @@ import re, subprocess
 __version__ = re.search(r'"(.+?)"', open('app/version.py').read()).group(1)
 __commit__ = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode().strip()
 
-datas = [('icon.png', '.')]
+datas = [('icon.png', '.'), ('help/GreetingCards.help', 'help/GreetingCards.help')]
 binaries = []
 hiddenimports = []
 

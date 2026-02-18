@@ -12,7 +12,7 @@ _NS_IMAGE_SYMBOL_SCALE_MEDIUM = 2
 _NS_IMAGE_INTERPOLATION_HIGH = 3
 _DEFAULT_RETINA_SCALE = 2
 
-_cache: dict[tuple[str, int, str, int], wx.Bitmap | None] = {}  # Icon cache
+_cache: dict[tuple[str, int, str, int, float | int], wx.Bitmap | None] = {}  # Icon cache
 
 
 def _hex_to_rgb(color_hex: str) -> tuple[float, float, float]:
@@ -34,7 +34,8 @@ def _render_sf_symbol_to_png(
     name: str,
     point_size: int,
     color_hex: str,
-    scale: int
+    scale: int,
+    weight: float | int = _NS_FONT_WEIGHT_MEDIUM,
 ) -> tuple[bytes, int] | None:
     """Render SF Symbol to PNG bytes (shared implementation).
 
@@ -43,6 +44,7 @@ def _render_sf_symbol_to_png(
         point_size: Icon size in points
         color_hex: Hex color string
         scale: NSImageSymbolScale (1=Small, 2=Medium, 3=Large)
+        weight: NSFontWeight value (e.g., 0.0 for Regular, 0.23 for Medium)
 
     Returns:
         Tuple of (PNG bytes, render_scale) or None if rendering fails
@@ -67,7 +69,7 @@ def _render_sf_symbol_to_png(
 
         # Build size config
         size_config = NSImageSymbolConfiguration.configurationWithPointSize_weight_scale_(
-            point_size, _NS_FONT_WEIGHT_MEDIUM, scale
+            point_size, weight, scale
         )
 
         # Build color config from hex
@@ -182,28 +184,30 @@ def load_cursor_from_symbol(
 
 
 def load_sf_symbol(
-    name: str, point_size: int = 14, color_hex: str = "#1D1D1F", scale: int = 2
+    name: str, point_size: int = 14, color_hex: str = "#1D1D1F", scale: int = 2,
+    weight: float | int = _NS_FONT_WEIGHT_MEDIUM,
 ) -> wx.Bitmap | None:
     """Load an SF Symbol by name and return a wx.Bitmap.
 
     Returns None if PyObjC is not installed or the symbol is unavailable.
-    Results are cached by (name, point_size, color_hex, scale).
+    Results are cached by (name, point_size, color_hex, scale, weight).
 
     Args:
         name: SF Symbol name (e.g., "scissors", "doc.on.doc")
         point_size: Icon size in points
         color_hex: Hex color string (e.g., "#1D1D1F")
         scale: NSImageSymbolScale (1=Small, 2=Medium, 3=Large). Use 1 for crisp menu icons.
+        weight: NSFontWeight value (e.g., 0.0 for Regular, 0.23 for Medium)
 
     Returns:
         wx.Bitmap with the rendered symbol, or None if unavailable
     """
-    key = (name, point_size, color_hex, scale)
+    key = (name, point_size, color_hex, scale, weight)
     if key in _cache:
         return _cache[key]
 
     # Render SF Symbol to PNG using shared implementation
-    result = _render_sf_symbol_to_png(name, point_size, color_hex, scale)
+    result = _render_sf_symbol_to_png(name, point_size, color_hex, scale, weight)
     if not result:
         _cache[key] = None
         return None

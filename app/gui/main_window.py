@@ -14,7 +14,7 @@ from app.gui.review_panel import ReviewPanelMasterDetail
 from app.gui.filter_sidebar import FilterSidebar
 from app.gui.dialogs import ProgressDialog, RenameConfirmDialog, CompletionDialog, ErrorListDialog
 from app.gui.settings_dialog import create_preferences_editor, get_commit_hash
-from app.gui.help_dialog import show_help_dialog
+from app.gui.help_dialog import show_help
 from app.gui.icons import load_sf_symbol
 from app.gui.api_key_dialog import show_api_key_dialog
 from app.models.card import CardResult, Confidence
@@ -208,7 +208,7 @@ class MainWindow:
         self._frame.Bind(wx.EVT_MENU, lambda e: self._show_preferences(), id=wx.ID_PREFERENCES)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._frame.Close(), id=wx.ID_CLOSE)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._frame.Close(), id=wx.ID_EXIT)
-        self._frame.Bind(wx.EVT_MENU, lambda e: show_help_dialog(self._frame), id=wx.ID_HELP)
+        self._frame.Bind(wx.EVT_MENU, lambda e: show_help(self._frame), id=wx.ID_HELP)
 
     def _show_preferences(self):
         """Show the native macOS Preferences editor."""
@@ -311,15 +311,6 @@ class MainWindow:
         self._search_ctrl.Bind(wx.EVT_SEARCHCTRL_CANCEL_BTN, self._on_search_cancel)
         toolbar.AddControl(self._search_ctrl)
 
-        toolbar.AddSeparator()
-
-        # Help tool
-        help_bmp = load_sf_symbol("questionmark.circle", point_size=16) or wx.NullBitmap
-        self._help_id = toolbar.AddTool(
-            wx.ID_ANY, "Help", help_bmp,
-            shortHelp="Show help and usage instructions"
-        ).GetId()
-
         toolbar.Realize()
         self._toolbar = toolbar
 
@@ -328,7 +319,6 @@ class MainWindow:
         self._frame.Bind(wx.EVT_TOOL, lambda e: self._start_ai_all(), id=self._ai_all_id)
         self._frame.Bind(wx.EVT_TOOL, lambda e: self._start_rename(), id=self._rename_id)
         self._frame.Bind(wx.EVT_TOOL, lambda e: self._clear_all(), id=self._clear_id)
-        self._frame.Bind(wx.EVT_TOOL, lambda e: show_help_dialog(self._frame), id=self._help_id)
 
     def _on_search_text(self, event):
         """Filter cards as user types in search field."""

@@ -1,127 +1,125 @@
-"""Help dialog showing app instructions and keyboard shortcuts."""
+"""Help system — WebView-based help viewer."""
+
+import sys
+import weakref
+from pathlib import Path
+
 import wx
-import wx.html
+
+from app.core.paths import is_bundled
+from app.gui.icons import load_sf_symbol
+
+# Singleton weakref for help window
+_help_window_ref = None
+
+# Page order for Prev/Next navigation
+_PAGE_ORDER = [
+    "index.html",
+    "pages/getting-started.html",
+    "pages/toolbar.html",
+    "pages/card-list.html",
+    "pages/preview.html",
+    "pages/shortcuts.html",
+    "pages/tips.html",
+]
 
 
-def show_help_dialog(parent):
-    """Show help dialog with workflow instructions and shortcuts.
+def show_help(parent):
+    """Open help in a WebView window."""
+    global _help_window_ref
 
-    Args:
-        parent: Parent window
-    """
-    dialog = HelpDialog(parent)
-    dialog.ShowModal()
-    dialog.Destroy()
+    # Reuse existing window if still alive
+    if _help_window_ref is not None:
+        window = _help_window_ref()
+        if window is not None and not window.IsBeingDeleted():
+            window.Raise()
+            return
+
+    import wx.html2
+
+    frame = wx.Frame(parent, title="Greeting Cards Help", size=(800, 600),
+                     style=wx.DEFAULT_FRAME_STYLE)
+
+    sizer = wx.BoxSizer(wx.VERTICAL)
+
+    # Toolbar with Home / Prev / Next
+    base_path = _get_help_base_path()
+    toolbar = wx.ToolBar(frame, style=wx.TB_HORIZONTAL | wx.TB_NODIVIDER)
+    toolbar.SetToolBitmapSize(wx.Size(24, 24))
+
+    _ICON_KW = dict(point_size=16, weight=0.0)  # Regular weight to match main toolbar
+    home_bmp = load_sf_symbol("house", **_ICON_KW) or wx.NullBitmap
+    home_id = toolbar.AddTool(wx.ID_ANY, "Home", home_bmp,
+                              shortHelp="Home").GetId()
+
+    prev_bmp = load_sf_symbol("chevron.left", **_ICON_KW) or wx.NullBitmap
+    prev_id = toolbar.AddTool(wx.ID_ANY, "Previous", prev_bmp,
+                              shortHelp="Previous page").GetId()
+
+    next_bmp = load_sf_symbol("chevron.right", **_ICON_KW) or wx.NullBitmap
+    next_id = toolbar.AddTool(wx.ID_ANY, "Next", next_bmp,
+                              shortHelp="Next page").GetId()
+
+    toolbar.EnableTool(prev_id, False)
+    toolbar.Realize()
+    sizer.Add(toolbar, 0, wx.EXPAND)
+
+    # WebView — HTML pages have built-in CSS sidebar
+    index_path = _get_help_index_path()
+    url = index_path.as_uri()
+    webview = wx.html2.WebView.New(frame)
+    webview.LoadURL(url)
+    sizer.Add(webview, 1, wx.EXPAND)
+
+    frame.SetSizer(sizer)
+    frame.CenterOnParent()
+    frame.Show()
+
+    _help_window_ref = weakref.ref(frame)
+
+    # --- Navigation helpers ---
+    def _current_index():
+        """Return index of current page in _PAGE_ORDER, or -1."""
+        current_url = webview.GetCurrentURL()
+        for i, page in enumerate(_PAGE_ORDER):
+            if current_url.endswith(page):
+                return i
+        return -1
+
+    def _update_nav_buttons(evt=None):
+        idx = _current_index()
+        toolbar.EnableTool(prev_id, idx > 0)
+        toolbar.EnableTool(next_id, 0 <= idx < len(_PAGE_ORDER) - 1)
+        if evt:
+            evt.Skip()
+
+    def on_home(evt):
+        webview.LoadURL((base_path / "index.html").as_uri())
+
+    def on_prev(evt):
+        idx = _current_index()
+        if idx > 0:
+            webview.LoadURL((base_path / _PAGE_ORDER[idx - 1]).as_uri())
+
+    def on_next(evt):
+        idx = _current_index()
+        if 0 <= idx < len(_PAGE_ORDER) - 1:
+            webview.LoadURL((base_path / _PAGE_ORDER[idx + 1]).as_uri())
+
+    frame.Bind(wx.EVT_TOOL, on_home, id=home_id)
+    frame.Bind(wx.EVT_TOOL, on_prev, id=prev_id)
+    frame.Bind(wx.EVT_TOOL, on_next, id=next_id)
+    webview.Bind(wx.html2.EVT_WEBVIEW_NAVIGATED, _update_nav_buttons)
 
 
-class HelpDialog(wx.Dialog):
-    """Help window with workflow instructions and keyboard shortcuts."""
+def _get_help_base_path() -> Path:
+    """Return path to help en.lproj directory."""
+    if is_bundled():
+        return Path(sys._MEIPASS) / "help" / "GreetingCards.help" / "Contents" / "Resources" / "en.lproj"
+    project_root = Path(__file__).resolve().parent.parent.parent
+    return project_root / "help" / "GreetingCards.help" / "Contents" / "Resources" / "en.lproj"
 
-    def __init__(self, parent):
-        super().__init__(
-            parent,
-            title="Help",
-            size=(600, 650),
-            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
-        )
 
-        # Main sizer
-        sizer = wx.BoxSizer(wx.VERTICAL)
-
-        # HTML window for content
-        html = wx.html.HtmlWindow(self, style=wx.html.HW_SCROLLBAR_AUTO)
-        html.SetPage(self._generate_html())
-        sizer.Add(html, 1, wx.EXPAND | wx.ALL, 15)
-
-        # Close button
-        close_btn = wx.Button(self, wx.ID_CLOSE, "Close")
-        close_btn.Bind(wx.EVT_BUTTON, lambda evt: self.EndModal(wx.ID_CLOSE))
-        sizer.Add(close_btn, 0, wx.ALIGN_CENTER | wx.BOTTOM, 15)
-
-        self.SetSizer(sizer)
-        self.CenterOnParent()
-
-        # Keyboard shortcuts
-        self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
-
-    def _on_key(self, event):
-        """Handle keyboard shortcuts."""
-        if event.GetKeyCode() == wx.WXK_ESCAPE:
-            self.EndModal(wx.ID_CLOSE)
-        else:
-            event.Skip()
-
-    def _generate_html(self) -> str:
-        """Generate HTML content for help dialog."""
-        return """
-        <html>
-        <body>
-
-        <h3>Workflow</h3>
-        <ol>
-            <li>Click Add Files/Folders or drag-drop PDFs/folders to load cards</li>
-            <li>Cards are automatically processed with OCR to extract family names</li>
-            <li>Review extracted names in the cards list (filter by confidence level)</li>
-            <li>Click AI button (per card or AI All) for better accuracy</li>
-            <li>Edit names manually or select from Candidates dropdown</li>
-            <li>Click Rename All to rename files with extracted names</li>
-        </ol>
-
-        <p><b>Note:</b> You can load cards from multiple folders! They accumulate rather than replacing previous loads. Identical files at different locations are automatically detected and merged.</p>
-
-        <h3>Toolbar Buttons</h3>
-        <ul>
-            <li><b>Add Files/Folders</b> — Add PDF files or folders from anywhere (can add multiple sources)</li>
-            <li><b>Search</b> — Filter cards by file name or family name</li>
-            <li><b>AI All</b> — Analyze all loaded cards with Claude AI (requires API key)</li>
-            <li><b>Rename All</b> — Rename files based on extracted names (handles multiple directories)</li>
-            <li><b>Clear</b> — Remove all loaded cards and start over</li>
-            <li><b>Settings</b> — Configure API key and database</li>
-        </ul>
-
-        <h3>Card List Features</h3>
-        <ul>
-            <li>Confidence dots show extraction quality (green=high, yellow=medium, red=low, blue=manual)</li>
-            <li>Click a row to view the card in the preview panel</li>
-            <li>Edit family name directly in the text field</li>
-            <li>Checkbox to remove 'Family' suffix from file name (e.g., 'Smith.pdf' instead of 'Smith Family.pdf')</li>
-            <li>Candidates dropdown shows alternate name suggestions</li>
-            <li>AI button analyzes a single card with Claude AI</li>
-            <li>Right-click text fields for Cut, Copy, Paste, Clear</li>
-        </ul>
-
-        <h3>Preview Panel</h3>
-        <ul>
-            <li>View all pages of the selected card</li>
-            <li>Navigate pages with ◀ and ▶ buttons</li>
-            <li>Click and drag to pan when zoomed in</li>
-            <li>Scroll wheel to zoom in/out</li>
-        </ul>
-
-        <h3>Keyboard Shortcuts</h3>
-        <ul>
-            <li><b>↑  ↓</b> — Navigate cards in list (select previous/next)</li>
-            <li><b>←  →</b> — Navigate pages in preview</li>
-            <li><b>Esc</b> — Defocus text entries</li>
-            <li><b>⌘X, ⌘C, ⌘V</b> — Cut, Copy, Paste (in text fields)</li>
-        </ul>
-
-        <h3>Zoom Controls</h3>
-        <ul>
-            <li><b>Shift + Click</b> — Zoom in (cursor shows ✚)</li>
-            <li><b>Ctrl/⌘ + Click</b> — Zoom out (cursor shows ✖)</li>
-            <li><b>Scroll Wheel</b> — Zoom in/out at cursor</li>
-            <li><b>Fit button</b> — Reset to fit window</li>
-        </ul>
-
-        <h3>Tips</h3>
-        <ul>
-            <li>Cards are cached in the database for faster reprocessing</li>
-            <li>AI analysis gives more accurate results than OCR alone</li>
-            <li>Manual edits override all automatic extractions</li>
-            <li>Rebuild database in Settings to clear all cached results</li>
-        </ul>
-
-        </body>
-        </html>
-        """
+def _get_help_index_path() -> Path:
+    """Return path to help index.html."""
+    return _get_help_base_path() / "index.html"
