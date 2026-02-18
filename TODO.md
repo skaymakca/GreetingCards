@@ -1,5 +1,9 @@
 # TODO
 
+- [ ] Redo the help menu to have just the default macos help item open our help screen, remove teh button on main
+- [ ] Save zoom/pan states while browsing with sane defaults for resetting
+
+
 ## Test Coverage Gaps
 
 ### Core Modules
