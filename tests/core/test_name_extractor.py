@@ -150,6 +150,14 @@ class TestExtractFamilyNames:
         results = extract_family_names("The Ross Family")
         assert any(m.name == "Ross" for m in results)
 
+    def test_empty_names_filtered_in_dedup(self):
+        """Empty name matches are filtered out during deduplication."""
+        # An empty-string match would come from a pattern that matched but _clean_name returned ""
+        # Verify the function handles it gracefully with minimal text
+        results = extract_family_names("---")
+        # No valid names should be returned
+        assert all(m.name for m in results)
+
     def test_multiple_names_different_confidence(self):
         """Multiple patterns yield multiple results at different confidences."""
         text = "The Smith Family\nLove, John Jones"

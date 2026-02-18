@@ -104,3 +104,50 @@ class TestPlistPath:
     def test_returns_preferences_plist(self):
         with patch("app.core.config.get_data_dir", return_value=Path("/data")):
             assert _plist_path() == Path("/data/preferences.plist")
+
+
+class TestReadPlist:
+    """Tests for _read_plist()."""
+
+    def test_reads_existing_plist(self, tmp_path):
+        """Reads data from an existing plist file."""
+        import plistlib
+        plist_file = tmp_path / "preferences.plist"
+        with open(plist_file, "wb") as f:
+            plistlib.dump({"key": "value"}, f)
+        with patch("app.core.config._plist_path", return_value=plist_file):
+            result = _read_plist()
+        assert result == {"key": "value"}
+
+    def test_returns_empty_dict_when_missing(self, tmp_path):
+        """Returns empty dict when plist file doesn't exist."""
+        plist_file = tmp_path / "nonexistent.plist"
+        with patch("app.core.config._plist_path", return_value=plist_file):
+            result = _read_plist()
+        assert result == {}
+
+
+class TestWritePlist:
+    """Tests for _write_plist()."""
+
+    def test_writes_plist_file(self, tmp_path):
+        """Writes data to a plist file."""
+        import plistlib
+        plist_file = tmp_path / "preferences.plist"
+        with patch("app.core.config._plist_path", return_value=plist_file):
+            _write_plist({"ANTHROPIC_API_KEY": "sk-test"})
+        with open(plist_file, "rb") as f:
+            data = plistlib.load(f)
+        assert data == {"ANTHROPIC_API_KEY": "sk-test"}
+
+    def test_overwrites_existing_plist(self, tmp_path):
+        """Overwrites existing plist file."""
+        import plistlib
+        plist_file = tmp_path / "preferences.plist"
+        with open(plist_file, "wb") as f:
+            plistlib.dump({"old": "data"}, f)
+        with patch("app.core.config._plist_path", return_value=plist_file):
+            _write_plist({"new": "data"})
+        with open(plist_file, "rb") as f:
+            data = plistlib.load(f)
+        assert data == {"new": "data"}

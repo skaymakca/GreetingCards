@@ -6,7 +6,57 @@ from unittest.mock import patch, MagicMock
 import pytest
 from PIL import Image
 
-from app.core.pdf_renderer import autocrop_whitespace, render_pdf_page, render_all_pages, get_page_count
+from app.core.pdf_renderer import _capped_zoom, autocrop_whitespace, render_pdf_page, render_all_pages, get_page_count
+
+
+class TestCappedZoom:
+    """Tests for _capped_zoom()."""
+
+    def test_no_images_uses_target_dpi(self):
+        """Page with no embedded images uses the requested DPI directly."""
+        page = MagicMock()
+        page.get_image_info.return_value = []
+        matrix = _capped_zoom(page, 200)
+        expected_zoom = 200 / 72
+        assert abs(matrix.a - expected_zoom) < 0.01
+        assert abs(matrix.d - expected_zoom) < 0.01
+
+    def test_high_native_dpi_caps_zoom(self):
+        """When native image DPI < requested DPI, zoom is capped to native."""
+        page = MagicMock()
+        page.get_image_info.return_value = [{"xres": 150, "yres": 150}]
+        matrix = _capped_zoom(page, 300)
+        # Should cap at 150/72 instead of 300/72
+        expected_zoom = 150 / 72
+        assert abs(matrix.a - expected_zoom) < 0.01
+
+    def test_low_native_dpi_not_exceeded(self):
+        """When native DPI is lower than target, zoom is capped to native."""
+        page = MagicMock()
+        page.get_image_info.return_value = [{"xres": 100, "yres": 100}]
+        matrix = _capped_zoom(page, 200)
+        expected_zoom = 100 / 72
+        assert abs(matrix.a - expected_zoom) < 0.01
+
+    def test_native_dpi_higher_than_target(self):
+        """When native DPI exceeds target, uses target DPI."""
+        page = MagicMock()
+        page.get_image_info.return_value = [{"xres": 600, "yres": 600}]
+        matrix = _capped_zoom(page, 200)
+        expected_zoom = 200 / 72
+        assert abs(matrix.a - expected_zoom) < 0.01
+
+    def test_multiple_images_uses_max(self):
+        """Multiple images — uses the highest native DPI."""
+        page = MagicMock()
+        page.get_image_info.return_value = [
+            {"xres": 100, "yres": 100},
+            {"xres": 300, "yres": 300},
+        ]
+        matrix = _capped_zoom(page, 400)
+        # Should cap at 300/72
+        expected_zoom = 300 / 72
+        assert abs(matrix.a - expected_zoom) < 0.01
 
 
 class TestAutocropWhitespace:

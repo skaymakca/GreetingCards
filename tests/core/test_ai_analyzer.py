@@ -114,6 +114,17 @@ class TestFormatAiError:
         err = anthropic.APIConnectionError(request=MagicMock())
         assert "connection" in format_ai_error(err).lower()
 
+    def test_status_error(self):
+        import anthropic
+        err = anthropic.APIStatusError(
+            message="server error",
+            response=MagicMock(status_code=500),
+            body=None,
+        )
+        result = format_ai_error(err)
+        assert "500" in result
+        assert "API error" in result
+
     def test_generic_error(self):
         err = Exception("something broke")
         assert "something broke" in format_ai_error(err)

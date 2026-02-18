@@ -412,6 +412,24 @@ class TestExecuteRenamePlan:
         assert len(results) == 1
         assert results[0].success is False
 
+    def test_card_file_paths_out_of_sync(self, tmp_path):
+        """Rename succeeds even when card.file_paths doesn't contain old_path."""
+        old_file = tmp_path / "card.pdf"
+        old_file.touch()
+        new_path = tmp_path / "Holiday Cards 2024 - Smith Family.pdf"
+
+        # Card's file_paths contains a different path (out of sync)
+        card = _make_card(1, [Path("/other/path.pdf")], family_name="Smith")
+        plan = [RenamePlanItem(old_file, new_path, "ok", card=card)]
+
+        results = execute_rename_plan(plan)
+
+        assert len(results) == 1
+        assert results[0].success is True
+        assert new_path.exists()
+        # file_paths unchanged since old_path wasn't in the list
+        assert card.file_paths == [Path("/other/path.pdf")]
+
     def test_no_card_reference_still_works(self, tmp_path):
         """Plan items without card reference (backward compat) still rename fine."""
         old_file = tmp_path / "card.pdf"

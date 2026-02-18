@@ -17,6 +17,7 @@ from app.core.database import (
     RawAIResult,
     compute_file_hash,
     _compute_schema_version,
+    _ensure_schema,
     _clean_and_filter_names,
     create_or_update_card,
     add_candidate,
@@ -30,6 +31,7 @@ from app.core.database import (
     save_raw_ai,
     get_raw_ai,
     clear_unselected_candidates,
+    reset_database,
     should_reprocess,
     reprocess_candidates_from_raw,
 )
@@ -421,3 +423,195 @@ class TestCleanAndFilterNames:
     def test_filters_snapfish(self, mock_sanitize, mock_depar, mock_clean):
         result = _clean_and_filter_names(["Snapfish"])
         assert len(result) == 0
+
+
+class TestEnsureSchema:
+    """Tests for _ensure_schema() — schema migration logic."""
+
+    def test_schema_mismatch_recreates(self):
+        """When schema version doesn't match, tables are dropped and recreated."""
+        session = db_mod._Session()
+        # Tamper with the stored schema version
+        row = session.query(Settings).filter_by(key="schema_version").first()
+        row.value = "badhash000000000"
+        session.commit()
+        session.close()
+
+        # _ensure_schema should detect mismatch and recreate
+        _ensure_schema()
+
+        # Verify schema version is now correct
+        session = db_mod._Session()
+        row = session.query(Settings).filter_by(key="schema_version").first()
+        assert row.value == _compute_schema_version()
+        session.close()
+
+    def test_missing_settings_table_recreates(self):
+        """When settings table is missing, schema is created from scratch."""
+        from sqlalchemy import text
+        # Drop the settings table
+        with db_mod._engine.begin() as conn:
+            conn.execute(text("DROP TABLE IF EXISTS settings"))
+
+        _ensure_schema()
+
+        # Verify schema was recreated
+        session = db_mod._Session()
+        row = session.query(Settings).filter_by(key="schema_version").first()
+        assert row is not None
+        assert row.value == _compute_schema_version()
+        session.close()
+
+    def test_orphaned_tables_dropped(self):
+        """Orphaned tables not in current metadata are dropped during migration."""
+        from sqlalchemy import text, inspect
+        # Create an orphaned table
+        with db_mod._engine.begin() as conn:
+            conn.execute(text("CREATE TABLE orphan_table (id INTEGER PRIMARY KEY)"))
+
+        # Tamper schema version to force migration
+        session = db_mod._Session()
+        row = session.query(Settings).filter_by(key="schema_version").first()
+        row.value = "badhash000000000"
+        session.commit()
+        session.close()
+
+        _ensure_schema()
+
+        # Verify orphaned table was dropped
+        inspector = inspect(db_mod._engine)
+        assert "orphan_table" not in inspector.get_table_names()
+
+
+class TestResetDatabase:
+    """Tests for reset_database()."""
+
+    def test_clears_all_data(self):
+        """reset_database drops and recreates all tables."""
+        # Add some data first
+        create_or_update_card("hash1")
+        set_manual_name("hash1", "Smith")
+        assert get_card_state("hash1") is not None
+
+        reset_database()
+
+        # Data should be gone but tables should exist
+        assert get_card_state("hash1") is None
+
+    def test_schema_version_preserved(self):
+        """After reset, schema version is set correctly."""
+        reset_database()
+        session = db_mod._Session()
+        row = session.query(Settings).filter_by(key="schema_version").first()
+        assert row is not None
+        assert row.value == _compute_schema_version()
+        session.close()
+
+    def test_reset_when_engine_is_none(self):
+        """reset_database creates engine if it doesn't exist."""
+        orig_engine = db_mod._engine
+        orig_session = db_mod._Session
+        try:
+            db_mod._engine = None
+            db_mod._Session = None
+            # Should not raise — creates engine internally
+            reset_database()
+        finally:
+            db_mod._engine = orig_engine
+            db_mod._Session = orig_session
+
+
+class TestSelectCandidateNewCard:
+    """Tests for select_candidate() when card doesn't exist yet."""
+
+    @patch("app.core.database._clean_and_filter_names", return_value=["Smith"])
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_creates_card_on_select(self, mock_title, mock_clean):
+        """select_candidate creates a Card row if one doesn't exist."""
+        # Add a candidate (auto-creates card)
+        cid = add_candidate("newhash2", "Smith", "ocr", "high")
+        # Delete the card but keep the candidate
+        session = db_mod._Session()
+        session.query(Card).filter_by(file_hash="newhash2").delete()
+        session.commit()
+        session.close()
+
+        # select_candidate should create a new card
+        select_candidate("newhash2", cid)
+        state = get_card_state("newhash2")
+        assert state is not None
+        assert state.selected_candidate_id == cid
+
+
+class TestGetCardStateDeletedCandidate:
+    """Tests for get_card_state() when selected candidate was deleted."""
+
+    @patch("app.core.database._clean_and_filter_names", return_value=["Smith"])
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_missing_candidate_returns_missing(self, mock_title, mock_clean):
+        """When selected candidate no longer exists, state shows missing."""
+        create_or_update_card("hash1")
+        cid = add_candidate("hash1", "Smith", "ocr", "high")
+        select_candidate("hash1", cid)
+
+        # Delete the candidate directly
+        session = db_mod._Session()
+        session.query(Candidate).filter_by(id=cid).delete()
+        session.commit()
+        session.close()
+
+        state = get_card_state("hash1")
+        assert state.display_name == ""
+        assert state.method == "missing"
+        assert state.confidence == "none"
+
+
+class TestClearUnselectedCandidatesEdgeCases:
+    """Tests for clear_unselected_candidates() edge cases."""
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_selected_candidate_same_method_preserved(self, mock_title, mock_clean):
+        """When selected candidate is of the same method being cleared, it's preserved."""
+        create_or_update_card("hash1")
+        cid1 = add_candidate("hash1", "A", "ocr", "high")
+        cid2 = add_candidate("hash1", "B", "ocr", "medium")
+        select_candidate("hash1", cid1)
+
+        clear_unselected_candidates("hash1", "ocr")
+
+        candidates = get_candidates("hash1")
+        assert len(candidates) == 1
+        assert candidates[0].id == cid1
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_selected_candidate_different_method_deletes_all(self, mock_title, mock_clean):
+        """When selected candidate is of a different method, all of target method are deleted."""
+        create_or_update_card("hash1")
+        ai_cid = add_candidate("hash1", "AI_Name", "ai", "high")
+        add_candidate("hash1", "OCR_A", "ocr", "high")
+        add_candidate("hash1", "OCR_B", "ocr", "medium")
+        select_candidate("hash1", ai_cid)
+
+        clear_unselected_candidates("hash1", "ocr")
+
+        candidates = get_candidates("hash1")
+        methods = [c.method for c in candidates]
+        assert "ocr" not in methods
+        assert "ai" in methods
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_no_selection_deletes_all_of_method(self, mock_title, mock_clean):
+        """When no candidate is selected, all candidates of the method are deleted."""
+        create_or_update_card("hash1")
+        add_candidate("hash1", "A", "ocr", "high")
+        add_candidate("hash1", "B", "ocr", "medium")
+        add_candidate("hash1", "C", "ai", "high")
+
+        clear_unselected_candidates("hash1", "ocr")
+
+        candidates = get_candidates("hash1")
+        assert len(candidates) == 1
+        assert candidates[0].method == "ai"
