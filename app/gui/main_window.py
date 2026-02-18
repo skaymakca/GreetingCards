@@ -13,7 +13,7 @@ from app.gui.preview_panel import PreviewPanel
 from app.gui.review_panel import ReviewPanelMasterDetail
 from app.gui.filter_sidebar import FilterSidebar
 from app.gui.dialogs import ProgressDialog, RenameConfirmDialog, CompletionDialog, ErrorListDialog
-from app.gui.settings_dialog import show_settings_dialog, get_commit_hash
+from app.gui.settings_dialog import create_preferences_editor, get_commit_hash
 from app.gui.help_dialog import show_help_dialog
 from app.gui.icons import load_sf_symbol
 from app.gui.api_key_dialog import show_api_key_dialog
@@ -148,6 +148,9 @@ class MainWindow:
         self._current_category_filters = ["all"]  # Current sidebar category filters
         self._current_folder_filters = ["all_folders"]  # Current sidebar folder filters
 
+        # Preferences editor (lazy-init)
+        self._prefs_editor = None
+
         # Debounce timer for name edits (fires _refresh_display after user stops typing)
         self._edit_debounce_timer = wx.Timer(self._frame)
         self._frame.Bind(wx.EVT_TIMER, self._on_edit_debounce_fire, self._edit_debounce_timer)
@@ -184,6 +187,8 @@ class MainWindow:
         file_menu = wx.Menu()
         file_menu.Append(wx.ID_OPEN, "Open...\tCtrl+O")
         file_menu.AppendSeparator()
+        file_menu.Append(wx.ID_PREFERENCES, "Settings...\tCtrl+,")
+        file_menu.AppendSeparator()
         file_menu.Append(wx.ID_CLOSE, "Close Window\tCtrl+W")
         file_menu.Append(wx.ID_EXIT, "Quit\tCtrl+Q")
         menubar.Append(file_menu, "&File")
@@ -200,9 +205,16 @@ class MainWindow:
         # Bind events
         self._frame.Bind(wx.EVT_MENU, lambda e: self._show_about(), id=wx.ID_ABOUT)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._add_files_folders(), id=wx.ID_OPEN)
+        self._frame.Bind(wx.EVT_MENU, lambda e: self._show_preferences(), id=wx.ID_PREFERENCES)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._frame.Close(), id=wx.ID_CLOSE)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._frame.Close(), id=wx.ID_EXIT)
         self._frame.Bind(wx.EVT_MENU, lambda e: show_help_dialog(self._frame), id=wx.ID_HELP)
+
+    def _show_preferences(self):
+        """Show the native macOS Preferences editor."""
+        if self._prefs_editor is None:
+            self._prefs_editor = create_preferences_editor(on_db_reset=self._clear_all)
+        self._prefs_editor.Show(self._frame)
 
     def _show_about(self):
         """Show the native macOS About dialog."""
@@ -308,13 +320,6 @@ class MainWindow:
             shortHelp="Show help and usage instructions"
         ).GetId()
 
-        # Settings tool
-        settings_bmp = load_sf_symbol("gearshape", point_size=16) or wx.NullBitmap
-        self._settings_id = toolbar.AddTool(
-            wx.ID_ANY, "Settings", settings_bmp,
-            shortHelp="Configure API key and application settings"
-        ).GetId()
-
         toolbar.Realize()
         self._toolbar = toolbar
 
@@ -324,7 +329,6 @@ class MainWindow:
         self._frame.Bind(wx.EVT_TOOL, lambda e: self._start_rename(), id=self._rename_id)
         self._frame.Bind(wx.EVT_TOOL, lambda e: self._clear_all(), id=self._clear_id)
         self._frame.Bind(wx.EVT_TOOL, lambda e: show_help_dialog(self._frame), id=self._help_id)
-        self._frame.Bind(wx.EVT_TOOL, lambda e: show_settings_dialog(self._frame, on_db_reset=self._clear_all), id=self._settings_id)
 
     def _on_search_text(self, event):
         """Filter cards as user types in search field."""
@@ -1237,6 +1241,8 @@ class MainWindow:
     def _on_close(self, event):
         """Handle window close event."""
         self._edit_debounce_timer.Stop()
+        if self._prefs_editor is not None:
+            self._prefs_editor.Dismiss()
         self._frame.Destroy()
 
     def run(self):

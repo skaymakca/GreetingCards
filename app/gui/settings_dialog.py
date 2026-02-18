@@ -1,10 +1,12 @@
-"""Settings dialog with API key management and database controls."""
+"""Preferences pages for native macOS Preferences editor."""
 import subprocess
+from collections.abc import Callable
+
 import wx
+
 from app.gui import styles
 from app.core.config import get_api_key, save_api_key
 from app.core.database import reset_database
-from app.version import __version__
 
 
 def get_commit_hash() -> str:
@@ -16,18 +18,6 @@ def get_commit_hash() -> str:
         ).decode().strip()
     except Exception:
         return ""
-
-
-def show_settings_dialog(parent, on_db_reset=None):
-    """Show settings dialog.
-
-    Args:
-        parent: Parent window
-        on_db_reset: Optional callback when database is reset
-    """
-    dialog = SettingsDialog(parent, on_db_reset)
-    dialog.ShowModal()
-    dialog.Destroy()
 
 
 class ApiKeyPrompt(wx.Dialog):
@@ -137,129 +127,55 @@ class ApiKeyPrompt(wx.Dialog):
             event.Skip()
 
 
-class SettingsDialog(wx.Dialog):
-    """Settings window with API key management and database controls."""
+class GeneralPreferencesPage(wx.StockPreferencesPage):
+    """General preferences page with API key management."""
 
-    def __init__(self, parent, on_db_reset=None):
-        super().__init__(
-            parent,
-            title="Settings",
-            size=(420, 330),
-            style=wx.DEFAULT_DIALOG_STYLE
-        )
+    def __init__(self):
+        super().__init__(wx.StockPreferencesPage.Kind_General)
 
-        self._on_db_reset = on_db_reset
-
-        # Main sizer
+    def CreateWindow(self, parent):
+        """Create the preferences panel. May be called multiple times."""
+        panel = wx.Panel(parent)
         sizer = wx.BoxSizer(wx.VERTICAL)
 
-        # --- About section ---
-        sizer.AddSpacer(20)
-
-        app_name = wx.StaticText(self, label="Greeting Cards")
-        app_name.SetFont(styles.Font.TITLE())
-        app_name.SetForegroundColour(styles.Color.TEXT_PRIMARY)
-        sizer.Add(app_name, 0, wx.LEFT | wx.RIGHT, 20)
-
-        sizer.AddSpacer(4)
-
-        commit = get_commit_hash()
-        version_text = f"Version {__version__}"
-        if commit:
-            version_text += f" ({commit})"
-        version_label = wx.StaticText(self, label=version_text)
-        version_label.SetFont(styles.Font.SMALL())
-        version_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
-        sizer.Add(version_label, 0, wx.LEFT | wx.RIGHT, 20)
-
         sizer.AddSpacer(16)
 
-        # Separator
-        sep1 = wx.StaticLine(self)
-        sizer.Add(sep1, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
-
-        sizer.AddSpacer(16)
-
-        # --- API Key section ---
-        api_heading = wx.StaticText(self, label="API Key")
+        # API Key heading
+        api_heading = wx.StaticText(panel, label="API Key")
         api_heading.SetFont(styles.Font.HEADING())
-        api_heading.SetForegroundColour(styles.Color.TEXT_PRIMARY)
         sizer.Add(api_heading, 0, wx.LEFT | wx.RIGHT, 20)
 
         sizer.AddSpacer(8)
 
-        # Key entry frame
-        key_frame = wx.Panel(self)
+        # Key entry with Save button
+        key_frame = wx.Panel(panel)
+        key_frame.SetMaxSize(wx.Size(340, -1))
         key_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        self._key_entry = wx.TextCtrl(key_frame, style=wx.TE_PASSWORD)
+        self._key_entry = wx.TextCtrl(key_frame, style=wx.TE_PASSWORD | wx.TE_PROCESS_ENTER)
         self._key_entry.SetFont(styles.Font.BODY())
         current_key = get_api_key()
         if current_key:
             self._key_entry.SetValue(current_key)
+        self._key_entry.Bind(wx.EVT_TEXT_ENTER, self._save_api_key)
         key_sizer.Add(self._key_entry, 1, wx.EXPAND)
 
-        self._save_key_btn = wx.Button(key_frame, label="Save")
-        self._save_key_btn.Bind(wx.EVT_BUTTON, self._save_api_key)
-        key_sizer.Add(self._save_key_btn, 0, wx.LEFT, 8)
+        save_btn = wx.Button(key_frame, label="Save")
+        save_btn.Bind(wx.EVT_BUTTON, self._save_api_key)
+        key_sizer.Add(save_btn, 0, wx.LEFT, 8)
 
         key_frame.SetSizer(key_sizer)
-        sizer.Add(key_frame, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
+        sizer.Add(key_frame, 0, wx.LEFT | wx.RIGHT, 20)
 
         sizer.AddSpacer(4)
 
         # Status label
-        self._key_status = wx.StaticText(self, label="")
+        self._key_status = wx.StaticText(panel, label="")
         self._key_status.SetFont(styles.Font.SMALL())
         sizer.Add(self._key_status, 0, wx.LEFT | wx.RIGHT, 20)
 
-        sizer.AddSpacer(16)
-
-        # Separator
-        sep2 = wx.StaticLine(self)
-        sizer.Add(sep2, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
-
-        sizer.AddSpacer(16)
-
-        # --- Database section ---
-        db_heading = wx.StaticText(self, label="Database")
-        db_heading.SetFont(styles.Font.HEADING())
-        db_heading.SetForegroundColour(styles.Color.TEXT_PRIMARY)
-        sizer.Add(db_heading, 0, wx.LEFT | wx.RIGHT, 20)
-
-        sizer.AddSpacer(8)
-
-        db_frame = wx.Panel(self)
-        db_sizer = wx.BoxSizer(wx.HORIZONTAL)
-
-        db_desc = wx.StaticText(
-            db_frame,
-            label="Clear all cached OCR/AI results and rebuild."
-        )
-        db_desc.SetFont(styles.Font.SMALL())
-        db_desc.SetForegroundColour(styles.Color.TEXT_SECONDARY)
-        db_sizer.Add(db_desc, 1, wx.ALIGN_CENTER_VERTICAL)
-
-        self._rebuild_btn = wx.Button(db_frame, label="Rebuild")
-        self._rebuild_btn.Bind(wx.EVT_BUTTON, self._rebuild_db)
-        db_sizer.Add(self._rebuild_btn, 0, wx.LEFT, 8)
-
-        db_frame.SetSizer(db_sizer)
-        sizer.Add(db_frame, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
-
-        # Add spacer before close button
-        sizer.AddStretchSpacer()
-
-        # Close button
-        close_btn = wx.Button(self, wx.ID_CLOSE, "Close")
-        close_btn.Bind(wx.EVT_BUTTON, lambda evt: self.EndModal(wx.ID_CLOSE))
-        sizer.Add(close_btn, 0, wx.ALIGN_CENTER | wx.BOTTOM, 20)
-
-        self.SetSizer(sizer)
-        self.CenterOnParent()
-
-        # Keyboard shortcuts
-        self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
+        panel.SetSizer(sizer)
+        return panel
 
     def _save_api_key(self, event):
         """Save API key and show status."""
@@ -271,7 +187,51 @@ class SettingsDialog(wx.Dialog):
         else:
             self._key_status.SetLabel("Key cannot be empty")
             self._key_status.SetForegroundColour(styles.Color.ERROR)
-        self.Layout()
+        self._key_status.GetParent().Layout()
+
+
+class AdvancedPreferencesPage(wx.StockPreferencesPage):
+    """Advanced preferences page with database controls."""
+
+    def __init__(self, on_db_reset: Callable[[], None] | None = None):
+        super().__init__(wx.StockPreferencesPage.Kind_Advanced)
+        self._on_db_reset = on_db_reset
+
+    def CreateWindow(self, parent):
+        """Create the preferences panel. May be called multiple times."""
+        panel = wx.Panel(parent)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        sizer.AddSpacer(16)
+
+        # Database heading
+        db_heading = wx.StaticText(panel, label="Database")
+        db_heading.SetFont(styles.Font.HEADING())
+        sizer.Add(db_heading, 0, wx.LEFT | wx.RIGHT, 20)
+
+        sizer.AddSpacer(8)
+
+        db_frame = wx.Panel(panel)
+        db_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        db_desc = wx.StaticText(
+            db_frame,
+            label="Clear all cached OCR/AI results and rebuild."
+        )
+        db_desc.SetFont(styles.Font.SMALL())
+        db_sizer.Add(db_desc, 1, wx.ALIGN_CENTER_VERTICAL)
+
+        rebuild_btn = wx.Button(db_frame, label="Rebuild")
+        rebuild_btn.Bind(wx.EVT_BUTTON, self._rebuild_db)
+        db_sizer.Add(rebuild_btn, 0, wx.LEFT, 8)
+
+        db_frame.SetSizer(db_sizer)
+        sizer.Add(db_frame, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
+
+        sizer.AddSpacer(30)
+
+        panel.SetSizer(sizer)
+        return panel
 
     def _rebuild_db(self, event):
         """Rebuild database after confirmation."""
@@ -279,7 +239,6 @@ class SettingsDialog(wx.Dialog):
             "This will delete all cached OCR results, AI results, and manual edits.\n\nContinue?",
             "Rebuild Database",
             wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION,
-            self
         )
         if result != wx.YES:
             return
@@ -289,15 +248,22 @@ class SettingsDialog(wx.Dialog):
             "The cache has been cleared.",
             "Database Rebuilt",
             wx.OK | wx.ICON_INFORMATION,
-            self
         )
 
         if self._on_db_reset:
             self._on_db_reset()
 
-    def _on_key(self, event):
-        """Handle keyboard shortcuts."""
-        if event.GetKeyCode() == wx.WXK_ESCAPE:
-            self.EndModal(wx.ID_CLOSE)
-        else:
-            event.Skip()
+
+def create_preferences_editor(on_db_reset: Callable[[], None] | None = None) -> wx.PreferencesEditor:
+    """Create and return a wx.PreferencesEditor with all preference pages.
+
+    Args:
+        on_db_reset: Optional callback when database is reset
+
+    Returns:
+        wx.PreferencesEditor instance
+    """
+    editor = wx.PreferencesEditor("Greeting Cards")
+    editor.AddPage(GeneralPreferencesPage())
+    editor.AddPage(AdvancedPreferencesPage(on_db_reset=on_db_reset))
+    return editor
