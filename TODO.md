@@ -1,10 +1,14 @@
 # TODO
 
-- [ ] Handle removing cards from the cards table.
-	- Will need to add a button to the details editor.  A remove button with an icon right next to the AI Analyze and before the remove family name checkbox
-	- Will need to add a right click menu in the main table's row, with Open (use the default system mechanism), Reveal in finder (open window with the file selected) and remove.  Include appropriate icons (and consistent with the new button for the remove command)
 - [ ] Update finish renaming behavior. Instead of clearing after rename: Only remove the filepaths that were succesfuly renamed.  If a card has no more paths left, remove it.  If there are no items left, then go back to the overlay drop screen
+- [ ] Open dialog doesnt work quite correctly. Cannot choose a folder vs open it, which is the behavior seen in other apps.  Also looks off? What were our open dialog options again?
+- [ ] Add commands to the file menu for the rest of teh toolbar buttons, AI analyze, Rename Files, Clear
+- [ ] Dark mode detection and handling of ui changes
+- [ ] Help navbar items should be pinned/always visible despite scrolling. Make just the right div scollable?  Woudld need to make sure the search results JS would work with this ok.  This path should let us also (hopefiully never need) a scrollable TOC as well
+- [ ] Card in result table that changes its category due to editing isnt triggering a recount and disppearance from teh current view.  For example, had an error card then named it to an AI result, it still remained.
+
 ## Done
+- [x] Card removal: Remove button in detail panel, right-click context menu on card rows (Open, Reveal in Finder, Remove) with SF Symbol icons
 - [x] AI model selection: Settings dropdown (Haiku 4.5, Sonnet 4.6, Opus 4.6), plist persistence, stale model auto-migration, help page with cost table
 - [x] Fix filter state desync bug and code quality cleanup
 - [x] Fix 4 UI polish issues at first load

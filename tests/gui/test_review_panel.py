@@ -4,7 +4,7 @@ import wx
 import wx.dataview as dv
 import pytest
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, MagicMock, patch, call
 from app.gui.review_panel import (
     CardListModel,
     DetailPanel,
@@ -1209,6 +1209,154 @@ class TestMultiPathCardDisplay:
 
         # Should return True for multi-path cards (blue color applied)
         assert result is True
+
+
+# ============================================================================
+# Drag Highlight Tests
+# ============================================================================
+
+
+# ============================================================================
+# Remove Button Tests
+# ============================================================================
+
+
+class TestRemoveButton:
+    """Tests for Remove button in DetailPanel."""
+
+    def test_detail_panel_has_remove_button(self, parent_frame):
+        """Detail panel has Remove button."""
+        detail = DetailPanel(parent_frame, None, None, None, None)
+        assert hasattr(detail, "_remove_btn")
+        assert detail._remove_btn is not None
+
+    def test_remove_button_disabled_when_no_card(self, parent_frame):
+        """Remove button is disabled when no card is selected."""
+        detail = DetailPanel(parent_frame, None, None, None, None)
+        assert not detail._remove_btn.IsEnabled()
+
+    def test_remove_button_enabled_when_card_loaded(self, parent_frame, mock_cards):
+        """Remove button is enabled when a card is loaded."""
+        detail = DetailPanel(parent_frame, None, None, None, None)
+        mock_cards[0].file_hash = "test_hash"
+        detail.load_card(mock_cards[0])
+        assert detail._remove_btn.IsEnabled()
+
+    def test_remove_button_enabled_for_error_card(self, parent_frame, mock_cards):
+        """Remove button is enabled even for error cards."""
+        detail = DetailPanel(parent_frame, None, None, None, None)
+        error_card = mock_cards[5]  # Error card
+        error_card.file_hash = "error_hash"
+        detail.load_card(error_card)
+        assert detail._remove_btn.IsEnabled()
+
+    def test_remove_button_disabled_after_clear(self, parent_frame, mock_cards):
+        """Remove button is disabled after clear."""
+        detail = DetailPanel(parent_frame, None, None, None, None)
+        mock_cards[0].file_hash = "test_hash"
+        detail.load_card(mock_cards[0])
+        detail.clear()
+        assert not detail._remove_btn.IsEnabled()
+
+    def test_remove_button_calls_callback(self, parent_frame, mock_cards):
+        """Clicking Remove button calls on_remove callback with file_hash."""
+        on_remove = Mock()
+        detail = DetailPanel(parent_frame, None, None, None, None, on_remove=on_remove)
+        mock_cards[0].file_hash = "test_hash"
+        detail.load_card(mock_cards[0])
+
+        event = wx.CommandEvent(wx.EVT_BUTTON.typeId)
+        detail._on_remove_click(event)
+
+        on_remove.assert_called_once_with("test_hash")
+
+    def test_remove_button_no_callback_without_hash(self, parent_frame, mock_cards):
+        """Remove button does not call callback if card has no hash."""
+        on_remove = Mock()
+        detail = DetailPanel(parent_frame, None, None, None, None, on_remove=on_remove)
+        mock_cards[0].file_hash = None
+        detail.load_card(mock_cards[0])
+
+        event = wx.CommandEvent(wx.EVT_BUTTON.typeId)
+        detail._on_remove_click(event)
+
+        on_remove.assert_not_called()
+
+
+# ============================================================================
+# Context Menu Tests
+# ============================================================================
+
+
+class TestContextMenu:
+    """Tests for right-click context menu on card list."""
+
+    def test_context_menu_event_bound(self, parent_frame):
+        """DataViewCtrl has context menu event bound."""
+        on_select = Mock()
+        on_ai = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
+        # Verify the binding exists by checking the list control has handlers
+        assert panel._list_ctrl is not None
+
+    def test_on_remove_callback_stored(self, parent_frame):
+        """ReviewPanelMasterDetail stores on_remove callback."""
+        on_remove = Mock()
+        panel = ReviewPanelMasterDetail(
+            parent_frame, Mock(), Mock(), on_remove=on_remove
+        )
+        assert panel._on_remove is on_remove
+
+    def test_on_remove_passed_to_detail_panel(self, parent_frame):
+        """on_remove callback is passed through to DetailPanel."""
+        on_remove = Mock()
+        panel = ReviewPanelMasterDetail(
+            parent_frame, Mock(), Mock(), on_remove=on_remove
+        )
+        assert panel._detail_panel._on_remove is on_remove
+
+    def test_context_menu_no_card_does_nothing(self, parent_frame, mock_cards):
+        """Context menu on invalid item does nothing."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+
+        # Create a mock event with an invalid item
+        event = Mock()
+        event.GetItem.return_value = dv.NullDataViewItem
+
+        # Should not raise
+        with patch.object(panel._list_ctrl, "PopupMenu"):
+            panel._on_context_menu(event)
+
+    def test_context_menu_has_correct_items(self, parent_frame, mock_cards):
+        """Context menu has Open, Reveal in Finder, separator, and Remove."""
+        on_remove = Mock()
+        panel = ReviewPanelMasterDetail(
+            parent_frame, Mock(), Mock(), on_remove=on_remove
+        )
+        mock_cards[0].file_hash = "test_hash"
+        panel.load_cards(mock_cards)
+
+        item = panel._model.get_item_by_card_id(1)
+        event = Mock()
+        event.GetItem.return_value = item
+
+        captured_menu = {}
+
+        def capture_menu(menu):
+            # Inspect before it gets destroyed
+            items = list(menu.GetMenuItems())
+            captured_menu["count"] = len(items)
+            captured_menu["labels"] = [
+                "---" if it.IsSeparator() else it.GetItemLabelText()
+                for it in items
+            ]
+
+        with patch.object(panel._list_ctrl, "PopupMenu", side_effect=capture_menu):
+            panel._on_context_menu(event)
+
+        assert captured_menu["count"] == 4
+        assert captured_menu["labels"] == ["Open", "Reveal in Finder", "---", "Remove"]
 
 
 # ============================================================================

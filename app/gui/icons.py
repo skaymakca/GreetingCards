@@ -132,7 +132,7 @@ def load_menu_icon(name: str, color_hex: str = "#1D1D1F") -> wx.Bitmap | None:
     Returns:
         wx.Bitmap with the rendered symbol, or None if unavailable
     """
-    return load_sf_symbol(name, point_size=6, color_hex=color_hex, scale=1)
+    return load_sf_symbol(name, point_size=11, color_hex=color_hex, scale=1)
 
 
 def load_cursor_from_symbol(

@@ -24,6 +24,7 @@ Benefits:
 - Cleaner code
 """
 
+import subprocess
 import wx
 import wx.dataview as dv
 from typing import Callable
@@ -31,7 +32,7 @@ from pathlib import Path
 from app.models.card import CardResult, Confidence, CandidateInfo
 from app.gui.styles import Color, Font, Layout
 from app.gui.utils import create_static_text, create_button
-from app.gui.icons import load_sf_symbol
+from app.gui.icons import load_sf_symbol, load_menu_icon
 from app.gui.context_menu import add_entry_context_menu
 
 
@@ -187,18 +188,33 @@ class DetailPanel(wx.Panel):
         on_checkbox_toggle: Callable[[int, bool], None] | None,
         on_candidate_select: Callable[[int, int], None] | None,
         on_ai_request: Callable[[int], None] | None,
+        on_remove: Callable[[str], None] | None = None,
     ):
         super().__init__(parent)
         self._on_name_change = on_name_change
         self._on_checkbox_toggle = on_checkbox_toggle
         self._on_candidate_select = on_candidate_select
         self._on_ai_request = on_ai_request
+        self._on_remove = on_remove
         self._current_card: CardResult | None = None
         self._suppress_events = False
         self._candidate_map: dict[str, int] = {}
 
         self._build_ui()
         self.clear()
+
+    def _make_action_button(self, icon_name: str, label: str, handler) -> wx.Button:
+        """Create a compact action button with an SF Symbol icon."""
+        icon = load_sf_symbol(icon_name, 9, "#1D1D1F")
+        if icon:
+            btn = wx.Button(self._edit_panel, label=f"  {label}")
+            btn.SetBitmap(icon)
+        else:
+            btn = wx.Button(self._edit_panel, label=label)
+        btn.SetFont(Font.BODY())
+        btn.SetMinSize(wx.Size(-1, 28))
+        btn.Bind(wx.EVT_BUTTON, handler)
+        return btn
 
     def _build_ui(self):
         """Build the detail panel UI."""
@@ -244,23 +260,16 @@ class DetailPanel(wx.Panel):
         self._candidates_choice.Bind(wx.EVT_CHOICE, self._on_candidate)
         edit_sizer.Add(self._candidates_choice, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, Layout.PAD)
 
-        # Horizontal row: AI button + Remove Family checkbox
+        # Horizontal row: AI button, Remove button, Remove Family checkbox
         action_row = wx.BoxSizer(wx.HORIZONTAL)
 
-        # AI button (standard height button with icon)
-        # Use 9pt icon for compact size
-        ai_icon = load_sf_symbol("sparkles", 9, "#1D1D1F")
-        if ai_icon:
-            self._ai_btn = wx.Button(self._edit_panel, label="  AI Analyze")
-            self._ai_btn.SetBitmap(ai_icon)
-        else:
-            self._ai_btn = wx.Button(self._edit_panel, label="AI Analyze")
-
-        self._ai_btn.SetFont(Font.BODY())
-        # Match OK button height (standard macOS button)
-        self._ai_btn.SetMinSize(wx.Size(-1, 28))
-        self._ai_btn.Bind(wx.EVT_BUTTON, self._on_ai)
+        self._ai_btn = self._make_action_button("sparkles", "AI Analyze", self._on_ai)
         action_row.Add(self._ai_btn, 0, wx.ALIGN_CENTER_VERTICAL)
+
+        action_row.AddSpacer(Layout.PAD)
+
+        self._remove_btn = self._make_action_button("minus.circle", "Remove", self._on_remove_click)
+        action_row.Add(self._remove_btn, 0, wx.ALIGN_CENTER_VERTICAL)
 
         action_row.AddSpacer(Layout.PAD * 2)
 
@@ -362,6 +371,7 @@ class DetailPanel(wx.Panel):
         self._name_text.Enable(not has_error)
         self._remove_family_check.Enable(not has_error)
         self._ai_btn.Enable(not has_error)
+        self._remove_btn.Enable(True)
 
         # Update file locations section
         self._update_locations(card)
@@ -419,6 +429,7 @@ class DetailPanel(wx.Panel):
         self._candidates_choice.SetSelection(0)
         self._candidates_choice.Enable(False)
         self._ai_btn.Enable(False)
+        self._remove_btn.Enable(False)
 
         # Clear file locations and remove tab if present
         self._locations_list.DeleteAllItems()
@@ -486,6 +497,14 @@ class DetailPanel(wx.Panel):
         if self._on_ai_request:
             self._on_ai_request(self._current_card.id)
 
+    def _on_remove_click(self, event):
+        """Handle Remove button click."""
+        if not self._current_card:
+            return
+
+        if self._on_remove and self._current_card.file_hash:
+            self._on_remove(self._current_card.file_hash)
+
 
 class ReviewPanelMasterDetail(wx.Panel):
     """Master-Detail Review Panel - Mac-native pattern.
@@ -500,12 +519,14 @@ class ReviewPanelMasterDetail(wx.Panel):
         on_ai_request: Callable[[int], None],
         on_name_change: Callable[[int, str], None] | None = None,
         on_card_edited: Callable[[int], None] | None = None,
+        on_remove: Callable[[str], None] | None = None,
     ):
         super().__init__(parent)
         self._on_select = on_select
         self._on_ai_request = on_ai_request
         self._on_name_change = on_name_change
         self._on_card_edited = on_card_edited
+        self._on_remove = on_remove
         self._selected_card_id: int | None = None
         self._cards_by_id: dict[int, CardResult] = {}
         self._drag_highlight = False
@@ -561,6 +582,9 @@ class ReviewPanelMasterDetail(wx.Panel):
         # Bind selection event
         self._list_ctrl.Bind(dv.EVT_DATAVIEW_SELECTION_CHANGED, self._on_selection_changed)
 
+        # Bind context menu event
+        self._list_ctrl.Bind(dv.EVT_DATAVIEW_ITEM_CONTEXT_MENU, self._on_context_menu)
+
         # Detail: Edit panel
         self._detail_panel = DetailPanel(
             splitter,
@@ -568,6 +592,7 @@ class ReviewPanelMasterDetail(wx.Panel):
             on_checkbox_toggle=self._handle_checkbox,
             on_candidate_select=self._handle_candidate,
             on_ai_request=self._on_ai_request,
+            on_remove=self._on_remove,
         )
 
         # Split horizontally (master on top, detail on bottom)
@@ -627,6 +652,49 @@ class ReviewPanelMasterDetail(wx.Panel):
             self._selected_card_id = None
             self._detail_panel.clear()
             self._on_select(None)
+
+    def _on_context_menu(self, event: dv.DataViewEvent):
+        """Show context menu on right-click."""
+        item = event.GetItem()
+        card = self._model.get_card_by_item(item)
+        if not card:
+            return
+
+        menu = wx.Menu()
+
+        # Open item
+        open_item = menu.Append(wx.ID_ANY, "Open")
+        open_icon = load_menu_icon("doc.text")
+        if open_icon:
+            open_item.SetBitmap(open_icon)
+
+        # Reveal in Finder item
+        reveal_item = menu.Append(wx.ID_ANY, "Reveal in Finder")
+        reveal_icon = load_menu_icon("folder")
+        if reveal_icon:
+            reveal_item.SetBitmap(reveal_icon)
+
+        menu.AppendSeparator()
+
+        # Remove item
+        remove_item = menu.Append(wx.ID_ANY, "Remove")
+        remove_icon = load_menu_icon("minus.circle")
+        if remove_icon:
+            remove_item.SetBitmap(remove_icon)
+
+        # Bind handlers
+        primary_path = str(card.primary_path)
+        menu.Bind(wx.EVT_MENU, lambda evt: subprocess.Popen(["open", primary_path]), open_item)
+        menu.Bind(wx.EVT_MENU, lambda evt: subprocess.Popen(["open", "-R", primary_path]), reveal_item)
+
+        file_hash = card.file_hash
+        if self._on_remove and file_hash:
+            menu.Bind(wx.EVT_MENU, lambda evt: self._on_remove(file_hash), remove_item)
+        else:
+            remove_item.Enable(False)
+
+        self._list_ctrl.PopupMenu(menu)
+        menu.Destroy()
 
     def _handle_name_change(self, card_id: int, new_name: str):
         """Handle name change from detail panel."""

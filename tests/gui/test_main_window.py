@@ -904,6 +904,104 @@ def test_card_edited_immediate_refresh(wx_app):
     window._frame.Destroy()
 
 
+def test_on_remove_callback_connected(wx_app):
+    """Test review panel on_remove callback is connected."""
+    window = MainWindow()
+    assert window._review_panel._on_remove == window._on_remove_card
+    window._frame.Destroy()
+
+
+def test_remove_card_removes_from_state(wx_app):
+    """Test _on_remove_card removes card from all state dicts."""
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    # Add test card
+    card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+    card.family_name = "Smith"
+    card.confidence = Confidence.HIGH
+    card.file_hash = "hash1"
+    window._cards_by_hash = {"hash1": card}
+    window._hash_by_path = {Path("/test/card.pdf"): "hash1"}
+    window._pdf_files = [Path("/test/card.pdf")]
+
+    # Remove card
+    window._on_remove_card("hash1")
+
+    # Verify all state is cleaned up
+    assert "hash1" not in window._cards_by_hash
+    assert Path("/test/card.pdf") not in window._hash_by_path
+    assert Path("/test/card.pdf") not in window._pdf_files
+    window._frame.Destroy()
+
+
+def test_remove_card_multi_path(wx_app):
+    """Test _on_remove_card removes all paths for a multi-path card."""
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    # Add card with multiple paths
+    card = CardResult(
+        id=0,
+        file_paths=[Path("/test/card1.pdf"), Path("/test/card2.pdf")],
+        primary_path=Path("/test/card1.pdf"),
+    )
+    card.family_name = "Smith"
+    card.confidence = Confidence.HIGH
+    card.file_hash = "hash1"
+    window._cards_by_hash = {"hash1": card}
+    window._hash_by_path = {
+        Path("/test/card1.pdf"): "hash1",
+        Path("/test/card2.pdf"): "hash1",
+    }
+    window._pdf_files = [Path("/test/card1.pdf"), Path("/test/card2.pdf")]
+
+    # Remove card
+    window._on_remove_card("hash1")
+
+    # Both paths should be removed
+    assert len(window._cards_by_hash) == 0
+    assert len(window._hash_by_path) == 0
+    assert len(window._pdf_files) == 0
+    window._frame.Destroy()
+
+
+def test_remove_card_nonexistent_hash(wx_app):
+    """Test _on_remove_card with nonexistent hash does not crash."""
+    window = MainWindow()
+    # Should not raise
+    window._on_remove_card("nonexistent_hash")
+    window._frame.Destroy()
+
+
+def test_remove_last_card_shows_overlay(wx_app):
+    """Test removing the last card shows the drop overlay."""
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+    card.family_name = "Smith"
+    card.confidence = Confidence.HIGH
+    card.file_hash = "hash1"
+    window._cards_by_hash = {"hash1": card}
+    window._hash_by_path = {Path("/test/card.pdf"): "hash1"}
+    window._pdf_files = [Path("/test/card.pdf")]
+
+    # Show content area first
+    window._set_empty_state(False)
+    assert window._content_splitter.IsShown()
+
+    # Remove last card
+    window._on_remove_card("hash1")
+
+    # Overlay should be shown
+    assert window._drop_overlay.IsShown()
+    window._frame.Destroy()
+
+
 def test_close_stops_debounce_timer(wx_app):
     """Test _on_close stops the debounce timer."""
     window = MainWindow()

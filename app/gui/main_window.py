@@ -572,6 +572,7 @@ class MainWindow:
             on_ai_request=self._on_ai_request,
             on_name_change=self._on_name_change,
             on_card_edited=self._on_card_edited,
+            on_remove=self._on_remove_card,
         )
 
         # Preview panel
@@ -1085,6 +1086,28 @@ class MainWindow:
 
     def _on_card_edited(self, card_id: int) -> None:
         """Handle discrete card edits (e.g. candidate selection) that change confidence."""
+        self._refresh_display()
+
+    def _on_remove_card(self, file_hash: str) -> None:
+        """Remove a card from the in-memory table (non-destructive — does not delete files).
+
+        Args:
+            file_hash: The content hash of the card to remove
+        """
+        card = self._cards_by_hash.get(file_hash)
+        if not card:
+            return
+
+        # Remove all path → hash mappings for this card
+        for path in card.file_paths:
+            self._hash_by_path.pop(path, None)
+            if path in self._pdf_files:
+                self._pdf_files.remove(path)
+
+        # Remove the card itself
+        del self._cards_by_hash[file_hash]
+
+        # Refresh display (handles filter counts, list reload, empty state)
         self._refresh_display()
 
     def _on_edit_debounce_fire(self, event: wx.TimerEvent) -> None:
