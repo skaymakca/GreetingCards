@@ -3,6 +3,7 @@
 import pytest
 import wx
 from pathlib import Path
+from unittest.mock import Mock
 from app.gui.main_window import MainWindow, FileDropTarget
 
 
@@ -101,7 +102,44 @@ def test_file_drop_target_callback():
         pass
 
     target = FileDropTarget(dummy_callback)
-    assert target._callback == dummy_callback
+    assert target._on_drop == dummy_callback
+
+
+def test_file_drop_target_drag_over_callback():
+    """Test FileDropTarget calls on_drag_over during drag."""
+    on_drop = Mock()
+    on_drag_over = Mock()
+    on_drag_leave = Mock()
+    target = FileDropTarget(on_drop, on_drag_over, on_drag_leave)
+
+    target.OnDragOver(0, 0, wx.DragCopy)
+    on_drag_over.assert_called_once()
+
+    target.OnLeave()
+    on_drag_leave.assert_called_once()
+
+
+def test_file_drop_target_drag_callbacks_optional():
+    """Test FileDropTarget works without drag callbacks."""
+    target = FileDropTarget(Mock())
+    # Should not raise
+    target.OnDragOver(0, 0, wx.DragCopy)
+    target.OnLeave()
+
+
+def test_drop_overlay_drag_active(wx_app):
+    """Test _DropOverlay.set_drag_active toggles flag."""
+    from app.gui.main_window import _DropOverlay
+    frame = wx.Frame(None)
+    overlay = _DropOverlay(frame)
+    assert overlay._drag_active is False
+
+    overlay.set_drag_active(True)
+    assert overlay._drag_active is True
+
+    overlay.set_drag_active(False)
+    assert overlay._drag_active is False
+    frame.Destroy()
 
 
 def test_toolbar_icons_applied(wx_app):

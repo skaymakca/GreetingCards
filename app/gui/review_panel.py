@@ -496,8 +496,10 @@ class ReviewPanelMasterDetail(wx.Panel):
         self._on_card_edited = on_card_edited
         self._selected_card_id: int | None = None
         self._cards_by_id: dict[int, CardResult] = {}
+        self._drag_highlight = False
 
         self._build_ui()
+        self.Bind(wx.EVT_PAINT, self._on_paint_highlight)
 
     def _build_ui(self):
         """Build master-detail UI."""
@@ -527,6 +529,7 @@ class ReviewPanelMasterDetail(wx.Panel):
 
         # Splitter for master-detail
         splitter = wx.SplitterWindow(self, style=wx.SP_LIVE_UPDATE | wx.SP_3DSASH)
+        self._splitter = splitter
 
         # Master: DataViewCtrl
         self._list_ctrl = dv.DataViewCtrl(
@@ -671,7 +674,6 @@ class ReviewPanelMasterDetail(wx.Panel):
         self._model.load_cards(cards)
         n = len(cards)
         self._count_label.SetLabel(f"{n} {'Card' if n == 1 else 'Cards'}")
-        self.Layout()
 
         if cards:
             # Try to restore previous selection
@@ -743,6 +745,32 @@ class ReviewPanelMasterDetail(wx.Panel):
             prev_item = self._model.ObjectToItem(current_row - 1)
             self._list_ctrl.Select(prev_item)
             self._list_ctrl.EnsureVisible(prev_item)
+
+    def set_drag_highlight(self, on: bool) -> None:
+        """Show/hide a macOS-blue drag highlight border around the panel."""
+        if self._drag_highlight == on:
+            return
+        self._drag_highlight = on
+        self.Refresh()
+
+    def _on_paint_highlight(self, event: wx.PaintEvent) -> None:
+        """Draw blue drag-highlight border around the entire panel when active."""
+        event.Skip()
+        if not self._drag_highlight:
+            return
+        dc = wx.PaintDC(self)
+        gc = wx.GraphicsContext.Create(dc)
+        if not gc:
+            return
+        w, h = self.GetSize()
+        pen = gc.CreatePen(
+            wx.GraphicsPenInfo(wx.Colour(0, 122, 255)).Width(3)
+        )
+        gc.SetPen(pen)
+        gc.SetBrush(wx.NullBrush)
+        path = gc.CreatePath()
+        path.AddRoundedRectangle(1.5, 1.5, w - 3, h - 3, 6)
+        gc.StrokePath(path)
 
     def set_ai_button_state(self, card_id: int, state: str, text: str = "AI"):
         """Set AI button state (enabled/disabled)."""

@@ -1,14 +1,17 @@
 """wxPython Main Window for Greeting Cards application."""
 
 import io
+import sys
 import wx
 import wx.adv
 from pathlib import Path
 from datetime import datetime
+from typing import Callable
 import threading
 import asyncio
 
 from app.gui import styles
+from app.gui.styles import Color, Font
 from app.gui.preview_panel import PreviewPanel
 from app.gui.review_panel import ReviewPanelMasterDetail
 from app.gui.filter_sidebar import FilterSidebar
@@ -109,6 +112,135 @@ def _process_pdf_worker(pdf_path_str: str) -> dict:
         result['error'] = str(e)
 
     return result
+
+
+def _load_drop_background() -> wx.Bitmap | None:
+    """Load and process the drop target background image.
+
+    Applies Brightness(0.75) and Color(0.5) via PIL, returns wx.Bitmap.
+    """
+    try:
+        from PIL import Image, ImageEnhance
+
+        # Resolve path for both dev and bundled app
+        if getattr(sys, '_MEIPASS', None):
+            img_path = Path(sys._MEIPASS) / "Drop Target Background.png"
+        else:
+            img_path = Path(__file__).resolve().parent.parent.parent / "Drop Target Background.png"
+
+        if not img_path.exists():
+            return None
+
+        img = Image.open(img_path).convert("RGBA")
+        img = ImageEnhance.Brightness(img).enhance(0.75)
+        img = ImageEnhance.Color(img).enhance(0.5)
+
+        # Convert PIL → wx.Bitmap
+        width, height = img.size
+        wx_img = wx.Image(width, height)
+        wx_img.SetData(img.convert("RGB").tobytes())
+        wx_img.SetAlpha(img.getchannel("A").tobytes())
+        return wx_img.ConvertToBitmap()
+    except Exception:
+        return None
+
+
+class _DropOverlay(wx.Panel):
+    """Full content-area drop overlay with background image and drop zone hint."""
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self._bg_source = _load_drop_background()
+        self._bg_scaled: wx.Bitmap | None = None
+        self._bg_cache_size: tuple[int, int] = (0, 0)
+        self._drag_active = False
+        self.Bind(wx.EVT_PAINT, self._on_paint)
+        self.Bind(wx.EVT_SIZE, self._on_size)
+
+    def set_drag_active(self, on: bool) -> None:
+        """Toggle blue drag-active border."""
+        if self._drag_active == on:
+            return
+        self._drag_active = on
+        self.Refresh()
+
+    def _on_size(self, event: wx.SizeEvent) -> None:
+        self._bg_scaled = None  # Invalidate cache
+        self.Refresh()
+        event.Skip()
+
+    def _scale_bg(self, target_w: int, target_h: int) -> wx.Bitmap | None:
+        """Scale bg image to fit target size (contain), caching result."""
+        if self._bg_source is None:
+            return None
+        if self._bg_scaled and self._bg_cache_size == (target_w, target_h):
+            return self._bg_scaled
+
+        src_w = self._bg_source.GetWidth()
+        src_h = self._bg_source.GetHeight()
+        if src_w == 0 or src_h == 0 or target_w == 0 or target_h == 0:
+            return None
+
+        # Scale to fit (contain) within target
+        scale = min(target_w / src_w, target_h / src_h)
+        new_w = int(src_w * scale)
+        new_h = int(src_h * scale)
+
+        img = self._bg_source.ConvertToImage()
+        img = img.Scale(new_w, new_h, wx.IMAGE_QUALITY_HIGH)
+
+        self._bg_scaled = img.ConvertToBitmap()
+        self._bg_cache_size = (target_w, target_h)
+        return self._bg_scaled
+
+    def _on_paint(self, event: wx.PaintEvent) -> None:
+        dc = wx.PaintDC(self)
+        gc = wx.GraphicsContext.Create(dc)
+        if not gc:
+            return
+
+        w, h = self.GetSize()
+
+        # If drag active, draw solid blue border at panel edges
+        if self._drag_active:
+            edge_path = gc.CreatePath()
+            edge_path.AddRoundedRectangle(1.5, 1.5, w - 3, h - 3, 6)
+            gc.SetPen(gc.CreatePen(wx.GraphicsPenInfo(wx.Colour(0, 122, 255)).Width(3)))
+            gc.SetBrush(wx.NullBrush)
+            gc.StrokePath(edge_path)
+
+        # Background image at ~50% of overlay area, centered in overlay
+        img_area_w = int(w * 0.5)
+        img_area_h = int(h * 0.5)
+        bg = self._scale_bg(img_area_w, img_area_h)
+        if bg:
+            bw = bg.GetWidth()
+            bh = bg.GetHeight()
+            img_x = (w - bw) / 2
+            img_y = (h - bh) / 2 - h * 0.06  # Shift up slightly for text room
+            gc.DrawBitmap(bg, img_x, img_y, bw, bh)
+            img_bottom = img_y + bh
+        else:
+            img_bottom = h * 0.5
+
+        # Text halfway between image bottom and overlay bottom
+        text_center_y = (img_bottom + h) / 2
+
+        # Primary text
+        primary = "Drop PDF files or folders here"
+        gc.SetFont(Font.BODY(), Color.TEXT_SECONDARY)
+        tw, th = gc.GetTextExtent(primary)[:2]
+        tx = (w - tw) / 2
+        ty = text_center_y - th - 2
+        gc.DrawText(primary, tx, ty)
+
+        # Secondary text
+        secondary = "or use File \u2192 Open (\u2318O)"
+        gc.SetFont(Font.SMALL(), Color.TEXT_SECONDARY)
+        tw2, th2 = gc.GetTextExtent(secondary)[:2]
+        tx2 = (w - tw2) / 2
+        ty2 = text_center_y + 2
+        gc.DrawText(secondary, tx2, ty2)
 
 
 class MainWindow:
@@ -227,8 +359,15 @@ class MainWindow:
         main_sizer.Add(self._toolbar, 0, wx.EXPAND)
 
         # Three-column content splitter
-        splitter = self._build_content_area()
-        main_sizer.Add(splitter, 1, wx.EXPAND)
+        self._content_splitter = self._build_content_area()
+        main_sizer.Add(self._content_splitter, 1, wx.EXPAND)
+
+        # Drop overlay (shown when no cards loaded — covers entire content area)
+        self._drop_overlay = _DropOverlay(self._panel)
+        main_sizer.Add(self._drop_overlay, 1, wx.EXPAND)
+
+        # Initially show overlay, hide content
+        self._content_splitter.Hide()
 
         self._panel.SetSizer(main_sizer)
 
@@ -368,6 +507,9 @@ class MainWindow:
 
         self._review_panel.load_cards(display_cards)
 
+        # Toggle overlay vs content area based on whether any cards exist at all
+        self._set_empty_state(not self._cards_by_hash)
+
     def _get_search_filtered_cards(self) -> list[CardResult]:
         """Get cards filtered by search query only."""
         cards = list(self._cards_by_hash.values())
@@ -452,10 +594,32 @@ class MainWindow:
 
         return main_splitter
 
+    def _set_empty_state(self, is_empty: bool) -> None:
+        """Toggle between drop overlay (empty) and content splitter (has cards)."""
+        self._drop_overlay.Show(is_empty)
+        self._content_splitter.Show(not is_empty)
+        self._panel.Layout()
+
     def _setup_drop_target(self) -> None:
         """Enable drag-and-drop on the frame."""
-        drop_target = FileDropTarget(self._on_drop)
+        drop_target = FileDropTarget(
+            on_drop=self._on_drop,
+            on_drag_over=self._on_drag_over,
+            on_drag_leave=self._on_drag_leave,
+        )
         self._frame.SetDropTarget(drop_target)
+
+    def _on_drag_over(self) -> None:
+        """Show drag highlight on overlay or review panel."""
+        if self._drop_overlay.IsShown():
+            self._drop_overlay.set_drag_active(True)
+        else:
+            self._review_panel.set_drag_highlight(True)
+
+    def _on_drag_leave(self) -> None:
+        """Hide drag highlight."""
+        self._drop_overlay.set_drag_active(False)
+        self._review_panel.set_drag_highlight(False)
 
     def _on_drop(self, paths: list[Path]) -> None:
         """Handle dropped files and/or folders (multi-select).
@@ -463,6 +627,8 @@ class MainWindow:
         Args:
             paths: List of dropped paths (files or folders)
         """
+        # Clear drag highlights
+        self._on_drag_leave()
         # Add to existing cards (don't replace)
         self._load_paths(paths, auto_process=True)
 
@@ -610,6 +776,7 @@ class MainWindow:
         self._preview_panel.clear()
         self._sidebar.update_category_counts([])
         self._sidebar.update_folders([])
+        self._set_empty_state(True)
 
         # Disable toolbar tools
         self._toolbar.EnableTool(self._ai_all_id, False)
@@ -1202,17 +1369,35 @@ class MainWindow:
 
 
 class FileDropTarget(wx.FileDropTarget):
-    """Custom drop target for files/folders (supports multi-select)."""
+    """Custom drop target for files/folders with drag-over feedback."""
 
-    def __init__(self, callback):
+    def __init__(
+        self,
+        on_drop: Callable[[list[Path]], None],
+        on_drag_over: Callable[[], None] | None = None,
+        on_drag_leave: Callable[[], None] | None = None,
+    ):
         super().__init__()
-        self._callback = callback
+        self._on_drop = on_drop
+        self._on_drag_over = on_drag_over
+        self._on_drag_leave = on_drag_leave
 
-    def OnDropFiles(self, x, y, filenames):
+    def OnDropFiles(self, x: int, y: int, filenames: list[str]) -> bool:
         """Handle dropped files (can be multiple)."""
         if not filenames:
             return False
 
         paths = [Path(f) for f in filenames]
-        wx.CallAfter(self._callback, paths)  # Pass list, not single path
+        wx.CallAfter(self._on_drop, paths)
         return True
+
+    def OnDragOver(self, x: int, y: int, defResult: int) -> int:
+        """Show drag highlight when files are dragged over."""
+        if self._on_drag_over:
+            self._on_drag_over()
+        return defResult
+
+    def OnLeave(self) -> None:
+        """Hide drag highlight when drag leaves."""
+        if self._on_drag_leave:
+            self._on_drag_leave()

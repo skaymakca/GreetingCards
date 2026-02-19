@@ -1209,3 +1209,44 @@ class TestMultiPathCardDisplay:
 
         # Should return True for multi-path cards (blue color applied)
         assert result is True
+
+
+# ============================================================================
+# Drag Highlight Tests
+# ============================================================================
+
+
+class TestDragHighlight:
+    """Tests for set_drag_highlight on review panel."""
+
+    def test_drag_highlight_initially_false(self, parent_frame):
+        """Drag highlight is off by default."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        assert panel._drag_highlight is False
+
+    def test_set_drag_highlight_on(self, parent_frame):
+        """set_drag_highlight(True) sets flag."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.set_drag_highlight(True)
+        assert panel._drag_highlight is True
+
+    def test_set_drag_highlight_off(self, parent_frame):
+        """set_drag_highlight(False) clears flag."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.set_drag_highlight(True)
+        panel.set_drag_highlight(False)
+        assert panel._drag_highlight is False
+
+    def test_set_drag_highlight_idempotent(self, parent_frame):
+        """Calling set_drag_highlight with same value is a no-op."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        with patch.object(panel, "Refresh") as mock_refresh:
+            panel.set_drag_highlight(False)
+            mock_refresh.assert_not_called()
+
+    def test_set_drag_highlight_triggers_refresh(self, parent_frame):
+        """Changing drag highlight state triggers Refresh."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        with patch.object(panel, "Refresh") as mock_refresh:
+            panel.set_drag_highlight(True)
+            mock_refresh.assert_called_once()
