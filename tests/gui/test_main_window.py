@@ -261,11 +261,11 @@ def test_search_control_exists(wx_app):
     window._frame.Destroy()
 
 
-def test_info_bar_exists(wx_app):
-    """Test info bar is created."""
+def test_sidebar_notification_exists(wx_app):
+    """Test sidebar has notification area."""
     window = MainWindow()
-    assert window._info_bar is not None
-    assert isinstance(window._info_bar, wx.InfoBar)
+    assert hasattr(window._sidebar, '_notify_label')
+    assert not window._sidebar._notify_label.IsShown()
     window._frame.Destroy()
 
 
@@ -448,8 +448,8 @@ def test_filter_sidebar_exists(wx_app):
     """Test filter sidebar is created."""
     window = MainWindow()
     assert window._sidebar is not None
-    assert hasattr(window._sidebar, 'get_selected_filters')
-    assert window._sidebar.get_selected_filters() == ["all"]
+    assert hasattr(window._sidebar, 'get_selected_category_filters')
+    assert window._sidebar.get_selected_category_filters() == ["all"]
     window._frame.Destroy()
 
 
@@ -620,7 +620,7 @@ def test_clear_resets_sidebar_filter(wx_app):
 
     # Change filters
     window._current_category_filters = ["high", "manual"]
-    window._sidebar.set_filters(["high", "manual"])
+    window._sidebar.set_category_filters(["high", "manual"])
 
     # Clear
     window._clear_all()
@@ -628,7 +628,7 @@ def test_clear_resets_sidebar_filter(wx_app):
     # Verify reset
     assert window._current_category_filters == ["all"]
     assert window._current_folder_filters == ["all_folders"]
-    assert window._sidebar.get_selected_filters() == ["all"]
+    assert window._sidebar.get_selected_category_filters() == ["all"]
 
     window._frame.Destroy()
 

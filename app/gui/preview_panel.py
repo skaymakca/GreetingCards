@@ -101,7 +101,7 @@ class PreviewPanel(wx.Panel):
         page_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
         self._prev_btn = wx.Button(controls, label="◀", size=(32, 28))
-        self._prev_btn.Bind(wx.EVT_BUTTON, lambda e: self._prev_page())
+        self._prev_btn.Bind(wx.EVT_BUTTON, lambda e: self.prev_page())
         self._prev_btn.Enable(False)
         page_sizer.Add(self._prev_btn, 0, wx.RIGHT, 2)
 
@@ -114,7 +114,7 @@ class PreviewPanel(wx.Panel):
         page_sizer.Add(self._page_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT | wx.RIGHT, 2)
 
         self._next_btn = wx.Button(controls, label="▶", size=(32, 28))
-        self._next_btn.Bind(wx.EVT_BUTTON, lambda e: self._next_page())
+        self._next_btn.Bind(wx.EVT_BUTTON, lambda e: self.next_page())
         self._next_btn.Enable(False)
         page_sizer.Add(self._next_btn, 0, wx.LEFT, 2)
 
@@ -224,7 +224,7 @@ class PreviewPanel(wx.Panel):
 
     # --- Page navigation ---
 
-    def _prev_page(self):
+    def prev_page(self) -> None:
         """Navigate to previous page."""
         if self._page_idx > 0:
             self._page_idx -= 1
@@ -232,7 +232,7 @@ class PreviewPanel(wx.Panel):
             self._update_page_controls()
             self._render()
 
-    def _next_page(self):
+    def next_page(self) -> None:
         """Navigate to next page."""
         if self._page_idx < len(self._images) - 1:
             self._page_idx += 1

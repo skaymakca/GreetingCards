@@ -86,39 +86,24 @@ def _process_pdf_worker(pdf_path_str: str) -> dict:
         if card_state:
             # Card exists - reprocess candidates from raw data with current cleaning logic
             reprocess_candidates_from_raw(file_hash)
-
-            # Reload state after reprocessing
-            card_state = get_card_state(file_hash)
-            if card_state:
-                result['family_name'] = card_state.display_name
-                result['confidence'] = card_state.confidence
-                result['alternates'] = [c.family_name for c in card_state.candidates]
-                result['candidates'] = card_state.candidates
-                result['remove_family'] = card_state.remove_family
-                result['selected_candidate_id'] = card_state.selected_candidate_id
-                result['method'] = card_state.method
         else:
             # New file - run OCR and save raw data
             if images:
                 ocr_text = extract_text_all_pages(images)
                 result['ocr_text'] = ocr_text
-
-                # Save raw OCR
                 save_raw_ocr(file_hash, ocr_text)
-
-                # Process candidates from raw data
                 reprocess_candidates_from_raw(file_hash)
 
-                # Load state after processing
-                card_state = get_card_state(file_hash)
-                if card_state:
-                    result['family_name'] = card_state.display_name
-                    result['confidence'] = card_state.confidence
-                    result['alternates'] = [c.family_name for c in card_state.candidates]
-                    result['candidates'] = card_state.candidates
-                    result['remove_family'] = card_state.remove_family
-                    result['selected_candidate_id'] = card_state.selected_candidate_id
-                    result['method'] = card_state.method
+        # Load state after processing/reprocessing
+        card_state = get_card_state(file_hash)
+        if card_state:
+            result['family_name'] = card_state.display_name
+            result['confidence'] = card_state.confidence
+            result['alternates'] = [c.family_name for c in card_state.candidates]
+            result['candidates'] = card_state.candidates
+            result['remove_family'] = card_state.remove_family
+            result['selected_candidate_id'] = card_state.selected_candidate_id
+            result['method'] = card_state.method
 
     except Exception as e:
         result['error'] = str(e)
@@ -139,7 +124,6 @@ class MainWindow:
         self._frame.SetMinSize((800, 500))
 
         # State - Content-based deduplication (multi-load architecture)
-        # Removed: self._folder (no root folder concept)
         self._next_card_id = 0  # Monotonically increasing ID counter
         self._cards_by_hash: dict[str, CardResult] = {}  # hash → Card (1:1)
         self._hash_by_path: dict[Path, str] = {}  # path → hash (many:1)
@@ -150,6 +134,7 @@ class MainWindow:
 
         # Preferences editor (lazy-init)
         self._prefs_editor = None
+        self._progress: ProgressDialog | None = None
 
         # Debounce timer for name edits (fires _refresh_display after user stops typing)
         self._edit_debounce_timer = wx.Timer(self._frame)
@@ -179,7 +164,7 @@ class MainWindow:
                 return card
         return None
 
-    def _setup_menu_bar(self):
+    def _setup_menu_bar(self) -> None:
         """Create native macOS menu bar with File and Help menus."""
         menubar = wx.MenuBar()
 
@@ -210,13 +195,13 @@ class MainWindow:
         self._frame.Bind(wx.EVT_MENU, lambda e: self._frame.Close(), id=wx.ID_EXIT)
         self._frame.Bind(wx.EVT_MENU, lambda e: show_help(self._frame), id=wx.ID_HELP)
 
-    def _show_preferences(self):
+    def _show_preferences(self) -> None:
         """Show the native macOS Preferences editor."""
         if self._prefs_editor is None:
             self._prefs_editor = create_preferences_editor(on_db_reset=self._clear_all)
         self._prefs_editor.Show(self._frame)
 
-    def _show_about(self):
+    def _show_about(self) -> None:
         """Show the native macOS About dialog."""
         info = wx.adv.AboutDialogInfo()
         info.SetName("Greeting Cards")
@@ -231,7 +216,7 @@ class MainWindow:
             info.SetVersion(commit)
         wx.adv.AboutBox(info)
 
-    def _build_ui(self):
+    def _build_ui(self) -> None:
         """Assemble main UI layout with toolbar and three-column layout."""
         # Main panel for content
         self._panel = wx.Panel(self._frame)
@@ -241,17 +226,13 @@ class MainWindow:
         self._build_toolbar()
         main_sizer.Add(self._toolbar, 0, wx.EXPAND)
 
-        # Info bar (initially hidden)
-        self._info_bar = wx.InfoBar(self._panel)
-        main_sizer.Add(self._info_bar, 0, wx.EXPAND)
-
         # Three-column content splitter
         splitter = self._build_content_area()
         main_sizer.Add(splitter, 1, wx.EXPAND)
 
         self._panel.SetSizer(main_sizer)
 
-    def _build_toolbar(self):
+    def _build_toolbar(self) -> None:
         """Build toolbar with SF Symbol icons."""
         toolbar = wx.ToolBar(self._panel, style=wx.TB_HORIZONTAL | wx.TB_NODIVIDER)
         toolbar.SetToolBitmapSize(wx.Size(24, 24))
@@ -320,16 +301,16 @@ class MainWindow:
         self._frame.Bind(wx.EVT_TOOL, lambda e: self._start_rename(), id=self._rename_id)
         self._frame.Bind(wx.EVT_TOOL, lambda e: self._clear_all(), id=self._clear_id)
 
-    def _on_search_text(self, event):
+    def _on_search_text(self, event) -> None:
         """Filter cards as user types in search field."""
         self._refresh_display()
 
-    def _on_search_cancel(self, event):
+    def _on_search_cancel(self, event) -> None:
         """Clear filter when cancel button clicked."""
-        self._search_ctrl.SetValue("")
+        self._search_ctrl.ChangeValue("")
         self._refresh_display()
 
-    def _on_category_filter_change(self, filter_keys: list[str]):
+    def _on_category_filter_change(self, filter_keys: list[str]) -> None:
         """Handle sidebar category filter change.
 
         Args:
@@ -338,7 +319,7 @@ class MainWindow:
         self._current_category_filters = filter_keys
         self._refresh_display()
 
-    def _on_folder_filter_change(self, filter_keys: list[str]):
+    def _on_folder_filter_change(self, filter_keys: list[str]) -> None:
         """Handle sidebar folder filter change.
 
         Args:
@@ -347,7 +328,7 @@ class MainWindow:
         self._current_folder_filters = filter_keys
         self._refresh_display()
 
-    def _refresh_display(self):
+    def _refresh_display(self) -> None:
         """Refresh sidebar counts and cards table using cross-filtered pipeline.
 
         Re-entrancy-free: sidebar count updates may auto-reset internal filter
@@ -471,12 +452,12 @@ class MainWindow:
 
         return main_splitter
 
-    def _setup_drop_target(self):
+    def _setup_drop_target(self) -> None:
         """Enable drag-and-drop on the frame."""
         drop_target = FileDropTarget(self._on_drop)
         self._frame.SetDropTarget(drop_target)
 
-    def _on_drop(self, paths: list[Path]):
+    def _on_drop(self, paths: list[Path]) -> None:
         """Handle dropped files and/or folders (multi-select).
 
         Args:
@@ -485,7 +466,7 @@ class MainWindow:
         # Add to existing cards (don't replace)
         self._load_paths(paths, auto_process=True)
 
-    def _setup_keyboard_shortcuts(self):
+    def _setup_keyboard_shortcuts(self) -> None:
         """Set up keyboard accelerators."""
         # Menu shortcuts (Cmd+O, Cmd+W, Cmd+Q) handled by menu bar
 
@@ -500,7 +481,7 @@ class MainWindow:
         # Navigation shortcuts
         self._frame.Bind(wx.EVT_CHAR_HOOK, self._on_key_press)
 
-    def _on_key_press(self, event):
+    def _on_key_press(self, event) -> None:
         """Handle key presses for navigation."""
         key = event.GetKeyCode()
         focus = self._frame.FindFocus()
@@ -524,9 +505,9 @@ class MainWindow:
         elif key == wx.WXK_DOWN:
             self._review_panel.select_next_card()
         elif key == wx.WXK_LEFT:
-            self._preview_panel._prev_page()
+            self._preview_panel.prev_page()
         elif key == wx.WXK_RIGHT:
-            self._preview_panel._next_page()
+            self._preview_panel.next_page()
         else:
             event.Skip()
 
@@ -555,7 +536,7 @@ class MainWindow:
 
         return sorted(pdf_paths)
 
-    def _add_files_folders(self):
+    def _add_files_folders(self) -> None:
         """Add PDF files or folders (unified picker - multi-load architecture)."""
         # Show file dialog for PDFs (supports multi-select)
         dlg = wx.FileDialog(
@@ -572,7 +553,7 @@ class MainWindow:
 
         dlg.Destroy()
 
-    def _load_paths(self, paths: list[Path], auto_process: bool = True):
+    def _load_paths(self, paths: list[Path], auto_process: bool = True) -> None:
         """Load PDFs from multiple files/folders (accumulating, not replacing).
 
         Args:
@@ -603,7 +584,7 @@ class MainWindow:
         if new_pdfs or skipped_pdfs:
             msg = f"Found {len(new_pdfs)} new PDF{'s' if len(new_pdfs) != 1 else ''}"
             if skipped_pdfs:
-                msg += f", skipped {len(skipped_pdfs)} already loaded"
+                msg += f"\nSkipped {len(skipped_pdfs)} already loaded"
             self._show_info_message(msg, wx.ICON_INFORMATION)
         elif not all_pdfs:
             self._show_info_message("No PDF files found", wx.ICON_WARNING, duration_ms=0)
@@ -617,7 +598,7 @@ class MainWindow:
             # After processing starts, restore full list
             self._pdf_files = temp_pdf_files
 
-    def _clear_all(self):
+    def _clear_all(self) -> None:
         """Clear all loaded cards (from all sources) and reset UI."""
         # Clear all state (multi-load architecture)
         self._cards_by_hash.clear()
@@ -627,7 +608,7 @@ class MainWindow:
 
         self._review_panel.load_cards([])
         self._preview_panel.clear()
-        self._sidebar.update_card_counts([])
+        self._sidebar.update_category_counts([])
         self._sidebar.update_folders([])
 
         # Disable toolbar tools
@@ -641,15 +622,12 @@ class MainWindow:
         # Reset sidebar filters
         self._current_category_filters = ["all"]
         self._current_folder_filters = ["all_folders"]
-        self._sidebar.set_filters(["all"])
+        self._sidebar.set_category_filters(["all"])
 
         # Show confirmation
         self._show_info_message("All cards cleared", wx.ICON_INFORMATION)
 
-        # Dismiss any info bar messages
-        self._info_bar.Dismiss()
-
-    def _start_processing(self):
+    def _start_processing(self) -> None:
         """Start processing PDFs in background."""
         if not self._pdf_files:
             return
@@ -673,7 +651,7 @@ class MainWindow:
         thread = threading.Thread(target=self._process_cards, daemon=True)
         thread.start()
 
-    def _process_cards(self):
+    def _process_cards(self) -> None:
         """Process PDFs using multiprocessing.Pool (runs in background thread)."""
         import multiprocessing
         from multiprocessing import Pool, cpu_count
@@ -765,7 +743,7 @@ class MainWindow:
 
         return card
 
-    def _process_cards_sequential(self):
+    def _process_cards_sequential(self) -> None:
         """Fallback: sequential processing if multiprocessing fails."""
         total = len(self._pdf_files)
         for i, pdf_path in enumerate(self._pdf_files):
@@ -837,22 +815,22 @@ class MainWindow:
 
         wx.CallAfter(self._processing_complete)
 
-    def _update_processing_progress(self, current: int, total: int, name: str):
+    def _update_processing_progress(self, current: int, total: int, name: str) -> None:
         """Update progress dialog from background thread."""
-        if hasattr(self, "_progress") and not self._progress.IsBeingDeleted():
+        if self._progress is not None and not self._progress.IsBeingDeleted():
             self._progress.update_progress(current, f"Processing: {name}")
 
     def _derive_folders(self) -> list[Path]:
         """Derive sorted unique source folders from all loaded cards."""
         return sorted({p.parent for card in self._cards_by_hash.values() for p in card.file_paths})
 
-    def _processing_complete(self):
+    def _processing_complete(self) -> None:
         """Called when processing finishes."""
         # End busy cursor
         if wx.IsBusy():
             wx.EndBusyCursor()
 
-        if hasattr(self, "_progress") and not self._progress.IsBeingDeleted():
+        if self._progress is not None and not self._progress.IsBeingDeleted():
             self._progress.finish()
 
         # Update folder section FIRST (creates checkboxes before _refresh_display populates counts)
@@ -872,11 +850,11 @@ class MainWindow:
         # Show success message with auto-dismiss
         count = len(self._cards_by_hash)
         self._show_info_message(
-            f"Processing complete: {count} card{'s' if count != 1 else ''} loaded",
+            f"Processing complete\n{count} card{'s' if count != 1 else ''} loaded",
             wx.ICON_INFORMATION
         )
 
-    def _on_card_select(self, card_id: int | None):
+    def _on_card_select(self, card_id: int | None) -> None:
         """Handle card selection - update preview panel."""
         if card_id is None:
             self._preview_panel.clear()
@@ -895,7 +873,7 @@ class MainWindow:
         else:
             self._preview_panel.clear()
 
-    def _on_name_change(self, card_id: int, new_name: str):
+    def _on_name_change(self, card_id: int, new_name: str) -> None:
         """Handle manual name edit in review panel."""
         card = self._get_card_by_id(card_id)
         if not card:
@@ -923,11 +901,11 @@ class MainWindow:
         self._edit_debounce_timer.Stop()
         self._edit_debounce_timer.StartOnce(1000)
 
-    def _on_card_edited(self, card_id: int):
+    def _on_card_edited(self, card_id: int) -> None:
         """Handle discrete card edits (e.g. candidate selection) that change confidence."""
         self._refresh_display()
 
-    def _on_edit_debounce_fire(self, event):
+    def _on_edit_debounce_fire(self, event) -> None:
         """Fire after user stops typing for 1 second — refresh filters."""
         self._refresh_display()
 
@@ -938,7 +916,7 @@ class MainWindow:
 
         # Show info bar with warning (no auto-dismiss for important warnings)
         self._show_info_message(
-            "API key not configured. Click Settings to add your Anthropic API key.",
+            "API key not configured\nUse Settings to add your Anthropic API key",
             wx.ICON_WARNING,
             duration_ms=0  # Don't auto-dismiss warnings
         )
@@ -946,12 +924,12 @@ class MainWindow:
         # Also show dialog for immediate action
         api_key = show_api_key_dialog(self._frame)
         if api_key is not None and get_api_key() is not None:
-            self._info_bar.Dismiss()
+            self._sidebar.dismiss_notification()
             return True
 
         return False
 
-    def _on_ai_request(self, card_id: int):
+    def _on_ai_request(self, card_id: int) -> None:
         """Handle AI button click for single card."""
         card = self._get_card_by_id(card_id)
         if not card or card.error:
@@ -976,7 +954,7 @@ class MainWindow:
         thread = threading.Thread(target=self._run_ai_analysis, args=(card_id, card), daemon=True)
         thread.start()
 
-    def _run_ai_analysis(self, card_id: int, card: CardResult):
+    def _run_ai_analysis(self, card_id: int, card: CardResult) -> None:
         """Run AI analysis for single card (runs in background thread)."""
         try:
             # Check if we already have AI candidates
@@ -992,30 +970,9 @@ class MainWindow:
 
                 if card.file_hash and result.best_name:
                     save_raw_ai(card.file_hash, result.best_name, result.alternates)
-
-                    # Reprocess all candidates from raw data (includes new AI results)
                     reprocess_candidates_from_raw(card.file_hash)
 
-            # Reload state after reprocessing
-            if card.file_hash:
-                card_state = get_card_state(card.file_hash)
-                if card_state:
-                    card.family_name = card_state.display_name
-                    card.confidence = Confidence(card_state.confidence)
-                    card.alternates = [c.family_name for c in card_state.candidates]
-                    card.candidates = card_state.candidates
-                    card.remove_family = card_state.remove_family
-                    card.selected_candidate_id = card_state.selected_candidate_id
-                    card.method = card_state.method
-                    card.ai_analyzed = True
-                    # Only clear manual override if user hasn't manually edited
-                    if not card.manual_override or card.method != "manual":
-                        card.manual_override = ""
-                else:
-                    card.ai_analyzed = True
-            else:
-                card.confidence = Confidence.NONE
-                card.ai_analyzed = True
+            self._load_card_state_from_db(card)
 
         except Exception as e:
             msg = format_ai_error(e)
@@ -1023,12 +980,40 @@ class MainWindow:
 
         wx.CallAfter(self._ai_analysis_complete, card_id, card)
 
-    def _ai_analysis_complete(self, card_id: int, card: CardResult):
+    @staticmethod
+    def _load_card_state_from_db(card: CardResult) -> None:
+        """Load card state from database into a CardResult object.
+
+        Reads the current card_state for the card's file_hash and updates
+        the card's display fields (family_name, confidence, candidates, etc.).
+        """
+        if not card.file_hash:
+            card.confidence = Confidence.NONE
+            card.ai_analyzed = True
+            return
+
+        card_state = get_card_state(card.file_hash)
+        if card_state:
+            card.family_name = card_state.display_name
+            card.confidence = Confidence(card_state.confidence)
+            card.alternates = [c.family_name for c in card_state.candidates]
+            card.candidates = card_state.candidates
+            card.remove_family = card_state.remove_family
+            card.selected_candidate_id = card_state.selected_candidate_id
+            card.method = card_state.method
+            card.ai_analyzed = True
+            # Only clear manual override if user hasn't manually edited
+            if not card.manual_override or card.method != "manual":
+                card.manual_override = ""
+        else:
+            card.ai_analyzed = True
+
+    def _ai_analysis_complete(self, card_id: int, card: CardResult) -> None:
         """Update UI after AI analysis completes."""
         self._review_panel.update_card(card_id, card)
         self._review_panel.set_ai_button_state(card_id, "normal", "AI")
 
-    def _start_ai_all(self):
+    def _start_ai_all(self) -> None:
         """Start AI analysis for all cards."""
         if not self._cards_by_hash:
             return
@@ -1052,11 +1037,11 @@ class MainWindow:
         thread = threading.Thread(target=self._run_ai_all, daemon=True)
         thread.start()
 
-    def _run_ai_all(self):
+    def _run_ai_all(self) -> None:
         """Run async AI batch processing in background thread."""
         asyncio.run(self._run_ai_all_async())
 
-    async def _run_ai_all_async(self):
+    async def _run_ai_all_async(self) -> None:
         """Async batch AI processing with concurrency limit."""
         import anthropic
 
@@ -1101,29 +1086,9 @@ class MainWindow:
 
                         if card.file_hash and result.best_name:
                             save_raw_ai(card.file_hash, result.best_name, result.alternates)
-
-                            # Reprocess all candidates from raw data (includes new AI results)
                             reprocess_candidates_from_raw(card.file_hash)
 
-                    # Reload state after reprocessing
-                    if card.file_hash:
-                        card_state = get_card_state(card.file_hash)
-                        if card_state:
-                            card.family_name = card_state.display_name
-                            card.confidence = Confidence(card_state.confidence)
-                            card.alternates = [c.family_name for c in card_state.candidates]
-                            card.candidates = card_state.candidates
-                            card.remove_family = card_state.remove_family
-                            card.selected_candidate_id = card_state.selected_candidate_id
-                            card.method = card_state.method
-                            card.ai_analyzed = True
-                            # Only clear manual override if user hasn't manually edited
-                            if not card.manual_override or card.method != "manual":
-                                card.manual_override = ""
-                        else:
-                            card.ai_analyzed = True
-                    else:
-                        card.ai_analyzed = True
+                    self._load_card_state_from_db(card)
 
                 except anthropic.AuthenticationError as e:
                     auth_failed.set()
@@ -1140,21 +1105,21 @@ class MainWindow:
         aborted = auth_failed.is_set()
         wx.CallAfter(self._ai_all_complete, errors, aborted)
 
-    def _update_ai_all_progress(self, completed: int, total: int, filename: str, card_id: int, card: CardResult | None):
+    def _update_ai_all_progress(self, completed: int, total: int, filename: str, card_id: int, card: CardResult | None) -> None:
         """Update progress during batch AI processing."""
-        if hasattr(self, "_progress") and not self._progress.IsBeingDeleted():
+        if self._progress is not None and not self._progress.IsBeingDeleted():
             self._progress.update_progress(completed, f"AI analyzing: {filename}")
 
         if card is not None:
             self._review_panel.update_card(card_id, card)
 
-    def _ai_all_complete(self, errors: list[tuple[str, str]], auth_aborted: bool = False):
+    def _ai_all_complete(self, errors: list[tuple[str, str]], auth_aborted: bool = False) -> None:
         """Called when batch AI processing completes."""
         # End busy cursor
         if wx.IsBusy():
             wx.EndBusyCursor()
 
-        if hasattr(self, "_progress") and not self._progress.IsBeingDeleted():
+        if self._progress is not None and not self._progress.IsBeingDeleted():
             self._progress.finish()
 
         # Enable toolbar tools
@@ -1173,11 +1138,11 @@ class MainWindow:
             # Show success message with auto-dismiss
             count = len(self._cards_by_hash)
             self._show_info_message(
-                f"AI analysis complete: {count} card{'s' if count != 1 else ''} analyzed",
+                f"Analysis complete\n{count} card{'s' if count != 1 else ''} analyzed",
                 wx.ICON_INFORMATION
             )
 
-    def _start_rename(self):
+    def _start_rename(self) -> None:
         """Start rename workflow."""
         cards = self._review_panel.get_cards()
         year_str = self._year_ctrl.GetValue().strip()
@@ -1214,28 +1179,24 @@ class MainWindow:
 
         dialog.Destroy()
 
-    def _show_info_message(self, message: str, icon=wx.ICON_INFORMATION, duration_ms: int = 4000):
-        """Show info bar message with auto-dismiss.
+    def _show_info_message(self, message: str, icon: int = wx.ICON_INFORMATION, duration_ms: int = 4000) -> None:
+        """Show notification in sidebar bottom.
 
         Args:
             message: Message to display
             icon: Icon to show (wx.ICON_INFORMATION, wx.ICON_WARNING, wx.ICON_ERROR)
             duration_ms: Time in milliseconds before auto-dismiss (0 = no auto-dismiss)
         """
-        self._info_bar.ShowMessage(message, icon)
+        self._sidebar.show_notification(message, icon, duration_ms)
 
-        if duration_ms > 0:
-            # Auto-dismiss after delay
-            wx.CallLater(duration_ms, lambda: self._info_bar.Dismiss() if not self._info_bar.IsBeingDeleted() else None)
-
-    def _on_close(self, event):
+    def _on_close(self, event) -> None:
         """Handle window close event."""
         self._edit_debounce_timer.Stop()
         if self._prefs_editor is not None:
             self._prefs_editor.Dismiss()
         self._frame.Destroy()
 
-    def run(self):
+    def run(self) -> None:
         """Start the application event loop."""
         self._frame.Show()
 

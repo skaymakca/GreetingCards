@@ -1,4 +1,4 @@
-# Greeting Card Analyzer
+# Greeting Cards
 
 Scans holiday/greeting card PDFs, extracts family names via OCR and AI, and batch-renames the files.
 
@@ -8,13 +8,17 @@ Scans holiday/greeting card PDFs, extracts family names via OCR and AI, and batc
 - **Content-based deduplication** — identical files at different locations are automatically detected (by content hash) and displayed as a single card with multiple file paths
 - **PDF rendering** — renders all pages of each PDF using PyMuPDF for preview and analysis
 - **Offline OCR** — extracts text from card images with Tesseract, then pattern-matches family names (e.g. "The Smiths", "Love, John & Jane Smith") at high/medium/low confidence levels
-- **AI analysis** — sends page images to Claude's vision API for name extraction; available per-card or as a batch "AI All" operation
+- **AI analysis** — sends page images to Claude's vision API for name extraction; available per-card or as a batch "AI Analyze" operation
 - **Intelligent caching** — OCR results, AI results, and manual edits are persisted to a local SQLite database keyed by file content hash, so re-processing the same files (even from different locations) is instant
 - **Smart batch rename** — builds a rename plan with per-directory duplicate detection, shows a confirmation dialog, then renames files to `Holiday Cards Year - FamilyName Family.pdf` (or without "Family" suffix if checkbox is checked)
 - **Per-file options** — checkbox to omit "Family" suffix from individual filenames (e.g., `Holiday Cards 2024 - Smith.pdf` instead of `Holiday Cards 2024 - Smith Family.pdf`)
 - **Drag and drop** — drop files or folders (even multiple at once) onto the window to add them
-- **Search and filter** — quick search by filename or family name; filter by confidence level (Manual Entry, High Confidence, Needs Review, Errors)
-- **Keyboard navigation** — Up/Down to select cards, Left/Right to page through previews, Cmd+F to search, Escape to defocus text entries
+- **Search and filter** — quick search by filename or family name; sidebar filters by confidence level with Option-click multi-select
+- **Preview with zoom/pan** — scroll wheel zoom at cursor, Shift+Click zoom in, Option+Click zoom out, click-drag pan, +/− buttons, Fit button
+- **Context menu** — right-click name fields for Cut, Copy, Paste, Title Case, and Clear
+- **Keyboard navigation** — Up/Down to select cards, Left/Right to page through previews, Cmd+F to search, Cmd+O to open files, Cmd+, for Settings, Escape to defocus
+- **Help system** — built-in WebView help viewer with 7 pages, cross-page search with highlighted matches, and Previous/Next match navigation
+- **Native macOS UI** — native toolbar, preferences editor (Cmd+,), About dialog, and system colors throughout
 - **API key management** — prompts for the Anthropic API key on first AI use; key is saved to a plist in bundled mode or read from `.env` in dev mode
 
 ## Prerequisites
@@ -130,20 +134,39 @@ open htmlcov/index.html
 
 ### Test Organization
 
-Tests are organized by component with clear markers:
+Tests are organized by component:
 
 ```
 tests/
-├── conftest.py              # Shared fixtures (wx.App, mock frames)
+├── conftest.py                      # Shared fixtures (wx.App, mock frames)
 ├── core/
-│   └── test_name_formatting.py   # Name parsing and formatting logic
+│   ├── test_ai_analyzer.py          # AI analysis and error handling
+│   ├── test_card_model.py           # Card data model
+│   ├── test_config.py               # Configuration and API key management
+│   ├── test_database.py             # SQLite database operations
+│   ├── test_filename_sanitization.py # Filename safety checks
+│   ├── test_name_extractor.py       # OCR text → name extraction
+│   ├── test_name_formatting.py      # Name parsing and formatting logic
+│   ├── test_ocr_engine.py           # OCR engine integration
+│   ├── test_paths.py                # Path resolution (dev vs bundle)
+│   ├── test_pdf_renderer.py         # PDF rendering
+│   ├── test_renamer.py              # Rename plan and execution
+│   └── test_version.py              # Version string
 └── gui/
-    └── test_utils.py             # wxPython utility functions
+    ├── conftest.py                  # GUI-specific fixtures
+    ├── test_api_key_dialog.py       # API key prompt dialog
+    ├── test_context_menu.py         # Right-click context menu
+    ├── test_dialogs.py              # Progress, rename, completion dialogs
+    ├── test_filter_sidebar.py       # Sidebar filters and multi-select
+    ├── test_help_dialog.py          # Help viewer and cross-page search
+    ├── test_icons.py                # SF Symbol icon loading
+    ├── test_main_window.py          # Main window integration
+    ├── test_preview_panel.py        # Preview panel and zoom/pan
+    ├── test_review_panel.py         # Card list and detail panel
+    ├── test_settings_dialog.py      # Preferences editor
+    ├── test_styles.py               # Style constants
+    └── test_utils.py                # wxPython utility functions
 ```
-
-**Test markers:**
-- `@pytest.mark.unit` - Fast unit tests (no GUI)
-- `@pytest.mark.gui` - Tests requiring wx.App (GUI components)
 
 ### Running Tests
 
@@ -158,14 +181,9 @@ tests/
 
 ### Current Coverage
 
-- **87 tests** covering name formatting, wxPython utilities, and GUI components
-- **Core logic** (name_formatting.py): Comprehensive coverage of:
-  - Plural name removal ("Smiths" → "Smith", preserves "Jones")
-  - Mc/Mac prefix rules ("mcdonald" → "McDonald", "macintosh" → "Macintosh")
-  - Apostrophe names ("o'brien" → "O'Brien")
-  - Hyphenated names ("smith-jones" → "Smith-Jones")
-  - Particles (van/von/de), suffixes (Jr./Sr./III), complex combinations
-- **GUI utilities** (utils.py): Color conversion, image handling, widget creation
+- **794 tests** covering core logic and GUI components
+- **Core** (12 test files): AI analysis, card model, config, database, filename sanitization, name extraction, name formatting, OCR engine, paths, PDF rendering, renamer, version
+- **GUI** (13 test files): API key dialog, context menu, dialogs, filter sidebar, help system, icons, main window, preview panel, review panel, settings, styles, utilities
 
 ### Adding Tests
 
