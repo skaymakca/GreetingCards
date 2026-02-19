@@ -923,7 +923,7 @@ class MainWindow:
 
         # Also show dialog for immediate action
         api_key = show_api_key_dialog(self._frame)
-        if api_key is not None and get_api_key() is not None:
+        if api_key is not None:
             self._sidebar.dismiss_notification()
             return True
 

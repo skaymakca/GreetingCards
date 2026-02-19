@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock
 import wx
 
 from app.gui.settings_dialog import (
-    ApiKeyPrompt, GeneralPreferencesPage, AdvancedPreferencesPage,
+    GeneralPreferencesPage, AdvancedPreferencesPage,
     create_preferences_editor, get_commit_hash,
 )
 
@@ -19,28 +19,6 @@ class TestGetCommitHash:
     @patch("app.gui.settings_dialog.subprocess.check_output", side_effect=Exception("no git"))
     def test_commit_hash_fallback(self, mock_git, wx_app):
         assert get_commit_hash() == ""
-
-
-class TestApiKeyPrompt:
-    """Tests for ApiKeyPrompt."""
-
-    def test_creation(self, wx_app, wx_frame):
-        dlg = ApiKeyPrompt(wx_frame)
-        assert dlg is not None
-        assert dlg.result is None
-        dlg.Destroy()
-
-    @patch("app.gui.settings_dialog.save_api_key")
-    def test_save_with_key(self, mock_save, wx_app, wx_frame):
-        dlg = ApiKeyPrompt(wx_frame)
-        dlg._key_entry.SetValue("sk-test")
-        assert dlg._key_entry.GetValue() == "sk-test"
-        dlg.Destroy()
-
-    def test_cancel(self, wx_app, wx_frame):
-        dlg = ApiKeyPrompt(wx_frame)
-        assert dlg.result is None
-        dlg.Destroy()
 
 
 class TestGeneralPreferencesPage:
