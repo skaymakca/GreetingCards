@@ -57,7 +57,10 @@ test-watch: ## Run tests on file changes (requires pytest-watch)
 
 build: app ## Build the macOS .app bundle (alias for 'app')
 
+LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister
+
 app: icon ## Build the macOS .app bundle
+	@$(LSREGISTER) -u "dist/Greeting Cards.app" 2>/dev/null || true
 	.venv/bin/pyinstaller -y "Greeting Cards.spec"
 
 icon: icon.png ## Generate icon.icns from icon.png
@@ -119,4 +122,5 @@ tag-push: ## Push all tags to remote
 	@git push --tags && echo "Tags pushed"
 
 clean: ## Remove build artifacts
+	@$(LSREGISTER) -u "dist/Greeting Cards.app" 2>/dev/null || true
 	rm -rf build dist icon.iconset

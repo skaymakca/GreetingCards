@@ -1250,3 +1250,38 @@ class TestDragHighlight:
         with patch.object(panel, "Refresh") as mock_refresh:
             panel.set_drag_highlight(True)
             mock_refresh.assert_called_once()
+
+
+class TestCardNavigation:
+    """Tests for select_next_card and select_prev_card."""
+
+    def test_select_next_no_cards(self, parent_frame):
+        """select_next_card with no cards loaded does not crash."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.select_next_card()  # should not raise
+
+    def test_select_prev_no_cards(self, parent_frame):
+        """select_prev_card with no cards loaded does not crash."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.select_prev_card()  # should not raise
+
+    def test_select_next_with_cards(self, parent_frame, mock_cards):
+        """select_next_card advances selection."""
+        on_select = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, Mock())
+        panel.load_cards(mock_cards)
+        # First card is auto-selected; advance to second
+        on_select.reset_mock()
+        panel.select_next_card()
+        on_select.assert_called_with(mock_cards[1].id)
+
+    def test_select_prev_with_cards(self, parent_frame, mock_cards):
+        """select_prev_card goes back to previous selection."""
+        on_select = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, Mock())
+        panel.load_cards(mock_cards)
+        # Go to second, then back to first
+        panel.select_next_card()
+        on_select.reset_mock()
+        panel.select_prev_card()
+        on_select.assert_called_with(mock_cards[0].id)

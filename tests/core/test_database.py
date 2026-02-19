@@ -370,6 +370,21 @@ class TestReprocessCandidatesFromRaw:
         assert state.display_name == "Manual"
         assert state.method == "manual"
 
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_reprocesses_both_ocr_and_ai(self, mock_title, mock_clean):
+        """When both OCR and AI raw data exist, both are processed as candidates."""
+        create_or_update_card("hash1")
+        save_raw_ocr("hash1", "The Smith Family")
+        save_raw_ai("hash1", "Johnson", ["Williams"])
+        reprocess_candidates_from_raw("hash1")
+        candidates = get_candidates("hash1")
+        names = [c.family_name for c in candidates]
+        # AI primary should be present
+        assert "Johnson" in names
+        # OCR candidates should also be present
+        assert len(candidates) >= 2
+
     def test_nonexistent_card_noop(self):
         reprocess_candidates_from_raw("nonexistent")  # Should not raise
 

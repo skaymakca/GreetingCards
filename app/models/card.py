@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 from PIL import Image
 
 from app.core.name_formatting import sanitize_for_filename
@@ -56,7 +55,7 @@ class CardState:
     confidence: str  # 'manual' | 'high' | 'medium' | 'low' | 'none'
     candidates: list[CandidateInfo]
     remove_family: bool
-    selected_candidate_id: Optional[int]
+    selected_candidate_id: int | None
 
 
 @dataclass
@@ -72,7 +71,7 @@ class RenamePlanItem:
     old_path: Path
     new_path: Path
     status: str  # 'ok' | 'skip_no_name' | 'skip_same' | 'skip_error' | 'duplicate'
-    card: Optional[CardResult] = None  # Back-reference to source card
+    card: CardResult | None = None  # Back-reference to source card
 
 
 @dataclass
@@ -95,14 +94,14 @@ class CardResult:
     alternates: list[str] = field(default_factory=list)  # Just names for backward compat
     candidates: list[CandidateInfo] = field(default_factory=list)
     ocr_text: str = ""
-    preview_image: Optional[Image.Image] = None  # first page (for AI analysis)
+    preview_image: Image.Image | None = None  # first page (for AI analysis)
     page_images: list[Image.Image] = field(default_factory=list)  # all pages
     manual_override: str = ""
     ai_analyzed: bool = False
     file_hash: str = ""
-    original_confidence: Optional[Confidence] = None  # Confidence before manual override
+    original_confidence: Confidence | None = None  # Confidence before manual override
     remove_family: bool = False  # If True, omit "Family" suffix from filename
-    selected_candidate_id: Optional[int] = None  # ID of selected candidate from DB (None if manual or missing)
+    selected_candidate_id: int | None = None  # ID of selected candidate from DB (None if manual or missing)
     method: str = "missing"  # 'ocr' | 'ai' | 'manual' | 'missing'
     error: str = ""  # Non-empty when PDF processing failed (corrupt, encrypted, etc.)
 

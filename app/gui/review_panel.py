@@ -26,7 +26,7 @@ Benefits:
 
 import wx
 import wx.dataview as dv
-from typing import Callable, Optional
+from typing import Callable
 from pathlib import Path
 from app.models.card import CardResult, Confidence, CandidateInfo
 from app.gui.styles import Color, Font, Layout
@@ -76,6 +76,16 @@ class CardListModel(dv.PyDataViewModel):
                 item = self.ObjectToItem(i)
                 self.ItemChanged(item)
                 break
+
+    @property
+    def card_count(self) -> int:
+        """Return number of cards in the model."""
+        return len(self._cards)
+
+    @property
+    def card_order(self) -> list[int]:
+        """Return card IDs in display order."""
+        return list(self._card_order)
 
     # PyDataViewModel interface
     def GetColumnCount(self):
@@ -185,6 +195,7 @@ class DetailPanel(wx.Panel):
         self._on_ai_request = on_ai_request
         self._current_card: CardResult | None = None
         self._suppress_events = False
+        self._candidate_map: dict[str, int] = {}
 
         self._build_ui()
         self.clear()
@@ -384,10 +395,11 @@ class DetailPanel(wx.Panel):
         # Add/update File Paths tab (always present now)
         if self._locations_tab_index is None:
             self._locations_panel.Show()
-            self._locations_tab_index = self._notebook.AddPage(
+            self._notebook.AddPage(
                 self._locations_panel,
                 f"File Paths ({num_paths})"
             )
+            self._locations_tab_index = self._notebook.GetPageCount() - 1
         else:
             # Update tab label
             self._notebook.SetPageText(self._locations_tab_index, f"File Paths ({num_paths})")
@@ -463,7 +475,7 @@ class DetailPanel(wx.Panel):
         label = self._candidates_choice.GetString(selection)
         candidate_id = self._candidate_map.get(label)
 
-        if candidate_id and self._on_candidate_select:
+        if candidate_id is not None and self._on_candidate_select:
             self._on_candidate_select(self._current_card.id, candidate_id)
 
     def _on_ai(self, event):
@@ -484,7 +496,7 @@ class ReviewPanelMasterDetail(wx.Panel):
     def __init__(
         self,
         parent,
-        on_select: Callable[[int], None],
+        on_select: Callable[[int | None], None],
         on_ai_request: Callable[[int], None],
         on_name_change: Callable[[int, str], None] | None = None,
         on_card_edited: Callable[[int], None] | None = None,
@@ -693,7 +705,7 @@ class ReviewPanelMasterDetail(wx.Panel):
 
     def get_cards(self) -> list[CardResult]:
         """Return all cards with edits, in display order."""
-        return [self._cards_by_id[cid] for cid in self._model._card_order if cid in self._cards_by_id]
+        return [self._cards_by_id[cid] for cid in self._model.card_order if cid in self._cards_by_id]
 
     def update_card(self, card_id: int, card: CardResult):
         """Update a single card after AI analysis."""
@@ -717,14 +729,14 @@ class ReviewPanelMasterDetail(wx.Panel):
         current_item = self._list_ctrl.GetSelection()
         if not current_item.IsOk():
             # Select first
-            if self._model._cards:
+            if self._model.card_count > 0:
                 item = self._model.ObjectToItem(0)
                 self._list_ctrl.Select(item)
                 self._list_ctrl.EnsureVisible(item)
             return
 
         current_row = self._model.ItemToObject(current_item)
-        if current_row < len(self._model._cards) - 1:
+        if current_row < self._model.card_count - 1:
             next_item = self._model.ObjectToItem(current_row + 1)
             self._list_ctrl.Select(next_item)
             self._list_ctrl.EnsureVisible(next_item)
@@ -734,7 +746,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         current_item = self._list_ctrl.GetSelection()
         if not current_item.IsOk():
             # Select first
-            if self._model._cards:
+            if self._model.card_count > 0:
                 item = self._model.ObjectToItem(0)
                 self._list_ctrl.Select(item)
                 self._list_ctrl.EnsureVisible(item)
@@ -755,10 +767,10 @@ class ReviewPanelMasterDetail(wx.Panel):
 
     def _on_paint_highlight(self, event: wx.PaintEvent) -> None:
         """Draw blue drag-highlight border around the entire panel when active."""
+        dc = wx.PaintDC(self)
         event.Skip()
         if not self._drag_highlight:
             return
-        dc = wx.PaintDC(self)
         gc = wx.GraphicsContext.Create(dc)
         if not gc:
             return

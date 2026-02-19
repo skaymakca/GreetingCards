@@ -440,7 +440,7 @@ class MainWindow:
         self._frame.Bind(wx.EVT_TOOL, lambda e: self._start_rename(), id=self._rename_id)
         self._frame.Bind(wx.EVT_TOOL, lambda e: self._clear_all(), id=self._clear_id)
 
-    def _on_search_text(self, event) -> None:
+    def _on_search_text(self, event: wx.CommandEvent) -> None:
         """Filter cards as user types in search field."""
         self._refresh_display()
 
@@ -657,7 +657,7 @@ class MainWindow:
         # Navigation shortcuts
         self._frame.Bind(wx.EVT_CHAR_HOOK, self._on_key_press)
 
-    def _on_key_press(self, event) -> None:
+    def _on_key_press(self, event: wx.KeyEvent) -> None:
         """Handle key presses for navigation."""
         key = event.GetKeyCode()
         focus = self._frame.FindFocus()
@@ -924,6 +924,7 @@ class MainWindow:
         """Fallback: sequential processing if multiprocessing fails."""
         total = len(self._pdf_files)
         for i, pdf_path in enumerate(self._pdf_files):
+            card = None
             try:
                 file_hash = compute_file_hash(pdf_path)
 
@@ -982,6 +983,10 @@ class MainWindow:
                     card.method = card_state.method
 
             except Exception as e:
+                if card is None:
+                    # Failed before card was created (e.g. hash error) — skip
+                    wx.CallAfter(self._update_processing_progress, i + 1, total, pdf_path.name)
+                    continue
                 card.error = str(e)
                 card.confidence = Confidence.NONE
 
@@ -1082,7 +1087,7 @@ class MainWindow:
         """Handle discrete card edits (e.g. candidate selection) that change confidence."""
         self._refresh_display()
 
-    def _on_edit_debounce_fire(self, event) -> None:
+    def _on_edit_debounce_fire(self, event: wx.TimerEvent) -> None:
         """Fire after user stops typing for 1 second — refresh filters."""
         self._refresh_display()
 
@@ -1366,7 +1371,7 @@ class MainWindow:
         """
         self._sidebar.show_notification(message, icon, duration_ms)
 
-    def _on_close(self, event) -> None:
+    def _on_close(self, event: wx.CloseEvent) -> None:
         """Handle window close event."""
         self._edit_debounce_timer.Stop()
         if self._prefs_editor is not None:

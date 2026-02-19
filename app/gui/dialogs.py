@@ -7,6 +7,16 @@ from app.gui import styles
 from app.models.card import RenamePlanItem, RenameResult
 
 
+# Dialog layout constants
+_DIALOG_PADDING = 20          # Outer margin for dialog content
+_HEADER_GAP = 4               # Gap between header and summary text
+_SECTION_GAP = 12             # Gap between summary and table/content
+_BTN_GAP = 8                  # Gap between adjacent buttons
+_SCROLLBAR_WIDTH = 20         # Reserve space for vertical scrollbar
+_STATUS_COL_WIDTH = 100       # Width for short status columns (OK, SKIP, SAME, ERROR, DUP)
+_RESULT_COL_WIDTH = 140       # Width for result columns (OK, ERROR: msg)
+
+
 def _display_path(path: Path) -> str:
     """Format a path as ~/relative for display (or just filename if under home)."""
     try:
@@ -81,7 +91,7 @@ class ProgressDialog(wx.Dialog):
 
         # Create panel
         panel = wx.Panel(self)
-        panel.SetBackgroundColour(styles.Color.BG_PRIMARY)
+        # Use native background (adapts to Dark Mode)
 
         # Main sizer
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -155,15 +165,15 @@ class RenameConfirmDialog(wx.Dialog):
         # Main sizer
         sizer = wx.BoxSizer(wx.VERTICAL)
 
-        sizer.AddSpacer(20)
+        sizer.AddSpacer(_DIALOG_PADDING)
 
         # Header
         header = wx.StaticText(self, label="Rename Plan")
         header.SetFont(styles.Font.TITLE())
         header.SetForegroundColour(styles.Color.TEXT_PRIMARY)
-        sizer.Add(header, 0, wx.LEFT | wx.RIGHT, 20)
+        sizer.Add(header, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
-        sizer.AddSpacer(4)
+        sizer.AddSpacer(_HEADER_GAP)
 
         # Summary counts
         ok_count = sum(1 for item in plan if item.status == "ok")
@@ -187,9 +197,9 @@ class RenameConfirmDialog(wx.Dialog):
         summary_label = wx.StaticText(self, label=summary)
         summary_label.SetFont(styles.Font.BODY())
         summary_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
-        sizer.Add(summary_label, 0, wx.LEFT | wx.RIGHT, 20)
+        sizer.Add(summary_label, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
-        sizer.AddSpacer(12)
+        sizer.AddSpacer(_SECTION_GAP)
 
         # Status labels and colors
         STATUS_LABELS = {
@@ -226,19 +236,19 @@ class RenameConfirmDialog(wx.Dialog):
             self,
             style=dv.DV_ROW_LINES | dv.DV_VERT_RULES
         )
-        self.list_ctrl.SetFont(styles.Font.MONO())
         self.list_ctrl.AssociateModel(self.model)
 
-        # Add columns
+        # Add columns — file name columns share remaining space equally
         col_label = "Original" if multi_dir else "Original File Name"
         new_label = "New" if multi_dir else "New File Name"
-        self.list_ctrl.AppendTextColumn(col_label, 0, width=270)
-        self.list_ctrl.AppendTextColumn(new_label, 1, width=270)
-        self.list_ctrl.AppendTextColumn("Status", 2, width=70)
+        file_col_width = (700 - 2 * _DIALOG_PADDING - _SCROLLBAR_WIDTH - _STATUS_COL_WIDTH) // 2
+        self.list_ctrl.AppendTextColumn(col_label, 0, width=file_col_width)
+        self.list_ctrl.AppendTextColumn(new_label, 1, width=file_col_width)
+        self.list_ctrl.AppendTextColumn("Status", 2, width=_STATUS_COL_WIDTH)
 
-        sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
+        sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
-        sizer.AddSpacer(20)
+        sizer.AddSpacer(_DIALOG_PADDING)
 
         # Buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -246,15 +256,15 @@ class RenameConfirmDialog(wx.Dialog):
 
         confirm_btn = wx.Button(self, wx.ID_OK, "Rename All")
         confirm_btn.Bind(wx.EVT_BUTTON, self._on_confirm)
-        btn_sizer.Add(confirm_btn, 0, wx.RIGHT, 8)
+        btn_sizer.Add(confirm_btn, 0, wx.RIGHT, _BTN_GAP)
 
         cancel_btn = wx.Button(self, wx.ID_CANCEL, "Cancel")
         cancel_btn.Bind(wx.EVT_BUTTON, self._on_cancel)
         btn_sizer.Add(cancel_btn, 0)
 
-        sizer.Add(btn_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
+        sizer.Add(btn_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
-        sizer.AddSpacer(20)
+        sizer.AddSpacer(_DIALOG_PADDING)
 
         self.SetSizer(sizer)
         self.CenterOnParent()
@@ -297,7 +307,7 @@ class ErrorListDialog(wx.Dialog):
         # Main sizer
         sizer = wx.BoxSizer(wx.VERTICAL)
 
-        sizer.AddSpacer(20)
+        sizer.AddSpacer(_DIALOG_PADDING)
 
         # Summary header
         header_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -307,7 +317,7 @@ class ErrorListDialog(wx.Dialog):
         symbol_font.SetPointSize(20)
         symbol.SetFont(symbol_font)
         symbol.SetForegroundColour(styles.Color.ERROR)
-        header_sizer.Add(symbol, 0, wx.RIGHT, 8)
+        header_sizer.Add(symbol, 0, wx.RIGHT, _BTN_GAP)
 
         summary = f"{len(errors)} error(s)"
         if auth_aborted:
@@ -317,9 +327,9 @@ class ErrorListDialog(wx.Dialog):
         summary_label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
         header_sizer.Add(summary_label, 0, wx.ALIGN_CENTER_VERTICAL)
 
-        sizer.Add(header_sizer, 0, wx.LEFT | wx.RIGHT, 20)
+        sizer.Add(header_sizer, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
-        sizer.AddSpacer(12)
+        sizer.AddSpacer(_SECTION_GAP)
 
         # Prepare data and colors (all errors in red)
         data = [[filename, error_msg] for filename, error_msg in errors]
@@ -331,23 +341,23 @@ class ErrorListDialog(wx.Dialog):
             self,
             style=dv.DV_ROW_LINES | dv.DV_VERT_RULES
         )
-        self.list_ctrl.SetFont(styles.Font.MONO())
         self.list_ctrl.AssociateModel(self.model)
 
-        # Add columns
-        self.list_ctrl.AppendTextColumn("File Name", 0, width=300)
-        self.list_ctrl.AppendTextColumn("Error", 1, width=300)
+        # Add columns — split space equally
+        col_width = (650 - 2 * _DIALOG_PADDING - _SCROLLBAR_WIDTH) // 2
+        self.list_ctrl.AppendTextColumn("File Name", 0, width=col_width)
+        self.list_ctrl.AppendTextColumn("Error", 1, width=col_width)
 
-        sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
+        sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
-        sizer.AddSpacer(20)
+        sizer.AddSpacer(_DIALOG_PADDING)
 
         # OK button
         ok_btn = wx.Button(self, wx.ID_OK, "OK")
         ok_btn.Bind(wx.EVT_BUTTON, lambda evt: self.EndModal(wx.ID_OK))
         sizer.Add(ok_btn, 0, wx.ALIGN_CENTER)
 
-        sizer.AddSpacer(20)
+        sizer.AddSpacer(_DIALOG_PADDING)
 
         self.SetSizer(sizer)
         self.CenterOnParent()
@@ -383,15 +393,15 @@ class CompletionDialog(wx.Dialog):
         # Main sizer
         sizer = wx.BoxSizer(wx.VERTICAL)
 
-        sizer.AddSpacer(20)
+        sizer.AddSpacer(_DIALOG_PADDING)
 
         # Header
         header = wx.StaticText(self, label="Rename Complete")
         header.SetFont(styles.Font.TITLE())
         header.SetForegroundColour(styles.Color.TEXT_PRIMARY)
-        sizer.Add(header, 0, wx.LEFT | wx.RIGHT, 20)
+        sizer.Add(header, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
-        sizer.AddSpacer(4)
+        sizer.AddSpacer(_HEADER_GAP)
 
         # Summary counts
         summary = f"{renamed} renamed, {skipped} skipped"
@@ -401,9 +411,9 @@ class CompletionDialog(wx.Dialog):
         summary_label = wx.StaticText(self, label=summary)
         summary_label.SetFont(styles.Font.BODY())
         summary_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
-        sizer.Add(summary_label, 0, wx.LEFT | wx.RIGHT, 20)
+        sizer.Add(summary_label, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
-        sizer.AddSpacer(12)
+        sizer.AddSpacer(_SECTION_GAP)
 
         # Filter to only renamed and error rows (skip rows already shown in confirm dialog)
         visible = [r for r in results if not r.success or r.message == "Renamed"]
@@ -432,23 +442,23 @@ class CompletionDialog(wx.Dialog):
             self,
             style=dv.DV_ROW_LINES | dv.DV_VERT_RULES
         )
-        self.list_ctrl.SetFont(styles.Font.MONO())
         self.list_ctrl.AssociateModel(self.model)
 
         # Add columns
-        self.list_ctrl.AppendTextColumn("File Name", 0, width=490)
-        self.list_ctrl.AppendTextColumn("Result", 1, width=140)
+        file_col_width = 650 - 2 * _DIALOG_PADDING - _SCROLLBAR_WIDTH - _RESULT_COL_WIDTH
+        self.list_ctrl.AppendTextColumn("File Name", 0, width=file_col_width)
+        self.list_ctrl.AppendTextColumn("Result", 1, width=_RESULT_COL_WIDTH)
 
-        sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
+        sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
-        sizer.AddSpacer(20)
+        sizer.AddSpacer(_DIALOG_PADDING)
 
         # OK button
         ok_btn = wx.Button(self, wx.ID_OK, "OK")
         ok_btn.Bind(wx.EVT_BUTTON, lambda evt: self.EndModal(wx.ID_OK))
         sizer.Add(ok_btn, 0, wx.ALIGN_CENTER)
 
-        sizer.AddSpacer(20)
+        sizer.AddSpacer(_DIALOG_PADDING)
 
         self.SetSizer(sizer)
         self.CenterOnParent()
