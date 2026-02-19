@@ -86,6 +86,8 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `app/core/ai_analyzer.py` | `docs/architecture/async-processing.md` |
 | `app/core/name_extractor.py`, `app/core/name_formatting.py` | `docs/architecture/name-pipeline.md` |
 | `app/core/database.py`, `app/core/renamer.py` | `docs/architecture/name-pipeline.md` |
+| `app/gui/help_dialog.py` | `docs/architecture/help-system.md` |
+| `help/GreetingCards.help/**/*.html` | `docs/architecture/help-system.md` |
 
 ### Keeping Docs in Sync
 
