@@ -298,6 +298,7 @@ class DetailPanel(wx.Panel):
         locations_sizer.Add(self._duplicate_info, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, Layout.PAD)
 
         self._locations_panel.SetSizer(locations_sizer)
+        self._locations_panel.Hide()
 
         # Track whether locations tab is currently added
         self._locations_tab_index = None
@@ -382,6 +383,7 @@ class DetailPanel(wx.Panel):
 
         # Add/update File Paths tab (always present now)
         if self._locations_tab_index is None:
+            self._locations_panel.Show()
             self._locations_tab_index = self._notebook.AddPage(
                 self._locations_panel,
                 f"File Paths ({num_paths})"
@@ -411,6 +413,7 @@ class DetailPanel(wx.Panel):
         if self._locations_tab_index is not None:
             self._notebook.RemovePage(self._locations_tab_index)
             self._locations_tab_index = None
+            self._locations_panel.Hide()
 
         # Reset Edit tab to default label (do this after removing File Paths tab)
         if self._notebook.GetPageCount() > 0:
@@ -505,9 +508,9 @@ class ReviewPanelMasterDetail(wx.Panel):
 
         heading = create_static_text(
             self,
-            "Cards",
-            font=Font.HEADING(),
-            colour=Color.TEXT_PRIMARY
+            "CARDS",
+            font=Font.SECTION_HEADER(),
+            colour=Color.TEXT_SECONDARY
         )
         header_sizer.Add(heading, 0, wx.ALIGN_CENTER_VERTICAL)
         header_sizer.AddStretchSpacer()
@@ -557,7 +560,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         splitter.SetSashGravity(1.0)  # Give all extra space to master list
         splitter.SetMinimumPaneSize(100)
 
-        sizer.Add(splitter, 1, wx.EXPAND | wx.ALL, Layout.PAD)
+        sizer.Add(splitter, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, Layout.PAD)
 
         self.SetSizer(sizer)
 
@@ -666,7 +669,9 @@ class ReviewPanelMasterDetail(wx.Panel):
         prev_selected_id = self._selected_card_id
         self._cards_by_id = {card.id: card for card in cards}
         self._model.load_cards(cards)
-        self._count_label.SetLabel(f"{len(cards)} cards")
+        n = len(cards)
+        self._count_label.SetLabel(f"{n} {'Card' if n == 1 else 'Cards'}")
+        self.Layout()
 
         if cards:
             # Try to restore previous selection

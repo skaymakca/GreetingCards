@@ -61,7 +61,7 @@ class FilterSidebar(wx.Panel):
 
         # --- Category section ---
         header = wx.StaticText(self, label="CONFIDENCE")
-        header.SetFont(wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        header.SetFont(styles.Font.SECTION_HEADER())
         header.SetForegroundColour(styles.Color.TEXT_SECONDARY)
         sizer.Add(header, 0, wx.ALL, _SIDEBAR_PAD)
 
@@ -72,8 +72,10 @@ class FilterSidebar(wx.Panel):
             self._category_checkboxes.append(cb)
             sizer.Add(cb, 0, wx.LEFT | wx.RIGHT | wx.TOP, _SIDEBAR_PAD)
 
-        # Check "All Cards" by default
+        # Check "All Cards" by default; disable others until cards load
         self._category_checkboxes[0].SetValue(True)
+        for cb in self._category_checkboxes[1:]:
+            cb.Enable(False)
 
         # --- Folder section (hidden initially) ---
         self._folder_separator = wx.StaticLine(self)
@@ -81,7 +83,7 @@ class FilterSidebar(wx.Panel):
         self._folder_separator.Hide()
 
         self._folder_header = wx.StaticText(self, label="FOLDERS")
-        self._folder_header.SetFont(wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        self._folder_header.SetFont(styles.Font.SECTION_HEADER())
         self._folder_header.SetForegroundColour(styles.Color.TEXT_SECONDARY)
         sizer.Add(self._folder_header, 0, wx.LEFT | wx.RIGHT, _SIDEBAR_PAD)
         self._folder_header.Hide()

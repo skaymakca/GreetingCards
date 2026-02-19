@@ -404,7 +404,7 @@ class TestLoadCards:
         panel.load_cards(mock_cards)
 
         label_text = panel._count_label.GetLabel()
-        assert "6 cards" in label_text
+        assert label_text == "6 Cards"
 
     def test_load_cards_stores_card_data(self, parent_frame, mock_cards):
         """load_cards stores cards by ID."""
@@ -449,7 +449,7 @@ class TestLoadCards:
         panel.load_cards([])
 
         assert len(panel._cards_by_id) == 0
-        assert panel._count_label.GetLabel() == "0 cards"
+        assert panel._count_label.GetLabel() == "0 Cards"
 
 
 # ============================================================================

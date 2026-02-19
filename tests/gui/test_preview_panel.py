@@ -58,7 +58,7 @@ def test_show_images_single(preview_panel, sample_image):
     assert len(preview_panel._images) == 1
     assert preview_panel._page_idx == 0
     assert preview_panel._is_fit is True
-    assert preview_panel._title_label.GetLabel() == "Preview: test.pdf"
+    assert preview_panel._title_label.GetLabel() == "PREVIEW: test.pdf"
 
 
 def test_show_images_multiple(preview_panel, sample_images):
@@ -67,7 +67,7 @@ def test_show_images_multiple(preview_panel, sample_images):
 
     assert len(preview_panel._images) == 3
     assert preview_panel._page_idx == 0
-    assert preview_panel._title_label.GetLabel() == "Preview: multi.pdf"
+    assert preview_panel._title_label.GetLabel() == "PREVIEW: multi.pdf"
 
 
 def test_show_image(preview_panel, sample_image):
@@ -76,7 +76,7 @@ def test_show_image(preview_panel, sample_image):
 
     assert len(preview_panel._images) == 1
     assert preview_panel._page_idx == 0
-    assert preview_panel._title_label.GetLabel() == "Preview: single.pdf"
+    assert preview_panel._title_label.GetLabel() == "PREVIEW: single.pdf"
 
 
 def test_clear(preview_panel, sample_images):
@@ -91,7 +91,7 @@ def test_clear(preview_panel, sample_images):
     assert preview_panel._images == []
     assert preview_panel._page_idx == 0
     assert preview_panel._bitmap_cache is None
-    assert preview_panel._title_label.GetLabel() == "Preview"
+    assert preview_panel._title_label.GetLabel() == "PREVIEW"
     assert preview_panel._page_label.GetLabel() == ""
 
 
@@ -101,7 +101,7 @@ def test_show_error(preview_panel):
 
     assert preview_panel._error_message == "Test error message"
     assert preview_panel._images == []
-    assert preview_panel._title_label.GetLabel() == "Preview: error.pdf"
+    assert preview_panel._title_label.GetLabel() == "PREVIEW: error.pdf"
 
 
 def test_zoom_controls_disabled_when_empty(preview_panel):
@@ -362,11 +362,11 @@ def test_filename_optional(preview_panel, sample_image):
     preview_panel.show_images([sample_image])
 
     # Without filename, should just show "Preview"
-    assert preview_panel._title_label.GetLabel() == "Preview"
+    assert preview_panel._title_label.GetLabel() == "PREVIEW"
 
     # With filename
     preview_panel.show_images([sample_image], "test.pdf")
-    assert preview_panel._title_label.GetLabel() == "Preview: test.pdf"
+    assert preview_panel._title_label.GetLabel() == "PREVIEW: test.pdf"
 
 
 def test_empty_images_list(preview_panel):

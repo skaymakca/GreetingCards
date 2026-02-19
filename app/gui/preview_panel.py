@@ -70,9 +70,9 @@ class PreviewPanel(wx.Panel):
 
         # Title
         self._title_label = utils.create_static_text(
-            self, "Preview",
-            font=styles.Font.HEADING(),
-            colour=styles.Color.TEXT_PRIMARY
+            self, "PREVIEW",
+            font=styles.Font.SECTION_HEADER(),
+            colour=styles.Color.TEXT_SECONDARY
         )
         sizer.Add(self._title_label, 0, wx.ALL, styles.Layout.PAD)
 
@@ -169,9 +169,9 @@ class PreviewPanel(wx.Panel):
         self._reset_view()
 
         if filename:
-            self._title_label.SetLabel(f"Preview: {filename}")
+            self._title_label.SetLabel(f"PREVIEW: {filename}")
         else:
-            self._title_label.SetLabel("Preview")
+            self._title_label.SetLabel("PREVIEW")
 
         self._update_page_controls()
         self._update_zoom_controls()
@@ -192,7 +192,7 @@ class PreviewPanel(wx.Panel):
         self._images = []
         self._page_idx = 0
         self._bitmap_cache = None
-        self._title_label.SetLabel("Preview")
+        self._title_label.SetLabel("PREVIEW")
         self._page_label.SetLabel("")
         self._prev_btn.Enable(False)
         self._next_btn.Enable(False)
@@ -212,9 +212,9 @@ class PreviewPanel(wx.Panel):
         self._error_message = message
 
         if filename:
-            self._title_label.SetLabel(f"Preview: {filename}")
+            self._title_label.SetLabel(f"PREVIEW: {filename}")
         else:
-            self._title_label.SetLabel("Preview")
+            self._title_label.SetLabel("PREVIEW")
 
         self._page_label.SetLabel("")
         self._prev_btn.Enable(False)

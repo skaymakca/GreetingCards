@@ -66,6 +66,11 @@ class Font:
         return wx.Font(wx.FontInfo(12).FaceName(Font.FAMILY))
 
     @staticmethod
+    def SECTION_HEADER() -> wx.Font:
+        """Create section header font (11pt, bold)."""
+        return wx.Font(wx.FontInfo(11).FaceName(Font.FAMILY).Bold())
+
+    @staticmethod
     def SMALL() -> wx.Font:
         """Create small font (11pt, normal)."""
         return wx.Font(wx.FontInfo(11).FaceName(Font.FAMILY))
