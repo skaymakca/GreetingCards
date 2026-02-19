@@ -25,7 +25,7 @@ _TOOL_WIDTH_EST = 36
 _TOOLBAR_MARGIN = 24
 _NUM_TOOLS = 5
 
-_HELP_REL_PATH = Path("help") / "GreetingCards.help" / "Contents" / "Resources" / "en.lproj"
+_HELP_REL_PATH = Path("help")
 
 # Page order for Prev/Next navigation
 _PAGE_ORDER = [
@@ -431,7 +431,7 @@ def show_help(parent: wx.Window) -> None:
 
 
 def _get_help_base_path() -> Path:
-    """Return path to help en.lproj directory."""
+    """Return path to help directory."""
     if is_bundled():
         return Path(sys._MEIPASS) / _HELP_REL_PATH
     project_root = Path(__file__).resolve().parent.parent.parent

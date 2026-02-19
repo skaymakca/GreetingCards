@@ -9,13 +9,12 @@ WebView-based help viewer with HTML content pages, Python-side text indexing, an
 The help system uses `wx.html2.WebView` instead of native wx controls because:
 
 - **Rich formatting** — HTML/CSS provides sidebar navigation, styled headings, and links without custom widget code
-- **Apple Help Book structure** — Pages live in `help/GreetingCards.help/Contents/Resources/en.lproj/`, following the macOS help bundle convention. This makes future integration with Apple Help Viewer possible.
 - **Separation of content and code** — Help content is authored as plain HTML files with a shared CSS stylesheet, independent of Python code
 
 ## Content Structure
 
 ```
-help/GreetingCards.help/Contents/Resources/en.lproj/
+help/
 ├── index.html                  ← Home page
 ├── css/help.css                ← Shared stylesheet
 └── pages/

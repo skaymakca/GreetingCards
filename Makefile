@@ -1,5 +1,11 @@
 .PHONY: help setup setup-dev run app build clean icon loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-unit test-gui test-watch
 
+# awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
+# Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
+define FMT_LINE
+{n=$$1; s=""; while(n>999){s=sprintf(",%03d%s",n%1000,s); n=int(n/1000)} v=sprintf("%d%s",n,s); printf "%-10s%10s lines\n",lbl,v}
+endef
+
 help: ## Show this help message
 	@echo "Greeting Cards - Available make commands:"
 	@echo ""
@@ -73,38 +79,40 @@ icon: icon.png ## Generate icon.icns from icon.png
 loc: ## Count lines of code (excludes dependencies)
 	@echo "Lines of code (project files only):"
 	@echo ""
-	@echo "Python files:"
-	@find . -name "*.py" -not -path "./.venv/*" -not -path "./build/*" -not -path "./dist/*" -not -path "*/__pycache__/*" -exec wc -l {} + | tail -1 | awk '{print "  " $$1 " lines"}'
+	@find . -name "*.py" -not -path "./.venv/*" -not -path "./build/*" -not -path "./dist/*" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="Python:" '$(FMT_LINE)'
+	@(find ./app -name "*.py" -not -path "*/gui/*" -not -path "*/__pycache__/*" -exec cat {} + ; cat main.py) | wc -l | awk -v lbl="  Core:" '$(FMT_LINE)'
+	@find ./app/gui -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  GUI:" '$(FMT_LINE)'
+	@find ./tests -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  Tests:" '$(FMT_LINE)'
 	@echo ""
-	@echo "Other project files:"
-	@wc -l Makefile "Greeting Cards.spec" 2>/dev/null | tail -1 | awk '{print "  " $$1 " lines"}'
+	@find ./help \( -name "*.html" -o -name "*.css" \) -exec cat {} + | wc -l | awk -v lbl="HTML/CSS:" '$(FMT_LINE)'
 	@echo ""
-	@echo "Total project LOC:"
-	@(find . -name "*.py" -not -path "./.venv/*" -not -path "./build/*" -not -path "./dist/*" -not -path "*/__pycache__/*" -exec cat {} + ; cat Makefile "Greeting Cards.spec") | wc -l | awk '{print "  " $$1 " lines"}'
+	@wc -l Makefile "Greeting Cards.spec" 2>/dev/null | tail -1 | awk -v lbl="Config:" '$(FMT_LINE)'
+	@echo ""
+	@(find . -name "*.py" -not -path "./.venv/*" -not -path "./build/*" -not -path "./dist/*" -not -path "*/__pycache__/*" -exec cat {} + ; find ./help \( -name "*.html" -o -name "*.css" \) -exec cat {} + ; cat Makefile "Greeting Cards.spec") | wc -l | awk -v lbl="Total:" '$(FMT_LINE)'
 
 version: ## Show current version
-	@python3 -c "from app.version import __version__; print(__version__)"
+	@.venv/bin/python -c "from app.version import __version__; print(__version__)"
 
 bump-patch: ## Bump patch version (0.5.0 → 0.5.1)
-	@python3 -c "\
+	@.venv/bin/python -c "\
 	p='app/version.py'; v=open(p).read().split('\"')[1].split('.'); \
 	v=[int(x) for x in v]; v[2]+=1; nv='.'.join(map(str,v)); \
 	open(p,'w').write(f'__version__ = \"{nv}\"\n'); print(nv)"
 
 bump-minor: ## Bump minor version (0.5.1 → 0.6.0)
-	@python3 -c "\
+	@.venv/bin/python -c "\
 	p='app/version.py'; v=open(p).read().split('\"')[1].split('.'); \
 	v=[int(x) for x in v]; v[1]+=1; v[2]=0; nv='.'.join(map(str,v)); \
 	open(p,'w').write(f'__version__ = \"{nv}\"\n'); print(nv)"
 
 bump-major: ## Bump major version (0.6.0 → 1.0.0)
-	@python3 -c "\
+	@.venv/bin/python -c "\
 	p='app/version.py'; v=open(p).read().split('\"')[1].split('.'); \
 	v=[int(x) for x in v]; v[0]+=1; v[1]=0; v[2]=0; nv='.'.join(map(str,v)); \
 	open(p,'w').write(f'__version__ = \"{nv}\"\n'); print(nv)"
 
 tag: ## Create git tag vX.Y.Z from current version
-	@v=$$(python3 -c "from app.version import __version__; print(__version__)"); \
+	@v=$$(.venv/bin/python -c "from app.version import __version__; print(__version__)"); \
 	git tag "v$$v" && echo "Tagged v$$v"
 
 tag-push: ## Push all tags to remote

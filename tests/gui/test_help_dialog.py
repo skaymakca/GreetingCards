@@ -44,7 +44,6 @@ class TestGetHelpIndexPath:
     def test_path_ends_with_index_html(self):
         result = _get_help_index_path()
         assert result.name == "index.html"
-        assert "GreetingCards.help" in str(result)
 
     def test_path_exists_in_dev_mode(self):
         result = _get_help_index_path()
@@ -56,12 +55,10 @@ class TestGetHelpIndexPath:
             mock_sys._MEIPASS = "/fake/bundle"
             result = _get_help_index_path()
             assert str(result).startswith("/fake/bundle")
-            assert "GreetingCards.help" in str(result)
 
     def test_help_rel_path_is_consistent(self):
-        """_HELP_REL_PATH should end with en.lproj."""
-        assert _HELP_REL_PATH.name == "en.lproj"
-        assert "GreetingCards.help" in str(_HELP_REL_PATH)
+        """_HELP_REL_PATH should point to help directory."""
+        assert _HELP_REL_PATH.name == "help"
 
 
 # --- Content file tests ---

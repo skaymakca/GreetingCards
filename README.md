@@ -161,6 +161,7 @@ tests/
     ├── test_help_dialog.py          # Help viewer and cross-page search
     ├── test_icons.py                # SF Symbol icon loading
     ├── test_main_window.py          # Main window integration
+    ├── test_preview_cursor_behavior.py # Preview cursor and modifier keys
     ├── test_preview_panel.py        # Preview panel and zoom/pan
     ├── test_review_panel.py         # Card list and detail panel
     ├── test_settings_dialog.py      # Preferences editor
@@ -183,7 +184,7 @@ tests/
 
 - **794 tests** covering core logic and GUI components
 - **Core** (12 test files): AI analysis, card model, config, database, filename sanitization, name extraction, name formatting, OCR engine, paths, PDF rendering, renamer, version
-- **GUI** (13 test files): API key dialog, context menu, dialogs, filter sidebar, help system, icons, main window, preview panel, review panel, settings, styles, utilities
+- **GUI** (14 test files): API key dialog, context menu, dialogs, filter sidebar, help system, icons, main window, preview cursor behavior, preview panel, review panel, settings, styles, utilities
 
 ### Adding Tests
 
