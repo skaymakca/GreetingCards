@@ -4,8 +4,8 @@
 	- Will need to add a button to the details editor.  A remove button with an icon right next to the AI Analyze and before the remove family name checkbox
 	- Will need to add a right click menu in the main table's row, with Open (use the default system mechanism), Reveal in finder (open window with the file selected) and remove.  Include appropriate icons (and consistent with the new button for the remove command)
 - [ ] Update finish renaming behavior. Instead of clearing after rename: Only remove the filepaths that were succesfuly renamed.  If a card has no more paths left, remove it.  If there are no items left, then go back to the overlay drop screen
-
 ## Done
+- [x] AI model selection: Settings dropdown (Haiku 4.5, Sonnet 4.6, Opus 4.6), plist persistence, stale model auto-migration, help page with cost table
 - [x] Fix filter state desync bug and code quality cleanup
 - [x] Fix 4 UI polish issues at first load
 - [x] Flatten help directory and clean up Makefile

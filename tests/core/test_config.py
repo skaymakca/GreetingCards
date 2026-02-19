@@ -5,7 +5,10 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from app.core.config import get_api_key, save_api_key, _plist_path, _read_plist, _write_plist
+from app.core.config import (
+    get_api_key, save_api_key, _plist_path, _read_plist, _write_plist,
+    get_ai_model, save_ai_model, DEFAULT_AI_MODEL,
+)
 
 
 class TestGetApiKey:
@@ -96,6 +99,58 @@ class TestSaveApiKey:
             written = mock_write.call_args[0][0]
             assert written["other"] == "data"
             assert written["ANTHROPIC_API_KEY"] == "sk-key"
+
+
+class TestGetAiModel:
+    """Tests for get_ai_model()."""
+
+    def test_returns_default_when_unset(self):
+        """Returns DEFAULT_AI_MODEL when plist has no model key."""
+        with patch("app.core.config._read_plist", return_value={}), \
+             patch("app.core.config._write_plist"):
+            assert get_ai_model() == DEFAULT_AI_MODEL
+
+    def test_returns_saved_model(self):
+        """Returns the model saved in plist."""
+        with patch("app.core.config._read_plist", return_value={"AI_MODEL": "claude-opus-4-6"}):
+            assert get_ai_model() == "claude-opus-4-6"
+
+    def test_returns_default_for_invalid_model(self):
+        """Falls back to default if plist contains an invalid model ID."""
+        with patch("app.core.config._read_plist", return_value={"AI_MODEL": "invalid-model"}), \
+             patch("app.core.config._write_plist"):
+            assert get_ai_model() == DEFAULT_AI_MODEL
+
+    def test_saves_default_when_stale(self):
+        """Persists default back to plist when stored model is invalid."""
+        with patch("app.core.config._read_plist", return_value={"AI_MODEL": "old-model"}), \
+             patch("app.core.config._write_plist") as mock_write:
+            get_ai_model()
+            mock_write.assert_called_once()
+            written = mock_write.call_args[0][0]
+            assert written["AI_MODEL"] == DEFAULT_AI_MODEL
+
+
+class TestSaveAiModel:
+    """Tests for save_ai_model()."""
+
+    def test_saves_to_plist(self):
+        """Persists model ID to plist."""
+        with patch("app.core.config._read_plist", return_value={}), \
+             patch("app.core.config._write_plist") as mock_write:
+            save_ai_model("claude-opus-4-6")
+            mock_write.assert_called_once()
+            written = mock_write.call_args[0][0]
+            assert written["AI_MODEL"] == "claude-opus-4-6"
+
+    def test_preserves_existing_plist_data(self):
+        """Existing plist data is preserved when saving model."""
+        with patch("app.core.config._read_plist", return_value={"ANTHROPIC_API_KEY": "sk-key"}), \
+             patch("app.core.config._write_plist") as mock_write:
+            save_ai_model("claude-haiku-4-5-20251001")
+            written = mock_write.call_args[0][0]
+            assert written["ANTHROPIC_API_KEY"] == "sk-key"
+            assert written["AI_MODEL"] == "claude-haiku-4-5-20251001"
 
 
 class TestPlistPath:

@@ -318,7 +318,7 @@ class TestHelpToolbar:
     def test_page_order_matches_expected_pages(self):
         """_PAGE_ORDER should list all expected help pages."""
         assert _PAGE_ORDER[0] == "index.html"
-        assert len(_PAGE_ORDER) == 7
+        assert len(_PAGE_ORDER) == 8
         assert all(p.endswith(".html") for p in _PAGE_ORDER)
 
 

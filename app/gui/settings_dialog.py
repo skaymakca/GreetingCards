@@ -5,7 +5,7 @@ from collections.abc import Callable
 import wx
 
 from app.gui import styles
-from app.core.config import get_api_key, save_api_key
+from app.core.config import get_api_key, save_api_key, AI_MODELS, get_ai_model, save_ai_model
 from app.core.database import reset_database
 
 _PREFS_PAD = 20
@@ -63,15 +63,49 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
         key_frame.SetSizer(key_sizer)
         sizer.Add(key_frame, 0, wx.LEFT | wx.RIGHT, _PREFS_PAD)
 
-        sizer.AddSpacer(4)
-
-        # Status label
+        # Status label (hidden until save action)
         self._key_status = wx.StaticText(panel, label="")
         self._key_status.SetFont(styles.Font.SMALL())
-        sizer.Add(self._key_status, 0, wx.LEFT | wx.RIGHT, _PREFS_PAD)
+        sizer.Add(self._key_status, 0, wx.LEFT | wx.RIGHT | wx.TOP, _PREFS_PAD)
+        self._key_status.Hide()
+
+        sizer.AddSpacer(16)
+
+        # AI Model heading
+        model_heading = wx.StaticText(panel, label="AI Model")
+        model_heading.SetFont(styles.Font.HEADING())
+        sizer.Add(model_heading, 0, wx.LEFT | wx.RIGHT, _PREFS_PAD)
+
+        sizer.AddSpacer(8)
+
+        # Model dropdown
+        model_labels = [f"{m.label} \u2014 {m.description}" for m in AI_MODELS]
+        self._model_choice = wx.Choice(panel, choices=model_labels)
+        self._model_choice.SetMaxSize(wx.Size(340, -1))
+
+        current_model = get_ai_model()
+        for i, m in enumerate(AI_MODELS):
+            if m.model_id == current_model:
+                self._model_choice.SetSelection(i)
+                break
+
+        self._model_choice.Bind(wx.EVT_CHOICE, self._on_model_changed)
+        sizer.Add(self._model_choice, 0, wx.LEFT | wx.RIGHT, _PREFS_PAD)
+
+        model_desc = wx.StaticText(panel, label="Used for AI-assisted name extraction")
+        model_desc.SetFont(styles.Font.SMALL())
+        sizer.Add(model_desc, 0, wx.LEFT | wx.RIGHT | wx.TOP, _PREFS_PAD)
+
+        sizer.AddSpacer(20)
 
         panel.SetSizer(sizer)
         return panel
+
+    def _on_model_changed(self, event):
+        """Save model selection immediately."""
+        idx = self._model_choice.GetSelection()
+        if idx != wx.NOT_FOUND:
+            save_ai_model(AI_MODELS[idx].model_id)
 
     def _save_api_key(self, event):
         """Save API key and show status."""
@@ -83,6 +117,7 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
         else:
             self._key_status.SetLabel("Key cannot be empty")
             self._key_status.SetForegroundColour(styles.Color.ERROR)
+        self._key_status.Show()
         self._key_status.GetParent().Layout()
 
 

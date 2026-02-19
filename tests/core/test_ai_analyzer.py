@@ -191,8 +191,9 @@ class TestAnalyzeCardWithAi:
         with pytest.raises(ValueError, match="not configured"):
             analyze_card_with_ai(img)
 
+    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
     @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
-    def test_calls_anthropic(self, mock_key):
+    def test_calls_anthropic(self, mock_key, mock_model):
         import anthropic
         mock_msg = MagicMock()
         mock_msg.content = [MagicMock(text="Smith")]
@@ -203,8 +204,9 @@ class TestAnalyzeCardWithAi:
             result = analyze_card_with_ai(Image.new("RGB", (10, 10)))
             assert result.best_name == "Smith"
 
+    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
     @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
-    def test_accepts_single_image(self, mock_key):
+    def test_accepts_single_image(self, mock_key, mock_model):
         import anthropic
         mock_msg = MagicMock()
         mock_msg.content = [MagicMock(text="Jones")]
@@ -215,8 +217,9 @@ class TestAnalyzeCardWithAi:
             result = analyze_card_with_ai(Image.new("RGB", (10, 10)))
             assert result.best_name == "Jones"
 
+    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
     @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
-    def test_accepts_image_list(self, mock_key):
+    def test_accepts_image_list(self, mock_key, mock_model):
         import anthropic
         mock_msg = MagicMock()
         mock_msg.content = [MagicMock(text="Smith")]
@@ -227,6 +230,21 @@ class TestAnalyzeCardWithAi:
             imgs = [Image.new("RGB", (10, 10)), Image.new("RGB", (10, 10))]
             result = analyze_card_with_ai(imgs)
             assert result.best_name == "Smith"
+
+    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    def test_uses_configured_model(self, mock_key, mock_model):
+        """Verifies the configured model is passed to the API."""
+        import anthropic
+        mock_msg = MagicMock()
+        mock_msg.content = [MagicMock(text="Smith")]
+        mock_client = MagicMock()
+        mock_client.messages.create.return_value = mock_msg
+
+        with patch.object(anthropic, "Anthropic", return_value=mock_client):
+            analyze_card_with_ai(Image.new("RGB", (10, 10)))
+            call_kwargs = mock_client.messages.create.call_args
+            assert call_kwargs[1]["model"] == "claude-sonnet-4-6"
 
 
 class TestAnalyzeCardWithAiAsync:
@@ -240,8 +258,9 @@ class TestAnalyzeCardWithAiAsync:
             await analyze_card_with_ai_async(img)
 
     @pytest.mark.asyncio
+    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
     @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
-    async def test_calls_async_anthropic(self, mock_key):
+    async def test_calls_async_anthropic(self, mock_key, mock_model):
         import anthropic
         mock_msg = MagicMock()
         mock_msg.content = [MagicMock(text="Smith")]

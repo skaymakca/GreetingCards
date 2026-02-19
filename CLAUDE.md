@@ -88,6 +88,8 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `app/core/database.py`, `app/core/renamer.py` | `docs/architecture/name-pipeline.md` |
 | `app/gui/help_dialog.py` | `docs/architecture/help-system.md` |
 | `help/**/*.html` | `docs/architecture/help-system.md` |
+| `app/core/config.py`, `app/core/paths.py` | `docs/architecture/config-and-preferences.md` |
+| `app/gui/settings_dialog.py` | `docs/architecture/config-and-preferences.md` |
 
 ### Keeping Docs in Sync
 

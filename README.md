@@ -8,7 +8,7 @@ Scans holiday/greeting card PDFs, extracts family names via OCR and AI, and batc
 - **Content-based deduplication** — identical files at different locations are automatically detected (by content hash) and displayed as a single card with multiple file paths
 - **PDF rendering** — renders all pages of each PDF using PyMuPDF for preview and analysis
 - **Offline OCR** — extracts text from card images with Tesseract, then pattern-matches family names (e.g. "The Smiths", "Love, John & Jane Smith") at high/medium/low confidence levels
-- **AI analysis** — sends page images to Claude's vision API for name extraction; available per-card or as a batch "AI Analyze" operation
+- **AI analysis** — sends page images to Claude's vision API for name extraction; available per-card or as a batch "AI Analyze" operation; choose between Haiku 4.5 (fast/cheap), Sonnet 4.6 (balanced, default), and Opus 4.6 (most capable) in Settings
 - **Intelligent caching** — OCR results, AI results, and manual edits are persisted to a local SQLite database keyed by file content hash, so re-processing the same files (even from different locations) is instant
 - **Smart batch rename** — builds a rename plan with per-directory duplicate detection, shows a confirmation dialog, then renames files to `Holiday Cards Year - FamilyName Family.pdf` (or without "Family" suffix if checkbox is checked)
 - **Per-file options** — checkbox to omit "Family" suffix from individual filenames (e.g., `Holiday Cards 2024 - Smith.pdf` instead of `Holiday Cards 2024 - Smith Family.pdf`)
@@ -17,9 +17,10 @@ Scans holiday/greeting card PDFs, extracts family names via OCR and AI, and batc
 - **Preview with zoom/pan** — scroll wheel zoom at cursor, Shift+Click zoom in, Option+Click zoom out, click-drag pan, +/− buttons, Fit button
 - **Context menu** — right-click name fields for Cut, Copy, Paste, Title Case, and Clear
 - **Keyboard navigation** — Up/Down to select cards, Left/Right to page through previews, Cmd+F to search, Cmd+O to open files, Cmd+, for Settings, Escape to defocus
-- **Help system** — built-in WebView help viewer with 7 pages, cross-page search with highlighted matches, and Previous/Next match navigation
+- **Help system** — built-in WebView help viewer with 8 pages, cross-page search with highlighted matches, and Previous/Next match navigation
 - **Native macOS UI** — native toolbar, preferences editor (Cmd+,), About dialog, and system colors throughout
 - **API key management** — prompts for the Anthropic API key on first AI use; key is saved to a plist in bundled mode or read from `.env` in dev mode
+- **AI model selection** — choose between Claude Haiku 4.5, Sonnet 4.6, or Opus 4.6 in Settings; persisted to preferences plist; stale/outdated model IDs are auto-migrated to the current default
 
 ## Prerequisites
 
@@ -182,7 +183,7 @@ tests/
 
 ### Current Coverage
 
-- **791 tests** covering core logic and GUI components
+- **813 tests** covering core logic and GUI components
 - **Core** (12 test files): AI analysis, card model, config, database, filename sanitization, name extraction, name formatting, OCR engine, paths, PDF rendering, renamer, version
 - **GUI** (14 test files): API key dialog, context menu, dialogs, filter sidebar, help system, icons, main window, preview cursor behavior, preview panel, review panel, settings, styles, utilities
 

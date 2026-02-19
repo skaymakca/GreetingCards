@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 
 from PIL import Image
 
-from app.core.config import get_api_key
+from app.core.config import get_api_key, get_ai_model
 
 
 @dataclass
@@ -173,7 +173,7 @@ async def analyze_card_with_ai_async(images: list[Image.Image] | Image.Image) ->
     })
 
     message = await client.messages.create(
-        model="claude-sonnet-4-5-20250929",
+        model=get_ai_model(),
         max_tokens=256,
         messages=[{"role": "user", "content": content}],
     )
@@ -232,7 +232,7 @@ def analyze_card_with_ai(images: list[Image.Image] | Image.Image) -> AIResult:
     })
 
     message = client.messages.create(
-        model="claude-sonnet-4-5-20250929",
+        model=get_ai_model(),
         max_tokens=256,
         messages=[{"role": "user", "content": content}],
     )

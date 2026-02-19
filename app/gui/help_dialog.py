@@ -35,6 +35,7 @@ _PAGE_ORDER = [
     "pages/card-list.html",
     "pages/preview.html",
     "pages/shortcuts.html",
+    "pages/ai-models.html",
     "pages/tips.html",
 ]
 

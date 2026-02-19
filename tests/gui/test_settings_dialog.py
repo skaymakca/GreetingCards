@@ -62,6 +62,29 @@ class TestGeneralPreferencesPage:
         assert "empty" in page._key_status.GetLabel().lower()
         panel.Destroy()
 
+    @patch("app.gui.settings_dialog.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.gui.settings_dialog.get_api_key", return_value=None)
+    def test_model_dropdown_exists_with_default(self, mock_key, mock_model, wx_app, wx_frame):
+        page = GeneralPreferencesPage()
+        panel = page.CreateWindow(wx_frame)
+        assert hasattr(page, "_model_choice")
+        assert isinstance(page._model_choice, wx.Choice)
+        # Sonnet 4.6 is index 1 in AI_MODELS
+        assert page._model_choice.GetSelection() == 1
+        assert "Sonnet" in page._model_choice.GetString(1)
+        panel.Destroy()
+
+    @patch("app.gui.settings_dialog.save_ai_model")
+    @patch("app.gui.settings_dialog.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.gui.settings_dialog.get_api_key", return_value=None)
+    def test_model_selection_saves(self, mock_key, mock_model, mock_save, wx_app, wx_frame):
+        page = GeneralPreferencesPage()
+        panel = page.CreateWindow(wx_frame)
+        page._model_choice.SetSelection(0)  # Haiku
+        page._on_model_changed(None)
+        mock_save.assert_called_once_with("claude-haiku-4-5-20251001")
+        panel.Destroy()
+
 
 class TestAdvancedPreferencesPage:
     """Tests for AdvancedPreferencesPage."""
