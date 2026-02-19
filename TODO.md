@@ -4,7 +4,7 @@
 - [ ] Open dialog doesnt work quite correctly. Cannot choose a folder vs open it, which is the behavior seen in other apps.  Also looks off? What were our open dialog options again?
 - [ ] Add commands to the file menu for the rest of teh toolbar buttons, AI analyze, Rename Files, Clear
 - [ ] Dark mode detection and handling of ui changes
-- [ ] Help navbar items should be pinned/always visible despite scrolling. Make just the right div scollable?  Woudld need to make sure the search results JS would work with this ok.  This path should let us also (hopefiully never need) a scrollable TOC as well
+- [x] Help navbar items should be pinned/always visible despite scrolling. Make just the right div scollable?  Woudld need to make sure the search results JS would work with this ok.  This path should let us also (hopefiully never need) a scrollable TOC as well
 - [ ] Card in result table that changes its category due to editing isnt triggering a recount and disppearance from teh current view.  For example, had an error card then named it to an AI result, it still remained.
 
 ## Done
