@@ -579,26 +579,36 @@ class MainWindow:
 
         # Split nested content splitter vertically
         content_splitter.SplitVertically(self._review_panel, self._preview_panel)
-        content_splitter.SetSashGravity(1.0)
+        content_splitter.SetSashGravity(0.5)  # Both panes share extra space equally
         content_splitter.SetMinimumPaneSize(200)
+        self._inner_splitter = content_splitter
 
         # Split main splitter vertically (sidebar | content)
         main_splitter.SplitVertically(self._sidebar, content_splitter)
         main_splitter.SetMinimumPaneSize(150)
 
         # Set initial sash positions after layout
-        wx.CallAfter(lambda: main_splitter.SetSashPosition(150))  # Sidebar width
-        wx.CallAfter(lambda: content_splitter.SetSashPosition(
-            styles.Layout.WINDOW_WIDTH - 150 - styles.Layout.PREVIEW_WIDTH
-        ))
+        sidebar_width = 150
+        wx.CallAfter(lambda: main_splitter.SetSashPosition(sidebar_width))
 
         return main_splitter
+
+    def _apply_content_sash_position(self) -> None:
+        """Set the content splitter sash to split review/preview equally."""
+        def _apply():
+            w = self._inner_splitter.GetSize().GetWidth()
+            if w > 0:
+                self._inner_splitter.SetSashPosition(w // 2)
+        wx.CallAfter(_apply)
 
     def _set_empty_state(self, is_empty: bool) -> None:
         """Toggle between drop overlay (empty) and content splitter (has cards)."""
         self._drop_overlay.Show(is_empty)
         self._content_splitter.Show(not is_empty)
         self._panel.Layout()
+        if not is_empty:
+            # Re-apply sash position after showing — hiding resets it
+            self._apply_content_sash_position()
 
     def _setup_drop_target(self) -> None:
         """Enable drag-and-drop on the frame."""

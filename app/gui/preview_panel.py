@@ -97,57 +97,53 @@ class PreviewPanel(wx.Panel):
         controls = wx.Panel(self)
         controls_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        # Left: Page navigation
-        page_sizer = wx.BoxSizer(wx.HORIZONTAL)
-
-        self._prev_btn = wx.Button(controls, label="◀", size=(32, 28))
+        # Left group: Page navigation [◀] [page] [▶]
+        self._prev_btn = wx.Button(controls, label="◀", size=(28, 28))
         self._prev_btn.Bind(wx.EVT_BUTTON, lambda e: self.prev_page())
         self._prev_btn.Enable(False)
-        page_sizer.Add(self._prev_btn, 0, wx.RIGHT, 2)
+        controls_sizer.Add(self._prev_btn, 0, wx.ALIGN_CENTER_VERTICAL)
 
         self._page_label = utils.create_static_text(
             controls, "",
             font=styles.Font.SMALL(),
             colour=styles.Color.TEXT_PRIMARY
         )
-        self._page_label.SetMinSize((70, -1))
-        page_sizer.Add(self._page_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT | wx.RIGHT, 2)
+        self._page_label.SetMinSize((50, -1))
+        self._page_label.SetWindowStyleFlag(wx.ALIGN_CENTRE_HORIZONTAL | wx.ST_NO_AUTORESIZE)
+        controls_sizer.Add(self._page_label, 0, wx.ALIGN_CENTER_VERTICAL)
 
-        self._next_btn = wx.Button(controls, label="▶", size=(32, 28))
+        self._next_btn = wx.Button(controls, label="▶", size=(28, 28))
         self._next_btn.Bind(wx.EVT_BUTTON, lambda e: self.next_page())
         self._next_btn.Enable(False)
-        page_sizer.Add(self._next_btn, 0, wx.LEFT, 2)
+        controls_sizer.Add(self._next_btn, 0, wx.ALIGN_CENTER_VERTICAL)
 
-        controls_sizer.Add(page_sizer, 0, wx.ALIGN_CENTER_VERTICAL)
         controls_sizer.AddStretchSpacer()
 
-        # Right: Zoom controls
-        zoom_sizer = wx.BoxSizer(wx.HORIZONTAL)
-
-        self._fit_btn = wx.Button(controls, label="Fit", size=(50, 28))
+        # Right group: [Fit] [−] [zoom%] [+]
+        self._fit_btn = wx.Button(controls, label="Fit", size=(42, 28))
         self._fit_btn.Bind(wx.EVT_BUTTON, lambda e: self._zoom_fit())
         self._fit_btn.Enable(False)
-        zoom_sizer.Add(self._fit_btn, 0, wx.RIGHT, 2)
+        controls_sizer.Add(self._fit_btn, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 4)
 
-        self._zout_btn = wx.Button(controls, label="−", size=(32, 28))
+        self._zout_btn = wx.Button(controls, label="−", size=(28, 28))
         self._zout_btn.Bind(wx.EVT_BUTTON, lambda e: self._zoom_out())
         self._zout_btn.Enable(False)
-        zoom_sizer.Add(self._zout_btn, 0, wx.LEFT | wx.RIGHT, 2)
+        controls_sizer.Add(self._zout_btn, 0, wx.ALIGN_CENTER_VERTICAL)
 
         self._zoom_label = utils.create_static_text(
             controls, "",
             font=styles.Font.SMALL(),
             colour=styles.Color.TEXT_PRIMARY
         )
-        self._zoom_label.SetMinSize((50, -1))
-        zoom_sizer.Add(self._zoom_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT | wx.RIGHT, 2)
+        self._zoom_label.SetMinSize((40, -1))
+        self._zoom_label.SetWindowStyleFlag(wx.ALIGN_CENTRE_HORIZONTAL | wx.ST_NO_AUTORESIZE)
+        controls_sizer.Add(self._zoom_label, 0, wx.ALIGN_CENTER_VERTICAL)
 
-        self._zin_btn = wx.Button(controls, label="+", size=(32, 28))
+        self._zin_btn = wx.Button(controls, label="+", size=(28, 28))
         self._zin_btn.Bind(wx.EVT_BUTTON, lambda e: self._zoom_in())
         self._zin_btn.Enable(False)
-        zoom_sizer.Add(self._zin_btn, 0, wx.LEFT, 2)
+        controls_sizer.Add(self._zin_btn, 0, wx.ALIGN_CENTER_VERTICAL)
 
-        controls_sizer.Add(zoom_sizer, 0, wx.ALIGN_CENTER_VERTICAL)
         controls.SetSizer(controls_sizer)
 
         sizer.Add(controls, 0, wx.EXPAND | wx.ALL, styles.Layout.PAD)
