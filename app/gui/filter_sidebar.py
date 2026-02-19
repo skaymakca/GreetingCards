@@ -5,6 +5,10 @@ from pathlib import Path
 from app.gui import styles
 from app.models.card import CardResult, Confidence
 
+_SIDEBAR_MIN_WIDTH = 150
+_SIDEBAR_PAD = 10
+_NOTIFY_PAD = 20
+
 
 class FilterSidebar(wx.Panel):
     """Sidebar for filtering cards by confidence level, status, and source folder.
@@ -16,7 +20,7 @@ class FilterSidebar(wx.Panel):
       - All Folders, one checkbox per source folder
     """
 
-    def __init__(self, parent, on_category_filter, on_folder_filter=None):
+    def __init__(self, parent: wx.Window, on_category_filter, on_folder_filter=None) -> None:
         """Initialize filter sidebar.
 
         Args:
@@ -30,7 +34,7 @@ class FilterSidebar(wx.Panel):
 
         # Category filter state
         self._selected_category_filters = ["all"]
-        self._category_card_counts = {}
+        self._category_card_counts: dict[str, int] = {}
         self._category_disabled_keys: set[str] = set()
 
         # Category definitions (in priority order)
@@ -51,35 +55,37 @@ class FilterSidebar(wx.Panel):
 
         self._build_ui()
 
-    def _build_ui(self):
+    def _build_ui(self) -> None:
         """Build sidebar UI with category and folder sections."""
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         # --- Category section ---
         header = wx.StaticText(self, label="CONFIDENCE")
-        header.SetFont(wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        header.SetFont(styles.Font.SECTION_HEADER())
         header.SetForegroundColour(styles.Color.TEXT_SECONDARY)
-        sizer.Add(header, 0, wx.ALL, 10)
+        sizer.Add(header, 0, wx.ALL, _SIDEBAR_PAD)
 
         self._category_checkboxes: list[wx.CheckBox] = []
         for key, label in self._category_filters:
             cb = wx.CheckBox(self, label=label)
             cb.Bind(wx.EVT_CHECKBOX, lambda evt, k=key: self._on_category_check(k))
             self._category_checkboxes.append(cb)
-            sizer.Add(cb, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+            sizer.Add(cb, 0, wx.LEFT | wx.RIGHT | wx.TOP, _SIDEBAR_PAD)
 
-        # Check "All Cards" by default
+        # Check "All Cards" by default; disable others until cards load
         self._category_checkboxes[0].SetValue(True)
+        for cb in self._category_checkboxes[1:]:
+            cb.Enable(False)
 
         # --- Folder section (hidden initially) ---
         self._folder_separator = wx.StaticLine(self)
-        sizer.Add(self._folder_separator, 0, wx.EXPAND | wx.TOP | wx.BOTTOM, 10)
+        sizer.Add(self._folder_separator, 0, wx.EXPAND | wx.TOP | wx.BOTTOM, _SIDEBAR_PAD)
         self._folder_separator.Hide()
 
         self._folder_header = wx.StaticText(self, label="FOLDERS")
-        self._folder_header.SetFont(wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        self._folder_header.SetFont(styles.Font.SECTION_HEADER())
         self._folder_header.SetForegroundColour(styles.Color.TEXT_SECONDARY)
-        sizer.Add(self._folder_header, 0, wx.LEFT | wx.RIGHT, 10)
+        sizer.Add(self._folder_header, 0, wx.LEFT | wx.RIGHT, _SIDEBAR_PAD)
         self._folder_header.Hide()
 
         self._folder_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -92,31 +98,72 @@ class FilterSidebar(wx.Panel):
             "Option-click to select multiple filters."
         )
 
-        sizer.AddSpacer(10)
+        sizer.AddSpacer(_SIDEBAR_PAD)
 
         info = wx.StaticText(self, label="\u2325-click to multi-select")
         info.SetFont(styles.Font.SMALL())
         info.SetForegroundColour(styles.Color.TEXT_SECONDARY)
-        sizer.Add(info, 0, wx.ALL, 10)
+        sizer.Add(info, 0, wx.ALL, _SIDEBAR_PAD)
+
+        # Push notification to bottom
+        sizer.AddStretchSpacer()
+
+        # Notification area
+        self._notify_label = wx.StaticText(self, label="")
+        self._notify_label.SetFont(styles.Font.SMALL())
+        self._notify_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
+        self._notify_label.Wrap(_SIDEBAR_MIN_WIDTH - _NOTIFY_PAD)
+        sizer.Add(self._notify_label, 0, wx.ALL, _SIDEBAR_PAD)
+        self._notify_label.Hide()
+        self._notify_timer: wx.CallLater | None = None
 
         self.SetSizer(sizer)
-        self.SetMinSize((150, -1))
+        self.SetMinSize((_SIDEBAR_MIN_WIDTH, -1))
+
+    # --- Notification area ---
+
+    _NOTIFY_COLOR_ERROR = wx.Colour(255, 59, 48)
+
+    def show_notification(self, message: str, icon: int = wx.ICON_INFORMATION, duration_ms: int = 4000) -> None:
+        """Show a notification message at the bottom of the sidebar."""
+        if self._notify_timer is not None:
+            self._notify_timer.Stop()
+            self._notify_timer = None
+        if icon in (wx.ICON_WARNING, wx.ICON_ERROR):
+            colour = self._NOTIFY_COLOR_ERROR
+        else:
+            colour = styles.Color.TEXT_SECONDARY
+        self._notify_label.SetForegroundColour(colour)
+        self._notify_label.SetLabel(message)
+        self._notify_label.Wrap(self.GetClientSize().width - _NOTIFY_PAD)
+        self._notify_label.Show()
+        self.Layout()
+        if duration_ms > 0:
+            self._notify_timer = wx.CallLater(duration_ms, self.dismiss_notification)
+
+    def dismiss_notification(self) -> None:
+        """Hide the notification message."""
+        if self._notify_timer is not None:
+            self._notify_timer.Stop()
+            self._notify_timer = None
+        self._notify_label.SetLabel("")
+        self._notify_label.Hide()
+        self.Layout()
 
     # --- Shared click logic ---
 
-    def _handle_check(self, filter_key, all_key, checkboxes, keys, selected_list, callback, option_held):
-        """Shared Finder-style click handler for both category and folder sections.
+    def _compute_new_selection(
+        self,
+        filter_key: str,
+        all_key: str,
+        checkboxes: list[wx.CheckBox],
+        keys: list[str],
+        option_held: bool,
+    ) -> list[str]:
+        """Compute new selection after a checkbox click (Finder-style).
 
         Regular click: select exclusively. Option+click: toggle multi-select.
-
-        Args:
-            filter_key: Key that was clicked
-            all_key: The "all" key for this section ("all" or "all_folders")
-            checkboxes: List of wx.CheckBox for this section
-            keys: List of keys for this section
-            selected_list: Current selection list (mutated in place via return)
-            callback: Callback to fire with new selection
-            option_held: Whether Option key is held
+        Updates checkbox visual state but does NOT fire callbacks.
 
         Returns:
             New selected list
@@ -125,10 +172,10 @@ class FilterSidebar(wx.Panel):
 
         if filter_key == all_key:
             self._select_exclusive(checkboxes, 0)
-            new_selected = [all_key]
-        elif option_held:
-            is_checked = checkboxes[idx].GetValue()
-            if is_checked:
+            return [all_key]
+
+        if option_held:
+            if checkboxes[idx].GetValue():
                 checkboxes[0].SetValue(False)
 
             new_selected = [
@@ -139,52 +186,52 @@ class FilterSidebar(wx.Panel):
 
             if not new_selected:
                 checkboxes[0].SetValue(True)
-                new_selected = [all_key]
-        else:
-            self._select_exclusive(checkboxes, idx)
-            new_selected = [filter_key]
+                return [all_key]
+            return new_selected
 
-        callback(new_selected)
-        return new_selected
+        self._select_exclusive(checkboxes, idx)
+        return [filter_key]
 
-    def _select_exclusive(self, checkboxes, index):
+    def _select_exclusive(self, checkboxes: list[wx.CheckBox], index: int) -> None:
         """Check only the checkbox at index, uncheck all others."""
         for i, cb in enumerate(checkboxes):
             cb.SetValue(i == index)
 
     # --- Category handlers ---
 
-    def _on_category_check(self, filter_key: str, option_held: bool | None = None):
+    def _on_category_check(self, filter_key: str, option_held: bool | None = None) -> None:
         """Handle category checkbox click."""
         if option_held is None:
             option_held = wx.GetKeyState(wx.WXK_ALT)
 
-        self._selected_category_filters = self._handle_check(
+        # Update internal state BEFORE firing callback, so _refresh_display
+        # sees the correct selection when it syncs from sidebar.
+        self._selected_category_filters = self._compute_new_selection(
             filter_key, "all",
             self._category_checkboxes, self._category_keys,
-            self._selected_category_filters,
-            self._on_category_filter,
             option_held,
         )
+        self._on_category_filter(self._selected_category_filters)
 
     # --- Folder handlers ---
 
-    def _on_folder_check(self, filter_key: str, option_held: bool | None = None):
+    def _on_folder_check(self, filter_key: str, option_held: bool | None = None) -> None:
         """Handle folder checkbox click."""
         if option_held is None:
             option_held = wx.GetKeyState(wx.WXK_ALT)
 
-        self._selected_folder_filters = self._handle_check(
+        # Update internal state BEFORE firing callback, so _refresh_display
+        # sees the correct selection when it syncs from sidebar.
+        self._selected_folder_filters = self._compute_new_selection(
             filter_key, "all_folders",
             self._folder_checkboxes, self._folder_keys,
-            self._selected_folder_filters,
-            self._on_folder_filter,
             option_held,
         )
+        self._on_folder_filter(self._selected_folder_filters)
 
     # --- Dynamic folder management ---
 
-    def update_folders(self, folder_paths: list[Path]):
+    def update_folders(self, folder_paths: list[Path]) -> None:
         """Rebuild folder checkboxes from current source folders.
 
         Shows folder section only when 2+ folders are present.
@@ -234,7 +281,7 @@ class FilterSidebar(wx.Panel):
             cb = wx.CheckBox(self, label=label)
             cb.Bind(wx.EVT_CHECKBOX, lambda evt, k=key: self._on_folder_check(k))
             self._folder_checkboxes.append(cb)
-            self._folder_sizer.Add(cb, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+            self._folder_sizer.Add(cb, 0, wx.LEFT | wx.RIGHT | wx.TOP, _SIDEBAR_PAD)
 
         # Default: "All Folders" checked
         self._folder_checkboxes[0].SetValue(True)
@@ -245,7 +292,33 @@ class FilterSidebar(wx.Panel):
 
     # --- Count updates (cross-filtered) ---
 
-    def update_category_counts(self, cards: list[CardResult]):
+    def _apply_count_fallback(
+        self,
+        all_key: str,
+        selected: list[str],
+        disabled_keys: set[str],
+        checkboxes: list[wx.CheckBox],
+        keys: list[str],
+    ) -> list[str]:
+        """Reset selection to all_key if every selected filter was disabled.
+
+        Returns:
+            Updated selection list
+        """
+        if all_key in selected:
+            return selected
+
+        remaining = [k for k in selected if k not in disabled_keys]
+        if not remaining:
+            for cb in checkboxes:
+                cb.SetValue(False)
+            checkboxes[0].SetValue(True)
+            return [all_key]
+        if remaining != selected:
+            return remaining
+        return selected
+
+    def update_category_counts(self, cards: list[CardResult]) -> None:
         """Update category counts and disable/enable accordingly.
 
         Args:
@@ -273,18 +346,13 @@ class FilterSidebar(wx.Panel):
             else:
                 self._category_checkboxes[i].Enable(True)
 
-        # Fallback if all selected went to zero
-        if "all" not in self._selected_category_filters:
-            remaining = [k for k in self._selected_category_filters if k not in self._category_disabled_keys]
-            if not remaining:
-                for i in range(len(self._category_keys)):
-                    self._category_checkboxes[i].SetValue(False)
-                self._category_checkboxes[0].SetValue(True)
-                self._selected_category_filters = ["all"]
-            elif remaining != self._selected_category_filters:
-                self._selected_category_filters = remaining
+        self._selected_category_filters = self._apply_count_fallback(
+            "all", self._selected_category_filters,
+            self._category_disabled_keys,
+            self._category_checkboxes, self._category_keys,
+        )
 
-    def update_folder_counts(self, cards: list[CardResult]):
+    def update_folder_counts(self, cards: list[CardResult]) -> None:
         """Update folder counts and disable/enable accordingly.
 
         Args:
@@ -315,16 +383,11 @@ class FilterSidebar(wx.Panel):
             else:
                 self._folder_checkboxes[i].Enable(True)
 
-        # Fallback if all selected went to zero
-        if "all_folders" not in self._selected_folder_filters:
-            remaining = [k for k in self._selected_folder_filters if k not in self._folder_disabled_keys]
-            if not remaining:
-                for i in range(len(self._folder_keys)):
-                    self._folder_checkboxes[i].SetValue(False)
-                self._folder_checkboxes[0].SetValue(True)
-                self._selected_folder_filters = ["all_folders"]
-            elif remaining != self._selected_folder_filters:
-                self._selected_folder_filters = remaining
+        self._selected_folder_filters = self._apply_count_fallback(
+            "all_folders", self._selected_folder_filters,
+            self._folder_disabled_keys,
+            self._folder_checkboxes, self._folder_keys,
+        )
 
     # --- Public API ---
 
@@ -336,7 +399,7 @@ class FilterSidebar(wx.Panel):
         """Get currently selected folder filter keys."""
         return self._selected_folder_filters
 
-    def set_category_filters(self, filter_keys: list[str]):
+    def set_category_filters(self, filter_keys: list[str]) -> None:
         """Programmatically set active category filters."""
         for cb in self._category_checkboxes:
             cb.SetValue(False)
@@ -346,7 +409,7 @@ class FilterSidebar(wx.Panel):
                 self._category_checkboxes[index].SetValue(True)
         self._selected_category_filters = filter_keys if filter_keys else ["all"]
 
-    def set_folder_filters(self, filter_keys: list[str]):
+    def set_folder_filters(self, filter_keys: list[str]) -> None:
         """Programmatically set active folder filters."""
         for cb in self._folder_checkboxes:
             cb.SetValue(False)
@@ -355,17 +418,3 @@ class FilterSidebar(wx.Panel):
                 index = self._folder_keys.index(key)
                 self._folder_checkboxes[index].SetValue(True)
         self._selected_folder_filters = filter_keys if filter_keys else ["all_folders"]
-
-    # --- Backward compat aliases ---
-
-    def get_selected_filters(self) -> list[str]:
-        """Alias for get_selected_category_filters (backward compat)."""
-        return self.get_selected_category_filters()
-
-    def set_filters(self, filter_keys: list[str]):
-        """Alias for set_category_filters (backward compat)."""
-        self.set_category_filters(filter_keys)
-
-    def update_card_counts(self, cards: list[CardResult]):
-        """Alias for update_category_counts (backward compat)."""
-        self.update_category_counts(cards)

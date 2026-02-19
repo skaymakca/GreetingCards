@@ -5,7 +5,7 @@ Common helpers for image conversion, widget creation, and other UI operations.
 
 import wx
 from PIL import Image
-from typing import Optional
+from collections.abc import Callable
 
 
 def pil_to_bitmap(pil_image: Image.Image) -> wx.Bitmap:
@@ -17,22 +17,7 @@ def pil_to_bitmap(pil_image: Image.Image) -> wx.Bitmap:
     Returns:
         wx.Bitmap ready for display
     """
-    # Convert PIL image to wx.Image
-    width, height = pil_image.size
-
-    # Ensure image is in RGB mode
-    if pil_image.mode != 'RGB':
-        pil_image = pil_image.convert('RGB')
-
-    # Get image data as bytes
-    data = pil_image.tobytes()
-
-    # Create wx.Image from RGB data
-    wx_image = wx.Image(width, height)
-    wx_image.SetData(data)
-
-    # Convert to wx.Bitmap
-    return wx.Bitmap(wx_image)
+    return wx.Bitmap(pil_to_image(pil_image))
 
 
 def pil_to_image(pil_image: Image.Image) -> wx.Image:
@@ -88,11 +73,8 @@ def hex_to_colour(hex_color: str) -> wx.Colour:
     Returns:
         wx.Colour object
     """
-    hex_color = hex_color.lstrip('#')
-    r = int(hex_color[0:2], 16)
-    g = int(hex_color[2:4], 16)
-    b = int(hex_color[4:6], 16)
-    return wx.Colour(r, g, b)
+    from app.gui.styles import Color
+    return Color.from_hex(hex_color)
 
 
 def colour_to_hex(colour: wx.Colour) -> str:
@@ -107,7 +89,7 @@ def colour_to_hex(colour: wx.Colour) -> str:
     return f"#{colour.Red():02X}{colour.Green():02X}{colour.Blue():02X}"
 
 
-def create_button(parent: wx.Window, label: str, callback: callable = None,
+def create_button(parent: wx.Window, label: str, callback: Callable[[], None] | None = None,
                  tooltip: str = "") -> wx.Button:
     """Create a button with common settings.
 
@@ -132,7 +114,7 @@ def create_button(parent: wx.Window, label: str, callback: callable = None,
 
 
 def create_text_ctrl(parent: wx.Window, value: str = "",
-                    callback: callable = None, style: int = 0) -> wx.TextCtrl:
+                    callback: Callable[[str], None] | None = None, style: int = 0) -> wx.TextCtrl:
     """Create a text control with common settings.
 
     Args:
@@ -153,8 +135,8 @@ def create_text_ctrl(parent: wx.Window, value: str = "",
 
 
 def create_static_text(parent: wx.Window, label: str,
-                      font: Optional[wx.Font] = None,
-                      colour: Optional[wx.Colour] = None) -> wx.StaticText:
+                      font: wx.Font | None = None,
+                      colour: wx.Colour | None = None) -> wx.StaticText:
     """Create a static text label with common settings.
 
     Args:
@@ -177,7 +159,7 @@ def create_static_text(parent: wx.Window, label: str,
     return text
 
 
-def show_error(parent: Optional[wx.Window], message: str, title: str = "Error"):
+def show_error(parent: wx.Window | None, message: str, title: str = "Error"):
     """Show an error message dialog.
 
     Args:
@@ -188,7 +170,7 @@ def show_error(parent: Optional[wx.Window], message: str, title: str = "Error"):
     wx.MessageBox(message, title, wx.OK | wx.ICON_ERROR, parent)
 
 
-def show_info(parent: Optional[wx.Window], message: str, title: str = "Information"):
+def show_info(parent: wx.Window | None, message: str, title: str = "Information"):
     """Show an information message dialog.
 
     Args:
@@ -199,7 +181,7 @@ def show_info(parent: Optional[wx.Window], message: str, title: str = "Informati
     wx.MessageBox(message, title, wx.OK | wx.ICON_INFORMATION, parent)
 
 
-def show_warning(parent: Optional[wx.Window], message: str, title: str = "Warning"):
+def show_warning(parent: wx.Window | None, message: str, title: str = "Warning"):
     """Show a warning message dialog.
 
     Args:
@@ -210,7 +192,7 @@ def show_warning(parent: Optional[wx.Window], message: str, title: str = "Warnin
     wx.MessageBox(message, title, wx.OK | wx.ICON_WARNING, parent)
 
 
-def confirm(parent: Optional[wx.Window], message: str, title: str = "Confirm") -> bool:
+def confirm(parent: wx.Window | None, message: str, title: str = "Confirm") -> bool:
     """Show a confirmation dialog.
 
     Args:

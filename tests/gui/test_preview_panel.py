@@ -58,7 +58,7 @@ def test_show_images_single(preview_panel, sample_image):
     assert len(preview_panel._images) == 1
     assert preview_panel._page_idx == 0
     assert preview_panel._is_fit is True
-    assert preview_panel._title_label.GetLabel() == "Preview: test.pdf"
+    assert preview_panel._title_label.GetLabel() == "PREVIEW: test.pdf"
 
 
 def test_show_images_multiple(preview_panel, sample_images):
@@ -67,7 +67,7 @@ def test_show_images_multiple(preview_panel, sample_images):
 
     assert len(preview_panel._images) == 3
     assert preview_panel._page_idx == 0
-    assert preview_panel._title_label.GetLabel() == "Preview: multi.pdf"
+    assert preview_panel._title_label.GetLabel() == "PREVIEW: multi.pdf"
 
 
 def test_show_image(preview_panel, sample_image):
@@ -76,7 +76,7 @@ def test_show_image(preview_panel, sample_image):
 
     assert len(preview_panel._images) == 1
     assert preview_panel._page_idx == 0
-    assert preview_panel._title_label.GetLabel() == "Preview: single.pdf"
+    assert preview_panel._title_label.GetLabel() == "PREVIEW: single.pdf"
 
 
 def test_clear(preview_panel, sample_images):
@@ -91,7 +91,7 @@ def test_clear(preview_panel, sample_images):
     assert preview_panel._images == []
     assert preview_panel._page_idx == 0
     assert preview_panel._bitmap_cache is None
-    assert preview_panel._title_label.GetLabel() == "Preview"
+    assert preview_panel._title_label.GetLabel() == "PREVIEW"
     assert preview_panel._page_label.GetLabel() == ""
 
 
@@ -101,7 +101,7 @@ def test_show_error(preview_panel):
 
     assert preview_panel._error_message == "Test error message"
     assert preview_panel._images == []
-    assert preview_panel._title_label.GetLabel() == "Preview: error.pdf"
+    assert preview_panel._title_label.GetLabel() == "PREVIEW: error.pdf"
 
 
 def test_zoom_controls_disabled_when_empty(preview_panel):
@@ -187,19 +187,19 @@ def test_prev_next_page(preview_panel, sample_images):
     assert preview_panel._page_idx == 0
 
     # Go to next page
-    preview_panel._next_page()
+    preview_panel.next_page()
     assert preview_panel._page_idx == 1
     assert preview_panel._page_label.GetLabel() == "2 / 3"
     assert preview_panel._prev_btn.IsEnabled()
 
     # Go to next page again
-    preview_panel._next_page()
+    preview_panel.next_page()
     assert preview_panel._page_idx == 2
     assert preview_panel._page_label.GetLabel() == "3 / 3"
     assert not preview_panel._next_btn.IsEnabled()
 
     # Go back
-    preview_panel._prev_page()
+    preview_panel.prev_page()
     assert preview_panel._page_idx == 1
     assert preview_panel._page_label.GetLabel() == "2 / 3"
 
@@ -224,7 +224,7 @@ def test_page_label_format(preview_panel, sample_images):
 
     assert preview_panel._page_label.GetLabel() == "1 / 3"
 
-    preview_panel._next_page()
+    preview_panel.next_page()
     assert preview_panel._page_label.GetLabel() == "2 / 3"
 
 
@@ -239,7 +239,7 @@ def test_zoom_resets_on_page_change(preview_panel, sample_images):
     assert preview_panel._is_fit is False
 
     # Navigate to next page
-    preview_panel._next_page()
+    preview_panel.next_page()
 
     # Zoom and pan should be reset
     assert preview_panel._is_fit is True
@@ -309,13 +309,13 @@ def test_multiple_images_navigation(preview_panel, sample_images):
         assert preview_panel._page_label.GetLabel() == f"{i + 1} / {len(sample_images)}"
 
         if i < len(sample_images) - 1:
-            preview_panel._next_page()
+            preview_panel.next_page()
 
     # Navigate back
     for i in range(len(sample_images) - 1, -1, -1):
         assert preview_panel._page_idx == i
         if i > 0:
-            preview_panel._prev_page()
+            preview_panel.prev_page()
 
 
 def test_show_images_clears_error(preview_panel):
@@ -362,11 +362,11 @@ def test_filename_optional(preview_panel, sample_image):
     preview_panel.show_images([sample_image])
 
     # Without filename, should just show "Preview"
-    assert preview_panel._title_label.GetLabel() == "Preview"
+    assert preview_panel._title_label.GetLabel() == "PREVIEW"
 
     # With filename
     preview_panel.show_images([sample_image], "test.pdf")
-    assert preview_panel._title_label.GetLabel() == "Preview: test.pdf"
+    assert preview_panel._title_label.GetLabel() == "PREVIEW: test.pdf"
 
 
 def test_empty_images_list(preview_panel):
@@ -628,9 +628,9 @@ def test_rapid_page_changes(preview_panel):
 
     # Rapidly navigate
     for _ in range(10):
-        preview_panel._next_page()
-        preview_panel._prev_page()
-        preview_panel._next_page()
+        preview_panel.next_page()
+        preview_panel.prev_page()
+        preview_panel.next_page()
 
     # Should not crash
     assert 0 <= preview_panel._page_idx < len(images)

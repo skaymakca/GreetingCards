@@ -87,10 +87,10 @@ def format_ai_error(error: Exception) -> str:
         return "Invalid API key"
     if isinstance(error, anthropic.RateLimitError):
         return "Rate limit exceeded — try again later"
-    if isinstance(error, anthropic.APIConnectionError):
-        return "Network connection error"
     if isinstance(error, anthropic.APITimeoutError):
         return "Request timed out"
+    if isinstance(error, anthropic.APIConnectionError):
+        return "Network connection error"
     if isinstance(error, anthropic.APIStatusError):
         return f"API error (HTTP {error.status_code})"
     return str(error)

@@ -35,6 +35,8 @@ ReviewPanelMasterDetail (wx.Panel)     ← Public API (drop-in for original)
         └── File Paths tab (added/removed per card)
 ```
 
+Note: The drop overlay (`_DropOverlay`) lives in `main_window.py` and covers the entire content area below the toolbar when no cards are loaded.
+
 ## CardListModel (PyDataViewModel)
 
 Wraps a flat `list[CardResult]` for display in DataViewCtrl.
@@ -99,6 +101,12 @@ This matters because `_refresh_display()` calls `load_cards()` frequently (on fi
 | `update_dot(card_id, confidence)` | Update just the confidence indicator |
 | `select_next_card()` / `select_prev_card()` | Keyboard navigation |
 | `set_ai_button_state(card_id, state, text)` | Enable/disable AI button |
+
+## Drag Highlight
+
+When files are dragged over the window while cards are loaded, `MainWindow` calls `set_drag_highlight(True)` on the review panel. This draws a 3px macOS-blue (`0, 122, 255`) rounded-rect border inside the panel edges via `EVT_PAINT`. When the drag leaves, `set_drag_highlight(False)` clears the border.
+
+The drop overlay (empty state) is managed by `_DropOverlay` in `main_window.py`, not in this panel.
 
 ## Gotchas
 

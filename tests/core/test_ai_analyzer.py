@@ -103,11 +103,10 @@ class TestFormatAiError:
         assert "Rate limit" in format_ai_error(err)
 
     def test_timeout_error(self):
-        """APITimeoutError extends APIConnectionError, so it's caught as connection error."""
+        """APITimeoutError should be caught before APIConnectionError."""
         import anthropic
         err = anthropic.APITimeoutError(request=MagicMock())
-        # APITimeoutError is a subclass of APIConnectionError, matched first
-        assert "connection" in format_ai_error(err).lower()
+        assert "timed out" in format_ai_error(err).lower()
 
     def test_connection_error(self):
         import anthropic

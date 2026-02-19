@@ -26,7 +26,7 @@ Benefits:
 
 import wx
 import wx.dataview as dv
-from typing import Callable, Optional
+from typing import Callable
 from pathlib import Path
 from app.models.card import CardResult, Confidence, CandidateInfo
 from app.gui.styles import Color, Font, Layout
@@ -76,6 +76,16 @@ class CardListModel(dv.PyDataViewModel):
                 item = self.ObjectToItem(i)
                 self.ItemChanged(item)
                 break
+
+    @property
+    def card_count(self) -> int:
+        """Return number of cards in the model."""
+        return len(self._cards)
+
+    @property
+    def card_order(self) -> list[int]:
+        """Return card IDs in display order."""
+        return list(self._card_order)
 
     # PyDataViewModel interface
     def GetColumnCount(self):
@@ -185,6 +195,7 @@ class DetailPanel(wx.Panel):
         self._on_ai_request = on_ai_request
         self._current_card: CardResult | None = None
         self._suppress_events = False
+        self._candidate_map: dict[str, int] = {}
 
         self._build_ui()
         self.clear()
@@ -298,6 +309,7 @@ class DetailPanel(wx.Panel):
         locations_sizer.Add(self._duplicate_info, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, Layout.PAD)
 
         self._locations_panel.SetSizer(locations_sizer)
+        self._locations_panel.Hide()
 
         # Track whether locations tab is currently added
         self._locations_tab_index = None
@@ -382,10 +394,12 @@ class DetailPanel(wx.Panel):
 
         # Add/update File Paths tab (always present now)
         if self._locations_tab_index is None:
-            self._locations_tab_index = self._notebook.AddPage(
+            self._locations_panel.Show()
+            self._notebook.AddPage(
                 self._locations_panel,
                 f"File Paths ({num_paths})"
             )
+            self._locations_tab_index = self._notebook.GetPageCount() - 1
         else:
             # Update tab label
             self._notebook.SetPageText(self._locations_tab_index, f"File Paths ({num_paths})")
@@ -411,6 +425,7 @@ class DetailPanel(wx.Panel):
         if self._locations_tab_index is not None:
             self._notebook.RemovePage(self._locations_tab_index)
             self._locations_tab_index = None
+            self._locations_panel.Hide()
 
         # Reset Edit tab to default label (do this after removing File Paths tab)
         if self._notebook.GetPageCount() > 0:
@@ -460,7 +475,7 @@ class DetailPanel(wx.Panel):
         label = self._candidates_choice.GetString(selection)
         candidate_id = self._candidate_map.get(label)
 
-        if candidate_id and self._on_candidate_select:
+        if candidate_id is not None and self._on_candidate_select:
             self._on_candidate_select(self._current_card.id, candidate_id)
 
     def _on_ai(self, event):
@@ -481,7 +496,7 @@ class ReviewPanelMasterDetail(wx.Panel):
     def __init__(
         self,
         parent,
-        on_select: Callable[[int], None],
+        on_select: Callable[[int | None], None],
         on_ai_request: Callable[[int], None],
         on_name_change: Callable[[int, str], None] | None = None,
         on_card_edited: Callable[[int], None] | None = None,
@@ -493,8 +508,10 @@ class ReviewPanelMasterDetail(wx.Panel):
         self._on_card_edited = on_card_edited
         self._selected_card_id: int | None = None
         self._cards_by_id: dict[int, CardResult] = {}
+        self._drag_highlight = False
 
         self._build_ui()
+        self.Bind(wx.EVT_PAINT, self._on_paint_highlight)
 
     def _build_ui(self):
         """Build master-detail UI."""
@@ -505,9 +522,9 @@ class ReviewPanelMasterDetail(wx.Panel):
 
         heading = create_static_text(
             self,
-            "Cards",
-            font=Font.HEADING(),
-            colour=Color.TEXT_PRIMARY
+            "CARDS",
+            font=Font.SECTION_HEADER(),
+            colour=Color.TEXT_SECONDARY
         )
         header_sizer.Add(heading, 0, wx.ALIGN_CENTER_VERTICAL)
         header_sizer.AddStretchSpacer()
@@ -524,6 +541,7 @@ class ReviewPanelMasterDetail(wx.Panel):
 
         # Splitter for master-detail
         splitter = wx.SplitterWindow(self, style=wx.SP_LIVE_UPDATE | wx.SP_3DSASH)
+        self._splitter = splitter
 
         # Master: DataViewCtrl
         self._list_ctrl = dv.DataViewCtrl(
@@ -557,7 +575,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         splitter.SetSashGravity(1.0)  # Give all extra space to master list
         splitter.SetMinimumPaneSize(100)
 
-        sizer.Add(splitter, 1, wx.EXPAND | wx.ALL, Layout.PAD)
+        sizer.Add(splitter, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, Layout.PAD)
 
         self.SetSizer(sizer)
 
@@ -666,7 +684,8 @@ class ReviewPanelMasterDetail(wx.Panel):
         prev_selected_id = self._selected_card_id
         self._cards_by_id = {card.id: card for card in cards}
         self._model.load_cards(cards)
-        self._count_label.SetLabel(f"{len(cards)} cards")
+        n = len(cards)
+        self._count_label.SetLabel(f"{n} {'Card' if n == 1 else 'Cards'}")
 
         if cards:
             # Try to restore previous selection
@@ -686,7 +705,7 @@ class ReviewPanelMasterDetail(wx.Panel):
 
     def get_cards(self) -> list[CardResult]:
         """Return all cards with edits, in display order."""
-        return [self._cards_by_id[cid] for cid in self._model._card_order if cid in self._cards_by_id]
+        return [self._cards_by_id[cid] for cid in self._model.card_order if cid in self._cards_by_id]
 
     def update_card(self, card_id: int, card: CardResult):
         """Update a single card after AI analysis."""
@@ -710,14 +729,14 @@ class ReviewPanelMasterDetail(wx.Panel):
         current_item = self._list_ctrl.GetSelection()
         if not current_item.IsOk():
             # Select first
-            if self._model._cards:
+            if self._model.card_count > 0:
                 item = self._model.ObjectToItem(0)
                 self._list_ctrl.Select(item)
                 self._list_ctrl.EnsureVisible(item)
             return
 
         current_row = self._model.ItemToObject(current_item)
-        if current_row < len(self._model._cards) - 1:
+        if current_row < self._model.card_count - 1:
             next_item = self._model.ObjectToItem(current_row + 1)
             self._list_ctrl.Select(next_item)
             self._list_ctrl.EnsureVisible(next_item)
@@ -727,7 +746,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         current_item = self._list_ctrl.GetSelection()
         if not current_item.IsOk():
             # Select first
-            if self._model._cards:
+            if self._model.card_count > 0:
                 item = self._model.ObjectToItem(0)
                 self._list_ctrl.Select(item)
                 self._list_ctrl.EnsureVisible(item)
@@ -738,6 +757,32 @@ class ReviewPanelMasterDetail(wx.Panel):
             prev_item = self._model.ObjectToItem(current_row - 1)
             self._list_ctrl.Select(prev_item)
             self._list_ctrl.EnsureVisible(prev_item)
+
+    def set_drag_highlight(self, on: bool) -> None:
+        """Show/hide a macOS-blue drag highlight border around the panel."""
+        if self._drag_highlight == on:
+            return
+        self._drag_highlight = on
+        self.Refresh()
+
+    def _on_paint_highlight(self, event: wx.PaintEvent) -> None:
+        """Draw blue drag-highlight border around the entire panel when active."""
+        dc = wx.PaintDC(self)
+        event.Skip()
+        if not self._drag_highlight:
+            return
+        gc = wx.GraphicsContext.Create(dc)
+        if not gc:
+            return
+        w, h = self.GetSize()
+        pen = gc.CreatePen(
+            wx.GraphicsPenInfo(wx.Colour(0, 122, 255)).Width(3)
+        )
+        gc.SetPen(pen)
+        gc.SetBrush(wx.NullBrush)
+        path = gc.CreatePath()
+        path.AddRoundedRectangle(1.5, 1.5, w - 3, h - 3, 6)
+        gc.StrokePath(path)
 
     def set_ai_button_state(self, card_id: int, state: str, text: str = "AI"):
         """Set AI button state (enabled/disabled)."""

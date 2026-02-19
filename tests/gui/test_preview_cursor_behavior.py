@@ -342,7 +342,7 @@ class TestCursorStateTransitions:
         preview_panel.show_images(images)
 
         # Cursors should still be valid after page change
-        preview_panel._next_page()
+        preview_panel.next_page()
 
         assert preview_panel._zoom_in_cursor is not None
         assert preview_panel._zoom_out_cursor is not None

@@ -51,7 +51,7 @@ def test_default_filter_selected(wx_app):
 
     # "all" (index 0) should be checked
     assert sidebar._category_checkboxes[0].GetValue() is True
-    assert sidebar.get_selected_filters() == ["all"]
+    assert sidebar.get_selected_category_filters() == ["all"]
 
     parent.Destroy()
 
@@ -71,7 +71,7 @@ def test_filter_selection_callback(wx_app):
     sidebar._selected_category_filters = ["high"]
 
     # Verify the selected filters
-    assert sidebar.get_selected_filters() == ["high"]
+    assert sidebar.get_selected_category_filters() == ["high"]
 
     parent.Destroy()
 
@@ -85,25 +85,25 @@ def test_multi_selection_behavior(wx_app):
     assert sidebar._category_checkboxes[0].GetValue() is True
 
     # Set multiple filters using set_filters
-    sidebar.set_filters(["high", "needs_review"])
+    sidebar.set_category_filters(["high", "needs_review"])
 
     # Both should be checked
     assert sidebar._category_checkboxes[2].GetValue() is True  # "high" is index 2
     assert sidebar._category_checkboxes[3].GetValue() is True  # "needs_review" is index 3
-    assert sidebar.get_selected_filters() == ["high", "needs_review"]
+    assert sidebar.get_selected_category_filters() == ["high", "needs_review"]
 
     parent.Destroy()
 
 
-def test_get_selected_filters(wx_app):
+def test_get_selected_category_filters(wx_app):
     """Test getting the currently selected filters."""
     parent = wx.Frame(None)
     sidebar = FilterSidebar(parent, on_category_filter=lambda k: None)
 
-    assert sidebar.get_selected_filters() == ["all"]
+    assert sidebar.get_selected_category_filters() == ["all"]
 
-    sidebar.set_filters(["high", "manual"])
-    assert sidebar.get_selected_filters() == ["high", "manual"]
+    sidebar.set_category_filters(["high", "manual"])
+    assert sidebar.get_selected_category_filters() == ["high", "manual"]
 
     parent.Destroy()
 
@@ -114,10 +114,10 @@ def test_set_filters_programmatically(wx_app):
     sidebar = FilterSidebar(parent, on_category_filter=lambda k: None)
 
     # Set filters programmatically
-    sidebar.set_filters(["high", "needs_review"])
+    sidebar.set_category_filters(["high", "needs_review"])
 
     # Verify state updated
-    assert sidebar.get_selected_filters() == ["high", "needs_review"]
+    assert sidebar.get_selected_category_filters() == ["high", "needs_review"]
     assert sidebar._category_checkboxes[2].GetValue() is True  # high
     assert sidebar._category_checkboxes[3].GetValue() is True  # needs_review
     assert sidebar._category_checkboxes[0].GetValue() is False  # all unchecked
@@ -148,7 +148,7 @@ def test_min_size_set(wx_app):
     parent.Destroy()
 
 
-def test_update_card_counts(wx_app):
+def test_update_category_counts(wx_app):
     """Test updating card counts updates labels."""
     parent = wx.Frame(None)
     sidebar = FilterSidebar(parent, on_category_filter=lambda k: None)
@@ -164,7 +164,7 @@ def test_update_card_counts(wx_app):
     cards[2].confidence = Confidence.MEDIUM
 
     # Update counts
-    sidebar.update_card_counts(cards)
+    sidebar.update_category_counts(cards)
 
     # Verify labels include counts
     assert sidebar._category_checkboxes[0].GetLabel() == "All Cards (3)"
@@ -187,7 +187,7 @@ def test_zero_count_filter_disabled(wx_app):
     ]
     cards[0].confidence = Confidence.HIGH
 
-    sidebar.update_card_counts(cards)
+    sidebar.update_category_counts(cards)
 
     # "errors" (index 4) should be disabled
     assert "errors" in sidebar._category_disabled_keys
@@ -213,11 +213,11 @@ def test_selected_filter_reset_on_zero(wx_app):
     ]
     cards[0].confidence = Confidence.NONE  # counts as error
 
-    sidebar.update_card_counts(cards)
+    sidebar.update_category_counts(cards)
 
     # Select "errors" filter
-    sidebar.set_filters(["errors"])
-    assert sidebar.get_selected_filters() == ["errors"]
+    sidebar.set_category_filters(["errors"])
+    assert sidebar.get_selected_category_filters() == ["errors"]
 
     # Now update with cards that have NO errors
     cards_no_errors = [
@@ -225,10 +225,10 @@ def test_selected_filter_reset_on_zero(wx_app):
     ]
     cards_no_errors[0].confidence = Confidence.HIGH
 
-    sidebar.update_card_counts(cards_no_errors)
+    sidebar.update_category_counts(cards_no_errors)
 
     # Should have fallen back to "all"
-    assert sidebar.get_selected_filters() == ["all"]
+    assert sidebar.get_selected_category_filters() == ["all"]
     assert sidebar._category_checkboxes[0].GetValue() is True  # "All Cards" checked
 
     parent.Destroy()
@@ -245,7 +245,7 @@ def test_regular_click_exclusive_selection(wx_app):
     sidebar._on_category_check("high", option_held=False)
 
     # Only "high" should be selected
-    assert sidebar.get_selected_filters() == ["high"]
+    assert sidebar.get_selected_category_filters() == ["high"]
     assert sidebar._category_checkboxes[2].GetValue() is True
     assert sidebar._category_checkboxes[0].GetValue() is False  # "All Cards" unchecked
     assert sidebar._category_checkboxes[1].GetValue() is False
@@ -260,14 +260,14 @@ def test_regular_click_switches_between_filters(wx_app):
     sidebar = FilterSidebar(parent, on_category_filter=lambda k: None)
 
     # Select "high" first
-    sidebar.set_filters(["high"])
+    sidebar.set_category_filters(["high"])
 
     # Regular click on "needs_review"
     sidebar._category_checkboxes[3].SetValue(True)
     sidebar._on_category_check("needs_review", option_held=False)
 
     # Only "needs_review" should be selected
-    assert sidebar.get_selected_filters() == ["needs_review"]
+    assert sidebar.get_selected_category_filters() == ["needs_review"]
     assert sidebar._category_checkboxes[3].GetValue() is True
     assert sidebar._category_checkboxes[2].GetValue() is False  # "high" unchecked
 
@@ -280,14 +280,14 @@ def test_option_click_adds_filter(wx_app):
     sidebar = FilterSidebar(parent, on_category_filter=lambda k: None)
 
     # Start with "high" selected exclusively
-    sidebar.set_filters(["high"])
+    sidebar.set_category_filters(["high"])
 
     # Option+click on "needs_review"
     sidebar._category_checkboxes[3].SetValue(True)  # wx toggles
     sidebar._on_category_check("needs_review", option_held=True)
 
     # Both should be selected
-    assert sidebar.get_selected_filters() == ["high", "needs_review"]
+    assert sidebar.get_selected_category_filters() == ["high", "needs_review"]
     assert sidebar._category_checkboxes[2].GetValue() is True
     assert sidebar._category_checkboxes[3].GetValue() is True
     assert sidebar._category_checkboxes[0].GetValue() is False
@@ -301,14 +301,14 @@ def test_option_click_removes_filter(wx_app):
     sidebar = FilterSidebar(parent, on_category_filter=lambda k: None)
 
     # Start with two filters selected
-    sidebar.set_filters(["high", "needs_review"])
+    sidebar.set_category_filters(["high", "needs_review"])
 
     # Option+click on "high" to remove it (wx toggles it off)
     sidebar._category_checkboxes[2].SetValue(False)
     sidebar._on_category_check("high", option_held=True)
 
     # Only "needs_review" should remain
-    assert sidebar.get_selected_filters() == ["needs_review"]
+    assert sidebar.get_selected_category_filters() == ["needs_review"]
     assert sidebar._category_checkboxes[2].GetValue() is False
     assert sidebar._category_checkboxes[3].GetValue() is True
 
@@ -321,14 +321,14 @@ def test_option_click_remove_last_falls_back_to_all(wx_app):
     sidebar = FilterSidebar(parent, on_category_filter=lambda k: None)
 
     # Start with only "high" selected
-    sidebar.set_filters(["high"])
+    sidebar.set_category_filters(["high"])
 
     # Option+click on "high" to remove it (wx toggles it off)
     sidebar._category_checkboxes[2].SetValue(False)
     sidebar._on_category_check("high", option_held=True)
 
     # Should fall back to "All Cards"
-    assert sidebar.get_selected_filters() == ["all"]
+    assert sidebar.get_selected_category_filters() == ["all"]
     assert sidebar._category_checkboxes[0].GetValue() is True
 
     parent.Destroy()
@@ -340,14 +340,14 @@ def test_option_click_from_all_cards(wx_app):
     sidebar = FilterSidebar(parent, on_category_filter=lambda k: None)
 
     # "All Cards" is selected by default
-    assert sidebar.get_selected_filters() == ["all"]
+    assert sidebar.get_selected_category_filters() == ["all"]
 
     # Option+click on "high"
     sidebar._category_checkboxes[2].SetValue(True)
     sidebar._on_category_check("high", option_held=True)
 
     # Should switch to just "high", "All Cards" unchecked
-    assert sidebar.get_selected_filters() == ["high"]
+    assert sidebar.get_selected_category_filters() == ["high"]
     assert sidebar._category_checkboxes[0].GetValue() is False
     assert sidebar._category_checkboxes[2].GetValue() is True
 
@@ -360,14 +360,14 @@ def test_click_all_cards_resets(wx_app):
     sidebar = FilterSidebar(parent, on_category_filter=lambda k: None)
 
     # Start with multiple filters
-    sidebar.set_filters(["high", "needs_review"])
+    sidebar.set_category_filters(["high", "needs_review"])
 
     # Click "All Cards"
     sidebar._category_checkboxes[0].SetValue(True)
     sidebar._on_category_check("all", option_held=False)
 
     # Only "All Cards" should be selected
-    assert sidebar.get_selected_filters() == ["all"]
+    assert sidebar.get_selected_category_filters() == ["all"]
     assert sidebar._category_checkboxes[0].GetValue() is True
     assert sidebar._category_checkboxes[2].GetValue() is False
     assert sidebar._category_checkboxes[3].GetValue() is False
@@ -673,7 +673,7 @@ def test_update_category_counts_does_not_fire_callback_on_fallback(wx_app):
     sidebar.update_category_counts(cards_with_errors)
 
     # Select "errors" filter
-    sidebar.set_filters(["errors"])
+    sidebar.set_category_filters(["errors"])
     called_with.clear()  # Reset tracking
 
     # Now update with cards that have NO errors — "errors" goes to zero
@@ -685,7 +685,7 @@ def test_update_category_counts_does_not_fire_callback_on_fallback(wx_app):
     sidebar.update_category_counts(cards_no_errors)
 
     # Internal state should have reset to "all"
-    assert sidebar.get_selected_filters() == ["all"]
+    assert sidebar.get_selected_category_filters() == ["all"]
     assert sidebar._category_checkboxes[0].GetValue() is True
 
     # But callback should NOT have been fired (prevents re-entrancy)

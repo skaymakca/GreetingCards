@@ -3,6 +3,7 @@
 import pytest
 import wx
 from pathlib import Path
+from unittest.mock import Mock
 from app.gui.main_window import MainWindow, FileDropTarget
 
 
@@ -101,7 +102,44 @@ def test_file_drop_target_callback():
         pass
 
     target = FileDropTarget(dummy_callback)
-    assert target._callback == dummy_callback
+    assert target._on_drop == dummy_callback
+
+
+def test_file_drop_target_drag_over_callback():
+    """Test FileDropTarget calls on_drag_over during drag."""
+    on_drop = Mock()
+    on_drag_over = Mock()
+    on_drag_leave = Mock()
+    target = FileDropTarget(on_drop, on_drag_over, on_drag_leave)
+
+    target.OnDragOver(0, 0, wx.DragCopy)
+    on_drag_over.assert_called_once()
+
+    target.OnLeave()
+    on_drag_leave.assert_called_once()
+
+
+def test_file_drop_target_drag_callbacks_optional():
+    """Test FileDropTarget works without drag callbacks."""
+    target = FileDropTarget(Mock())
+    # Should not raise
+    target.OnDragOver(0, 0, wx.DragCopy)
+    target.OnLeave()
+
+
+def test_drop_overlay_drag_active(wx_app):
+    """Test _DropOverlay.set_drag_active toggles flag."""
+    from app.gui.main_window import _DropOverlay
+    frame = wx.Frame(None)
+    overlay = _DropOverlay(frame)
+    assert overlay._drag_active is False
+
+    overlay.set_drag_active(True)
+    assert overlay._drag_active is True
+
+    overlay.set_drag_active(False)
+    assert overlay._drag_active is False
+    frame.Destroy()
 
 
 def test_toolbar_icons_applied(wx_app):
@@ -261,11 +299,11 @@ def test_search_control_exists(wx_app):
     window._frame.Destroy()
 
 
-def test_info_bar_exists(wx_app):
-    """Test info bar is created."""
+def test_sidebar_notification_exists(wx_app):
+    """Test sidebar has notification area."""
     window = MainWindow()
-    assert window._info_bar is not None
-    assert isinstance(window._info_bar, wx.InfoBar)
+    assert hasattr(window._sidebar, '_notify_label')
+    assert not window._sidebar._notify_label.IsShown()
     window._frame.Destroy()
 
 
@@ -448,8 +486,8 @@ def test_filter_sidebar_exists(wx_app):
     """Test filter sidebar is created."""
     window = MainWindow()
     assert window._sidebar is not None
-    assert hasattr(window._sidebar, 'get_selected_filters')
-    assert window._sidebar.get_selected_filters() == ["all"]
+    assert hasattr(window._sidebar, 'get_selected_category_filters')
+    assert window._sidebar.get_selected_category_filters() == ["all"]
     window._frame.Destroy()
 
 
@@ -620,7 +658,7 @@ def test_clear_resets_sidebar_filter(wx_app):
 
     # Change filters
     window._current_category_filters = ["high", "manual"]
-    window._sidebar.set_filters(["high", "manual"])
+    window._sidebar.set_category_filters(["high", "manual"])
 
     # Clear
     window._clear_all()
@@ -628,7 +666,7 @@ def test_clear_resets_sidebar_filter(wx_app):
     # Verify reset
     assert window._current_category_filters == ["all"]
     assert window._current_folder_filters == ["all_folders"]
-    assert window._sidebar.get_selected_filters() == ["all"]
+    assert window._sidebar.get_selected_category_filters() == ["all"]
 
     window._frame.Destroy()
 
