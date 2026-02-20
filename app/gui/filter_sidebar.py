@@ -5,7 +5,7 @@ from pathlib import Path
 from app.gui import styles
 from app.models.card import CardResult, Confidence
 
-_SIDEBAR_MIN_WIDTH = 150
+_SIDEBAR_MIN_WIDTH = 175
 _SIDEBAR_PAD = 10
 _NOTIFY_PAD = 20
 

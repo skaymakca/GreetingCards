@@ -256,7 +256,8 @@ class RenameConfirmDialog(wx.Dialog):
         file_col_width = (700 - 2 * _DIALOG_PADDING - _SCROLLBAR_WIDTH - _STATUS_COL_WIDTH) // 2
         self.list_ctrl.AppendTextColumn(col_label, 0, width=file_col_width)
         self.list_ctrl.AppendTextColumn(new_label, 1, width=file_col_width)
-        self.list_ctrl.AppendTextColumn("Status", 2, width=_STATUS_COL_WIDTH)
+        status_col = self.list_ctrl.AppendTextColumn("Status", 2, width=_STATUS_COL_WIDTH)
+        status_col.SetMinWidth(_STATUS_COL_WIDTH)
 
         sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 

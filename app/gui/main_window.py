@@ -632,7 +632,7 @@ class MainWindow:
 
         # Split nested content splitter vertically
         content_splitter.SplitVertically(self._review_panel, self._preview_panel)
-        content_splitter.SetSashGravity(0.5)  # Both panes share extra space equally
+        content_splitter.SetSashGravity(0.55)  # Cards panel gets slightly more space
         content_splitter.SetMinimumPaneSize(Layout.CONTENT_MIN_PANE)
         self._inner_splitter = content_splitter
 
@@ -650,7 +650,7 @@ class MainWindow:
         def _apply():
             w = self._inner_splitter.GetSize().GetWidth()
             if w > 0:
-                self._inner_splitter.SetSashPosition(w // 2)
+                self._inner_splitter.SetSashPosition(int(w * 0.55))
         wx.CallAfter(_apply)
 
     def _set_empty_state(self, is_empty: bool) -> None:

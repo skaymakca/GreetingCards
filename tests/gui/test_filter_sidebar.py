@@ -143,7 +143,7 @@ def test_min_size_set(wx_app):
     sidebar = FilterSidebar(parent, on_category_filter=lambda k: None)
 
     min_width, _ = sidebar.GetMinSize()
-    assert min_width == 150
+    assert min_width == 175
 
     parent.Destroy()
 
