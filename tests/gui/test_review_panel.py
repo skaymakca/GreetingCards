@@ -14,6 +14,14 @@ from app.gui.styles import Color
 from app.models.card import CardResult, Confidence, CandidateInfo
 
 
+def _select_card(panel, card_id):
+    """Helper to explicitly select a card in the list."""
+    panel._list_ctrl.UnselectAll()
+    item = panel._model.get_item_by_card_id(card_id)
+    panel._list_ctrl.Select(item)
+    panel._on_selection_changed(Mock())
+
+
 @pytest.fixture
 def wx_app():
     """Create wx.App for tests that need it."""
@@ -364,7 +372,8 @@ class TestReviewPanelInit:
         on_ai = Mock()
         panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
         assert len(panel._cards_by_id) == 0
-        assert panel._selected_card_id is None
+        assert panel._selected_card_ids == []
+        assert panel.selected_card_id is None
 
     def test_panel_stores_callbacks(self, parent_frame):
         """Panel stores callback functions."""
@@ -417,16 +426,16 @@ class TestLoadCards:
         assert 1 in panel._cards_by_id
         assert panel._cards_by_id[1].family_name == "Smith"
 
-    def test_load_cards_selects_first(self, parent_frame, mock_cards):
-        """load_cards auto-selects first card."""
+    def test_load_cards_resets_selection(self, parent_frame, mock_cards):
+        """load_cards resets selection to none."""
         on_select = Mock()
         on_ai = Mock()
         panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
         panel.load_cards(mock_cards)
 
-        # First card should be selected
-        assert panel._selected_card_id == 1
-        on_select.assert_called_once_with(1)
+        # No card should be selected
+        assert panel.selected_card_id is None
+        on_select.assert_called_with(None)
 
     def test_load_cards_twice_clears_old(self, parent_frame, mock_cards):
         """load_cards twice clears old cards."""
@@ -471,29 +480,28 @@ class TestSelection:
         # Clear mock from initial selection
         on_select.reset_mock()
 
-        # Select second card and trigger handler directly
-        # (wx.GetApp().Yield() crashes due to timer callbacks on destroyed widgets)
+        # Select second card (UnselectAll first in DV_MULTIPLE mode)
+        panel._list_ctrl.UnselectAll()
         item = panel._model.get_item_by_card_id(2)
         panel._list_ctrl.Select(item)
-        event = Mock()
-        panel._on_selection_changed(event)
+        panel._on_selection_changed(Mock())
 
         on_select.assert_called_with(2)
 
-    def test_select_updates_selected_card_id(self, parent_frame, mock_cards):
-        """Selecting card updates _selected_card_id."""
+    def test_select_updates_selected_card_ids(self, parent_frame, mock_cards):
+        """Selecting card updates _selected_card_ids."""
         on_select = Mock()
         on_ai = Mock()
         panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
         panel.load_cards(mock_cards)
 
-        # Select second card and trigger handler directly
+        # Select second card (UnselectAll first in DV_MULTIPLE mode)
+        panel._list_ctrl.UnselectAll()
         item = panel._model.get_item_by_card_id(2)
         panel._list_ctrl.Select(item)
-        event = Mock()
-        panel._on_selection_changed(event)
+        panel._on_selection_changed(Mock())
 
-        assert panel._selected_card_id == 2
+        assert panel.selected_card_id == 2
 
     def test_select_next_card_from_start(self, parent_frame, mock_cards):
         """select_next_card from first card."""
@@ -502,14 +510,15 @@ class TestSelection:
         panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
         panel.load_cards(mock_cards)
 
-        # Clear mock from initial selection
+        # Explicitly select first card
+        _select_card(panel, 1)
         on_select.reset_mock()
 
         # Should be on card 1, next should go to card 2
         panel.select_next_card()
         panel._on_selection_changed(Mock())
 
-        assert panel._selected_card_id == 2
+        assert panel.selected_card_id == 2
 
     def test_select_next_card_stops_at_end(self, parent_frame, mock_cards):
         """select_next_card stops at last card."""
@@ -517,6 +526,7 @@ class TestSelection:
         on_ai = Mock()
         panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
         panel.load_cards(mock_cards)
+        _select_card(panel, 1)
 
         # Go to last card
         for _ in range(10):  # More than needed
@@ -524,7 +534,7 @@ class TestSelection:
             panel._on_selection_changed(Mock())
 
         # Should be on last card (id=6)
-        assert panel._selected_card_id == 6
+        assert panel.selected_card_id == 6
 
     def test_select_prev_card_from_middle(self, parent_frame, mock_cards):
         """select_prev_card goes back."""
@@ -532,16 +542,13 @@ class TestSelection:
         on_ai = Mock()
         panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
         panel.load_cards(mock_cards)
-
-        # Go forward then back
-        panel.select_next_card()
-        panel._on_selection_changed(Mock())
+        _select_card(panel, 2)
         on_select.reset_mock()
 
         panel.select_prev_card()
         panel._on_selection_changed(Mock())
 
-        assert panel._selected_card_id == 1
+        assert panel.selected_card_id == 1
 
     def test_select_prev_card_stops_at_start(self, parent_frame, mock_cards):
         """select_prev_card stops at first card."""
@@ -549,6 +556,7 @@ class TestSelection:
         on_ai = Mock()
         panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
         panel.load_cards(mock_cards)
+        _select_card(panel, 1)
 
         # Try to go before first
         for _ in range(3):
@@ -556,7 +564,7 @@ class TestSelection:
             panel._on_selection_changed(Mock())
 
         # Should still be on first card
-        assert panel._selected_card_id == 1
+        assert panel.selected_card_id == 1
 
 
 # ============================================================================
@@ -632,6 +640,7 @@ class TestEventHandlers:
             parent_frame, on_select, on_ai, on_name_change
         )
         panel.load_cards(mock_cards)
+        _select_card(panel, 1)
 
         # Edit name in detail panel — trigger handler directly
         panel._detail_panel._name_text.SetValue("New Name")
@@ -649,8 +658,8 @@ class TestEventHandlers:
         on_ai = Mock()
         panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
         panel.load_cards(mock_cards)
+        _select_card(panel, 1)
 
-        # Clear mock from initial load
         on_ai.reset_mock()
 
         # Click AI button
@@ -689,6 +698,7 @@ class TestUpdateMethods:
         on_ai = Mock()
         panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
         panel.load_cards(mock_cards)
+        _select_card(panel, 1)
 
         # Card 1 is selected, update it
         updated = mock_cards[0]
@@ -846,6 +856,7 @@ class TestAIButtonState:
         on_ai = Mock()
         panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
         panel.load_cards(mock_cards)
+        _select_card(panel, 1)
 
         # Disable then enable
         panel.set_ai_button_state(1, "disabled")
@@ -859,6 +870,7 @@ class TestAIButtonState:
         on_ai = Mock()
         panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
         panel.load_cards(mock_cards)
+        _select_card(panel, 1)
 
         panel.set_ai_button_state(1, "disabled")
 
@@ -870,6 +882,7 @@ class TestAIButtonState:
         on_ai = Mock()
         panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
         panel.load_cards(mock_cards)
+        _select_card(panel, 1)
 
         # Card 1 is selected, try to disable card 2's button
         panel.set_ai_button_state(2, "disabled")
@@ -917,7 +930,8 @@ class TestEdgeCases:
         panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
         panel.load_cards(mock_cards)
 
-        # Select manual card
+        # Select manual card (UnselectAll first in DV_MULTIPLE mode)
+        panel._list_ctrl.UnselectAll()
         item = panel._model.get_item_by_card_id(5)
         panel._list_ctrl.Select(item)
         panel._on_selection_changed(Mock())
@@ -931,7 +945,7 @@ class TestEdgeCases:
         panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
         panel.load_cards([])
 
-        assert panel._selected_card_id is None
+        assert panel.selected_card_id is None
 
     def test_select_next_with_no_cards(self, parent_frame):
         """select_next_card with no cards doesn't crash."""
@@ -943,7 +957,7 @@ class TestEdgeCases:
         # Should not crash
         panel.select_next_card()
 
-        assert panel._selected_card_id is None
+        assert panel.selected_card_id is None
 
 
 # ============================================================================
@@ -1112,49 +1126,22 @@ class TestMultiPathCardDisplay:
         assert detail._notebook.GetPageCount() == 1
         assert detail._locations_tab_index is None
 
-    def test_load_cards_preserves_selection(self, parent_frame, mock_cards):
-        """load_cards preserves selection when the selected card is still in the new list."""
+    def test_load_cards_clears_selection(self, parent_frame, mock_cards):
+        """load_cards clears selection even when the selected card is still in the new list."""
         on_select = Mock()
         on_ai = Mock()
         panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
         panel.load_cards(mock_cards)
-
-        # Select card #2
-        item = panel._model.get_item_by_card_id(2)
-        panel._list_ctrl.Select(item)
-        panel._on_selection_changed(Mock())
-        assert panel._selected_card_id == 2
+        _select_card(panel, 2)
+        assert panel.selected_card_id == 2
 
         on_select.reset_mock()
 
-        # Reload same cards — card #2 should stay selected
-        panel.load_cards(mock_cards)
-        panel._on_selection_changed(Mock())
-
-        assert panel._selected_card_id == 2
-
-    def test_load_cards_falls_back_when_selected_removed(self, parent_frame, mock_cards):
-        """load_cards selects first card when previously selected card is no longer in the list."""
-        on_select = Mock()
-        on_ai = Mock()
-        panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
+        # Reload same cards — selection should be cleared
         panel.load_cards(mock_cards)
 
-        # Select card #2
-        item = panel._model.get_item_by_card_id(2)
-        panel._list_ctrl.Select(item)
-        panel._on_selection_changed(Mock())
-        assert panel._selected_card_id == 2
-
-        on_select.reset_mock()
-
-        # Reload without card #2
-        without_card2 = [c for c in mock_cards if c.id != 2]
-        panel.load_cards(without_card2)
-        panel._on_selection_changed(Mock())
-
-        # Should fall back to first card
-        assert panel._selected_card_id == without_card2[0].id
+        assert panel.selected_card_id is None
+        on_select.assert_called_with(None)
 
     def test_load_cards_empty_fires_none_select(self, parent_frame, mock_cards):
         """load_cards with empty list fires on_select(None)."""
@@ -1168,7 +1155,7 @@ class TestMultiPathCardDisplay:
         # Load empty list
         panel.load_cards([])
 
-        assert panel._selected_card_id is None
+        assert panel.selected_card_id is None
         on_select.assert_called_with(None)
 
     def test_handle_candidate_fires_on_card_edited(self, parent_frame, mock_cards):
@@ -1419,7 +1406,7 @@ class TestCardNavigation:
         on_select = Mock()
         panel = ReviewPanelMasterDetail(parent_frame, on_select, Mock())
         panel.load_cards(mock_cards)
-        # First card is auto-selected; advance to second
+        _select_card(panel, 1)
         on_select.reset_mock()
         panel.select_next_card()
         on_select.assert_called_with(mock_cards[1].id)
@@ -1429,8 +1416,7 @@ class TestCardNavigation:
         on_select = Mock()
         panel = ReviewPanelMasterDetail(parent_frame, on_select, Mock())
         panel.load_cards(mock_cards)
-        # Go to second, then back to first
-        panel.select_next_card()
+        _select_card(panel, 2)
         on_select.reset_mock()
         panel.select_prev_card()
         on_select.assert_called_with(mock_cards[0].id)
@@ -1609,33 +1595,36 @@ class TestReviewPanelKeyboard:
         """_on_key dispatches UP to select_prev_card (line 636)."""
         panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
         panel.load_cards(mock_cards)
-        panel.select_next_card()
-        panel._on_selection_changed(Mock())  # Go to card 2
+        _select_card(panel, 2)
 
         event = Mock(spec=wx.KeyEvent)
         event.GetKeyCode.return_value = wx.WXK_UP
+        event.ShiftDown.return_value = False
         panel._on_key(event)
         panel._on_selection_changed(Mock())
 
-        assert panel._selected_card_id == mock_cards[0].id
+        assert panel.selected_card_id == mock_cards[0].id
 
     def test_on_key_down_selects_next(self, parent_frame, mock_cards):
         """_on_key dispatches DOWN to select_next_card (line 638)."""
         panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
         panel.load_cards(mock_cards)
+        _select_card(panel, 1)
 
         event = Mock(spec=wx.KeyEvent)
         event.GetKeyCode.return_value = wx.WXK_DOWN
+        event.ShiftDown.return_value = False
         panel._on_key(event)
         panel._on_selection_changed(Mock())
 
-        assert panel._selected_card_id == mock_cards[1].id
+        assert panel.selected_card_id == mock_cards[1].id
 
     def test_on_key_other_skips(self, parent_frame):
         """_on_key calls event.Skip() for unhandled keys (line 640)."""
         panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
         event = Mock(spec=wx.KeyEvent)
         event.GetKeyCode.return_value = ord('A')
+        event.ShiftDown.return_value = False
         panel._on_key(event)
         event.Skip.assert_called_once()
 
@@ -1647,13 +1636,13 @@ class TestReviewPanelKeyboard:
 
         # Deselect everything by clearing
         panel._list_ctrl.UnselectAll()
-        panel._selected_card_id = None
+        panel._selected_card_ids = []
         on_select.reset_mock()
 
         panel.select_next_card()
         panel._on_selection_changed(Mock())
         # Should select first card
-        assert panel._selected_card_id == mock_cards[0].id
+        assert panel.selected_card_id == mock_cards[0].id
 
     def test_select_prev_no_selection_selects_first(self, parent_frame, mock_cards):
         """select_prev_card selects first card when nothing selected (lines 817-820)."""
@@ -1662,12 +1651,12 @@ class TestReviewPanelKeyboard:
         panel.load_cards(mock_cards)
 
         panel._list_ctrl.UnselectAll()
-        panel._selected_card_id = None
+        panel._selected_card_ids = []
         on_select.reset_mock()
 
         panel.select_prev_card()
         panel._on_selection_changed(Mock())
-        assert panel._selected_card_id == mock_cards[0].id
+        assert panel.selected_card_id == mock_cards[0].id
 
 
 # ============================================================================
@@ -1741,3 +1730,335 @@ class TestHandleCheckboxCandidate:
 
         # Invalid confidence string → ValueError → falls back to MEDIUM
         assert card.confidence == Confidence.MEDIUM
+
+
+# ============================================================================
+# Multiselect Tests
+# ============================================================================
+
+
+class TestMultiselect:
+    """Tests for multiselect behavior."""
+
+    def test_multi_selection_clears_detail_panel(self, parent_frame, mock_cards):
+        """Multi-selection clears detail panel."""
+        on_select = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, Mock())
+        panel.load_cards(mock_cards)
+
+        # Select two cards
+        item1 = panel._model.get_item_by_card_id(1)
+        item2 = panel._model.get_item_by_card_id(2)
+        panel._list_ctrl.Select(item1)
+        panel._list_ctrl.Select(item2)
+        panel._on_selection_changed(Mock())
+
+        assert len(panel._selected_card_ids) == 2
+        assert panel.selected_card_id is None  # Not single
+        assert panel._detail_panel._current_card is None  # Cleared
+
+    def test_multi_selection_triggers_none_select(self, parent_frame, mock_cards):
+        """Multi-selection triggers on_select(None) to clear preview."""
+        on_select = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, Mock())
+        panel.load_cards(mock_cards)
+        on_select.reset_mock()
+
+        # Select two cards
+        item1 = panel._model.get_item_by_card_id(1)
+        item2 = panel._model.get_item_by_card_id(2)
+        panel._list_ctrl.Select(item1)
+        panel._list_ctrl.Select(item2)
+        panel._on_selection_changed(Mock())
+
+        on_select.assert_called_with(None)
+
+    def test_context_menu_single_has_reveal(self, parent_frame, mock_cards):
+        """Single card context menu has Open, Reveal in Finder, Remove."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock())
+        mock_cards[0].file_hash = "test_hash"
+        panel.load_cards(mock_cards)
+
+        menu = panel._build_context_menu([mock_cards[0]])
+        items = list(menu.GetMenuItems())
+        labels = [
+            "---" if it.IsSeparator() else it.GetItemLabelText()
+            for it in items
+        ]
+        assert labels == ["Open", "Reveal in Finder", "---", "Remove"]
+        menu.Destroy()
+
+    def test_context_menu_multi_no_reveal(self, parent_frame, mock_cards):
+        """Multi card context menu has Open N Cards, Remove N Cards (no Reveal)."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock())
+        mock_cards[0].file_hash = "hash1"
+        mock_cards[1].file_hash = "hash2"
+        panel.load_cards(mock_cards)
+
+        menu = panel._build_context_menu([mock_cards[0], mock_cards[1]])
+        items = list(menu.GetMenuItems())
+        labels = [
+            "---" if it.IsSeparator() else it.GetItemLabelText()
+            for it in items
+        ]
+        assert labels == ["Open 2 Cards", "---", "Remove 2 Cards"]
+        menu.Destroy()
+
+    def test_right_click_unselected_selects_only_that(self, parent_frame, mock_cards):
+        """Right-click on unselected item during multi-select selects only that item."""
+        on_select = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, Mock(), on_remove=Mock())
+        mock_cards[0].file_hash = "hash1"
+        mock_cards[1].file_hash = "hash2"
+        mock_cards[2].file_hash = "hash3"
+        panel.load_cards(mock_cards)
+
+        # Multi-select cards 1 and 2
+        item1 = panel._model.get_item_by_card_id(1)
+        item2 = panel._model.get_item_by_card_id(2)
+        panel._list_ctrl.Select(item1)
+        panel._list_ctrl.Select(item2)
+        panel._on_selection_changed(Mock())
+        assert len(panel._selected_card_ids) == 2
+
+        # Right-click on card 3 (not in selection)
+        item3 = panel._model.get_item_by_card_id(3)
+        event = Mock()
+        event.GetItem.return_value = item3
+
+        with patch.object(panel._list_ctrl, "PopupMenu"):
+            panel._on_context_menu(event)
+
+        # Should now only have card 3 selected
+        assert panel._selected_card_ids == [3]
+
+    def test_keyboard_nav_collapses_multi_to_single(self, parent_frame, mock_cards):
+        """Arrow key from multi-selection collapses to single selection."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+
+        # Multi-select cards 1 and 2
+        panel._list_ctrl.UnselectAll()
+        item1 = panel._model.get_item_by_card_id(1)
+        item2 = panel._model.get_item_by_card_id(2)
+        panel._list_ctrl.Select(item1)
+        panel._list_ctrl.Select(item2)
+        panel._on_selection_changed(Mock())
+        assert len(panel._selected_card_ids) == 2
+
+        # Press Down → should collapse to card after last selected
+        panel.select_next_card()
+        panel._on_selection_changed(Mock())
+        assert panel.selected_card_id == 3  # Next after card 2
+
+    def test_select_all_selects_all_cards(self, parent_frame, mock_cards):
+        """select_all() selects all cards."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+
+        panel.select_all()
+        panel._on_selection_changed(Mock())
+
+        assert len(panel._selected_card_ids) == len(mock_cards)
+
+    def test_select_none_clears_selection(self, parent_frame, mock_cards):
+        """select_none() clears all selection."""
+        on_select = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, Mock())
+        panel.load_cards(mock_cards)
+
+        panel.select_none()
+        panel._on_selection_changed(Mock())
+
+        assert panel._selected_card_ids == []
+        assert panel.selected_card_id is None
+
+    def test_load_cards_clears_multi_selection(self, parent_frame, mock_cards):
+        """load_cards clears multi-selection."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+
+        # Multi-select cards 1 and 3
+        panel._list_ctrl.UnselectAll()
+        item1 = panel._model.get_item_by_card_id(1)
+        item3 = panel._model.get_item_by_card_id(3)
+        panel._list_ctrl.Select(item1)
+        panel._list_ctrl.Select(item3)
+        panel._on_selection_changed(Mock())
+        assert set(panel._selected_card_ids) == {1, 3}
+
+        # Reload same cards — selection should be cleared
+        panel.load_cards(mock_cards)
+
+        assert panel._selected_card_ids == []
+        assert panel.selected_card_id is None
+
+    def test_selected_card_id_property_single(self, parent_frame, mock_cards):
+        """selected_card_id returns the ID when exactly one card selected."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+        _select_card(panel, 1)
+
+        assert panel.selected_card_id == 1
+
+    def test_selected_card_id_property_multi(self, parent_frame, mock_cards):
+        """selected_card_id returns None when multiple cards selected."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+
+        item1 = panel._model.get_item_by_card_id(1)
+        item2 = panel._model.get_item_by_card_id(2)
+        panel._list_ctrl.Select(item1)
+        panel._list_ctrl.Select(item2)
+        panel._on_selection_changed(Mock())
+
+        assert panel.selected_card_id is None
+
+    def test_selected_card_id_property_none(self, parent_frame, mock_cards):
+        """selected_card_id returns None when no cards selected."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+
+        panel._list_ctrl.UnselectAll()
+        panel._on_selection_changed(Mock())
+
+        assert panel.selected_card_id is None
+
+
+# ============================================================================
+# Extend Selection Tests (Shift+Up/Down)
+# ============================================================================
+
+
+class TestExtendSelection:
+    """Tests for _extend_selection_up and _extend_selection_down."""
+
+    def test_extend_down_adds_next_card(self, parent_frame, mock_cards):
+        """Shift+Down adds the next card to selection."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+        _select_card(panel, 1)
+
+        panel._extend_selection_down()
+        panel._on_selection_changed(Mock())
+
+        assert set(panel._selected_card_ids) == {1, 2}
+
+    def test_extend_up_adds_previous_card(self, parent_frame, mock_cards):
+        """Shift+Up adds the previous card to selection."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+        _select_card(panel, 2)
+
+        panel._extend_selection_up()
+        panel._on_selection_changed(Mock())
+
+        assert set(panel._selected_card_ids) == {1, 2}
+
+    def test_extend_down_at_end_does_nothing(self, parent_frame, mock_cards):
+        """Shift+Down at last card does not change selection."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+        _select_card(panel, 6)  # Last card
+
+        panel._extend_selection_down()
+        panel._on_selection_changed(Mock())
+
+        assert panel._selected_card_ids == [6]
+
+    def test_extend_up_at_start_does_nothing(self, parent_frame, mock_cards):
+        """Shift+Up at first card does not change selection."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+        _select_card(panel, 1)  # First card
+
+        panel._extend_selection_up()
+        panel._on_selection_changed(Mock())
+
+        assert panel._selected_card_ids == [1]
+
+    def test_extend_down_no_selection_selects_first(self, parent_frame, mock_cards):
+        """Shift+Down with no selection selects first card."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+
+        panel._extend_selection_down()
+        panel._on_selection_changed(Mock())
+
+        assert panel.selected_card_id == 1
+
+    def test_extend_up_no_selection_selects_first(self, parent_frame, mock_cards):
+        """Shift+Up with no selection selects first card."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+
+        panel._extend_selection_up()
+        panel._on_selection_changed(Mock())
+
+        assert panel.selected_card_id == 1
+
+    def test_on_key_shift_down_dispatches(self, parent_frame, mock_cards):
+        """_on_key dispatches Shift+Down to _extend_selection_down."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+        _select_card(panel, 1)
+
+        event = Mock(spec=wx.KeyEvent)
+        event.ShiftDown.return_value = True
+        event.GetKeyCode.return_value = wx.WXK_DOWN
+        panel._on_key(event)
+        panel._on_selection_changed(Mock())
+
+        assert set(panel._selected_card_ids) == {1, 2}
+
+    def test_on_key_shift_up_dispatches(self, parent_frame, mock_cards):
+        """_on_key dispatches Shift+Up to _extend_selection_up."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+        _select_card(panel, 2)
+
+        event = Mock(spec=wx.KeyEvent)
+        event.ShiftDown.return_value = True
+        event.GetKeyCode.return_value = wx.WXK_UP
+        panel._on_key(event)
+        panel._on_selection_changed(Mock())
+
+        assert set(panel._selected_card_ids) == {1, 2}
+
+    def test_select_next_collapses_multi_at_end(self, parent_frame, mock_cards):
+        """select_next_card collapses multi-selection at end of list to last card."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+
+        # Select last two cards
+        panel._list_ctrl.UnselectAll()
+        item5 = panel._model.get_item_by_card_id(5)
+        item6 = panel._model.get_item_by_card_id(6)
+        panel._list_ctrl.Select(item5)
+        panel._list_ctrl.Select(item6)
+        panel._on_selection_changed(Mock())
+        assert len(panel._selected_card_ids) == 2
+
+        # Down arrow at end should collapse to last card
+        panel.select_next_card()
+        panel._on_selection_changed(Mock())
+        assert panel.selected_card_id == 6
+
+    def test_select_prev_collapses_multi_at_start(self, parent_frame, mock_cards):
+        """select_prev_card collapses multi-selection at start of list to first card."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+
+        # Select first two cards
+        panel._list_ctrl.UnselectAll()
+        item1 = panel._model.get_item_by_card_id(1)
+        item2 = panel._model.get_item_by_card_id(2)
+        panel._list_ctrl.Select(item1)
+        panel._list_ctrl.Select(item2)
+        panel._on_selection_changed(Mock())
+        assert len(panel._selected_card_ids) == 2
+
+        # Up arrow at start should collapse to first card
+        panel.select_prev_card()
+        panel._on_selection_changed(Mock())
+        assert panel.selected_card_id == 1

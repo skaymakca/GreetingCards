@@ -15,9 +15,9 @@ Scans holiday/greeting card PDFs, extracts family names via OCR and AI, and batc
 - **Drag and drop** — drop files or folders (even multiple at once) onto the window to add them
 - **Search and filter** — quick search by filename or family name; sidebar filters by confidence level with Option-click multi-select
 - **Preview with zoom/pan** — scroll wheel zoom at cursor, Shift+Click zoom in, Option+Click zoom out, click-drag pan, +/− buttons, Fit button
-- **Card removal** — remove individual cards from the list via the Remove button or right-click context menu (non-destructive; files remain on disk)
+- **Card removal** — remove cards via the Remove button, Edit > Remove (Cmd+Delete), or right-click context menu (non-destructive; files remain on disk)
 - **Right-click context menu** — right-click a card row for Open, Reveal in Finder, and Remove; right-click name fields for Cut, Copy, Paste, Title Case, and Clear
-- **Keyboard navigation** — Up/Down to select cards, Left/Right to page through previews, Cmd+F to search, Cmd+O to open files, Cmd+, for Settings, Escape to defocus
+- **Keyboard navigation** — Up/Down to select cards, Shift+Up/Down to extend selection, Cmd+A to select all, Left/Right to page through previews, Cmd+Delete to remove selected cards, Cmd+F to search, Cmd+O to open files, Cmd+, for Settings, Escape to defocus
 - **Help system** — built-in WebView help viewer with 8 pages, cross-page search with highlighted matches, and Previous/Next match navigation
 - **Native macOS UI** — native toolbar, preferences editor (Cmd+,), About dialog, and system colors throughout
 - **API key management** — prompts for the Anthropic API key on first AI use; key is saved to a plist in bundled mode or read from `.env` in dev mode
@@ -184,7 +184,7 @@ tests/
 
 ### Current Coverage
 
-- **925 tests** covering core logic and GUI components
+- **950 tests** covering core logic and GUI components
 - **Core** (12 test files): AI analysis, card model, config, database, filename sanitization, name extraction, name formatting, OCR engine, paths, PDF rendering, renamer, version
 - **GUI** (14 test files): API key dialog, context menu, dialogs, filter sidebar, help system, icons, main window, preview cursor behavior, preview panel, review panel, settings, styles, utilities
 

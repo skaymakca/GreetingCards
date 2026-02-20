@@ -4,8 +4,12 @@
 - [ ] Add commands to the file menu for the rest of teh toolbar buttons, AI analyze, Rename Files, Clear
 - [ ] Dark mode detection and handling of ui changes
 - [ ] Card in result table that changes its category due to AI analyze isnt triggering a recount and disppearance from teh current view.  Editing the cards or manually selecting an AI candiate results in teh corerct behavior but AI analyze (eihter singly or all of them) does not.
+- [ ] Handle multiselect in the cards table with shift and option clicks like the finder.  The edit/paths detail view should go "blank" as if no card is selected when multiple are selected.  The right click menu should be a little different with only the open SEPERATOR remove options present.  Make them look teh same as the single item right click, preferably by having some sort of constructor or some other way to avoid code duplication.
+- [ ] Check what happens when tesseract not in path.  Investigate options from either bundling the app (is license OK?) vs globally erroring out vs not getting candidates made and giving an error popup with instructions to donwload via homebrew or a link to the tessearct website.
+- [ ] confidence tooltips not working anymore in card list.  analyze
 
 ## Done
+- [x] Code quality: extract magic constants to `Layout.*` in styles.py, fix unused import, hardcoded color, lambda list-comp side effects, redundant branches, silent ValueError, missing return type annotations (950 tests)
 - [x] Post-rename selective removal: only remove successfully renamed paths from cards, keep failed/skipped cards visible, show drop overlay only when all cards are gone
 - [x] Help navbar items pinned during scroll, right div scrollable, search results JS compatible
 - [x] Card removal: Remove button in detail panel, right-click context menu on card rows (Open, Reveal in Finder, Remove) with SF Symbol icons

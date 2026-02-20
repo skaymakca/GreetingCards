@@ -444,14 +444,24 @@ def test_clear_all_clears_search(wx_app):
     window._frame.Destroy()
 
 
-def test_accelerator_table_exists(wx_app):
-    """Test keyboard accelerator table is set up."""
+def test_edit_menu_exists(wx_app):
+    """Test Edit menu exists with Find, Select All, and Select None items."""
     window = MainWindow()
+    menubar = window._frame.GetMenuBar()
 
-    # Verify accelerator table exists
-    accel_table = window._frame.GetAcceleratorTable()
-    assert accel_table is not None
-    assert accel_table.IsOk()
+    # Find Edit menu (index 1, between File and Help)
+    edit_menu_idx = menubar.FindMenu("Edit")
+    assert edit_menu_idx != wx.NOT_FOUND
+
+    edit_menu = menubar.GetMenu(edit_menu_idx)
+    items = list(edit_menu.GetMenuItems())
+    labels = [
+        "---" if it.IsSeparator() else it.GetItemLabelText()
+        for it in items
+    ]
+    assert "Find..." in labels
+    assert "Select All" in labels
+    assert "Select None" in labels
 
     window._frame.Destroy()
 
@@ -973,6 +983,86 @@ def test_remove_card_nonexistent_hash(wx_app):
     window = MainWindow()
     # Should not raise
     window._on_remove_card("nonexistent_hash")
+    window._frame.Destroy()
+
+
+def test_remove_menu_removes_selected_cards(wx_app):
+    """Test _on_remove_menu removes all selected cards."""
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    # Add two cards
+    card1 = CardResult(id=1, file_paths=[Path("/test/a.pdf")], primary_path=Path("/test/a.pdf"))
+    card1.file_hash = "hash1"
+    card1.confidence = Confidence.HIGH
+    card2 = CardResult(id=2, file_paths=[Path("/test/b.pdf")], primary_path=Path("/test/b.pdf"))
+    card2.file_hash = "hash2"
+    card2.confidence = Confidence.HIGH
+    window._cards_by_hash = {"hash1": card1, "hash2": card2}
+    window._hash_by_path = {Path("/test/a.pdf"): "hash1", Path("/test/b.pdf"): "hash2"}
+    window._pdf_files = [Path("/test/a.pdf"), Path("/test/b.pdf")]
+
+    # Simulate selecting both cards
+    window._review_panel._selected_card_ids = [1, 2]
+    window._review_panel._cards_by_id = {1: card1, 2: card2}
+
+    window._on_remove_menu(Mock())
+
+    assert len(window._cards_by_hash) == 0
+    window._frame.Destroy()
+
+
+def test_remove_menu_skips_card_without_hash(wx_app):
+    """_on_remove_menu skips selected cards that have no file_hash."""
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    # Card with hash — should be removed
+    card1 = CardResult(id=1, file_paths=[Path("/test/a.pdf")], primary_path=Path("/test/a.pdf"))
+    card1.file_hash = "hash1"
+    card1.confidence = Confidence.HIGH
+
+    # Card without hash — should be skipped without crash
+    card2 = CardResult(id=2, file_paths=[Path("/test/b.pdf")], primary_path=Path("/test/b.pdf"))
+    card2.file_hash = None
+    card2.confidence = Confidence.HIGH
+
+    window._cards_by_hash = {"hash1": card1}
+    window._hash_by_path = {Path("/test/a.pdf"): "hash1"}
+    window._pdf_files = [Path("/test/a.pdf")]
+
+    # Simulate selecting both cards
+    window._review_panel._selected_card_ids = [1, 2]
+    window._review_panel._cards_by_id = {1: card1, 2: card2}
+
+    window._on_remove_menu(Mock())
+
+    # card1 removed, card2 skipped (no crash)
+    assert "hash1" not in window._cards_by_hash
+    window._frame.Destroy()
+
+
+def test_update_remove_menu_enabled_with_selection(wx_app):
+    """Test _on_update_remove_menu enables when cards selected."""
+    window = MainWindow()
+    window._review_panel._selected_card_ids = [1]
+
+    event = Mock()
+    window._on_update_remove_menu(event)
+    event.Enable.assert_called_with(True)
+    window._frame.Destroy()
+
+
+def test_update_remove_menu_disabled_without_selection(wx_app):
+    """Test _on_update_remove_menu disables when no cards selected."""
+    window = MainWindow()
+    window._review_panel._selected_card_ids = []
+
+    event = Mock()
+    window._on_update_remove_menu(event)
+    event.Enable.assert_called_with(False)
     window._frame.Destroy()
 
 

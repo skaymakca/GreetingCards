@@ -72,41 +72,50 @@ ReviewPanelMasterDetail receives these callbacks from MainWindow:
 
 **Important:** The panel does NOT write to the database directly (except `_handle_checkbox` for `remove_family` and `_handle_candidate` for `select_candidate`). The parent MainWindow handles most DB writes and card state updates, then calls `update_card()` back on the panel.
 
-## Selection Preservation
+## Selection Reset
 
-`load_cards()` preserves the current selection across refreshes:
+`load_cards()` unconditionally resets selection to none on every call:
 
 ```python
 def load_cards(self, cards):
-    prev_selected_id = self._selected_card_id
     self._model.load_cards(cards)
-    # Try to restore previous selection
-    if prev_selected_id is not None:
-        item = self._model.get_item_by_card_id(prev_selected_id)
-        if item.IsOk():
-            self._list_ctrl.Select(item)
-            return
-    # Fallback: select first card
+    self._list_ctrl.UnselectAll()
+    self._selected_card_ids = []
+    self._detail_panel.clear()
+    self._on_select(None)
 ```
 
-This matters because `_refresh_display()` calls `load_cards()` frequently (on filter changes, name edits, etc.).
+This ensures consistent behavior: any change to the displayed list (search, filter, remove, rename, processing) clears selection. The user must click a card to select it after any list change. `_refresh_display()` calls `load_cards()` for all list changes, making this the single funnel for selection reset.
 
 ## Public API
 
 | Method | Purpose |
 |--------|---------|
-| `load_cards(cards)` | Full reload with selection preservation |
+| `load_cards(cards)` | Full reload, resets selection to none |
 | `get_cards()` | Return cards in display order |
 | `update_card(card_id, card)` | Update single card (after AI analysis) |
 | `update_dot(card_id, confidence)` | Update just the confidence indicator |
-| `select_next_card()` / `select_prev_card()` | Keyboard navigation |
+| `select_next_card()` / `select_prev_card()` | Keyboard navigation (collapses multi-selection) |
+| `select_all()` / `select_none()` | Cmd+A / Cmd+Shift+A |
 | `set_ai_button_state(card_id, state, text)` | Enable/disable AI button |
 
 ## Drag Highlight
 
-When files are dragged over the window while cards are loaded, `MainWindow` calls `set_drag_highlight(True)` on the review panel. This draws a 3px macOS-blue (`0, 122, 255`) rounded-rect border inside the panel edges via `EVT_PAINT`. When the drag leaves, `set_drag_highlight(False)` clears the border.
+When files are dragged over the window while cards are loaded, `MainWindow` calls `set_drag_highlight(True)` on the review panel. This draws a rounded-rect border (`Layout.HIGHLIGHT_WIDTH` px, `Color.ACCENT`, `Layout.HIGHLIGHT_RADIUS` corner radius) inside the panel edges via `EVT_PAINT`. When the drag leaves, `set_drag_highlight(False)` clears the border.
 
 The drop overlay (empty state) is managed by `_DropOverlay` in `main_window.py`, not in this panel.
+
+## Keyboard Selection
+
+`_on_key` (bound to `EVT_CHAR_HOOK`) handles all keyboard navigation:
+
+| Key | Action |
+|-----|--------|
+| Up / Down | Move to prev/next card (collapses multi-selection to single) |
+| Shift+Up / Shift+Down | Extend selection up/down (`_extend_selection_up/down`) |
+| Other keys | Passed through via `event.Skip()` |
+
+Cmd+A (Select All) and Cmd+Shift+A (Select None) are handled by MainWindow's Edit menu bindings, calling `select_all()` / `select_none()`. Cmd+Delete (Remove) is also an Edit menu item, handled by `_on_remove_menu` in MainWindow.
 
 ## Gotchas
 

@@ -15,14 +15,14 @@ import wx.adv
 logger = logging.getLogger(__name__)
 
 from app.gui import styles
-from app.gui.styles import Color, Font
+from app.gui.styles import Color, Font, Layout
 from app.gui.preview_panel import PreviewPanel
 from app.gui.review_panel import ReviewPanelMasterDetail
 from app.gui.filter_sidebar import FilterSidebar
 from app.gui.dialogs import ProgressDialog, RenameConfirmDialog, CompletionDialog, ErrorListDialog
 from app.gui.settings_dialog import create_preferences_editor, get_commit_hash
 from app.gui.help_dialog import show_help
-from app.gui.icons import load_sf_symbol
+from app.gui.icons import load_sf_symbol, load_menu_icon
 from app.gui.api_key_dialog import show_api_key_dialog
 from app.models.card import CardResult, Confidence
 from app.core.pdf_renderer import render_all_pages
@@ -50,6 +50,7 @@ def _process_pdf_worker(pdf_path_str: str) -> dict:
         reprocess_candidates_from_raw
     )
     from app.models.card import Confidence
+    from app.gui.styles import Layout
 
     pdf_path = Path(pdf_path_str)
     result = {
@@ -78,7 +79,7 @@ def _process_pdf_worker(pdf_path_str: str) -> dict:
         card_state = get_card_state(file_hash)
 
         # Always render preview (needed for AI later)
-        images = render_all_pages(pdf_path, dpi=200)
+        images = render_all_pages(pdf_path, dpi=Layout.PDF_DPI)
         if images:
             # Serialize images to bytes
             preview_buf = io.BytesIO()
@@ -207,9 +208,10 @@ class _DropOverlay(wx.Panel):
 
         # If drag active, draw solid blue border at panel edges
         if self._drag_active:
+            inset = Layout.HIGHLIGHT_INSET
             edge_path = gc.CreatePath()
-            edge_path.AddRoundedRectangle(1.5, 1.5, w - 3, h - 3, 6)
-            gc.SetPen(gc.CreatePen(wx.GraphicsPenInfo(wx.Colour(0, 122, 255)).Width(3)))
+            edge_path.AddRoundedRectangle(inset, inset, w - inset * 2, h - inset * 2, Layout.HIGHLIGHT_RADIUS)
+            gc.SetPen(gc.CreatePen(wx.GraphicsPenInfo(Color.ACCENT).Width(Layout.HIGHLIGHT_WIDTH)))
             gc.SetBrush(wx.NullBrush)
             gc.StrokePath(edge_path)
 
@@ -257,7 +259,7 @@ class MainWindow:
             title="Greeting Cards",
             size=(styles.Layout.WINDOW_WIDTH, styles.Layout.WINDOW_HEIGHT)
         )
-        self._frame.SetMinSize((800, 500))
+        self._frame.SetMinSize(Layout.MIN_FRAME_SIZE)
 
         # State - Content-based deduplication (multi-load architecture)
         self._next_card_id = 0  # Monotonically increasing ID counter
@@ -301,7 +303,7 @@ class MainWindow:
         return None
 
     def _setup_menu_bar(self) -> None:
-        """Create native macOS menu bar with File and Help menus."""
+        """Create native macOS menu bar with File, Edit, and Help menus."""
         menubar = wx.MenuBar()
 
         # File menu
@@ -313,6 +315,38 @@ class MainWindow:
         file_menu.Append(wx.ID_CLOSE, "Close Window\tCtrl+W")
         file_menu.Append(wx.ID_EXIT, "Quit\tCtrl+Q")
         menubar.Append(file_menu, "&File")
+
+        # Edit menu
+        edit_menu = wx.Menu()
+
+        self._find_menu_id = wx.NewIdRef()
+        find_item = edit_menu.Append(self._find_menu_id, "Find...\tCtrl+F")
+        find_icon = load_menu_icon("magnifyingglass")
+        if find_icon:
+            find_item.SetBitmap(find_icon)
+
+        edit_menu.AppendSeparator()
+
+        select_all_item = edit_menu.Append(wx.ID_SELECTALL, "Select All\tCtrl+A")
+        select_all_icon = load_menu_icon("checkmark.circle")
+        if select_all_icon:
+            select_all_item.SetBitmap(select_all_icon)
+
+        self._select_none_id = wx.NewIdRef()
+        select_none_item = edit_menu.Append(self._select_none_id, "Select None\tCtrl+Shift+A")
+        select_none_icon = load_menu_icon("circle")
+        if select_none_icon:
+            select_none_item.SetBitmap(select_none_icon)
+
+        edit_menu.AppendSeparator()
+
+        self._remove_menu_id = wx.NewIdRef()
+        remove_item = edit_menu.Append(self._remove_menu_id, "Remove\tCtrl+Backspace")
+        remove_icon = load_menu_icon("minus.circle")
+        if remove_icon:
+            remove_item.SetBitmap(remove_icon)
+
+        menubar.Append(edit_menu, "&Edit")
 
         # Help menu
         help_menu = wx.Menu()
@@ -330,6 +364,19 @@ class MainWindow:
         self._frame.Bind(wx.EVT_MENU, lambda e: self._frame.Close(), id=wx.ID_CLOSE)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._frame.Close(), id=wx.ID_EXIT)
         self._frame.Bind(wx.EVT_MENU, lambda e: show_help(self._frame), id=wx.ID_HELP)
+        self._frame.Bind(wx.EVT_MENU, lambda e: self._search_ctrl.SetFocus(), id=self._find_menu_id)
+        self._frame.Bind(wx.EVT_MENU, self._on_select_all, id=wx.ID_SELECTALL)
+        self._frame.Bind(wx.EVT_MENU, lambda e: self._review_panel.select_none(), id=self._select_none_id)
+        self._frame.Bind(wx.EVT_MENU, self._on_remove_menu, id=self._remove_menu_id)
+        self._frame.Bind(wx.EVT_UPDATE_UI, self._on_update_remove_menu, id=self._remove_menu_id)
+
+    def _on_select_all(self, event: wx.CommandEvent) -> None:
+        """Handle Select All — route to text field if focused, else select all cards."""
+        focus = self._frame.FindFocus()
+        if isinstance(focus, wx.TextCtrl):
+            focus.SelectAll()
+        else:
+            self._review_panel.select_all()
 
     def _show_preferences(self) -> None:
         """Show the native macOS Preferences editor."""
@@ -378,10 +425,10 @@ class MainWindow:
     def _build_toolbar(self) -> None:
         """Build toolbar with SF Symbol icons."""
         toolbar = wx.ToolBar(self._panel, style=wx.TB_HORIZONTAL | wx.TB_NODIVIDER)
-        toolbar.SetToolBitmapSize(wx.Size(24, 24))
+        toolbar.SetToolBitmapSize(wx.Size(Layout.TOOLBAR_ICON_SIZE, Layout.TOOLBAR_ICON_SIZE))
 
         # Add Files tool
-        browse_bmp = load_sf_symbol("folder.badge.plus", point_size=16) or wx.NullBitmap
+        browse_bmp = load_sf_symbol("folder.badge.plus", point_size=Layout.TOOLBAR_ICON_POINTS) or wx.NullBitmap
         self._browse_id = toolbar.AddTool(
             wx.ID_ANY, "Add Files", browse_bmp,
             shortHelp="Add PDF files or folders to analyze (can add from multiple sources)"
@@ -390,7 +437,7 @@ class MainWindow:
         toolbar.AddSeparator()
 
         # AI Analyze tool
-        ai_bmp = load_sf_symbol("sparkles", point_size=16) or wx.NullBitmap
+        ai_bmp = load_sf_symbol("sparkles", point_size=Layout.TOOLBAR_ICON_POINTS) or wx.NullBitmap
         self._ai_all_id = toolbar.AddTool(
             wx.ID_ANY, "AI Analyze", ai_bmp,
             shortHelp="Analyze all loaded cards with AI to extract family names"
@@ -398,7 +445,7 @@ class MainWindow:
         toolbar.EnableTool(self._ai_all_id, False)
 
         # Rename tool
-        rename_bmp = load_sf_symbol("pencil", point_size=16) or wx.NullBitmap
+        rename_bmp = load_sf_symbol("pencil", point_size=Layout.TOOLBAR_ICON_POINTS) or wx.NullBitmap
         self._rename_id = toolbar.AddTool(
             wx.ID_ANY, "Rename", rename_bmp,
             shortHelp="Rename all files based on detected family names"
@@ -406,7 +453,7 @@ class MainWindow:
         toolbar.EnableTool(self._rename_id, False)
 
         # Clear tool
-        clear_bmp = load_sf_symbol("xmark.circle", point_size=16) or wx.NullBitmap
+        clear_bmp = load_sf_symbol("xmark.circle", point_size=Layout.TOOLBAR_ICON_POINTS) or wx.NullBitmap
         self._clear_id = toolbar.AddTool(
             wx.ID_ANY, "Clear", clear_bmp,
             shortHelp="Clear all loaded cards and reset the application"
@@ -419,14 +466,14 @@ class MainWindow:
         year_label = wx.StaticText(toolbar, label="Year:")
         year_label.SetFont(styles.Font.BODY())
         toolbar.AddControl(year_label)
-        self._year_ctrl = wx.TextCtrl(toolbar, value=str(self._year), size=(60, -1))
+        self._year_ctrl = wx.TextCtrl(toolbar, value=str(self._year), size=(Layout.YEAR_WIDTH, -1))
         self._year_ctrl.SetToolTip("Year to use in renamed file names (e.g., 2024)")
         toolbar.AddControl(self._year_ctrl)
 
         toolbar.AddStretchableSpace()
 
         # Search control
-        self._search_ctrl = wx.SearchCtrl(toolbar, style=wx.TE_PROCESS_ENTER, size=(200, -1))
+        self._search_ctrl = wx.SearchCtrl(toolbar, style=wx.TE_PROCESS_ENTER, size=(Layout.SEARCH_WIDTH, -1))
         self._search_ctrl.ShowSearchButton(True)
         self._search_ctrl.ShowCancelButton(True)
         self._search_ctrl.SetDescriptiveText("Filter cards...")
@@ -585,16 +632,15 @@ class MainWindow:
         # Split nested content splitter vertically
         content_splitter.SplitVertically(self._review_panel, self._preview_panel)
         content_splitter.SetSashGravity(0.5)  # Both panes share extra space equally
-        content_splitter.SetMinimumPaneSize(200)
+        content_splitter.SetMinimumPaneSize(Layout.CONTENT_MIN_PANE)
         self._inner_splitter = content_splitter
 
         # Split main splitter vertically (sidebar | content)
         main_splitter.SplitVertically(self._sidebar, content_splitter)
-        main_splitter.SetMinimumPaneSize(150)
+        main_splitter.SetMinimumPaneSize(Layout.SIDEBAR_WIDTH)
 
         # Set initial sash positions after layout
-        sidebar_width = 150
-        wx.CallAfter(lambda: main_splitter.SetSashPosition(sidebar_width))
+        wx.CallAfter(lambda: main_splitter.SetSashPosition(Layout.SIDEBAR_WIDTH))
 
         return main_splitter
 
@@ -649,15 +695,7 @@ class MainWindow:
 
     def _setup_keyboard_shortcuts(self) -> None:
         """Set up keyboard accelerators."""
-        # Menu shortcuts (Cmd+O, Cmd+W, Cmd+Q) handled by menu bar
-
-        # Add Cmd+F for search
-        search_id = wx.NewIdRef()
-        self._frame.Bind(wx.EVT_MENU, lambda e: self._search_ctrl.SetFocus(), id=search_id)
-        accel_tbl = wx.AcceleratorTable([
-            (wx.ACCEL_CMD, ord('F'), search_id)
-        ])
-        self._frame.SetAcceleratorTable(accel_tbl)
+        # Menu shortcuts (Cmd+O, Cmd+W, Cmd+Q, Cmd+F, Cmd+A, Cmd+Shift+A) handled by menu bar
 
         # Navigation shortcuts
         self._frame.Bind(wx.EVT_CHAR_HOOK, self._on_key_press)
@@ -955,7 +993,7 @@ class MainWindow:
                 card.file_hash = file_hash
                 card_state = get_card_state(file_hash)
 
-                images = render_all_pages(pdf_path, dpi=200)
+                images = render_all_pages(pdf_path, dpi=Layout.PDF_DPI)
                 if images:
                     card.preview_image = images[0]
                     card.page_images = images
@@ -1105,7 +1143,7 @@ class MainWindow:
 
         # Debounce: restart 1-second timer on each keystroke
         self._edit_debounce_timer.Stop()
-        self._edit_debounce_timer.StartOnce(1000)
+        self._edit_debounce_timer.StartOnce(Layout.DEBOUNCE_MS)
 
     def _on_card_edited(self, card_id: int) -> None:
         """Handle discrete card edits (e.g. candidate selection) that change confidence."""
@@ -1132,6 +1170,17 @@ class MainWindow:
 
         # Refresh display (handles filter counts, list reload, empty state)
         self._refresh_display()
+
+    def _on_remove_menu(self, event: wx.CommandEvent) -> None:
+        """Handle Edit > Remove — remove all selected cards."""
+        for card_id in list(self._review_panel._selected_card_ids):
+            card = self._get_card_by_id(card_id)
+            if card and card.file_hash:
+                self._on_remove_card(card.file_hash)
+
+    def _on_update_remove_menu(self, event: wx.UpdateUIEvent) -> None:
+        """Enable Remove menu item only when cards are selected."""
+        event.Enable(bool(self._review_panel._selected_card_ids))
 
     def _on_edit_debounce_fire(self, event: wx.TimerEvent) -> None:
         """Fire after user stops typing for 1 second — refresh filters."""
@@ -1273,7 +1322,7 @@ class MainWindow:
         """Async batch AI processing with concurrency limit."""
         import anthropic
 
-        semaphore = asyncio.Semaphore(3)  # Limit to 3 concurrent API calls
+        semaphore = asyncio.Semaphore(Layout.AI_CONCURRENCY)
         completed = 0
         total = len(self._cards_by_hash)
         auth_failed = asyncio.Event()
@@ -1449,7 +1498,7 @@ class MainWindow:
             self._toolbar.EnableTool(self._clear_id, False)
             self._search_ctrl.SetValue("")
 
-    def _show_info_message(self, message: str, icon: int = wx.ICON_INFORMATION, duration_ms: int = 4000) -> None:
+    def _show_info_message(self, message: str, icon: int = wx.ICON_INFORMATION, duration_ms: int = Layout.INFO_DISMISS_MS) -> None:
         """Show notification in sidebar bottom.
 
         Args:
