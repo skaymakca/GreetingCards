@@ -9,16 +9,18 @@
 - ❌ Do NOT commit after fixing bugs
 - ✅ ONLY commit when user explicitly says "commit X"
 - ✅ Keep track of changes to write good commit messages when asked
+- ✅ Include `Fixes #N` or `Fixes #N, #M` in commit/PR messages when the work resolves GitHub issues
 
 ---
 
-## 🚫 CRITICAL: DO NOT MODIFY TODO.md 🚫
+## 🚫 CRITICAL: DO NOT MODIFY GITHUB ISSUES 🚫
 
-**NEVER edit TODO.md without explicit user permission.**
+**NEVER create, close, or edit GitHub issues without explicit user permission.**
 
-- ❌ Do NOT remove, reorder, or edit items in TODO.md
-- ❌ Do NOT mark items as done or delete completed items
-- ✅ ONLY modify TODO.md when user explicitly asks you to
+- ❌ Do NOT create new issues without being asked
+- ❌ Do NOT close or modify existing issues without being asked
+- ✅ ONLY manage issues when user explicitly asks you to
+- Use `gh issue list` to view open issues
 
 ---
 
