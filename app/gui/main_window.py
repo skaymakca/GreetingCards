@@ -311,6 +311,26 @@ class MainWindow:
         file_menu = wx.Menu()
         file_menu.Append(wx.ID_OPEN, "Open...\tCtrl+O")
         file_menu.AppendSeparator()
+
+        self._ai_menu_id = wx.NewIdRef()
+        ai_item = file_menu.Append(self._ai_menu_id, "AI Analyze All\tCtrl+Shift+I")
+        ai_icon = load_menu_icon("sparkles")
+        if ai_icon:
+            ai_item.SetBitmap(ai_icon)
+
+        self._rename_menu_id = wx.NewIdRef()
+        rename_item = file_menu.Append(self._rename_menu_id, "Rename Files...\tCtrl+R")
+        rename_icon = load_menu_icon("pencil")
+        if rename_icon:
+            rename_item.SetBitmap(rename_icon)
+
+        self._clear_menu_id = wx.NewIdRef()
+        clear_item = file_menu.Append(self._clear_menu_id, "Clear All")
+        clear_icon = load_menu_icon("xmark.circle")
+        if clear_icon:
+            clear_item.SetBitmap(clear_icon)
+
+        file_menu.AppendSeparator()
         file_menu.Append(wx.ID_PREFERENCES, "Settings...\tCtrl+,")
         file_menu.AppendSeparator()
         file_menu.Append(wx.ID_CLOSE, "Close Window\tCtrl+W")
@@ -370,6 +390,12 @@ class MainWindow:
         self._frame.Bind(wx.EVT_MENU, lambda e: self._review_panel.select_none(), id=self._select_none_id)
         self._frame.Bind(wx.EVT_MENU, self._on_remove_menu, id=self._remove_menu_id)
         self._frame.Bind(wx.EVT_UPDATE_UI, self._on_update_remove_menu, id=self._remove_menu_id)
+        self._frame.Bind(wx.EVT_MENU, lambda e: self._start_ai_all(), id=self._ai_menu_id)
+        self._frame.Bind(wx.EVT_MENU, lambda e: self._start_rename(), id=self._rename_menu_id)
+        self._frame.Bind(wx.EVT_MENU, lambda e: self._clear_all(), id=self._clear_menu_id)
+        self._frame.Bind(wx.EVT_UPDATE_UI, self._on_update_action_menu, id=self._ai_menu_id)
+        self._frame.Bind(wx.EVT_UPDATE_UI, self._on_update_action_menu, id=self._rename_menu_id)
+        self._frame.Bind(wx.EVT_UPDATE_UI, self._on_update_action_menu, id=self._clear_menu_id)
 
     def _on_select_all(self, event: wx.CommandEvent) -> None:
         """Handle Select All — route to text field if focused, else select all cards."""
@@ -1182,6 +1208,17 @@ class MainWindow:
     def _on_update_remove_menu(self, event: wx.UpdateUIEvent) -> None:
         """Enable Remove menu item only when cards are selected."""
         event.Enable(bool(self._review_panel._selected_card_ids))
+
+    def _on_update_action_menu(self, event: wx.UpdateUIEvent) -> None:
+        """Enable/disable AI, Rename, Clear menu items to mirror toolbar state."""
+        menu_to_tool = {
+            self._ai_menu_id: self._ai_all_id,
+            self._rename_menu_id: self._rename_id,
+            self._clear_menu_id: self._clear_id,
+        }
+        tool_id = menu_to_tool.get(event.GetId())
+        if tool_id is not None:
+            event.Enable(self._toolbar.GetToolEnabled(tool_id))
 
     def _on_edit_debounce_fire(self, event: wx.TimerEvent) -> None:
         """Fire after user stops typing for 1 second — refresh filters."""

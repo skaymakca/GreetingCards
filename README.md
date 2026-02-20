@@ -17,7 +17,7 @@ Scans holiday/greeting card PDFs, extracts family names via OCR and AI, and batc
 - **Preview with zoom/pan** — scroll wheel zoom at cursor, Shift+Click zoom in, Option+Click zoom out, click-drag pan, +/− buttons, Fit button
 - **Card removal** — remove cards via the Remove button, Edit > Remove (Cmd+Delete), or right-click context menu (non-destructive; files remain on disk)
 - **Right-click context menu** — right-click a card row for Open, Reveal in Finder, and Remove; right-click name fields for Cut, Copy, Paste, Title Case, and Clear
-- **Keyboard navigation** — Up/Down to select cards, Shift+Up/Down to extend selection, Cmd+A to select all, Left/Right to page through previews, Cmd+Delete to remove selected cards, Cmd+F to search, Cmd+O to open files, Cmd+, for Settings, Escape to defocus
+- **Keyboard navigation** — Up/Down to select cards, Shift+Up/Down to extend selection, Cmd+A to select all, Left/Right to page through previews, Cmd+Delete to remove selected cards, Cmd+F to search, Cmd+O to open files, Cmd+Shift+I to AI analyze, Cmd+R to rename, Cmd+, for Settings, Escape to defocus
 - **Help system** — built-in WebView help viewer with 8 pages, cross-page search with highlighted matches, and Previous/Next match navigation
 - **Native macOS UI** — native toolbar, preferences editor (Cmd+,), About dialog, and system colors throughout
 - **API key management** — prompts for the Anthropic API key on first AI use; key is saved to a plist in bundled mode or read from `.env` in dev mode
