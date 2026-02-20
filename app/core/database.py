@@ -3,30 +3,31 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, Boolean, ForeignKey, UniqueConstraint, inspect
-from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+from sqlalchemy import create_engine, String, DateTime, Text, Boolean, ForeignKey, UniqueConstraint, inspect
+from sqlalchemy.orm import declarative_base, sessionmaker, Mapped, mapped_column
 
 from app.core.paths import get_db_path
+from app.models.card import CandidateInfo, CardState
 
 Base = declarative_base()
 
 
 class Settings(Base):
     __tablename__ = "settings"
-    key = Column(String, primary_key=True)
-    value = Column(String)
+    key: Mapped[str] = mapped_column(String, primary_key=True)
+    value: Mapped[str] = mapped_column(String)
 
 
 class Card(Base):
     """Main card record. Tracks selected name (manual or from candidates) and preferences."""
     __tablename__ = "cards"
-    file_hash = Column(String(64), primary_key=True)
-    selected_family_name = Column(String, nullable=True)  # Manual entry only
-    selected_candidate_id = Column(Integer, ForeignKey("candidates.id", use_alter=True, name="fk_card_selected_candidate"), nullable=True)
-    remove_family = Column(Boolean, nullable=False, default=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
-                        onupdate=lambda: datetime.now(timezone.utc))
+    file_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    selected_family_name: Mapped[str | None] = mapped_column(String)  # Manual entry only
+    selected_candidate_id: Mapped[int | None] = mapped_column(ForeignKey("candidates.id", use_alter=True, name="fk_card_selected_candidate"))
+    remove_family: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc),
+                                                  onupdate=lambda: datetime.now(timezone.utc))
 
 
 class Candidate(Base):
@@ -35,30 +36,30 @@ class Candidate(Base):
     __table_args__ = (
         UniqueConstraint('file_hash', 'family_name', 'method', name='_file_name_method_uc'),
     )
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    file_hash = Column(String(64), ForeignKey("cards.file_hash"), index=True, nullable=False)
-    family_name = Column(String, nullable=False)
-    method = Column(String, nullable=False)  # 'ocr' | 'ai'
-    confidence = Column(String, nullable=False)  # 'high' | 'medium' | 'low'
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    file_hash: Mapped[str] = mapped_column(String(64), ForeignKey("cards.file_hash"), index=True)
+    family_name: Mapped[str] = mapped_column(String)
+    method: Mapped[str] = mapped_column(String)  # 'ocr' | 'ai'
+    confidence: Mapped[str] = mapped_column(String)  # 'high' | 'medium' | 'low'
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class RawOCRResult(Base):
     """Raw OCR text preserved for potential re-processing with improved extraction logic."""
     __tablename__ = "raw_ocr_results"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    file_hash = Column(String(64), ForeignKey("cards.file_hash"), index=True, unique=True, nullable=False)
-    ocr_text = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    file_hash: Mapped[str] = mapped_column(String(64), ForeignKey("cards.file_hash"), index=True, unique=True)
+    ocr_text: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class RawAIResult(Base):
     """Raw AI response preserved for debugging and potential re-processing."""
     __tablename__ = "raw_ai_results"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    file_hash = Column(String(64), ForeignKey("cards.file_hash"), index=True, unique=True, nullable=False)
-    raw_response = Column(Text, nullable=False)  # JSON: {"best_name": "...", "alternates": [...]}
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    file_hash: Mapped[str] = mapped_column(String(64), ForeignKey("cards.file_hash"), index=True, unique=True)
+    raw_response: Mapped[str] = mapped_column(Text)  # JSON: {"best_name": "...", "alternates": [...]}
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 def _compute_schema_version() -> str:
@@ -170,7 +171,7 @@ def _clean_and_filter_names(names: list[str]) -> list[str]:
     Raw data is persisted in the DB and cleaned on load.
     """
     from app.core.ai_analyzer import clean_family_name
-    from app.core.name_formatting import deparameterize_name
+    from app.core.name_formatting import deparameterize_name, sanitize_for_filename
 
     # Filter words that are not family names
     FILTER_OUT = {
@@ -187,6 +188,8 @@ def _clean_and_filter_names(names: list[str]) -> list[str]:
         clean_name = clean_family_name(name)
         # Remove plural 's' (Smiths → Smith)
         clean_name = deparameterize_name(clean_name)
+        # Replace filesystem-invalid characters (cross-platform)
+        clean_name = sanitize_for_filename(clean_name)
         # Filter out unwanted values
         if clean_name and clean_name.lower() not in FILTER_OUT:
             cleaned.append(clean_name)
@@ -262,12 +265,10 @@ def add_candidate(file_hash: str, family_name: str, method: str, confidence: str
         session.close()
 
 
-def get_candidates(file_hash: str) -> list[tuple[int, str, str, str]]:
+def get_candidates(file_hash: str) -> list[CandidateInfo]:
     """Get all candidates for a file, sorted by method (AI first) then confidence.
 
     Priority: AI high > AI medium > AI low > OCR high > OCR medium > OCR low
-
-    Returns [(id, family_name, method, confidence), ...]
     """
     session = get_session()
     try:
@@ -285,7 +286,12 @@ def get_candidates(file_hash: str) -> list[tuple[int, str, str, str]]:
         )
 
         return [
-            (c.id, c.family_name, c.method, c.confidence)
+            CandidateInfo(
+                id=c.id,
+                family_name=c.family_name,
+                method=c.method,
+                confidence=c.confidence
+            )
             for c in sorted_candidates
         ]
     finally:
@@ -349,18 +355,8 @@ def update_remove_family(file_hash: str, remove_family: bool) -> None:
         session.close()
 
 
-def get_card_state(file_hash: str) -> dict | None:
-    """Get complete card state for display.
-
-    Returns {
-        'display_name': str,          # The name to show (manual or selected candidate)
-        'method': str,                # 'manual' | 'ocr' | 'ai' | 'missing'
-        'confidence': str,            # 'manual' | 'high' | 'medium' | 'low' | 'none'
-        'candidates': [(id, name, method, conf), ...],  # Sorted by confidence
-        'remove_family': bool,
-        'selected_candidate_id': int | None
-    } or None if card doesn't exist.
-    """
+def get_card_state(file_hash: str) -> CardState | None:
+    """Get complete card state for display."""
     session = get_session()
     try:
         card = session.query(Card).filter_by(file_hash=file_hash).first()
@@ -394,14 +390,14 @@ def get_card_state(file_hash: str) -> dict | None:
             method = "missing"
             confidence = "none"
 
-        return {
-            'display_name': display_name,
-            'method': method,
-            'confidence': confidence,
-            'candidates': candidates,
-            'remove_family': card.remove_family,
-            'selected_candidate_id': card.selected_candidate_id
-        }
+        return CardState(
+            display_name=display_name,
+            method=method,
+            confidence=confidence,
+            candidates=candidates,
+            remove_family=card.remove_family,
+            selected_candidate_id=card.selected_candidate_id
+        )
     finally:
         session.close()
 
@@ -557,8 +553,8 @@ def reprocess_candidates_from_raw(file_hash: str) -> None:
         ocr_result = session.query(RawOCRResult).filter_by(file_hash=file_hash).first()
         if ocr_result:
             names = extract_family_names(ocr_result.ocr_text)
-            for name, conf in names:
-                add_candidate(file_hash, name, "ocr", conf.value)
+            for match in names:
+                add_candidate(file_hash, match.name, "ocr", match.confidence.value)
 
         # Re-parse raw AI if exists
         ai_result = session.query(RawAIResult).filter_by(file_hash=file_hash).first()
@@ -577,7 +573,7 @@ def reprocess_candidates_from_raw(file_hash: str) -> None:
             candidates = get_candidates(file_hash)
             if candidates:
                 # First candidate is best (AI high priority due to sorting)
-                best_id = candidates[0][0]
+                best_id = candidates[0].id
                 select_candidate(file_hash, best_id)
 
     finally:

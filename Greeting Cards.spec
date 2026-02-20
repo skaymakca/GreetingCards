@@ -4,10 +4,12 @@ import re, subprocess
 __version__ = re.search(r'"(.+?)"', open('app/version.py').read()).group(1)
 __commit__ = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode().strip()
 
-datas = [('icon.png', '.')]
+datas = [('icon.png', '.'), ('help', 'help'), ('Drop Target Background.png', '.')]
 binaries = []
 hiddenimports = []
-tmp_ret = collect_all('tkinterdnd2')
+
+# Collect wxPython dependencies
+tmp_ret = collect_all('wx')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 

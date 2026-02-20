@@ -1,5 +1,5 @@
 import re
-from app.models.card import Confidence
+from app.models.card import Confidence, NameMatch
 
 # Words to filter out — common greeting card phrases
 GREETING_WORDS = {
@@ -38,29 +38,10 @@ def _is_valid_name(name: str) -> bool:
     return True
 
 
-def _strip_family_suffix(name: str) -> str:
-    """Remove 'Family' suffix if present for normalization."""
-    return re.sub(r"\s+[Ff]amily\s*$", "", name).strip()
-
-
-def _make_family_name(name: str) -> str:
-    """Ensure name ends with 'Family' for consistent output, or strip plurals."""
-    name = _clean_name(name)
-    # "The Smiths" -> "Smith"
-    match = re.match(r"^[Tt]he\s+(.+?)s?$", name)
-    if match:
-        base = match.group(1)
-        # Remove trailing 's' for plural family names like "The Johnsons" -> "Johnson"
-        if name.endswith("s") and not name.endswith("ss"):
-            return base
-        return base
-    return name
-
-
-def extract_family_names(text: str) -> list[tuple[str, Confidence]]:
+def extract_family_names(text: str) -> list[NameMatch]:
     """
     Extract family names from OCR text.
-    Returns list of (name, confidence) tuples, ordered by confidence.
+    Returns list of name matches, ordered by confidence.
     """
     results = []
     lines = [line.strip() for line in text.split("\n") if line.strip()]
@@ -72,7 +53,7 @@ def extract_family_names(text: str) -> list[tuple[str, Confidence]]:
         if m:
             name = _clean_name(m.group(1))
             if _is_valid_name(name):
-                results.append((name, Confidence.HIGH))
+                results.append(NameMatch(name, Confidence.HIGH))
 
     # "The Smiths" or "The Johnsons" (at end of line or followed by punctuation)
     for line in lines:
@@ -82,7 +63,7 @@ def extract_family_names(text: str) -> list[tuple[str, Confidence]]:
             # Remove trailing 's' to get family name
             base = name[:-1] if not name.endswith("ss") else name
             if _is_valid_name(base) and base.lower() not in GREETING_WORDS:
-                results.append((base, Confidence.HIGH))
+                results.append(NameMatch(base, Confidence.HIGH))
 
     # "From the Johnsons" / "From the Smith Family"
     for line in lines:
@@ -90,7 +71,7 @@ def extract_family_names(text: str) -> list[tuple[str, Confidence]]:
         if m:
             name = _clean_name(m.group(1))
             if _is_valid_name(name):
-                results.append((name, Confidence.HIGH))
+                results.append(NameMatch(name, Confidence.HIGH))
 
     # "Love, The Smiths" / "Love, The Smith Family"
     for line in lines:
@@ -98,7 +79,7 @@ def extract_family_names(text: str) -> list[tuple[str, Confidence]]:
         if m:
             name = _clean_name(m.group(1))
             if _is_valid_name(name):
-                results.append((name, Confidence.HIGH))
+                results.append(NameMatch(name, Confidence.HIGH))
 
     # MEDIUM confidence patterns
     # "With love, John & Jane Smith"
@@ -110,7 +91,7 @@ def extract_family_names(text: str) -> list[tuple[str, Confidence]]:
         if m:
             name = _clean_name(m.group(1))
             if _is_valid_name(name):
-                results.append((name, Confidence.MEDIUM))
+                results.append(NameMatch(name, Confidence.MEDIUM))
 
     # "-- The Smiths" or "— The Smith Family"
     for line in lines:
@@ -118,7 +99,7 @@ def extract_family_names(text: str) -> list[tuple[str, Confidence]]:
         if m:
             name = _clean_name(m.group(1))
             if _is_valid_name(name):
-                results.append((name, Confidence.MEDIUM))
+                results.append(NameMatch(name, Confidence.MEDIUM))
 
     # Possessives: "Smith's" or "The Smith's"
     for line in lines:
@@ -126,7 +107,7 @@ def extract_family_names(text: str) -> list[tuple[str, Confidence]]:
         if m:
             name = _clean_name(m.group(1))
             if _is_valid_name(name) and name.lower() not in GREETING_WORDS:
-                results.append((name, Confidence.MEDIUM))
+                results.append(NameMatch(name, Confidence.MEDIUM))
 
     # "John & Jane Smith" without "love" prefix
     for line in lines:
@@ -134,7 +115,7 @@ def extract_family_names(text: str) -> list[tuple[str, Confidence]]:
         if m:
             name = _clean_name(m.group(3))
             if _is_valid_name(name) and name.lower() not in GREETING_WORDS:
-                results.append((name, Confidence.MEDIUM))
+                results.append(NameMatch(name, Confidence.MEDIUM))
 
     # LOW confidence patterns
     # "Love, First Last" (last word as family name)
@@ -143,7 +124,7 @@ def extract_family_names(text: str) -> list[tuple[str, Confidence]]:
         if m:
             name = _clean_name(m.group(2))
             if _is_valid_name(name) and name.lower() not in GREETING_WORDS:
-                results.append((name, Confidence.LOW))
+                results.append(NameMatch(name, Confidence.LOW))
 
     # Last line with capitalized words as fallback
     for line in reversed(lines):
@@ -153,19 +134,19 @@ def extract_family_names(text: str) -> list[tuple[str, Confidence]]:
             name = caps[-1]
             name = _clean_name(name)
             if _is_valid_name(name) and len(name) > 2:
-                results.append((name, Confidence.LOW))
+                results.append(NameMatch(name, Confidence.LOW))
                 break
 
     # Deduplicate while preserving order
     # NOTE: Cleaning is applied AFTER loading from DB, not here
     seen = set()
     unique = []
-    for name, conf in results:
-        if not name:
+    for match in results:
+        if not match.name:
             continue
-        key = name.lower()
+        key = match.name.lower()
         if key not in seen:
             seen.add(key)
-            unique.append((name, conf))
+            unique.append(match)
 
     return unique

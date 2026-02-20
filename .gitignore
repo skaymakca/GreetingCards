@@ -1,9 +1,26 @@
+# Python
 .venv/
 __pycache__/
 *.pyc
+
+# Environment
 .env
+
+# macOS
 .DS_Store
+
+# Application data
 *.sqlite
+preferences.plist
+
+# Build artifacts
 build/
 dist/
-preferences.plist
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.tox/
+*.log
