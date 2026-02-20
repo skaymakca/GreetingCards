@@ -45,7 +45,7 @@ def _read_plist() -> dict:
     return {}
 
 
-def _write_plist(data: dict):
+def _write_plist(data: dict) -> None:
     with open(_plist_path(), "wb") as f:
         plistlib.dump(data, f)
 
@@ -80,7 +80,7 @@ def get_api_key() -> str | None:
     return None
 
 
-def save_api_key(key: str):
+def save_api_key(key: str) -> None:
     """Persist the API key to preferences.plist in the data dir."""
     prefs = _read_plist()
     prefs[_KEY_NAME] = key
@@ -106,7 +106,7 @@ def get_ai_model() -> str:
     return DEFAULT_AI_MODEL
 
 
-def save_ai_model(model_id: str):
+def save_ai_model(model_id: str) -> None:
     """Persist the AI model choice to preferences.plist."""
     prefs = _read_plist()
     prefs[_MODEL_KEY] = model_id

@@ -1124,3 +1124,752 @@ def test_refresh_display_syncs_sidebar_fallback(wx_app):
     assert window._sidebar.get_selected_category_filters() == ["all"]
 
     window._frame.Destroy()
+
+
+# --- Post-rename selective removal tests ---
+
+
+def test_remove_completed_results_full_success(wx_app):
+    """All cards renamed successfully → all removed, empty state shown."""
+    from app.models.card import CardResult, Confidence, RenameResult
+
+    window = MainWindow()
+    path1 = Path("/test/old1.pdf")
+    path2 = Path("/test/old2.pdf")
+    new1 = Path("/test/Holiday Cards 2024 - Smith Family.pdf")
+    new2 = Path("/test/Holiday Cards 2024 - Jones Family.pdf")
+
+    card1 = CardResult(id=0, file_paths=[new1], primary_path=new1)
+    card1.file_hash = "h1"
+    card1.confidence = Confidence.HIGH
+
+    card2 = CardResult(id=1, file_paths=[new2], primary_path=new2)
+    card2.file_hash = "h2"
+    card2.confidence = Confidence.HIGH
+
+    # Simulate state after execute_rename_plan has updated paths
+    window._cards_by_hash = {"h1": card1, "h2": card2}
+    window._hash_by_path = {new1: "h1", new2: "h2"}
+    window._pdf_files = [new1, new2]
+
+    results = [
+        RenameResult(path1, new1, True, "Renamed", card=card1),
+        RenameResult(path2, new2, True, "Renamed", card=card2),
+    ]
+
+    window._remove_completed_results(results)
+
+    assert len(window._cards_by_hash) == 0
+    assert len(window._hash_by_path) == 0
+    assert len(window._pdf_files) == 0
+
+    window._frame.Destroy()
+
+
+def test_remove_completed_results_partial_failure(wx_app):
+    """Failed renames keep their cards; successful ones are removed."""
+    from app.models.card import CardResult, Confidence, RenameResult
+
+    window = MainWindow()
+    new_path = Path("/test/Holiday Cards 2024 - Smith Family.pdf")
+    fail_path = Path("/test/jones.pdf")
+
+    card1 = CardResult(id=0, file_paths=[new_path], primary_path=new_path)
+    card1.file_hash = "h1"
+    card1.confidence = Confidence.HIGH
+
+    card2 = CardResult(id=1, file_paths=[fail_path], primary_path=fail_path)
+    card2.file_hash = "h2"
+    card2.confidence = Confidence.HIGH
+
+    window._cards_by_hash = {"h1": card1, "h2": card2}
+    window._hash_by_path = {new_path: "h1", fail_path: "h2"}
+    window._pdf_files = [new_path, fail_path]
+
+    results = [
+        RenameResult(Path("/test/old1.pdf"), new_path, True, "Renamed", card=card1),
+        RenameResult(fail_path, Path("/test/Holiday Cards 2024 - Jones Family.pdf"), False, "Permission denied", card=card2),
+    ]
+
+    window._remove_completed_results(results)
+
+    # card1 removed, card2 kept
+    assert "h1" not in window._cards_by_hash
+    assert "h2" in window._cards_by_hash
+    assert new_path not in window._hash_by_path
+    assert fail_path in window._hash_by_path
+    assert fail_path in window._pdf_files
+
+    window._frame.Destroy()
+
+
+def test_remove_completed_results_skip_same(wx_app):
+    """skip_same results (already named correctly) are also removed."""
+    from app.models.card import CardResult, Confidence, RenameResult
+
+    window = MainWindow()
+    path1 = Path("/test/Holiday Cards 2024 - Smith Family.pdf")
+
+    card1 = CardResult(id=0, file_paths=[path1], primary_path=path1)
+    card1.file_hash = "h1"
+    card1.confidence = Confidence.HIGH
+
+    window._cards_by_hash = {"h1": card1}
+    window._hash_by_path = {path1: "h1"}
+    window._pdf_files = [path1]
+
+    results = [
+        RenameResult(path1, path1, True, "Already named correctly", card=card1),
+    ]
+
+    window._remove_completed_results(results)
+
+    assert len(window._cards_by_hash) == 0
+    assert len(window._hash_by_path) == 0
+
+    window._frame.Destroy()
+
+
+def test_remove_completed_results_skip_no_name_kept(wx_app):
+    """skip_no_name results are NOT removed — user needs to address them."""
+    from app.models.card import CardResult, Confidence, RenameResult
+
+    window = MainWindow()
+    path1 = Path("/test/unknown.pdf")
+
+    card1 = CardResult(id=0, file_paths=[path1], primary_path=path1)
+    card1.file_hash = "h1"
+    card1.confidence = Confidence.NONE
+
+    window._cards_by_hash = {"h1": card1}
+    window._hash_by_path = {path1: "h1"}
+    window._pdf_files = [path1]
+
+    results = [
+        RenameResult(path1, path1, True, "No name extracted", card=card1),
+    ]
+
+    window._remove_completed_results(results)
+
+    # Card kept — no name extracted is not "resolved"
+    assert "h1" in window._cards_by_hash
+    assert path1 in window._hash_by_path
+
+    window._frame.Destroy()
+
+
+def test_remove_completed_results_multi_path_card(wx_app):
+    """Card with multiple paths: only remove renamed paths, keep card if paths remain."""
+    from app.models.card import CardResult, Confidence, RenameResult
+
+    window = MainWindow()
+    new_path = Path("/test/dir_a/Holiday Cards 2024 - Smith Family.pdf")
+    fail_path = Path("/test/dir_b/smith.pdf")
+
+    card = CardResult(id=0, file_paths=[new_path, fail_path], primary_path=new_path)
+    card.file_hash = "h1"
+    card.confidence = Confidence.HIGH
+
+    window._cards_by_hash = {"h1": card}
+    window._hash_by_path = {new_path: "h1", fail_path: "h1"}
+    window._pdf_files = [new_path, fail_path]
+
+    results = [
+        RenameResult(Path("/test/dir_a/old.pdf"), new_path, True, "Renamed", card=card),
+        RenameResult(fail_path, Path("/test/dir_b/Holiday Cards 2024 - Smith Family.pdf"), False, "Permission denied", card=card),
+    ]
+
+    window._remove_completed_results(results)
+
+    # Card still exists with one remaining path
+    assert "h1" in window._cards_by_hash
+    assert card.file_paths == [fail_path]
+    assert new_path not in window._hash_by_path
+    assert fail_path in window._hash_by_path
+
+    window._frame.Destroy()
+
+
+# --- Name change revert tests ---
+
+
+def test_on_name_change_revert_to_original(wx_app):
+    """Clearing the name field reverts card to pre-manual state."""
+    from app.models.card import CardResult, Confidence
+    from unittest.mock import patch
+
+    window = MainWindow()
+    card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+    card.family_name = "Smith"
+    card.confidence = Confidence.MANUAL
+    card.original_confidence = Confidence.HIGH
+    card.method = "manual"
+    card.manual_override = "Jones"
+    card.file_hash = "h1"
+
+    window._cards_by_hash = {"h1": card}
+    window._hash_by_path = {Path("/test/card.pdf"): "h1"}
+
+    # Clear the name (empty string)
+    with patch("app.gui.main_window.set_manual_name"):
+        window._on_name_change(0, "")
+
+    # Should revert to original confidence
+    assert card.confidence == Confidence.HIGH
+    assert card.manual_override == ""
+    assert card.original_confidence is None
+    # Method reverts based on data: family_name exists and not ai_analyzed → "ocr"
+    assert card.method == "ocr"
+
+    window._frame.Destroy()
+
+
+def test_on_name_change_revert_ai_analyzed(wx_app):
+    """Clearing name on an AI-analyzed card reverts method to 'ai'."""
+    from app.models.card import CardResult, Confidence
+    from unittest.mock import patch
+
+    window = MainWindow()
+    card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+    card.family_name = "Smith"
+    card.confidence = Confidence.MANUAL
+    card.original_confidence = Confidence.HIGH
+    card.method = "manual"
+    card.manual_override = "Jones"
+    card.ai_analyzed = True
+    card.file_hash = "h1"
+
+    window._cards_by_hash = {"h1": card}
+    window._hash_by_path = {Path("/test/card.pdf"): "h1"}
+
+    with patch("app.gui.main_window.set_manual_name"):
+        window._on_name_change(0, "")
+
+    assert card.method == "ai"
+
+    window._frame.Destroy()
+
+
+def test_on_name_change_revert_no_original_confidence(wx_app):
+    """Clearing name when no original_confidence falls back to NONE."""
+    from app.models.card import CardResult, Confidence
+    from unittest.mock import patch
+
+    window = MainWindow()
+    card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+    card.confidence = Confidence.MANUAL
+    card.original_confidence = None
+    card.method = "manual"
+    card.manual_override = "Test"
+    card.file_hash = "h1"
+
+    window._cards_by_hash = {"h1": card}
+    window._hash_by_path = {Path("/test/card.pdf"): "h1"}
+
+    with patch("app.gui.main_window.set_manual_name"):
+        window._on_name_change(0, "")
+
+    assert card.confidence == Confidence.NONE
+    assert card.method == "missing"
+
+    window._frame.Destroy()
+
+
+# --- Year validation tests ---
+
+
+def test_year_validation_rejects_non_digit(wx_app):
+    """Non-digit year string should be rejected."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+    window._year_ctrl.SetValue("abc")
+
+    with patch("wx.MessageBox") as mock_msg:
+        window._start_rename()
+        mock_msg.assert_called_once()
+        assert "4-digit year" in mock_msg.call_args[0][0]
+
+    window._frame.Destroy()
+
+
+def test_year_validation_rejects_short(wx_app):
+    """Year shorter than 4 digits should be rejected."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+    window._year_ctrl.SetValue("25")
+
+    with patch("wx.MessageBox") as mock_msg:
+        window._start_rename()
+        mock_msg.assert_called_once()
+        assert "4-digit year" in mock_msg.call_args[0][0]
+
+    window._frame.Destroy()
+
+
+def test_year_validation_accepts_valid(wx_app):
+    """Valid 4-digit year passes validation (proceeds to empty cards check)."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+    window._year_ctrl.SetValue("2024")
+
+    # With no cards loaded, _start_rename will call get_cards which returns []
+    # Then build_rename_plan([]) returns [], and RenameConfirmDialog opens
+    # We just verify it doesn't show the year validation error
+    with patch("wx.MessageBox") as mock_msg:
+        with patch("app.gui.main_window.RenameConfirmDialog") as mock_dialog:
+            mock_dialog.return_value.ShowModal.return_value = 0  # Cancel
+            mock_dialog.return_value.Destroy = lambda: None
+            window._start_rename()
+            # MessageBox should NOT have been called (year is valid)
+            mock_msg.assert_not_called()
+
+    window._frame.Destroy()
+
+
+# ============================================================================
+# _scan_for_pdfs Tests (lines 704-718)
+# ============================================================================
+
+
+def test_scan_for_pdfs_file(wx_app, tmp_path):
+    """_scan_for_pdfs returns a single PDF file."""
+    window = MainWindow()
+    pdf = tmp_path / "test.pdf"
+    pdf.write_text("fake pdf")
+
+    result = window._scan_for_pdfs(pdf)
+    assert len(result) == 1
+    assert result[0] == pdf.resolve()
+
+    window._frame.Destroy()
+
+
+def test_scan_for_pdfs_non_pdf_file(wx_app, tmp_path):
+    """_scan_for_pdfs returns empty for non-PDF files."""
+    window = MainWindow()
+    txt = tmp_path / "test.txt"
+    txt.write_text("not a pdf")
+
+    result = window._scan_for_pdfs(txt)
+    assert result == []
+
+    window._frame.Destroy()
+
+
+def test_scan_for_pdfs_directory(wx_app, tmp_path):
+    """_scan_for_pdfs recursively scans directory for PDFs."""
+    window = MainWindow()
+    sub = tmp_path / "subdir"
+    sub.mkdir()
+    (tmp_path / "a.pdf").write_text("fake")
+    (sub / "b.pdf").write_text("fake")
+    (sub / "c.txt").write_text("not pdf")
+
+    result = window._scan_for_pdfs(tmp_path)
+    assert len(result) == 2
+    names = [p.name for p in result]
+    assert "a.pdf" in names
+    assert "b.pdf" in names
+
+    window._frame.Destroy()
+
+
+def test_scan_for_pdfs_case_insensitive(wx_app, tmp_path):
+    """_scan_for_pdfs finds .PDF files (case insensitive)."""
+    window = MainWindow()
+    (tmp_path / "upper.PDF").write_text("fake")
+
+    result = window._scan_for_pdfs(tmp_path)
+    assert len(result) == 1
+
+    window._frame.Destroy()
+
+
+# ============================================================================
+# _dict_to_card Tests (lines 887-926)
+# ============================================================================
+
+
+def test_dict_to_card_invalid_confidence(wx_app):
+    """_dict_to_card falls back to NONE for invalid confidence (lines 909-910)."""
+    from app.models.card import Confidence
+
+    window = MainWindow()
+    result_dict = {
+        'pdf_path': '/test.pdf',
+        'file_hash': 'abc123',
+        'family_name': 'Smith',
+        'confidence': 'invalid_value',
+        'method': 'ocr',
+        'alternates': [],
+        'candidates': [],
+        'remove_family': False,
+        'selected_candidate_id': None,
+        'ocr_text': '',
+        'error': None,
+        'preview_image_bytes': None,
+        'page_images_bytes': [],
+    }
+
+    card = window._dict_to_card(result_dict, 0)
+    assert card.confidence == Confidence.NONE
+
+    window._frame.Destroy()
+
+
+def test_dict_to_card_with_error(wx_app):
+    """_dict_to_card sets error and confidence=NONE when error is present."""
+    from app.models.card import Confidence
+
+    window = MainWindow()
+    result_dict = {
+        'pdf_path': '/test.pdf',
+        'file_hash': 'abc123',
+        'family_name': '',
+        'confidence': 'high',
+        'method': 'ocr',
+        'alternates': [],
+        'candidates': [],
+        'remove_family': False,
+        'selected_candidate_id': None,
+        'ocr_text': '',
+        'error': 'Something broke',
+        'preview_image_bytes': None,
+        'page_images_bytes': [],
+    }
+
+    card = window._dict_to_card(result_dict, 0)
+    assert card.error == "Something broke"
+    assert card.confidence == Confidence.NONE
+
+    window._frame.Destroy()
+
+
+# ============================================================================
+# _load_card_state_from_db Tests (lines 1218-1238)
+# ============================================================================
+
+
+def test_load_card_state_from_db_no_hash(wx_app):
+    """_load_card_state_from_db sets NONE confidence when no hash (lines 1218-1221)."""
+    from app.gui.main_window import MainWindow
+    from app.models.card import CardResult, Confidence
+
+    card = CardResult(id=0, file_paths=[Path("/test.pdf")], primary_path=Path("/test.pdf"))
+    card.file_hash = ""
+
+    MainWindow._load_card_state_from_db(card)
+
+    assert card.confidence == Confidence.NONE
+    assert card.ai_analyzed is True
+
+
+def test_load_card_state_from_db_with_state(wx_app):
+    """_load_card_state_from_db populates card from DB state (lines 1224-1235)."""
+    from unittest.mock import patch
+    from app.gui.main_window import MainWindow
+    from app.models.card import CardResult, CardState, CandidateInfo, Confidence
+
+    card = CardResult(id=0, file_paths=[Path("/test.pdf")], primary_path=Path("/test.pdf"))
+    card.file_hash = "abc123"
+
+    mock_state = CardState(
+        display_name="Smith",
+        method="ai",
+        confidence="high",
+        candidates=[CandidateInfo(id=1, family_name="Smith", method="ai", confidence="high")],
+        remove_family=True,
+        selected_candidate_id=1,
+    )
+
+    with patch("app.gui.main_window.get_card_state", return_value=mock_state):
+        MainWindow._load_card_state_from_db(card)
+
+    assert card.family_name == "Smith"
+    assert card.confidence == Confidence.HIGH
+    assert card.method == "ai"
+    assert card.remove_family is True
+    assert card.ai_analyzed is True
+    assert card.manual_override == ""
+
+
+def test_load_card_state_from_db_no_state(wx_app):
+    """_load_card_state_from_db sets ai_analyzed when no state found (line 1237)."""
+    from unittest.mock import patch
+    from app.gui.main_window import MainWindow
+    from app.models.card import CardResult
+
+    card = CardResult(id=0, file_paths=[Path("/test.pdf")], primary_path=Path("/test.pdf"))
+    card.file_hash = "abc123"
+
+    with patch("app.gui.main_window.get_card_state", return_value=None):
+        MainWindow._load_card_state_from_db(card)
+
+    assert card.ai_analyzed is True
+
+
+# ============================================================================
+# _get_card_by_id edge case (line 301)
+# ============================================================================
+
+
+def test_get_card_by_id_not_found(wx_app):
+    """_get_card_by_id returns None for unknown ID (line 301)."""
+    window = MainWindow()
+    assert window._get_card_by_id(999) is None
+    window._frame.Destroy()
+
+
+# ============================================================================
+# _on_folder_filter_change (lines 471-472)
+# ============================================================================
+
+
+def test_on_folder_filter_change(wx_app):
+    """_on_folder_filter_change stores filters and refreshes."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+    with patch.object(window, "_refresh_display"):
+        window._on_folder_filter_change(["/test/folder1"])
+    assert window._current_folder_filters == ["/test/folder1"]
+
+    window._frame.Destroy()
+
+
+# ============================================================================
+# _load_paths Tests (lines 745-780)
+# ============================================================================
+
+
+def test_load_paths_skips_already_loaded(wx_app, tmp_path):
+    """_load_paths skips files that are already loaded."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+    pdf = tmp_path / "test.pdf"
+    pdf.write_text("fake")
+    resolved = pdf.resolve()
+
+    # Pretend it's already loaded
+    window._hash_by_path[resolved] = "existing_hash"
+
+    with patch.object(window, "_start_processing") as mock_proc:
+        window._load_paths([pdf], auto_process=True)
+        mock_proc.assert_not_called()  # Nothing new to process
+
+    window._frame.Destroy()
+
+
+def test_load_paths_no_pdfs_shows_warning(wx_app, tmp_path):
+    """_load_paths shows warning when no PDFs found."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+    txt = tmp_path / "test.txt"
+    txt.write_text("not a pdf")
+
+    with patch.object(window, "_show_info_message") as mock_msg:
+        window._load_paths([txt], auto_process=True)
+        mock_msg.assert_called_once()
+        assert "No PDF files found" in mock_msg.call_args[0][0]
+
+    window._frame.Destroy()
+
+
+# ============================================================================
+# _on_key_press Tests (lines 667-693)
+# ============================================================================
+
+
+def test_on_key_press_escape_clears_search(wx_app):
+    """Escape key clears search when search has focus."""
+    window = MainWindow()
+    window._search_ctrl.SetValue("test query")
+    window._search_ctrl.SetFocus()
+
+    event = Mock(spec=wx.KeyEvent)
+    event.GetKeyCode.return_value = wx.WXK_ESCAPE
+
+    # Mock FindFocus to return search ctrl
+    from unittest.mock import patch
+    with patch.object(window._frame, "FindFocus", return_value=window._search_ctrl):
+        window._on_key_press(event)
+
+    assert window._search_ctrl.GetValue() == ""
+
+    window._frame.Destroy()
+
+
+def test_on_key_press_skip_in_text_ctrl(wx_app):
+    """Keys in text control are passed through (event.Skip)."""
+    window = MainWindow()
+
+    text_ctrl = wx.TextCtrl(window._frame)
+    event = Mock(spec=wx.KeyEvent)
+    event.GetKeyCode.return_value = ord('A')
+
+    from unittest.mock import patch
+    with patch.object(window._frame, "FindFocus", return_value=text_ctrl):
+        window._on_key_press(event)
+        event.Skip.assert_called_once()
+
+    window._frame.Destroy()
+
+
+def test_on_key_press_up_down_arrows(wx_app):
+    """Up/Down arrows navigate cards."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+    event = Mock(spec=wx.KeyEvent)
+
+    with patch.object(window._frame, "FindFocus", return_value=window._frame):
+        with patch.object(window._review_panel, "select_prev_card") as mock_prev:
+            event.GetKeyCode.return_value = wx.WXK_UP
+            window._on_key_press(event)
+            mock_prev.assert_called_once()
+
+        with patch.object(window._review_panel, "select_next_card") as mock_next:
+            event.GetKeyCode.return_value = wx.WXK_DOWN
+            window._on_key_press(event)
+            mock_next.assert_called_once()
+
+    window._frame.Destroy()
+
+
+def test_on_key_press_left_right_arrows(wx_app):
+    """Left/Right arrows navigate preview pages."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+    event = Mock(spec=wx.KeyEvent)
+
+    with patch.object(window._frame, "FindFocus", return_value=window._frame):
+        with patch.object(window._preview_panel, "prev_page") as mock_prev:
+            event.GetKeyCode.return_value = wx.WXK_LEFT
+            window._on_key_press(event)
+            mock_prev.assert_called_once()
+
+        with patch.object(window._preview_panel, "next_page") as mock_next:
+            event.GetKeyCode.return_value = wx.WXK_RIGHT
+            window._on_key_press(event)
+            mock_next.assert_called_once()
+
+    window._frame.Destroy()
+
+
+# ============================================================================
+# _on_card_select edge cases (lines 1052-1061)
+# ============================================================================
+
+
+def test_on_card_select_missing_card(wx_app):
+    """_on_card_select does nothing when card_id not found (line 1052)."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+    with patch.object(window._preview_panel, "clear") as mock_clear:
+        window._on_card_select(999)  # Non-existent
+        mock_clear.assert_not_called()  # Just returns
+
+    window._frame.Destroy()
+
+
+def test_on_card_select_none(wx_app):
+    """_on_card_select clears preview when card_id is None."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+    with patch.object(window._preview_panel, "clear") as mock_clear:
+        window._on_card_select(None)
+        mock_clear.assert_called_once()
+
+    window._frame.Destroy()
+
+
+# ============================================================================
+# _on_name_change edge case (line 1067)
+# ============================================================================
+
+
+def test_on_name_change_missing_card(wx_app):
+    """_on_name_change returns early for unknown card_id (line 1067)."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+    with patch("app.gui.main_window.set_manual_name") as mock_db:
+        window._on_name_change(999, "Smith")
+        mock_db.assert_not_called()
+
+    window._frame.Destroy()
+
+
+# ============================================================================
+# utils: create_text_ctrl callback (line 132)
+# ============================================================================
+
+
+def test_create_text_ctrl_with_callback(wx_app):
+    """create_text_ctrl binds callback on EVT_TEXT (line 132)."""
+    from app.gui.utils import create_text_ctrl
+
+    frame = wx.Frame(None)
+    called = []
+
+    ctrl = create_text_ctrl(frame, value="initial", callback=lambda s: called.append(s))
+    ctrl.SetValue("new value")
+    wx.GetApp().Yield()
+
+    assert len(called) >= 1
+    assert "new value" in called
+
+    frame.Destroy()
+
+
+# ============================================================================
+# icons: load_cursor_from_symbol exception handler (lines 180-183)
+# ============================================================================
+
+
+def test_load_cursor_from_symbol_exception_returns_none(wx_app):
+    """load_cursor_from_symbol returns None when rendering raises (lines 180-183)."""
+    from unittest.mock import patch
+    from app.gui.icons import load_cursor_from_symbol
+
+    with patch("app.gui.icons._render_sf_symbol_to_png", side_effect=RuntimeError("test")):
+        result = load_cursor_from_symbol("test.symbol")
+    assert result is None
+
+
+# ============================================================================
+# icons: load_sf_symbol bad wx.Image returns None (lines 220-221)
+# ============================================================================
+
+
+def test_load_sf_symbol_bad_image_caches_none(wx_app):
+    """load_sf_symbol caches None when wx.Image is not OK (lines 220-221)."""
+    from unittest.mock import patch
+    from app.gui import icons
+
+    # Clear cache to avoid interference
+    test_key = ("_test_bad_img", 14, "#000000", 2, 5)
+    icons._cache.pop(test_key, None)
+
+    # Suppress wx "Unknown image data format" warning dialog
+    wx.Log.EnableLogging(False)
+    try:
+        with patch("app.gui.icons._render_sf_symbol_to_png", return_value=(b"not-a-png", 2)):
+            result = icons.load_sf_symbol("_test_bad_img", 14, "#000000", 2)
+    finally:
+        wx.Log.EnableLogging(True)
+
+    assert result is None
+    assert test_key in icons._cache
+    assert icons._cache[test_key] is None
+
+    # Clean up
+    icons._cache.pop(test_key, None)

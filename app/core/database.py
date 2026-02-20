@@ -87,7 +87,7 @@ def get_session():
     return _Session()
 
 
-def _ensure_schema():
+def _ensure_schema() -> None:
     """Check schema version; if mismatch, drop all tables and recreate."""
     expected = _compute_schema_version()
     inspector = inspect(_engine)
@@ -127,7 +127,7 @@ def _ensure_schema():
         session.close()
 
 
-def reset_database():
+def reset_database() -> None:
     """Drop all tables and recreate from scratch."""
     global _engine, _Session
     # Ensure engine exists

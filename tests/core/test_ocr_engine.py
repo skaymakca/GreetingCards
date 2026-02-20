@@ -87,3 +87,54 @@ class TestExtractTextAllPages:
         images = [_make_test_image(), _make_test_image(), _make_test_image()]
         result = extract_text_all_pages(images)
         assert result == "Page 1\n\nPage 3"
+
+
+class TestBundledTesseractPathResolution:
+    """Tests for bundled app Tesseract path resolution (lines 10-19)."""
+
+    def test_bundled_finds_homebrew_arm(self):
+        """When bundled and no tesseract in PATH, finds Apple Silicon Homebrew path."""
+        import importlib
+        import app.core.ocr_engine as ocr_mod
+
+        with patch("app.core.paths.is_bundled", return_value=True), \
+             patch("shutil.which", return_value=None), \
+             patch("os.path.isfile") as mock_isfile, \
+             patch("os.access") as mock_access:
+            mock_isfile.side_effect = lambda p: p == "/opt/homebrew/bin/tesseract"
+            mock_access.side_effect = lambda p, _: p == "/opt/homebrew/bin/tesseract"
+            importlib.reload(ocr_mod)
+
+            assert ocr_mod.pytesseract.pytesseract.tesseract_cmd == "/opt/homebrew/bin/tesseract"
+
+        # Restore module to clean state
+        importlib.reload(ocr_mod)
+
+    def test_bundled_finds_intel_homebrew(self):
+        """When ARM path doesn't exist, falls back to Intel Homebrew path."""
+        import importlib
+        import app.core.ocr_engine as ocr_mod
+
+        with patch("app.core.paths.is_bundled", return_value=True), \
+             patch("shutil.which", return_value=None), \
+             patch("os.path.isfile") as mock_isfile, \
+             patch("os.access") as mock_access:
+            mock_isfile.side_effect = lambda p: p == "/usr/local/bin/tesseract"
+            mock_access.side_effect = lambda p, _: p == "/usr/local/bin/tesseract"
+            importlib.reload(ocr_mod)
+
+            assert ocr_mod.pytesseract.pytesseract.tesseract_cmd == "/usr/local/bin/tesseract"
+
+        importlib.reload(ocr_mod)
+
+    def test_not_bundled_skips_path_search(self):
+        """When not bundled, does not search for tesseract binary."""
+        import importlib
+        import app.core.ocr_engine as ocr_mod
+
+        with patch("app.core.paths.is_bundled", return_value=False), \
+             patch("os.path.isfile") as mock_isfile:
+            importlib.reload(ocr_mod)
+            mock_isfile.assert_not_called()
+
+        importlib.reload(ocr_mod)

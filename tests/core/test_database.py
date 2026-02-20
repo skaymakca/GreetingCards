@@ -60,6 +60,9 @@ def in_memory_db():
 
     yield engine
 
+    # Clean up
+    engine.dispose()
+
     # Restore
     db_mod._engine = orig_engine
     db_mod._Session = orig_session

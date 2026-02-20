@@ -1,19 +1,24 @@
 """Tests for wxPython dialog components."""
 
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 import pytest
 import wx
 import wx.dataview as dv
 from app.gui.dialogs import (
     _display_path,
+    _dismiss_on_key,
     TableModel,
     ProgressDialog,
     RenameConfirmDialog,
     ErrorListDialog,
     CompletionDialog,
 )
-from app.models.card import RenamePlanItem, RenameResult
+from app.models.card import (
+    RenamePlanItem, RenameResult,
+    STATUS_OK, STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR, STATUS_DUPLICATE,
+)
 
 
 # --- _display_path ---
@@ -370,20 +375,20 @@ class TestRenameConfirmDialog:
         return items
 
     def test_creation(self, wx_app, wx_frame):
-        plan = self._make_plan(["ok", "skip_no_name"])
+        plan = self._make_plan([STATUS_OK, STATUS_SKIP_NO_NAME])
         dlg = RenameConfirmDialog(wx_frame, plan, "2025")
         assert dlg.GetTitle() == "Confirm Rename"
         assert dlg.result is False
         dlg.Destroy()
 
     def test_all_ok(self, wx_app, wx_frame):
-        plan = self._make_plan(["ok", "ok", "ok"])
+        plan = self._make_plan([STATUS_OK, STATUS_OK, STATUS_OK])
         dlg = RenameConfirmDialog(wx_frame, plan, "2025")
         assert dlg is not None
         dlg.Destroy()
 
     def test_with_duplicates_and_errors(self, wx_app, wx_frame):
-        plan = self._make_plan(["ok", "duplicate", "skip_error", "skip_same"])
+        plan = self._make_plan([STATUS_OK, STATUS_DUPLICATE, STATUS_SKIP_ERROR, STATUS_SKIP_SAME])
         dlg = RenameConfirmDialog(wx_frame, plan, "2025")
         assert dlg is not None
         dlg.Destroy()
@@ -391,8 +396,8 @@ class TestRenameConfirmDialog:
     def test_multi_directory(self, wx_app, wx_frame):
         """Plans spanning multiple directories show full paths."""
         plan = [
-            RenamePlanItem(Path("/dir1/card1.pdf"), Path("/dir1/Smith.pdf"), "ok"),
-            RenamePlanItem(Path("/dir2/card2.pdf"), Path("/dir2/Jones.pdf"), "ok"),
+            RenamePlanItem(Path("/dir1/card1.pdf"), Path("/dir1/Smith.pdf"), STATUS_OK),
+            RenamePlanItem(Path("/dir2/card2.pdf"), Path("/dir2/Jones.pdf"), STATUS_OK),
         ]
         dlg = RenameConfirmDialog(wx_frame, plan, "2025")
         assert dlg is not None
@@ -401,8 +406,8 @@ class TestRenameConfirmDialog:
     def test_single_directory(self, wx_app, wx_frame):
         """Single directory plan shows just filenames."""
         plan = [
-            RenamePlanItem(Path("/cards/a.pdf"), Path("/cards/b.pdf"), "ok"),
-            RenamePlanItem(Path("/cards/c.pdf"), Path("/cards/d.pdf"), "ok"),
+            RenamePlanItem(Path("/cards/a.pdf"), Path("/cards/b.pdf"), STATUS_OK),
+            RenamePlanItem(Path("/cards/c.pdf"), Path("/cards/d.pdf"), STATUS_OK),
         ]
         dlg = RenameConfirmDialog(wx_frame, plan, "2025")
         assert dlg is not None
@@ -487,4 +492,126 @@ class TestCompletionDialog:
         ]
         dlg = CompletionDialog(wx_frame, "Done", results)
         assert dlg is not None
+        dlg.Destroy()
+
+
+# --- _dismiss_on_key ---
+
+@pytest.mark.gui
+class TestDismissOnKey:
+    """Tests for _dismiss_on_key() helper (lines 82-88)."""
+
+    def test_return_key_ends_modal(self, wx_app, wx_frame):
+        dlg = wx.Dialog(wx_frame)
+        event = Mock(spec=wx.KeyEvent)
+        event.GetKeyCode.return_value = wx.WXK_RETURN
+        with patch.object(dlg, "EndModal") as mock_end:
+            _dismiss_on_key(dlg, event)
+            mock_end.assert_called_once_with(wx.ID_OK)
+        event.Skip.assert_not_called()
+        dlg.Destroy()
+
+    def test_escape_key_ends_modal(self, wx_app, wx_frame):
+        dlg = wx.Dialog(wx_frame)
+        event = Mock(spec=wx.KeyEvent)
+        event.GetKeyCode.return_value = wx.WXK_ESCAPE
+        with patch.object(dlg, "EndModal") as mock_end:
+            _dismiss_on_key(dlg, event)
+            mock_end.assert_called_once_with(wx.ID_OK)
+        event.Skip.assert_not_called()
+        dlg.Destroy()
+
+    def test_numpad_enter_ends_modal(self, wx_app, wx_frame):
+        dlg = wx.Dialog(wx_frame)
+        event = Mock(spec=wx.KeyEvent)
+        event.GetKeyCode.return_value = wx.WXK_NUMPAD_ENTER
+        with patch.object(dlg, "EndModal") as mock_end:
+            _dismiss_on_key(dlg, event)
+            mock_end.assert_called_once_with(wx.ID_OK)
+        event.Skip.assert_not_called()
+        dlg.Destroy()
+
+    def test_other_key_skips(self, wx_app, wx_frame):
+        dlg = wx.Dialog(wx_frame)
+        event = Mock(spec=wx.KeyEvent)
+        event.GetKeyCode.return_value = ord('A')
+        _dismiss_on_key(dlg, event)
+        event.Skip.assert_called_once()
+        dlg.Destroy()
+
+
+# --- ProgressDialog.finish ---
+
+@pytest.mark.gui
+class TestProgressDialogFinish:
+    """Tests for ProgressDialog.finish() (lines 160-161)."""
+
+    def test_finish_destroys_dialog(self, wx_app, wx_frame):
+        dlg = ProgressDialog(wx_frame, "Test", 5)
+        with patch.object(dlg, "EndModal") as mock_end:
+            dlg.finish()
+            mock_end.assert_called_once_with(wx.ID_OK)
+
+
+# --- RenameConfirmDialog handlers ---
+
+@pytest.mark.gui
+class TestRenameConfirmDialogHandlers:
+    """Tests for RenameConfirmDialog confirm/cancel/key handlers (lines 287-305)."""
+
+    def _make_plan(self):
+        return [
+            RenamePlanItem(Path("/cards/a.pdf"), Path("/cards/b.pdf"), STATUS_OK),
+        ]
+
+    def test_on_confirm_sets_result_true(self, wx_app, wx_frame):
+        dlg = RenameConfirmDialog(wx_frame, self._make_plan(), "2025")
+        assert dlg.result is False
+        # _on_confirm sets result=True
+        try:
+            dlg._on_confirm(None)
+        except wx.wxAssertionError:
+            pass  # EndModal raises when not shown modally
+        assert dlg.result is True
+        dlg.Destroy()
+
+    def test_on_cancel_sets_result_false(self, wx_app, wx_frame):
+        dlg = RenameConfirmDialog(wx_frame, self._make_plan(), "2025")
+        dlg.result = True  # Set it first
+        try:
+            dlg._on_cancel(None)
+        except wx.wxAssertionError:
+            pass
+        assert dlg.result is False
+        dlg.Destroy()
+
+    def test_on_key_return_confirms(self, wx_app, wx_frame):
+        dlg = RenameConfirmDialog(wx_frame, self._make_plan(), "2025")
+        event = Mock(spec=wx.KeyEvent)
+        event.GetKeyCode.return_value = wx.WXK_RETURN
+        try:
+            dlg._on_key(event)
+        except wx.wxAssertionError:
+            pass
+        assert dlg.result is True
+        dlg.Destroy()
+
+    def test_on_key_escape_cancels(self, wx_app, wx_frame):
+        dlg = RenameConfirmDialog(wx_frame, self._make_plan(), "2025")
+        dlg.result = True
+        event = Mock(spec=wx.KeyEvent)
+        event.GetKeyCode.return_value = wx.WXK_ESCAPE
+        try:
+            dlg._on_key(event)
+        except wx.wxAssertionError:
+            pass
+        assert dlg.result is False
+        dlg.Destroy()
+
+    def test_on_key_other_skips(self, wx_app, wx_frame):
+        dlg = RenameConfirmDialog(wx_frame, self._make_plan(), "2025")
+        event = Mock(spec=wx.KeyEvent)
+        event.GetKeyCode.return_value = ord('X')
+        dlg._on_key(event)
+        event.Skip.assert_called_once()
         dlg.Destroy()

@@ -178,8 +178,8 @@ def load_cursor_from_symbol(
         return wx.Cursor(wx_image)
 
     except Exception as e:
-        # Log error and return None for fallback
-        print(f"Warning: Failed to load cursor from SF Symbol '{name}': {e}")
+        import logging
+        logging.getLogger(__name__).warning("Failed to load cursor from SF Symbol '%s': %s", name, e)
         return None
 
 

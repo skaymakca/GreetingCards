@@ -1,14 +1,18 @@
 """wxPython Main Window for Greeting Cards application."""
 
+import asyncio
 import io
+import logging
 import sys
+import threading
+from datetime import datetime
+from pathlib import Path
+from typing import Callable
+
 import wx
 import wx.adv
-from pathlib import Path
-from datetime import datetime
-from typing import Callable
-import threading
-import asyncio
+
+logger = logging.getLogger(__name__)
 
 from app.gui import styles
 from app.gui.styles import Color, Font
@@ -444,7 +448,7 @@ class MainWindow:
         """Filter cards as user types in search field."""
         self._refresh_display()
 
-    def _on_search_cancel(self, event) -> None:
+    def _on_search_cancel(self, event: wx.CommandEvent) -> None:
         """Clear filter when cancel button clicked."""
         self._search_ctrl.ChangeValue("")
         self._refresh_display()
@@ -873,7 +877,7 @@ class MainWindow:
                     wx.CallAfter(self._update_processing_progress, i + 1, total, card.filename)
 
         except Exception as e:
-            print(f"Multiprocessing error: {e}")
+            logger.warning("Multiprocessing error: %s", e)
             # Fallback to sequential processing
             self._process_cards_sequential()
             return
@@ -1076,6 +1080,25 @@ class MainWindow:
             # Save to database
             if card.file_hash:
                 set_manual_name(card.file_hash, new_name, card.remove_family)
+        else:
+            # User cleared the name — revert to pre-manual state
+            card.manual_override = ""
+            if card.original_confidence is not None:
+                card.confidence = card.original_confidence
+                card.original_confidence = None
+            elif card.confidence == Confidence.MANUAL:
+                card.confidence = Confidence.NONE
+            # Revert method based on remaining data
+            if card.ai_analyzed:
+                card.method = "ai"
+            elif card.family_name:
+                card.method = "ocr"
+            else:
+                card.method = "missing"
+
+            # Clear manual name in database
+            if card.file_hash:
+                set_manual_name(card.file_hash, "", card.remove_family)
 
         # Update review panel
         self._review_panel.update_card(card_id, card)
@@ -1352,8 +1375,8 @@ class MainWindow:
         cards = self._review_panel.get_cards()
         year_str = self._year_ctrl.GetValue().strip()
 
-        if not year_str:
-            wx.MessageBox("Please enter a year.", "No Year", wx.OK | wx.ICON_WARNING, self._frame)
+        if not year_str or not year_str.isdigit() or len(year_str) != 4:
+            wx.MessageBox("Please enter a valid 4-digit year.", "Invalid Year", wx.OK | wx.ICON_WARNING, self._frame)
             return
 
         # Build rename plan
@@ -1379,10 +1402,52 @@ class MainWindow:
             completion.ShowModal()
             completion.Destroy()
 
-            # Clear everything
-            self._clear_all()
+            # Remove successfully processed paths from cards
+            self._remove_completed_results(results)
 
         dialog.Destroy()
+
+    def _remove_completed_results(self, results: list) -> None:
+        """Remove successfully renamed/skip_same paths from cards; drop empty cards.
+
+        Paths from results with status "Renamed", "Already named correctly",
+        or duplicates are considered resolved. Paths that failed or had no name
+        are kept so the user can address them.
+        """
+        # Collect paths to remove (use new_path — that's where the file is now)
+        resolved_messages = {"Renamed", "Already named correctly"}
+        paths_to_remove: set[Path] = set()
+        for r in results:
+            if r.success and r.message in resolved_messages:
+                paths_to_remove.add(r.new_path)
+
+        if not paths_to_remove:
+            return
+
+        # Remove paths from cards and tracking dicts
+        for path in paths_to_remove:
+            file_hash = self._hash_by_path.pop(path, None)
+            if path in self._pdf_files:
+                self._pdf_files.remove(path)
+            if file_hash and file_hash in self._cards_by_hash:
+                card = self._cards_by_hash[file_hash]
+                if path in card.file_paths:
+                    card.file_paths.remove(path)
+                # Remove card if it has no remaining paths
+                if not card.file_paths:
+                    del self._cards_by_hash[file_hash]
+
+        # Rebuild folder list and refresh display
+        self._sidebar.update_folders(self._derive_folders())
+        self._current_folder_filters = self._sidebar.get_selected_folder_filters()
+        self._refresh_display()
+
+        # Disable toolbar tools if no cards remain
+        if not self._cards_by_hash:
+            self._toolbar.EnableTool(self._ai_all_id, False)
+            self._toolbar.EnableTool(self._rename_id, False)
+            self._toolbar.EnableTool(self._clear_id, False)
+            self._search_ctrl.SetValue("")
 
     def _show_info_message(self, message: str, icon: int = wx.ICON_INFORMATION, duration_ms: int = 4000) -> None:
         """Show notification in sidebar bottom.

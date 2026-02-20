@@ -168,7 +168,7 @@ class CardListModel(dv.PyDataViewModel):
         elif col == 1:
             if len(card.file_paths) > 1:
                 # macOS system blue for multi-path indicator
-                attr.SetColour(wx.Colour(0, 122, 255))
+                attr.SetColour(Color.ACCENT)
                 return True
             return False
 
@@ -844,7 +844,7 @@ class ReviewPanelMasterDetail(wx.Panel):
             return
         w, h = self.GetSize()
         pen = gc.CreatePen(
-            wx.GraphicsPenInfo(wx.Colour(0, 122, 255)).Width(3)
+            wx.GraphicsPenInfo(Color.ACCENT).Width(3)
         )
         gc.SetPen(pen)
         gc.SetBrush(wx.NullBrush)

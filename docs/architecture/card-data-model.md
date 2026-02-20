@@ -124,7 +124,7 @@ Cards accumulate from multiple sources. `_load_paths()`:
 - Appends to `_pdf_files`, does NOT clear existing cards
 - Processes only new PDFs
 
-`_clear_all()` is the only way to reset — clears all state, sidebar, preview.
+`_clear_all()` resets everything — clears all state, sidebar, preview. Also triggered by the Clear toolbar button.
 
 ## Rename Flow
 
@@ -133,6 +133,13 @@ After renaming, `_hash_by_path` is updated to map new paths to the same hash:
 file_hash = self._hash_by_path.pop(result.old_path)
 self._hash_by_path[result.new_path] = file_hash
 ```
+
+### Post-Rename Selective Removal
+After the completion dialog, `_remove_completed_results()` selectively cleans up:
+- **Removed:** Paths from results with "Renamed" or "Already named correctly" status — these are resolved.
+- **Kept:** Paths that failed (OS errors, race conditions) or had no name extracted (`skip_no_name`) / processing errors (`skip_error`).
+- If removing a path leaves a card with no remaining `file_paths`, the card is deleted from `_cards_by_hash`.
+- Folder list and display are refreshed; empty state overlay shows only if all cards are gone.
 
 ## Gotchas
 

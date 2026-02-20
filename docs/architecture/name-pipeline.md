@@ -162,7 +162,10 @@ if new_path == file_path:
 ```
 
 ### Execution
-`execute_rename_plan()` performs actual renames and updates each card's `file_paths` and `primary_path` in-place for consistency.
+`execute_rename_plan()` performs actual renames and updates each card's `file_paths` and `primary_path` in-place for consistency. Each `RenameResult` carries a `card` back-reference (from the plan item) so the caller can trace results back to their source cards.
+
+### Post-Rename Cleanup
+`MainWindow._remove_completed_results()` selectively removes resolved paths (renamed or already correct) from cards. Cards with no remaining paths are deleted. Failed or unresolved paths (no name, errors) are kept for the user to address.
 
 ## Gotchas
 

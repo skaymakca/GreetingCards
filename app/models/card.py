@@ -15,27 +15,33 @@ class Confidence(Enum):
     MANUAL = "manual"
     NONE = "none"
 
+    _COLOR_MAP: dict[Confidence, str]
+    _TOOLTIP_MAP: dict[Confidence, str]
+
     def color(self) -> str:
         """Return the color for this confidence level."""
-        colors = {
-            Confidence.HIGH: "#34C759",      # SUCCESS green
-            Confidence.MEDIUM: "#FF9500",    # WARNING orange
-            Confidence.LOW: "#FF3B30",       # ERROR red
-            Confidence.MANUAL: "#1E90FF",    # MANUAL_BLUE
-            Confidence.NONE: "#6E6E73",      # TEXT_SECONDARY gray
-        }
-        return colors[self]
+        return self._COLOR_MAP[self]
 
     def tooltip(self) -> str:
         """Return the tooltip description for this confidence level."""
-        tooltips = {
-            Confidence.HIGH: "High confidence — strong pattern match or AI result",
-            Confidence.MEDIUM: "Medium confidence — partial pattern match",
-            Confidence.LOW: "Low confidence — weak/fallback match",
-            Confidence.MANUAL: "Manually entered name",
-            Confidence.NONE: "No name extracted",
-        }
-        return tooltips[self]
+        return self._TOOLTIP_MAP[self]
+
+
+# Class-level lookup tables (avoid dict recreation on every call)
+Confidence._COLOR_MAP = {
+    Confidence.HIGH: "#34C759",      # SUCCESS green
+    Confidence.MEDIUM: "#FF9500",    # WARNING orange
+    Confidence.LOW: "#FF3B30",       # ERROR red
+    Confidence.MANUAL: "#1E90FF",    # MANUAL_BLUE
+    Confidence.NONE: "#6E6E73",      # TEXT_SECONDARY gray
+}
+Confidence._TOOLTIP_MAP = {
+    Confidence.HIGH: "High confidence — strong pattern match or AI result",
+    Confidence.MEDIUM: "Medium confidence — partial pattern match",
+    Confidence.LOW: "Low confidence — weak/fallback match",
+    Confidence.MANUAL: "Manually entered name",
+    Confidence.NONE: "No name extracted",
+}
 
 
 @dataclass
@@ -65,12 +71,20 @@ class NameMatch:
     confidence: Confidence
 
 
+# Rename plan status constants
+STATUS_OK = "ok"
+STATUS_SKIP_NO_NAME = "skip_no_name"
+STATUS_SKIP_SAME = "skip_same"
+STATUS_SKIP_ERROR = "skip_error"
+STATUS_DUPLICATE = "duplicate"
+
+
 @dataclass
 class RenamePlanItem:
     """Item in a rename plan."""
     old_path: Path
     new_path: Path
-    status: str  # 'ok' | 'skip_no_name' | 'skip_same' | 'skip_error' | 'duplicate'
+    status: str  # STATUS_OK | STATUS_SKIP_NO_NAME | STATUS_SKIP_SAME | STATUS_SKIP_ERROR | STATUS_DUPLICATE
     card: CardResult | None = None  # Back-reference to source card
 
 
@@ -81,14 +95,14 @@ class RenameResult:
     new_path: Path
     success: bool
     message: str
-
+    card: CardResult | None = None  # Back-reference to source card
 
 
 @dataclass
 class CardResult:
     id: int  # Unique, monotonically increasing identifier
     file_paths: list[Path] = field(default_factory=list)  # All paths with same content
-    primary_path: Path = field(default_factory=lambda: Path())  # First path found
+    primary_path: Path = field(default_factory=Path)  # First path found
     family_name: str = ""
     confidence: Confidence = Confidence.NONE
     alternates: list[str] = field(default_factory=list)  # Just names for backward compat

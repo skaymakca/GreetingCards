@@ -91,8 +91,38 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `app/core/config.py`, `app/core/paths.py` | `docs/architecture/config-and-preferences.md` |
 | `app/gui/settings_dialog.py` | `docs/architecture/config-and-preferences.md` |
 
+### Test Count
+When adding or removing tests, update the test count in `README.md` (search for "tests** covering") to match the actual number from `pytest` output.
+
 ### Keeping Docs in Sync
 
 - **After modifying code:** If your changes affect control flow, data structures, callback contracts, or gotchas described in an architecture doc, update the doc in the same work session. Don't leave stale docs behind.
 - **If docs contradict code:** The code is the source of truth. Update the doc to match. If the code seems wrong based on the doc's described intent, flag the discrepancy to the user before changing either — it may be an out-of-date doc or a misaligned implementation that needs discussion.
 - **New subsystems:** If you add a major new subsystem (new panel, new processing pipeline, etc.), create a new doc in `docs/architecture/` and add it to the table above.
+
+---
+
+## Code Quality Audit Checklist
+
+When asked to audit the codebase, check for these categories across all files in `app/` and `tests/`:
+
+### What to Look For
+1. **Missing tests** — public methods/functions without tests, untested error paths, shallow happy-path-only coverage
+2. **Unused code** — dead imports, unreachable code paths, unused functions/variables
+3. **Missing type annotations** — functions missing `-> None` or return types, untyped parameters
+4. **Repeated code** — duplicate logic across files that should be extracted to shared helpers
+5. **Unpythonic patterns** — `dict.__init__(self)` instead of `super().__init__()`, `lambda: Path()` instead of `Path`, `count == 0` instead of `not count`, etc.
+6. **Magic constants** — hardcoded strings, pixel values, colors, or numbers that should be named constants
+7. **Hardcoded colors** — `wx.Colour(...)` literals that duplicate values in `app/gui/styles.py`
+8. **print() instead of logging** — use `logging.getLogger(__name__)` instead
+9. **Incomplete logic** — missing else branches, unhandled empty/None cases, no input validation
+10. **Bugs and logic errors** — race conditions, off-by-one errors, unbounded loops, case-sensitivity mismatches, stale state after mutations, silent exception swallowing that hides real failures
+11. **Stale Makefile** — targets referencing outdated paths, wrong Python versions, missing new entry points, or commands that no longer match the project structure
+
+### How to Run
+Launch parallel Explore agents for each area:
+- `app/core/` — all core modules
+- `app/gui/main_window.py` — largest file, audit separately
+- `app/gui/` (excluding main_window) — all other GUI modules
+- `app/models/card.py` — data model
+- `tests/` — coverage gap analysis (compare test files against source modules)

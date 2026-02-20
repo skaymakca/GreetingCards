@@ -122,7 +122,7 @@ class FilterSidebar(wx.Panel):
 
     # --- Notification area ---
 
-    _NOTIFY_COLOR_ERROR = wx.Colour(255, 59, 48)
+    _NOTIFY_COLOR_ERROR = styles.Color.ERROR
 
     def show_notification(self, message: str, icon: int = wx.ICON_INFORMATION, duration_ms: int = 4000) -> None:
         """Show a notification message at the bottom of the sidebar."""
