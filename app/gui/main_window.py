@@ -27,7 +27,7 @@ from app.gui.icons import load_sf_symbol, load_menu_icon
 from app.gui.api_key_dialog import show_api_key_dialog
 from app.models.card import CardResult, Confidence
 from app.core.pdf_renderer import render_all_pages
-from app.core.ocr_engine import extract_text_all_pages
+from app.core.ocr_engine import extract_text_all_pages, is_tesseract_available
 from app.core.ai_analyzer import analyze_card_with_ai_async, format_ai_error
 from app.core.config import get_api_key
 from app.core.renamer import build_rename_plan, execute_rename_plan
@@ -1138,12 +1138,29 @@ class MainWindow:
         self._toolbar.EnableTool(self._ai_all_id, True)
         self._toolbar.EnableTool(self._clear_id, True)
 
-        # Show success message with auto-dismiss
+        # Show success/warning message
         count = len(self._cards_by_hash)
-        self._show_info_message(
-            f"Processing complete\n{count} card{'s' if count != 1 else ''} loaded",
-            wx.ICON_INFORMATION
-        )
+        if not is_tesseract_available():
+            self._show_info_message(
+                f"{count} card{'s' if count != 1 else ''} loaded without OCR\n"
+                "Tesseract not found!\nInstall with:\nbrew install tesseract",
+                wx.ICON_WARNING,
+                duration_ms=0,
+            )
+            wx.MessageBox(
+                "Tesseract OCR is not installed.\n\n"
+                "Cards have been loaded but text extraction was skipped. "
+                "AI analysis can still be used.\n\n"
+                "To enable OCR, install Tesseract and restart:\n"
+                "  brew install tesseract",
+                "Tesseract Not Found",
+                wx.OK | wx.ICON_WARNING,
+            )
+        else:
+            self._show_info_message(
+                f"Processing complete\n{count} card{'s' if count != 1 else ''} loaded",
+                wx.ICON_INFORMATION,
+            )
 
     def _on_card_select(self, card_id: int | None) -> None:
         """Handle card selection - update preview panel."""

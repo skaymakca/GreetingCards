@@ -18,6 +18,28 @@ if is_bundled() and not shutil.which("tesseract"):
             pytesseract.pytesseract.tesseract_cmd = _p
             break
 
+_tesseract_available: bool | None = None  # None = not yet checked
+
+
+def is_tesseract_available() -> bool:
+    """Check if Tesseract is installed. Result is cached after first call."""
+    global _tesseract_available
+    if _tesseract_available is not None:
+        return _tesseract_available
+
+    cmd = pytesseract.pytesseract.tesseract_cmd or "tesseract"
+    if shutil.which(cmd):
+        _tesseract_available = True
+        return True
+
+    try:
+        pytesseract.get_tesseract_version()
+        _tesseract_available = True
+    except pytesseract.TesseractNotFoundError:
+        _tesseract_available = False
+
+    return _tesseract_available
+
 
 def preprocess_image(image: Image.Image) -> Image.Image:
     """Preprocess image for better OCR results."""
@@ -33,6 +55,8 @@ def preprocess_image(image: Image.Image) -> Image.Image:
 
 def extract_text(image: Image.Image) -> str:
     """Run OCR on an image and return extracted text."""
+    if not is_tesseract_available():
+        return ""
     processed = preprocess_image(image)
     text = pytesseract.image_to_string(processed, config="--psm 6")
     return text.strip()
@@ -40,6 +64,8 @@ def extract_text(image: Image.Image) -> str:
 
 def extract_text_all_pages(images: list[Image.Image]) -> str:
     """Run OCR on multiple page images and combine results."""
+    if not is_tesseract_available():
+        return ""
     texts = []
     for img in images:
         text = extract_text(img)

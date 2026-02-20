@@ -4,7 +4,10 @@ from unittest.mock import patch, MagicMock
 import pytest
 from PIL import Image
 
-from app.core.ocr_engine import preprocess_image, extract_text, extract_text_all_pages
+import app.core.ocr_engine as ocr_module
+from app.core.ocr_engine import (
+    preprocess_image, extract_text, extract_text_all_pages, is_tesseract_available,
+)
 
 
 def _make_test_image(width=100, height=50, color="white"):
@@ -138,3 +141,43 @@ class TestBundledTesseractPathResolution:
             mock_isfile.assert_not_called()
 
         importlib.reload(ocr_mod)
+
+
+class TestTesseractAvailability:
+    """Tests for is_tesseract_available() and graceful degradation."""
+
+    def setup_method(self):
+        ocr_module._tesseract_available = None
+
+    def teardown_method(self):
+        ocr_module._tesseract_available = None
+
+    @patch("app.core.ocr_engine.shutil.which", return_value="/opt/homebrew/bin/tesseract")
+    def test_available_when_in_path(self, mock_which):
+        assert is_tesseract_available() is True
+        assert ocr_module._tesseract_available is True
+
+    @patch("app.core.ocr_engine.pytesseract.get_tesseract_version",
+           side_effect=ocr_module.pytesseract.TesseractNotFoundError)
+    @patch("app.core.ocr_engine.shutil.which", return_value=None)
+    def test_unavailable_when_not_found(self, mock_which, mock_version):
+        assert is_tesseract_available() is False
+        assert ocr_module._tesseract_available is False
+
+    @patch("app.core.ocr_engine.shutil.which", return_value="/usr/bin/tesseract")
+    def test_caches_result(self, mock_which):
+        assert is_tesseract_available() is True
+        mock_which.reset_mock()
+        # Second call should use cache
+        assert is_tesseract_available() is True
+        mock_which.assert_not_called()
+
+    def test_extract_text_returns_empty_when_unavailable(self):
+        ocr_module._tesseract_available = False
+        img = _make_test_image()
+        assert extract_text(img) == ""
+
+    def test_extract_text_all_pages_returns_empty_when_unavailable(self):
+        ocr_module._tesseract_available = False
+        images = [_make_test_image(), _make_test_image()]
+        assert extract_text_all_pages(images) == ""
