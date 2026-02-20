@@ -3,15 +3,11 @@
 __pycache__/
 *.pyc
 
-# Environment
-.env
+# Dev-mode data (preferences, database)
+.local/
 
 # macOS
 .DS_Store
-
-# Application data
-*.sqlite
-preferences.plist
 
 # Build artifacts
 build/

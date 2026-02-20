@@ -27,7 +27,8 @@ setup-dev: ## Install all dependencies including dev/testing tools
 run: ## Run the app from source
 	@if [ -z "$$ANTHROPIC_API_KEY" ]; then \
 		echo "INFO: ANTHROPIC_API_KEY not set in environment"; \
-		echo "      AI features will prompt for API key or read from .env file"; \
+		echo "      Set via: export ANTHROPIC_API_KEY=sk-ant-..."; \
+		echo "      Or enter it in Settings (Cmd+,)"; \
 		echo ""; \
 	fi
 	uv run python main.py

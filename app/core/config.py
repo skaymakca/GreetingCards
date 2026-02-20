@@ -1,9 +1,10 @@
+import logging
 import os
 import plistlib
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.core.paths import is_bundled, get_data_dir
+from app.core.paths import get_data_dir
 
 _PLIST_NAME = "preferences.plist"
 _KEY_NAME = "ANTHROPIC_API_KEY"
@@ -32,6 +33,9 @@ AI_MODELS = (
 
 DEFAULT_AI_MODEL = "claude-sonnet-4-6"
 
+logger = logging.getLogger(__name__)
+_mismatch_warned = False
+
 
 def _plist_path() -> Path:
     return get_data_dir() / _PLIST_NAME
@@ -55,31 +59,29 @@ def _write_plist(data: dict) -> None:
 def get_api_key() -> str | None:
     """Return the Anthropic API key, or None if not configured.
 
-    Resolution order:
-      1. ANTHROPIC_API_KEY environment variable (always checked)
-      2. Dev mode: .env file via dotenv
-      3. Bundled mode: preferences.plist in data dir
+    Resolution order (both modes):
+      1. ANTHROPIC_API_KEY environment variable
+      2. preferences.plist in data dir
+    Env var takes precedence. If both are set and differ, a warning is logged once.
     """
-    # 1. Check environment (may already be set externally)
-    key = os.environ.get(_KEY_NAME)
-    if key and key != "your-api-key-here":
-        return key
+    global _mismatch_warned
 
-    if not is_bundled():
-        # 2. Dev mode — load .env then re-check
-        from dotenv import load_dotenv
-        load_dotenv()
-        key = os.environ.get(_KEY_NAME)
-        if key and key != "your-api-key-here":
-            return key
-    else:
-        # 3. Bundled mode — read from plist
-        prefs = _read_plist()
-        key = prefs.get(_KEY_NAME)
-        if key:
-            return key
+    env_key = os.environ.get(_KEY_NAME)
+    if env_key == "your-api-key-here":
+        env_key = None
 
-    return None
+    prefs = _read_plist()
+    plist_key = prefs.get(_KEY_NAME) or None
+
+    # Warn once if both sources have different non-empty keys
+    if env_key and plist_key and env_key != plist_key and not _mismatch_warned:
+        logger.warning(
+            "ANTHROPIC_API_KEY env var differs from preferences.plist; "
+            "using env var"
+        )
+        _mismatch_warned = True
+
+    return env_key or plist_key
 
 
 def save_api_key(key: str) -> None:

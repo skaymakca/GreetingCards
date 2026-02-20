@@ -21,18 +21,19 @@ Determined by `get_data_dir()` in `app/core/paths.py`:
 
 | Mode | Detection | Data Directory |
 |---|---|---|
-| Dev (`python main.py`) | `sys._MEIPASS` not set | Project root (next to `main.py`) |
+| Dev (`python main.py`) | `sys._MEIPASS` not set | `project_root/.local/` (auto-created) |
 | Bundled (`.app`) | `sys._MEIPASS` exists | `~/Library/Application Support/GreetingCards/` |
 
-The bundled directory is auto-created on first access.
+Both directories are auto-created on first access.
 
 ## API Key Resolution
 
-`get_api_key()` checks three sources in order:
+`get_api_key()` checks two sources (both modes use the same logic):
 
-1. **`ANTHROPIC_API_KEY` environment variable** — always checked first (both modes)
-2. **`.env` file** (dev mode only) — loaded via `python-dotenv`
-3. **`preferences.plist`** (bundled mode only) — read from data dir
+1. **`ANTHROPIC_API_KEY` environment variable** — checked first
+2. **`preferences.plist`** — read from data dir
+
+Env var takes precedence when both are set. If both sources have different non-empty keys, a warning is logged once per process (module-level `_mismatch_warned` flag prevents repeat warnings).
 
 `save_api_key()` writes to both the plist and `os.environ` so the key is available immediately in the current process.
 

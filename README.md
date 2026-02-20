@@ -20,7 +20,7 @@ Scans holiday/greeting card PDFs, extracts family names via OCR and AI, and batc
 - **Keyboard navigation** — Up/Down to select cards, Shift+Up/Down to extend selection, Cmd+A to select all, Left/Right to page through previews, Cmd+Delete to remove selected cards, Cmd+F to search, Cmd+O to open files, Cmd+Shift+I to AI analyze, Cmd+R to rename, Cmd+, for Settings, Escape to defocus
 - **Help system** — built-in WebView help viewer with 8 pages, cross-page search with highlighted matches, and Previous/Next match navigation
 - **Native macOS UI** — native toolbar, preferences editor (Cmd+,), About dialog, and system colors throughout
-- **API key management** — prompts for the Anthropic API key on first AI use; key is saved to a plist in bundled mode or read from `.env` in dev mode
+- **API key management** — prompts for the Anthropic API key on first AI use; key is saved to `preferences.plist` (both modes) or read from `ANTHROPIC_API_KEY` env var
 - **AI model selection** — choose between Claude Haiku 4.5, Sonnet 4.6, or Opus 4.6 in Settings; persisted to preferences plist; stale/outdated model IDs are auto-migrated to the current default
 
 ## Prerequisites
@@ -93,10 +93,10 @@ uv sync --no-dev
 uv sync
 ```
 
-Create a `.env` file with your Anthropic API key (for AI analysis):
+Set your Anthropic API key (for AI analysis) via environment variable or the Settings dialog (Cmd+,):
 
-```
-ANTHROPIC_API_KEY=sk-ant-...
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 Run from source:
@@ -179,7 +179,7 @@ tests/
 
 ### Current Coverage
 
-- **949 tests** covering core logic and GUI components
+- **953 tests** covering core logic and GUI components
 - **Core** (12 test files): AI analysis, card model, config, database, filename sanitization, name extraction, name formatting, OCR engine, paths, PDF rendering, renamer, version
 - **GUI** (14 test files): API key dialog, context menu, dialogs, filter sidebar, help system, icons, main window, preview cursor behavior, preview panel, review panel, settings, styles, utilities
 
@@ -201,7 +201,7 @@ The app stores OCR results, AI results, and manual name edits in a SQLite databa
 
 | Mode | Path |
 |------|------|
-| Dev (running `python main.py`) | Project root, next to `main.py` |
+| Dev (running `python main.py`) | `.local/` subdirectory of project root |
 | Bundled (`.app`) | `~/Library/Application Support/GreetingCards/` |
 
 **Automatic schema management:** The schema version is a hash computed from all model column definitions at startup. If the models change (columns added, removed, or altered), the hash changes and the database is automatically dropped and recreated. There is no manual migration step — the cache simply rebuilds on next use. This is safe because the database only contains derived/cached data, never source data.

@@ -31,12 +31,17 @@ class TestIsBundled:
 class TestGetDataDir:
     """Tests for get_data_dir()."""
 
-    def test_dev_mode_returns_project_root(self):
-        """In dev mode, returns the project root directory."""
+    def test_dev_mode_returns_local_subdir(self):
+        """In dev mode, returns the .local/ subdirectory of project root."""
         result = get_data_dir()
-        # Should be the project root (contains main.py)
+        assert result.name == ".local"
+        # Parent should be the project root (contains main.py)
+        assert (result.parent / "main.py").exists()
+
+    def test_dev_mode_creates_local_dir(self):
+        """In dev mode, .local/ directory is auto-created."""
+        result = get_data_dir()
         assert result.is_dir()
-        assert (result / "main.py").exists()
 
     def test_bundled_mode_returns_app_support(self):
         """In bundled mode, returns ~/Library/Application Support/GreetingCards."""
