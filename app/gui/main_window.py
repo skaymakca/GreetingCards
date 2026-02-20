@@ -1290,6 +1290,7 @@ class MainWindow:
         """Update UI after AI analysis completes."""
         self._review_panel.update_card(card_id, card)
         self._review_panel.set_ai_button_state(card_id, "normal", "AI")
+        self._refresh_display()
 
     def _start_ai_all(self) -> None:
         """Start AI analysis for all cards."""
