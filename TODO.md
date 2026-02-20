@@ -7,6 +7,7 @@
 
 
 ## Done
+- [x] Multiplatform migration plan: detailed analysis of portability (~80% portable), 3 architecture options with hybrid recommendation, 8-phase implementation plan, risk assessment (docs/multiplatform-migration-plan.md + .html)
 - [x] Rename "Rebuild Database" to "Reset All Card Data" with descriptive text listing manual entries, candidates, cached OCR/AI; wider API key field in Settings
 - [x] AI Analyze scoped to visible/selected cards: unified single-card and batch paths, dynamic menu labels ("Visible (N)" / "Selected (N)"), static toolbar tooltip, API key cancel fix, code quality audit fixes (949 tests)
 - [x] File menu: AI Analyze All (Cmd+Shift+I), Rename Files (Cmd+R), Clear All with icons and EVT_UPDATE_UI state sync
