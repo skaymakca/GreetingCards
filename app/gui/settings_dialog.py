@@ -142,22 +142,20 @@ class AdvancedPreferencesPage(wx.StockPreferencesPage):
 
         sizer.AddSpacer(8)
 
-        db_frame = wx.Panel(panel)
-        db_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        db_row = wx.BoxSizer(wx.HORIZONTAL)
 
         db_desc = wx.StaticText(
-            db_frame,
+            panel,
             label="Clear all cached OCR/AI results and rebuild."
         )
         db_desc.SetFont(styles.Font.SMALL())
-        db_sizer.Add(db_desc, 1, wx.ALIGN_CENTER_VERTICAL)
+        db_row.Add(db_desc, 1, wx.ALIGN_CENTER_VERTICAL)
 
-        rebuild_btn = wx.Button(db_frame, label="Rebuild")
+        rebuild_btn = wx.Button(panel, label="Rebuild Database")
         rebuild_btn.Bind(wx.EVT_BUTTON, self._rebuild_db)
-        db_sizer.Add(rebuild_btn, 0, wx.LEFT, 8)
+        db_row.Add(rebuild_btn, 0, wx.LEFT, 12)
 
-        db_frame.SetSizer(db_sizer)
-        sizer.Add(db_frame, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, _PREFS_PAD)
+        sizer.Add(db_row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, _PREFS_PAD)
 
         sizer.AddSpacer(30)
 
@@ -169,9 +167,9 @@ class AdvancedPreferencesPage(wx.StockPreferencesPage):
         result = wx.MessageBox(
             "This will delete all cached OCR results, AI results, and manual edits.\n\nContinue?",
             "Rebuild Database",
-            wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION,
+            wx.OK | wx.CANCEL | wx.ICON_WARNING,
         )
-        if result != wx.YES:
+        if result != wx.OK:
             return
 
         reset_database()

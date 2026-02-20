@@ -3,7 +3,7 @@
 - [ ] Open dialog doesnt work quite correctly. Cannot choose a folder vs open it, which is the behavior seen in other apps.  Also looks off? What were our open dialog options again?
 - [ ] Add commands to the file menu for the rest of teh toolbar buttons, AI analyze, Rename Files, Clear
 - [ ] Dark mode detection and handling of ui changes
-- [ ] Card in result table that changes its category due to editing isnt triggering a recount and disppearance from teh current view.  For example, had an error card then named it to an AI result, it still remained.
+- [ ] Card in result table that changes its category due to AI analyze isnt triggering a recount and disppearance from teh current view.  Editing the cards or manually selecting an AI candiate results in teh corerct behavior but AI analyze (eihter singly or all of them) does not.
 
 ## Done
 - [x] Post-rename selective removal: only remove successfully renamed paths from cards, keep failed/skipped cards visible, show drop overlay only when all cards are gone
