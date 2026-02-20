@@ -9,6 +9,13 @@ from sqlalchemy.orm import declarative_base, sessionmaker, Mapped, mapped_column
 from app.core.paths import get_db_path
 from app.models.card import CandidateInfo, CardState
 
+# Names that should not be treated as family names
+_FILTER_OUT = {
+    "unknown",  # AI response when uncertain
+    "snapfish",  # Card printing service
+    "shutterfly",  # Card printing service
+}
+
 Base = declarative_base()
 
 
@@ -173,13 +180,6 @@ def _clean_and_filter_names(names: list[str]) -> list[str]:
     from app.core.ai_analyzer import clean_family_name
     from app.core.name_formatting import deparameterize_name, sanitize_for_filename
 
-    # Filter words that are not family names
-    FILTER_OUT = {
-        "unknown",  # AI response when uncertain
-        "snapfish",  # Card printing service
-        "shutterfly",  # Card printing service
-    }
-
     cleaned = []
     for name in names:
         if not name:
@@ -191,7 +191,7 @@ def _clean_and_filter_names(names: list[str]) -> list[str]:
         # Replace filesystem-invalid characters (cross-platform)
         clean_name = sanitize_for_filename(clean_name)
         # Filter out unwanted values
-        if clean_name and clean_name.lower() not in FILTER_OUT:
+        if clean_name and clean_name.lower() not in _FILTER_OUT:
             cleaned.append(clean_name)
 
     return cleaned
@@ -566,7 +566,7 @@ def reprocess_candidates_from_raw(file_hash: str) -> None:
             if best_name:
                 add_candidate(file_hash, best_name, "ai", "high")
             for alt_name in alternates:
-                add_candidate(file_hash, alt_name, "ai", "high")
+                add_candidate(file_hash, alt_name, "ai", "medium")
 
         # Auto-select best candidate if not manual entry
         if not is_manual:

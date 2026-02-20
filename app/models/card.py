@@ -135,7 +135,7 @@ class CardResult:
         return self.primary_path.name
 
     def target_filename(self, year: str) -> str:
-        name = self.display_name
+        name = self.display_name.strip() if self.display_name else ""
         if not name:
             return ""
         # Sanitize filesystem-invalid characters (safety net)

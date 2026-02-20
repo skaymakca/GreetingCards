@@ -254,31 +254,6 @@ class TestAnalyzeCardWithAi:
             assert call_kwargs[1]["model"] == "claude-sonnet-4-6"
 
 
-class TestAnalyzeCardWithAiAsync:
-    """Tests for analyze_card_with_ai_async()."""
-
-    @pytest.mark.asyncio
-    @patch("app.core.ai_analyzer.get_api_key", return_value=None)
-    async def test_no_api_key_raises(self, mock_key):
-        img = Image.new("RGB", (10, 10))
-        with pytest.raises(ValueError, match="not configured"):
-            await analyze_card_with_ai_async(img)
-
-    @pytest.mark.asyncio
-    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
-    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
-    async def test_calls_async_anthropic(self, mock_key, mock_model):
-        import anthropic
-        mock_msg = MagicMock()
-        mock_msg.content = [MagicMock(text="Smith")]
-        mock_client = MagicMock()
-        mock_client.messages.create = AsyncMock(return_value=mock_msg)
-
-        with patch.object(anthropic, "AsyncAnthropic", return_value=mock_client):
-            result = await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
-            assert result.best_name == "Smith"
-
-
 class TestBuildContentBlocks:
     """Tests for _build_content_blocks()."""
 

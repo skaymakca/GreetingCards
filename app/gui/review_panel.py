@@ -1020,7 +1020,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         """Clear all selection."""
         self._list_ctrl.UnselectAll()
 
-    def set_ai_button_state(self, card_id: int, state: str, text: str = "AI"):
+    def set_ai_button_state(self, card_id: int, state: str):
         """Set AI button state (enabled/disabled)."""
         # Only affects currently selected card in detail panel
         if self.selected_card_id == card_id:

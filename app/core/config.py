@@ -46,7 +46,9 @@ def _read_plist() -> dict:
 
 
 def _write_plist(data: dict) -> None:
-    with open(_plist_path(), "wb") as f:
+    path = _plist_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "wb") as f:
         plistlib.dump(data, f)
 
 

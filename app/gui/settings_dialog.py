@@ -18,7 +18,7 @@ def get_commit_hash() -> str:
             ["git", "rev-parse", "--short", "HEAD"],
             stderr=subprocess.DEVNULL,
         ).decode().strip()
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         return ""
 
 

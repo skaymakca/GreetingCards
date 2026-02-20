@@ -16,7 +16,7 @@ class TestGetCommitHash:
     def test_commit_hash(self, mock_git, wx_app):
         assert get_commit_hash() == "abc1234"
 
-    @patch("app.gui.settings_dialog.subprocess.check_output", side_effect=Exception("no git"))
+    @patch("app.gui.settings_dialog.subprocess.check_output", side_effect=FileNotFoundError("no git"))
     def test_commit_hash_fallback(self, mock_git, wx_app):
         assert get_commit_hash() == ""
 

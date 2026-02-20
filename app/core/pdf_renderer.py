@@ -37,7 +37,7 @@ def autocrop_whitespace(image: Image.Image, threshold: int = 245, padding: int =
     return image.crop((left, top, right, bottom))
 
 
-def render_pdf_page(pdf_path: Path, page_num: int = 0, dpi: int = 600) -> Image.Image:
+def render_pdf_page(pdf_path: Path, page_num: int = 0, dpi: int = 200) -> Image.Image:
     """Render a single PDF page to a PIL Image (capped at native resolution)."""
     doc = fitz.open(str(pdf_path))
     try:
@@ -49,7 +49,7 @@ def render_pdf_page(pdf_path: Path, page_num: int = 0, dpi: int = 600) -> Image.
         doc.close()
 
 
-def render_all_pages(pdf_path: Path, dpi: int = 600) -> list[Image.Image]:
+def render_all_pages(pdf_path: Path, dpi: int = 200) -> list[Image.Image]:
     """Render all pages of a PDF to PIL Images (capped at native resolution)."""
     doc = fitz.open(str(pdf_path))
     images = []

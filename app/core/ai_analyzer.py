@@ -136,7 +136,7 @@ def _parse_response(response_text: str) -> AIResult:
     # Basic filtering to catch obvious non-name responses
     # NOTE: Comprehensive cleaning is applied AFTER loading from DB, not here
     lines = [
-        line for line in (l.strip() for l in response_text.split("\n"))
+        line for line in (raw.strip() for raw in response_text.split("\n"))
         if line and len(line) <= _MAX_LINE_LENGTH
         and not any(w in line.lower() for w in _SKIP_WORDS)
     ]
@@ -185,7 +185,7 @@ def _get_validated_api_key() -> str:
 
 
 async def analyze_card_with_ai_async(images: list[Image.Image] | Image.Image) -> AIResult:
-    """Async version: analyze greeting card images with Claude AI and extract the family name."""
+    """Analyze greeting card images with Claude AI and extract the family name."""
     import anthropic
 
     images = _normalize_images(images)

@@ -117,7 +117,7 @@ def execute_rename_plan(plan: list[RenamePlanItem]) -> list[RenameResult]:
     """
     results = []
     for item in plan:
-        if item.status.startswith("skip"):
+        if item.status in {STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR}:
             if item.status == STATUS_SKIP_NO_NAME:
                 reason = "No name extracted"
             elif item.status == STATUS_SKIP_ERROR:

@@ -3,10 +3,12 @@
 - [ ] Open dialog doesnt work quite correctly. Cannot choose a folder vs open it, which is the behavior seen in other apps.  Also looks off? What were our open dialog options again?
 - [ ] Dark mode detection and handling of ui changes
 - [ ] Check what happens when tesseract not in path.  Investigate options from either bundling the app (is license OK?) vs globally erroring out vs not getting candidates made and giving an error popup with instructions to donwload via homebrew or a link to the tessearct website.
-- [ ] The AI analyze toolbar button and menu command should only analyze the cards in the current view (not all).  If there is a selection of two or more cards then just analyze those and not the entire list but make sure a selection of one does the entire visible card result list.  Make sure the command and tooltips show the correct text based on state, with a default when the command in the menu is inactive.  Update readme and help docs.  Check the architecture docs as well.
+- [ ] Redo the name of the rebuild DB label to better represent everything being reset.
+- [ ] Add a menu item in file to clear the AI results (but not manual settings and OCR)
 
 
 ## Done
+- [x] AI Analyze scoped to visible/selected cards: unified single-card and batch paths, dynamic menu labels ("Visible (N)" / "Selected (N)"), static toolbar tooltip, API key cancel fix, code quality audit fixes (949 tests)
 - [x] File menu: AI Analyze All (Cmd+Shift+I), Rename Files (Cmd+R), Clear All with icons and EVT_UPDATE_UI state sync
 - [x] Confidence legend: colored hover popup replacing plain-text tooltip (native tooltips can't show colors)
 - [x] Card in result table that changes its category due to AI analyze isnt triggering a recount and disppearance from teh current view.  Editing the cards or manually selecting an AI candiate results in teh corerct behavior but AI analyze (eihter singly or all of them) does not.

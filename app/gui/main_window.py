@@ -270,6 +270,7 @@ class MainWindow:
         self._year = datetime.now().year - 1
         self._current_category_filters = ["all"]  # Current sidebar category filters
         self._current_folder_filters = ["all_folders"]  # Current sidebar folder filters
+        self._ai_target_cards: list[CardResult] = []  # Cards for current AI batch
 
         # Preferences editor (lazy-init)
         self._prefs_editor = None
@@ -415,7 +416,7 @@ class MainWindow:
         """Show the native macOS About dialog."""
         info = wx.adv.AboutDialogInfo()
         info.SetName("Greeting Cards")
-        info.SetCopyright("(c) 2026")
+        info.SetCopyright(f"(c) {datetime.now().year}")
         # Do not call SetIcon() — it forces the generic About box on macOS.
         # The native About panel automatically uses the app bundle icon
         # from Contents/Resources/icon.icns via CFBundleIconFile in Info.plist.
@@ -766,20 +767,13 @@ class MainWindow:
         Returns:
             List of PDF paths (absolute, resolved)
         """
-        import os
-
         if path.is_file():
             if path.suffix.lower() == '.pdf':
                 return [path.resolve()]
             return []
 
         # Recursive directory scan
-        pdf_paths = []
-        for root, dirs, files in os.walk(path):
-            for file in files:
-                if file.lower().endswith('.pdf'):
-                    pdf_paths.append((Path(root) / file).resolve())
-
+        pdf_paths = [p.resolve() for p in path.rglob("*.[pP][dD][fF]")]
         return sorted(pdf_paths)
 
     def _add_files_folders(self) -> None:
@@ -837,12 +831,9 @@ class MainWindow:
 
         # 5. Process new PDFs
         if new_pdfs and auto_process:
-            # Process only the new PDFs, not all accumulated PDFs
-            temp_pdf_files = self._pdf_files
-            self._pdf_files = new_pdfs
-            self._start_processing()
-            # After processing starts, restore full list
-            self._pdf_files = temp_pdf_files
+            # Add new paths to the accumulated list before processing
+            self._pdf_files.extend(new_pdfs)
+            self._start_processing(new_pdfs)
 
     def _clear_all(self) -> None:
         """Clear all loaded cards (from all sources) and reset UI."""
@@ -874,10 +865,18 @@ class MainWindow:
         # Show confirmation
         self._show_info_message("All cards cleared", wx.ICON_INFORMATION)
 
-    def _start_processing(self) -> None:
-        """Start processing PDFs in background."""
-        if not self._pdf_files:
+    def _start_processing(self, files: list[Path] | None = None) -> None:
+        """Start processing PDFs in background.
+
+        Args:
+            files: Specific files to process. If None, processes self._pdf_files.
+        """
+        files_to_process = files or self._pdf_files
+        if not files_to_process:
             return
+
+        # Snapshot the file list for the background thread
+        self._processing_files = list(files_to_process)
 
         # Show busy cursor
         wx.BeginBusyCursor()
@@ -890,7 +889,7 @@ class MainWindow:
         # Note: Card deduplication happens in _process_cards during processing
 
         # Show progress dialog
-        total = len(self._pdf_files)
+        total = len(self._processing_files)
         self._progress = ProgressDialog(self._frame, "Processing Cards", total)
         self._progress.Show()
 
@@ -909,9 +908,9 @@ class MainWindow:
         except RuntimeError:
             pass  # Already set
 
-        total = len(self._pdf_files)
+        total = len(self._processing_files)
         num_workers = max(1, cpu_count() // 2)
-        pdf_paths_str = [str(p) for p in self._pdf_files]
+        pdf_paths_str = [str(p) for p in self._processing_files]
 
         try:
             with Pool(num_workers) as pool:
@@ -920,7 +919,7 @@ class MainWindow:
                     file_hash = result_dict['file_hash']
 
                     # Content-based deduplication: check if we already have this content
-                    if file_hash in self._cards_by_hash:
+                    if file_hash and file_hash in self._cards_by_hash:
                         # Duplicate content - add path to existing card
                         existing_card = self._cards_by_hash[file_hash]
                         if pdf_path not in existing_card.file_paths:
@@ -992,8 +991,8 @@ class MainWindow:
 
     def _process_cards_sequential(self) -> None:
         """Fallback: sequential processing if multiprocessing fails."""
-        total = len(self._pdf_files)
-        for i, pdf_path in enumerate(self._pdf_files):
+        total = len(self._processing_files)
+        for i, pdf_path in enumerate(self._processing_files):
             card = None
             try:
                 file_hash = compute_file_hash(pdf_path)
@@ -1031,7 +1030,7 @@ class MainWindow:
                     card_state = get_card_state(card.file_hash)
                 else:
                     # New file - run OCR and save raw
-                    ocr_text = extract_text_all_pages(images)
+                    ocr_text = extract_text_all_pages(images) if images else ""
                     card.ocr_text = ocr_text
                     save_raw_ocr(card.file_hash, ocr_text)
 
@@ -1061,8 +1060,9 @@ class MainWindow:
                 card.confidence = Confidence.NONE
 
             # Store by hash and update path mapping
-            self._cards_by_hash[card.file_hash] = card
-            self._hash_by_path[pdf_path] = card.file_hash
+            if card.file_hash:
+                self._cards_by_hash[card.file_hash] = card
+                self._hash_by_path[pdf_path] = card.file_hash
             wx.CallAfter(self._update_processing_progress, i + 1, total, pdf_path.name)
 
         wx.CallAfter(self._processing_complete)
@@ -1148,22 +1148,33 @@ class MainWindow:
         else:
             # User cleared the name — revert to pre-manual state
             card.manual_override = ""
-            if card.original_confidence is not None:
-                card.confidence = card.original_confidence
-                card.original_confidence = None
-            elif card.confidence == Confidence.MANUAL:
-                card.confidence = Confidence.NONE
-            # Revert method based on remaining data
-            if card.ai_analyzed:
-                card.method = "ai"
-            elif card.family_name:
-                card.method = "ocr"
-            else:
-                card.method = "missing"
 
             # Clear manual name in database
             if card.file_hash:
                 set_manual_name(card.file_hash, "", card.remove_family)
+
+            # Reload state from DB to get the best candidate name
+            if card.file_hash:
+                card_state = get_card_state(card.file_hash)
+                if card_state:
+                    card.family_name = card_state.display_name
+                    try:
+                        card.confidence = Confidence(card_state.confidence)
+                    except ValueError:
+                        card.confidence = Confidence.MEDIUM
+                    card.alternates = [c.family_name for c in card_state.candidates]
+                    card.candidates = card_state.candidates
+                    card.remove_family = card_state.remove_family
+                    card.selected_candidate_id = card_state.selected_candidate_id
+                    card.method = card_state.method
+                else:
+                    card.family_name = ""
+                    card.confidence = Confidence.NONE
+                    card.method = "missing"
+            else:
+                card.family_name = ""
+                card.confidence = Confidence.NONE
+                card.method = "missing"
 
         # Update review panel
         self._review_panel.update_card(card_id, card)
@@ -1290,7 +1301,7 @@ class MainWindow:
 
         # Disable AI button before delegating (after API key check so
         # cancelling the key dialog doesn't leave the button stuck disabled)
-        self._review_panel.set_ai_button_state(card_id, "disabled", "...")
+        self._review_panel.set_ai_button_state(card_id, "disabled")
 
         self._start_ai_all(cards=[card], title="AI Analysis")
 
@@ -1370,7 +1381,12 @@ class MainWindow:
 
     def _run_ai_all(self) -> None:
         """Run async AI batch processing in background thread."""
-        asyncio.run(self._run_ai_all_async())
+        try:
+            asyncio.run(self._run_ai_all_async())
+        except Exception as e:
+            error_msg = str(e)
+            logger.error("AI batch processing failed: %s", error_msg)
+            wx.CallAfter(self._ai_all_complete, [("Batch", error_msg)])
 
     async def _run_ai_all_async(self) -> None:
         """Async batch AI processing with concurrency limit."""
@@ -1468,7 +1484,7 @@ class MainWindow:
             dialog.Destroy()
         else:
             # Show success message with auto-dismiss
-            count = len(self._ai_target_cards) if hasattr(self, '_ai_target_cards') else len(self._cards_by_hash)
+            count = len(self._ai_target_cards) or len(self._cards_by_hash)
             self._show_info_message(
                 f"Analysis complete\n{count} card{'s' if count != 1 else ''} analyzed",
                 wx.ICON_INFORMATION
@@ -1514,9 +1530,8 @@ class MainWindow:
     def _remove_completed_results(self, results: list) -> None:
         """Remove successfully renamed/skip_same paths from cards; drop empty cards.
 
-        Paths from results with status "Renamed", "Already named correctly",
-        or duplicates are considered resolved. Paths that failed or had no name
-        are kept so the user can address them.
+        Paths with message "Renamed" or "Already named correctly" are considered
+        resolved. Paths that failed or had no name are kept for the user to address.
         """
         # Collect paths to remove (use new_path — that's where the file is now)
         resolved_messages = {"Renamed", "Already named correctly"}

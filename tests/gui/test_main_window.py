@@ -1400,9 +1400,9 @@ def test_remove_completed_results_multi_path_card(wx_app):
 
 
 def test_on_name_change_revert_to_original(wx_app):
-    """Clearing the name field reverts card to pre-manual state."""
-    from app.models.card import CardResult, Confidence
-    from unittest.mock import patch
+    """Clearing the name field reverts card to DB state (best candidate)."""
+    from app.models.card import CardResult, Confidence, CandidateInfo, CardState
+    from unittest.mock import patch, MagicMock
 
     window = MainWindow()
     card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
@@ -1416,15 +1416,20 @@ def test_on_name_change_revert_to_original(wx_app):
     window._cards_by_hash = {"h1": card}
     window._hash_by_path = {Path("/test/card.pdf"): "h1"}
 
-    # Clear the name (empty string)
-    with patch("app.gui.main_window.set_manual_name"):
+    # Mock DB to return OCR candidate
+    mock_state = CardState(
+        display_name="Smith", confidence="high", method="ocr",
+        candidates=[CandidateInfo(id=1, family_name="Smith", method="ocr", confidence="high")],
+        remove_family=False, selected_candidate_id=1,
+    )
+
+    with patch("app.gui.main_window.set_manual_name"), \
+         patch("app.gui.main_window.get_card_state", return_value=mock_state):
         window._on_name_change(0, "")
 
-    # Should revert to original confidence
     assert card.confidence == Confidence.HIGH
     assert card.manual_override == ""
-    assert card.original_confidence is None
-    # Method reverts based on data: family_name exists and not ai_analyzed → "ocr"
+    assert card.family_name == "Smith"
     assert card.method == "ocr"
 
     window._frame.Destroy()
@@ -1432,7 +1437,7 @@ def test_on_name_change_revert_to_original(wx_app):
 
 def test_on_name_change_revert_ai_analyzed(wx_app):
     """Clearing name on an AI-analyzed card reverts method to 'ai'."""
-    from app.models.card import CardResult, Confidence
+    from app.models.card import CardResult, Confidence, CandidateInfo, CardState
     from unittest.mock import patch
 
     window = MainWindow()
@@ -1448,7 +1453,14 @@ def test_on_name_change_revert_ai_analyzed(wx_app):
     window._cards_by_hash = {"h1": card}
     window._hash_by_path = {Path("/test/card.pdf"): "h1"}
 
-    with patch("app.gui.main_window.set_manual_name"):
+    mock_state = CardState(
+        display_name="Smith", confidence="high", method="ai",
+        candidates=[CandidateInfo(id=1, family_name="Smith", method="ai", confidence="high")],
+        remove_family=False, selected_candidate_id=1,
+    )
+
+    with patch("app.gui.main_window.set_manual_name"), \
+         patch("app.gui.main_window.get_card_state", return_value=mock_state):
         window._on_name_change(0, "")
 
     assert card.method == "ai"
@@ -1457,7 +1469,7 @@ def test_on_name_change_revert_ai_analyzed(wx_app):
 
 
 def test_on_name_change_revert_no_original_confidence(wx_app):
-    """Clearing name when no original_confidence falls back to NONE."""
+    """Clearing name when no DB state falls back to NONE/missing."""
     from app.models.card import CardResult, Confidence
     from unittest.mock import patch
 
@@ -1472,7 +1484,8 @@ def test_on_name_change_revert_no_original_confidence(wx_app):
     window._cards_by_hash = {"h1": card}
     window._hash_by_path = {Path("/test/card.pdf"): "h1"}
 
-    with patch("app.gui.main_window.set_manual_name"):
+    with patch("app.gui.main_window.set_manual_name"), \
+         patch("app.gui.main_window.get_card_state", return_value=None):
         window._on_name_change(0, "")
 
     assert card.confidence == Confidence.NONE
