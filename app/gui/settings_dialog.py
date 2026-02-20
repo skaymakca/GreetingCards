@@ -9,6 +9,7 @@ from app.core.config import get_api_key, save_api_key, AI_MODELS, get_ai_model, 
 from app.core.database import reset_database
 
 _PREFS_PAD = 20
+_PREFS_WIDTH = 480
 
 
 def get_commit_hash() -> str:
@@ -31,6 +32,7 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
     def CreateWindow(self, parent):
         """Create the preferences panel. May be called multiple times."""
         panel = wx.Panel(parent)
+        panel.SetMaxSize(wx.Size(_PREFS_WIDTH, -1))
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         sizer.AddSpacer(16)
@@ -132,6 +134,7 @@ class AdvancedPreferencesPage(wx.StockPreferencesPage):
     def CreateWindow(self, parent):
         """Create the preferences panel. May be called multiple times."""
         panel = wx.Panel(parent)
+        panel.SetMaxSize(wx.Size(_PREFS_WIDTH, -1))
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         sizer.AddSpacer(16)
