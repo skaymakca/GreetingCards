@@ -4,9 +4,8 @@
 - [ ] Add commands to the file menu for the rest of teh toolbar buttons, AI analyze, Rename Files, Clear
 - [ ] Dark mode detection and handling of ui changes
 - [ ] Check what happens when tesseract not in path.  Investigate options from either bundling the app (is license OK?) vs globally erroring out vs not getting candidates made and giving an error popup with instructions to donwload via homebrew or a link to the tessearct website.
-- [ ] confidence tooltips not working anymore in card list.  analyze
-
 ## Done
+- [x] Confidence legend: colored hover popup replacing plain-text tooltip (native tooltips can't show colors)
 - [x] Card in result table that changes its category due to AI analyze isnt triggering a recount and disppearance from teh current view.  Editing the cards or manually selecting an AI candiate results in teh corerct behavior but AI analyze (eihter singly or all of them) does not.
 - [x] Multiselect in cards table with Shift+Up/Down, Cmd+A/Cmd+Shift+A, detail panel clears on multi-select, context menu adapts (Open N Cards / Remove N Cards, no Reveal), shared `_build_context_menu` constructor
 - [x] Code quality: extract magic constants to `Layout.*` in styles.py, fix unused import, hardcoded color, lambda list-comp side effects, redundant branches, silent ValueError, missing return type annotations (950 tests)

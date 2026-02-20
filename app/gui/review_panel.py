@@ -39,6 +39,43 @@ from app.gui.icons import load_sf_symbol, load_menu_icon
 from app.gui.context_menu import add_entry_context_menu
 
 
+class _ConfidenceLegendPopup(wx.PopupWindow):
+    """Styled popup showing confidence legend with colored dots."""
+
+    def __init__(self, parent):
+        super().__init__(parent, wx.BORDER_SIMPLE)
+        panel = wx.Panel(self)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        rows = [
+            ("●", Color.SUCCESS, "High — strong pattern match or AI result"),
+            ("●", Color.WARNING, "Medium — partial pattern match"),
+            ("●", Color.ERROR, "Low — weak/fallback match"),
+            ("●", Color.MANUAL_BLUE, "Manual — manually entered name"),
+            ("⚠", Color.TEXT_SECONDARY, "No name extracted"),
+            ("✕", Color.ERROR, "Error during analysis"),
+        ]
+
+        for symbol, colour, label_text in rows:
+            row_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            symbol_st = wx.StaticText(panel, label=symbol)
+            symbol_st.SetForegroundColour(colour)
+            symbol_st.SetFont(Font.SMALL())
+            row_sizer.Add(symbol_st, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6)
+
+            label_st = wx.StaticText(panel, label=label_text)
+            label_st.SetForegroundColour(Color.TEXT_PRIMARY)
+            label_st.SetFont(Font.SMALL())
+            row_sizer.Add(label_st, 0, wx.ALIGN_CENTER_VERTICAL)
+
+            sizer.Add(row_sizer, 0, wx.ALL, 2)
+
+        panel.SetSizer(sizer)
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(panel, 1, wx.EXPAND | wx.ALL, Layout.PAD)
+        self.SetSizerAndFit(outer)
+
+
 class CardListModel(dv.PyDataViewModel):
     """Data model for the card list (master view).
 
@@ -560,6 +597,9 @@ class ReviewPanelMasterDetail(wx.Panel):
             colour=Color.TEXT_SECONDARY
         )
         header_sizer.Add(self._count_label, 0, wx.ALIGN_CENTER_VERTICAL)
+        self._count_label.Bind(wx.EVT_ENTER_WINDOW, self._on_legend_hover)
+        self._count_label.Bind(wx.EVT_LEAVE_WINDOW, self._on_legend_leave)
+        self._legend_popup = None
 
         sizer.Add(header_sizer, 0, wx.EXPAND | wx.ALL, Layout.PAD)
 
@@ -613,6 +653,23 @@ class ReviewPanelMasterDetail(wx.Panel):
         # After layout, position sash to give detail panel just what it needs
         self.Bind(wx.EVT_SIZE, self._on_panel_size, id=wx.ID_ANY)
         self._initial_sash_set = False
+
+    def _on_legend_hover(self, event) -> None:
+        """Show confidence legend popup on hover."""
+        if self._legend_popup is not None:
+            return
+        popup = _ConfidenceLegendPopup(self)
+        label = self._count_label
+        pos = label.ClientToScreen(wx.Point(0, label.GetSize().height + 2))
+        popup.SetPosition(pos)
+        popup.Show()
+        self._legend_popup = popup
+
+    def _on_legend_leave(self, event) -> None:
+        """Hide confidence legend popup when mouse leaves."""
+        if self._legend_popup is not None:
+            self._legend_popup.Destroy()
+            self._legend_popup = None
 
     def _on_panel_size(self, event) -> None:
         """Set initial sash position to give detail panel minimum space."""
@@ -814,7 +871,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         self._cards_by_id = {card.id: card for card in cards}
         self._model.load_cards(cards)
         n = len(cards)
-        self._count_label.SetLabel(f"{n} {'Card' if n == 1 else 'Cards'}")
+        self._count_label.SetLabel(f"{n} {'Card' if n == 1 else 'Cards'} \u24D8")
 
         # Always reset selection — list content changes invalidate prior selection
         self._list_ctrl.UnselectAll()
