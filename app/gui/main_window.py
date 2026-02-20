@@ -28,7 +28,7 @@ from app.gui.api_key_dialog import show_api_key_dialog
 from app.models.card import CardResult, Confidence
 from app.core.pdf_renderer import render_all_pages
 from app.core.ocr_engine import extract_text_all_pages
-from app.core.ai_analyzer import analyze_card_with_ai, analyze_card_with_ai_async, format_ai_error
+from app.core.ai_analyzer import analyze_card_with_ai_async, format_ai_error
 from app.core.config import get_api_key
 from app.core.renamer import build_rename_plan, execute_rename_plan
 from app.core.database import (
@@ -313,7 +313,7 @@ class MainWindow:
         file_menu.AppendSeparator()
 
         self._ai_menu_id = wx.NewIdRef()
-        ai_item = file_menu.Append(self._ai_menu_id, "AI Analyze All\tCtrl+Shift+I")
+        ai_item = file_menu.Append(self._ai_menu_id, "AI Analyze\tCtrl+Shift+I")
         ai_icon = load_menu_icon("sparkles")
         if ai_icon:
             ai_item.SetBitmap(ai_icon)
@@ -467,7 +467,7 @@ class MainWindow:
         ai_bmp = load_sf_symbol("sparkles", point_size=Layout.TOOLBAR_ICON_POINTS) or wx.NullBitmap
         self._ai_all_id = toolbar.AddTool(
             wx.ID_ANY, "AI Analyze", ai_bmp,
-            shortHelp="Analyze all loaded cards with AI to extract family names"
+            shortHelp="Analyze cards with AI to extract family names (\u21e7\u2318I)"
         ).GetId()
         toolbar.EnableTool(self._ai_all_id, False)
 
@@ -1210,7 +1210,7 @@ class MainWindow:
         event.Enable(bool(self._review_panel._selected_card_ids))
 
     def _on_update_action_menu(self, event: wx.UpdateUIEvent) -> None:
-        """Enable/disable AI, Rename, Clear menu items to mirror toolbar state."""
+        """Enable/disable AI, Rename, Clear menu items and update AI label dynamically."""
         menu_to_tool = {
             self._ai_menu_id: self._ai_all_id,
             self._rename_menu_id: self._rename_id,
@@ -1218,7 +1218,20 @@ class MainWindow:
         }
         tool_id = menu_to_tool.get(event.GetId())
         if tool_id is not None:
-            event.Enable(self._toolbar.GetToolEnabled(tool_id))
+            enabled = self._toolbar.GetToolEnabled(tool_id)
+            event.Enable(enabled)
+
+            # Dynamic AI menu label (toolbar tooltip stays static)
+            if event.GetId() == self._ai_menu_id:
+                if enabled and self._cards_by_hash:
+                    cards, scope = self._get_ai_target_cards()
+                    n = len(cards)
+                    if scope == "selected":
+                        event.SetText(f"AI Analyze Selected ({n})\tCtrl+Shift+I")
+                    else:
+                        event.SetText(f"AI Analyze Visible ({n})\tCtrl+Shift+I")
+                else:
+                    event.SetText("AI Analyze\tCtrl+Shift+I")
 
     def _on_edit_debounce_fire(self, event: wx.TimerEvent) -> None:
         """Fire after user stops typing for 1 second — refresh filters."""
@@ -1244,13 +1257,23 @@ class MainWindow:
 
         return False
 
+    def _get_ai_target_cards(self) -> tuple[list[CardResult], str]:
+        """Return (cards, scope) based on selection state.
+
+        If 2+ cards are selected, returns those cards with scope "selected".
+        Otherwise returns all visible (filtered) cards with scope "visible".
+        """
+        selected_ids = self._review_panel._selected_card_ids
+        if len(selected_ids) >= 2:
+            cards = [self._review_panel._cards_by_id[cid] for cid in selected_ids
+                     if cid in self._review_panel._cards_by_id]
+            return cards, "selected"
+        return self._review_panel.get_cards(), "visible"
+
     def _on_ai_request(self, card_id: int) -> None:
-        """Handle AI button click for single card."""
+        """Handle AI button click for single card — delegates to batch path."""
         card = self._get_card_by_id(card_id)
         if not card or card.error:
-            return
-
-        if not self._ensure_api_key():
             return
 
         if not card.page_images and not card.preview_image:
@@ -1262,38 +1285,14 @@ class MainWindow:
             )
             return
 
-        # Disable AI button
+        if not self._ensure_api_key():
+            return
+
+        # Disable AI button before delegating (after API key check so
+        # cancelling the key dialog doesn't leave the button stuck disabled)
         self._review_panel.set_ai_button_state(card_id, "disabled", "...")
 
-        # Start background thread
-        thread = threading.Thread(target=self._run_ai_analysis, args=(card_id, card), daemon=True)
-        thread.start()
-
-    def _run_ai_analysis(self, card_id: int, card: CardResult) -> None:
-        """Run AI analysis for single card (runs in background thread)."""
-        try:
-            # Check if we already have AI candidates
-            card_state = get_card_state(card.file_hash) if card.file_hash else None
-            has_ai_candidates = False
-            if card_state:
-                has_ai_candidates = any(c.method == 'ai' for c in card_state.candidates)
-
-            if not has_ai_candidates:
-                # Run AI analysis
-                ai_images = card.page_images or [card.preview_image]
-                result = analyze_card_with_ai(ai_images)
-
-                if card.file_hash and result.best_name:
-                    save_raw_ai(card.file_hash, result.best_name, result.alternates)
-                    reprocess_candidates_from_raw(card.file_hash)
-
-            self._load_card_state_from_db(card)
-
-        except Exception as e:
-            msg = format_ai_error(e)
-            wx.CallAfter(lambda: wx.MessageBox(msg, "AI Error", wx.OK | wx.ICON_ERROR, self._frame))
-
-        wx.CallAfter(self._ai_analysis_complete, card_id, card)
+        self._start_ai_all(cards=[card], title="AI Analysis")
 
     @staticmethod
     def _load_card_state_from_db(card: CardResult) -> None:
@@ -1323,19 +1322,35 @@ class MainWindow:
         else:
             card.ai_analyzed = True
 
-    def _ai_analysis_complete(self, card_id: int, card: CardResult) -> None:
-        """Update UI after AI analysis completes."""
-        self._review_panel.update_card(card_id, card)
-        self._review_panel.set_ai_button_state(card_id, "normal", "AI")
-        self._refresh_display()
+    def _start_ai_all(self, cards: list[CardResult] | None = None, title: str | None = None) -> None:
+        """Start AI analysis for given cards, selected cards, or all visible cards.
 
-    def _start_ai_all(self) -> None:
-        """Start AI analysis for all cards."""
+        Args:
+            cards: Explicit card list (e.g. single card from detail button).
+                   If None, determines scope from selection state.
+            title: Progress dialog title. If None, auto-generated from scope.
+        """
         if not self._cards_by_hash:
             return
 
         if not self._ensure_api_key():
             return
+
+        # Determine target cards and title
+        if cards is None:
+            cards, scope = self._get_ai_target_cards()
+            n = len(cards)
+            if scope == "selected":
+                title = f"AI Analysis \u2014 {n} Selected"
+            else:
+                title = f"AI Analysis \u2014 {n} Cards"
+        elif title is None:
+            title = "AI Analysis"
+
+        if not cards:
+            return
+
+        self._ai_target_cards = cards
 
         # Show busy cursor
         wx.BeginBusyCursor()
@@ -1345,8 +1360,8 @@ class MainWindow:
         self._toolbar.EnableTool(self._rename_id, False)
 
         # Show progress
-        total = len(self._cards_by_hash)
-        self._progress = ProgressDialog(self._frame, "AI Analysis", total)
+        total = len(cards)
+        self._progress = ProgressDialog(self._frame, title, total)
         self._progress.Show()
 
         # Start background thread
@@ -1361,9 +1376,10 @@ class MainWindow:
         """Async batch AI processing with concurrency limit."""
         import anthropic
 
+        target_cards = self._ai_target_cards
         semaphore = asyncio.Semaphore(AI_CONCURRENCY)
         completed = 0
-        total = len(self._cards_by_hash)
+        total = len(target_cards)
         auth_failed = asyncio.Event()
         errors: list[tuple[str, str]] = []
 
@@ -1416,7 +1432,7 @@ class MainWindow:
                 wx.CallAfter(self._update_ai_all_progress, completed, total, card.filename, card_id, card)
 
         # Process all cards concurrently with semaphore limiting concurrency
-        await asyncio.gather(*[process_card(card.id, card) for card in self._cards_by_hash.values()])
+        await asyncio.gather(*[process_card(card.id, card) for card in target_cards])
 
         aborted = auth_failed.is_set()
         wx.CallAfter(self._ai_all_complete, errors, aborted)
@@ -1452,7 +1468,7 @@ class MainWindow:
             dialog.Destroy()
         else:
             # Show success message with auto-dismiss
-            count = len(self._cards_by_hash)
+            count = len(self._ai_target_cards) if hasattr(self, '_ai_target_cards') else len(self._cards_by_hash)
             self._show_info_message(
                 f"Analysis complete\n{count} card{'s' if count != 1 else ''} analyzed",
                 wx.ICON_INFORMATION

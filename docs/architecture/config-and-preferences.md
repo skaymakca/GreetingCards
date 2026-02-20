@@ -63,7 +63,7 @@ This auto-corrects on first read (typically at app startup when the Settings dia
 
 ### Usage in AI Analyzer
 
-Both `analyze_card_with_ai()` and `analyze_card_with_ai_async()` in `ai_analyzer.py` call `get_ai_model()` to get the model ID for each API request. The model is read fresh each time, so changing it in Settings takes effect immediately for the next analysis.
+`analyze_card_with_ai_async()` in `ai_analyzer.py` calls `get_ai_model()` to get the model ID for each API request. The model is read fresh each time, so changing it in Settings takes effect immediately for the next analysis.
 
 ## Settings Dialog
 

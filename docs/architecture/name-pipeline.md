@@ -17,7 +17,7 @@ PDF file
     │       Regex patterns: HIGH → MEDIUM → LOW
     │
     ├─ AI path:
-    │   analyze_card_with_ai() → AIResult(best_name, alternates)
+    │   analyze_card_with_ai_async() → AIResult(best_name, alternates)
     │       Claude Sonnet with page images + extraction prompt
     │
     ├─ Raw storage (DB):
@@ -64,9 +64,8 @@ Results are deduplicated by name (case-insensitive) preserving order. Greeting w
 
 ## AI Analysis (`ai_analyzer.py`)
 
-Two versions with identical prompt logic:
-- `analyze_card_with_ai()` — sync `anthropic.Anthropic` client (single card)
-- `analyze_card_with_ai_async()` — async `anthropic.AsyncAnthropic` client (batch)
+Single async function used for all AI analysis (single card, selected, or batch):
+- `analyze_card_with_ai_async()` — async `anthropic.AsyncAnthropic` client
 
 ### Prompt Structure
 Sends all page images as base64 PNG content blocks, followed by a text prompt requesting just family last names, one per line. Model: `claude-sonnet-4-5-20250929`, max 256 tokens.

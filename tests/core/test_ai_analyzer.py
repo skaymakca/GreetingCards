@@ -15,7 +15,6 @@ from app.core.ai_analyzer import (
     _normalize_images,
     _get_validated_api_key,
     AIResult,
-    analyze_card_with_ai,
     analyze_card_with_ai_async,
 )
 
@@ -186,66 +185,71 @@ class TestParseResponse:
 
 
 class TestAnalyzeCardWithAi:
-    """Tests for analyze_card_with_ai()."""
+    """Tests for analyze_card_with_ai_async() (unified async path)."""
 
+    @pytest.mark.asyncio
     @patch("app.core.ai_analyzer.get_api_key", return_value=None)
-    def test_no_api_key_raises(self, mock_key):
+    async def test_no_api_key_raises(self, mock_key):
         img = Image.new("RGB", (10, 10))
         with pytest.raises(ValueError, match="not configured"):
-            analyze_card_with_ai(img)
+            await analyze_card_with_ai_async(img)
 
+    @pytest.mark.asyncio
     @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
     @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
-    def test_calls_anthropic(self, mock_key, mock_model):
+    async def test_calls_anthropic(self, mock_key, mock_model):
         import anthropic
         mock_msg = MagicMock()
         mock_msg.content = [MagicMock(text="Smith")]
         mock_client = MagicMock()
-        mock_client.messages.create.return_value = mock_msg
+        mock_client.messages.create = AsyncMock(return_value=mock_msg)
 
-        with patch.object(anthropic, "Anthropic", return_value=mock_client):
-            result = analyze_card_with_ai(Image.new("RGB", (10, 10)))
+        with patch.object(anthropic, "AsyncAnthropic", return_value=mock_client):
+            result = await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
             assert result.best_name == "Smith"
 
+    @pytest.mark.asyncio
     @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
     @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
-    def test_accepts_single_image(self, mock_key, mock_model):
+    async def test_accepts_single_image(self, mock_key, mock_model):
         import anthropic
         mock_msg = MagicMock()
         mock_msg.content = [MagicMock(text="Jones")]
         mock_client = MagicMock()
-        mock_client.messages.create.return_value = mock_msg
+        mock_client.messages.create = AsyncMock(return_value=mock_msg)
 
-        with patch.object(anthropic, "Anthropic", return_value=mock_client):
-            result = analyze_card_with_ai(Image.new("RGB", (10, 10)))
+        with patch.object(anthropic, "AsyncAnthropic", return_value=mock_client):
+            result = await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
             assert result.best_name == "Jones"
 
+    @pytest.mark.asyncio
     @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
     @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
-    def test_accepts_image_list(self, mock_key, mock_model):
+    async def test_accepts_image_list(self, mock_key, mock_model):
         import anthropic
         mock_msg = MagicMock()
         mock_msg.content = [MagicMock(text="Smith")]
         mock_client = MagicMock()
-        mock_client.messages.create.return_value = mock_msg
+        mock_client.messages.create = AsyncMock(return_value=mock_msg)
 
-        with patch.object(anthropic, "Anthropic", return_value=mock_client):
+        with patch.object(anthropic, "AsyncAnthropic", return_value=mock_client):
             imgs = [Image.new("RGB", (10, 10)), Image.new("RGB", (10, 10))]
-            result = analyze_card_with_ai(imgs)
+            result = await analyze_card_with_ai_async(imgs)
             assert result.best_name == "Smith"
 
+    @pytest.mark.asyncio
     @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
     @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
-    def test_uses_configured_model(self, mock_key, mock_model):
+    async def test_uses_configured_model(self, mock_key, mock_model):
         """Verifies the configured model is passed to the API."""
         import anthropic
         mock_msg = MagicMock()
         mock_msg.content = [MagicMock(text="Smith")]
         mock_client = MagicMock()
-        mock_client.messages.create.return_value = mock_msg
+        mock_client.messages.create = AsyncMock(return_value=mock_msg)
 
-        with patch.object(anthropic, "Anthropic", return_value=mock_client):
-            analyze_card_with_ai(Image.new("RGB", (10, 10)))
+        with patch.object(anthropic, "AsyncAnthropic", return_value=mock_client):
+            await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
             call_kwargs = mock_client.messages.create.call_args
             assert call_kwargs[1]["model"] == "claude-sonnet-4-6"
 

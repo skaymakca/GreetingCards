@@ -203,20 +203,3 @@ async def analyze_card_with_ai_async(images: list[Image.Image] | Image.Image) ->
     return _parse_response(response_text)
 
 
-def analyze_card_with_ai(images: list[Image.Image] | Image.Image) -> AIResult:
-    """Analyze greeting card images with Claude AI and extract the family name."""
-    import anthropic
-
-    images = _normalize_images(images)
-    api_key = _get_validated_api_key()
-    client = anthropic.Anthropic(api_key=api_key)
-    content = _build_content_blocks(images)
-
-    message = client.messages.create(
-        model=get_ai_model(),
-        max_tokens=_MAX_TOKENS,
-        messages=[{"role": "user", "content": content}],
-    )
-
-    response_text = message.content[0].text.strip()
-    return _parse_response(response_text)

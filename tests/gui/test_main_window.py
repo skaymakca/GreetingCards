@@ -914,19 +914,17 @@ def test_card_edited_immediate_refresh(wx_app):
     window._frame.Destroy()
 
 
-def test_ai_analysis_complete_calls_refresh_display(wx_app):
-    """Test _ai_analysis_complete calls _refresh_display to update sidebar counts."""
+def test_ai_all_complete_calls_refresh_display(wx_app):
+    """Test _ai_all_complete calls _refresh_display to update sidebar counts."""
     from unittest.mock import patch
 
     from app.models.card import CardResult
 
     window = MainWindow()
-    card = CardResult(id=0, file_paths=[Path("/test/a.pdf")], primary_path=Path("/test/a.pdf"))
+    window._ai_target_cards = []
 
-    with patch.object(window, "_refresh_display") as mock_refresh, \
-         patch.object(window._review_panel, "update_card"), \
-         patch.object(window._review_panel, "set_ai_button_state"):
-        window._ai_analysis_complete(0, card)
+    with patch.object(window, "_refresh_display") as mock_refresh:
+        window._ai_all_complete(errors=[], auth_aborted=False)
         mock_refresh.assert_called_once()
 
     window._frame.Destroy()
