@@ -10,6 +10,7 @@ from app.core.database import reset_database
 
 _PREFS_PAD = 20
 _PREFS_WIDTH = 480
+_STATUS_DISPLAY_MS = 3000
 
 
 def get_commit_hash() -> str:
@@ -66,6 +67,10 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
         self._key_status.SetFont(styles.Font.SMALL())
         sizer.Add(self._key_status, 0, wx.LEFT | wx.RIGHT | wx.TOP, _PREFS_PAD)
         self._key_status.Hide()
+        self._status_timer = None
+
+        # Reset status when preferences window is reopened
+        panel.Bind(wx.EVT_SHOW, self._on_panel_shown)
 
         sizer.AddSpacer(16)
 
@@ -122,6 +127,31 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
             self._key_status.SetForegroundColour(styles.Color.ERROR)
         self._key_status.Show()
         self._key_status.GetParent().Layout()
+
+        # Auto-hide after a few seconds
+        if self._status_timer is not None:
+            self._status_timer.Stop()
+        self._status_timer = wx.CallLater(_STATUS_DISPLAY_MS, self._cancel_status)
+
+
+    def _on_panel_shown(self, event: wx.ShowEvent) -> None:
+        """Clean up status label on show/hide transitions.
+
+        On hide (window closing): immediately hide status and cancel timer,
+        so the label is already gone before the next open.
+        On show (window reopening): safety net in case hide wasn't called.
+        """
+        event.Skip()
+        self._cancel_status()
+
+    def _cancel_status(self) -> None:
+        """Stop the auto-hide timer and hide the status label."""
+        if self._status_timer is not None:
+            self._status_timer.Stop()
+            self._status_timer = None
+        if self._key_status and self._key_status.IsShown():
+            self._key_status.Hide()
+            self._key_status.GetParent().Layout()
 
 
 class AdvancedPreferencesPage(wx.StockPreferencesPage):

@@ -20,7 +20,7 @@ Scans holiday/greeting card PDFs, extracts family names via OCR and AI, and batc
 - **Keyboard navigation** — Up/Down to select cards, Shift+Up/Down to extend selection, Cmd+A to select all, Left/Right to page through previews, Cmd+Delete to remove selected cards, Cmd+F to search, Cmd+O to open files, Cmd+Shift+I to AI analyze, Cmd+R to rename, Cmd+, for Settings, Escape to defocus
 - **Help system** — built-in WebView help viewer with 8 pages, cross-page search with highlighted matches, and Previous/Next match navigation
 - **Native macOS UI** — native toolbar, preferences editor (Cmd+,), About dialog, and system colors throughout
-- **API key management** — prompts for the Anthropic API key on first AI use; key is saved to `preferences.plist` (both modes) or read from `ANTHROPIC_API_KEY` env var
+- **API key management** — prompts for the Anthropic API key on first AI use; key is saved to `preferences.plist`; source mode also reads `ANTHROPIC_API_KEY` env var (bundle ignores env var)
 - **AI model selection** — choose between Claude Haiku 4.5, Sonnet 4.6, or Opus 4.6 in Settings; persisted to preferences plist; stale/outdated model IDs are auto-migrated to the current default
 
 ## Prerequisites
@@ -179,7 +179,7 @@ tests/
 
 ### Current Coverage
 
-- **963 tests** covering core logic and GUI components
+- **969 tests** covering core logic and GUI components
 - **Core** (12 test files): AI analysis, card model, config, database, filename sanitization, name extraction, name formatting, OCR engine, paths, PDF rendering, renamer, version
 - **GUI** (14 test files): API key dialog, context menu, dialogs, filter sidebar, help system, icons, main window, preview cursor behavior, preview panel, review panel, settings, styles, utilities
 

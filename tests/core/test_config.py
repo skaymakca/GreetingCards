@@ -43,14 +43,23 @@ class TestGetApiKey:
             assert get_api_key() == "sk-plist"
 
     def test_reads_plist_in_bundled_mode(self):
-        """In bundled mode, reads from preferences.plist."""
+        """In bundled mode, reads from preferences.plist only."""
         with patch.dict(os.environ, {}, clear=True), \
+             patch("app.core.config.is_bundled", return_value=True), \
+             patch("app.core.config._read_plist", return_value={"ANTHROPIC_API_KEY": "sk-plist"}):
+            assert get_api_key() == "sk-plist"
+
+    def test_bundled_mode_ignores_env_var(self):
+        """In bundled mode, env var is ignored even when set."""
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-env"}), \
+             patch("app.core.config.is_bundled", return_value=True), \
              patch("app.core.config._read_plist", return_value={"ANTHROPIC_API_KEY": "sk-plist"}):
             assert get_api_key() == "sk-plist"
 
     def test_env_var_overrides_plist(self):
-        """Env var takes precedence over plist when both are set."""
+        """In source mode, env var takes precedence over plist."""
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-env"}), \
+             patch("app.core.config.is_bundled", return_value=False), \
              patch("app.core.config._read_plist", return_value={"ANTHROPIC_API_KEY": "sk-plist"}):
             assert get_api_key() == "sk-env"
 

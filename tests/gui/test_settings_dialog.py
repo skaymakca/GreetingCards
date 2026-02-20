@@ -62,6 +62,80 @@ class TestGeneralPreferencesPage:
         assert "empty" in page._key_status.GetLabel().lower()
         panel.Destroy()
 
+    @patch("app.gui.settings_dialog.get_api_key", return_value=None)
+    @patch("app.gui.settings_dialog.save_api_key")
+    def test_status_shown_after_save(self, mock_save, mock_key, wx_app, wx_frame):
+        """Status label is visible immediately after saving."""
+        page = GeneralPreferencesPage()
+        panel = page.CreateWindow(wx_frame)
+        page._key_entry.SetValue("sk-test")
+        page._save_api_key(None)
+        assert page._key_status.IsShown()
+        panel.Destroy()
+
+    @patch("app.gui.settings_dialog.get_api_key", return_value=None)
+    @patch("app.gui.settings_dialog.save_api_key")
+    def test_status_auto_hides(self, mock_save, mock_key, wx_app, wx_frame):
+        """Status label is hidden after the timer fires."""
+        page = GeneralPreferencesPage()
+        panel = page.CreateWindow(wx_frame)
+        page._key_entry.SetValue("sk-test")
+        page._save_api_key(None)
+        assert page._key_status.IsShown()
+        # Simulate timer firing
+        page._cancel_status()
+        assert not page._key_status.IsShown()
+        panel.Destroy()
+
+    @patch("app.gui.settings_dialog.get_api_key", return_value=None)
+    @patch("app.gui.settings_dialog.save_api_key")
+    def test_status_timer_resets_on_repeated_save(self, mock_save, mock_key, wx_app, wx_frame):
+        """Saving again restarts the auto-hide timer."""
+        page = GeneralPreferencesPage()
+        panel = page.CreateWindow(wx_frame)
+        page._key_entry.SetValue("sk-test")
+        page._save_api_key(None)
+        first_timer = page._status_timer
+        page._save_api_key(None)
+        # Timer object replaced (old one stopped, new one started)
+        assert page._status_timer is not first_timer
+        assert page._key_status.IsShown()
+        panel.Destroy()
+
+    @patch("app.gui.settings_dialog.get_api_key", return_value=None)
+    @patch("app.gui.settings_dialog.save_api_key")
+    def test_status_hidden_on_panel_hide(self, mock_save, mock_key, wx_app, wx_frame):
+        """Status label is hidden when panel is hidden (window closing)."""
+        page = GeneralPreferencesPage()
+        panel = page.CreateWindow(wx_frame)
+        page._key_entry.SetValue("sk-test")
+        page._save_api_key(None)
+        assert page._key_status.IsShown()
+        # Simulate window closing (EVT_SHOW fires with show=False)
+        hide_event = wx.ShowEvent()
+        hide_event.SetShow(False)
+        page._on_panel_shown(hide_event)
+        assert not page._key_status.IsShown()
+        assert page._status_timer is None
+        panel.Destroy()
+
+    @patch("app.gui.settings_dialog.get_api_key", return_value=None)
+    @patch("app.gui.settings_dialog.save_api_key")
+    def test_status_hidden_on_panel_reshow(self, mock_save, mock_key, wx_app, wx_frame):
+        """Status label is hidden when panel is shown again (safety net)."""
+        page = GeneralPreferencesPage()
+        panel = page.CreateWindow(wx_frame)
+        page._key_entry.SetValue("sk-test")
+        page._save_api_key(None)
+        assert page._key_status.IsShown()
+        # Simulate reopening (EVT_SHOW fires with show=True)
+        show_event = wx.ShowEvent()
+        show_event.SetShow(True)
+        page._on_panel_shown(show_event)
+        assert not page._key_status.IsShown()
+        assert page._status_timer is None
+        panel.Destroy()
+
     @patch("app.gui.settings_dialog.get_ai_model", return_value="claude-sonnet-4-6")
     @patch("app.gui.settings_dialog.get_api_key", return_value=None)
     def test_model_dropdown_exists_with_default(self, mock_key, mock_model, wx_app, wx_frame):

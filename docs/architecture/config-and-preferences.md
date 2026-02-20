@@ -28,12 +28,10 @@ Both directories are auto-created on first access.
 
 ## API Key Resolution
 
-`get_api_key()` checks two sources (both modes use the same logic):
+`get_api_key()` resolution differs by mode:
 
-1. **`ANTHROPIC_API_KEY` environment variable** — checked first
-2. **`preferences.plist`** — read from data dir
-
-Env var takes precedence when both are set. If both sources have different non-empty keys, a warning is logged once per process (module-level `_mismatch_warned` flag prevents repeat warnings).
+- **Bundle mode** (`.app`): reads from `preferences.plist` only. Environment variables are ignored.
+- **Source mode** (`python main.py`): checks `ANTHROPIC_API_KEY` env var first, falls back to `preferences.plist`. If both sources have different non-empty keys, a warning is logged once per process.
 
 `save_api_key()` writes to both the plist and `os.environ` so the key is available immediately in the current process.
 

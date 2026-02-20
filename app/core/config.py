@@ -4,7 +4,7 @@ import plistlib
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.core.paths import get_data_dir
+from app.core.paths import get_data_dir, is_bundled
 
 _PLIST_NAME = "preferences.plist"
 _KEY_NAME = "ANTHROPIC_API_KEY"
@@ -59,21 +59,23 @@ def _write_plist(data: dict) -> None:
 def get_api_key() -> str | None:
     """Return the Anthropic API key, or None if not configured.
 
-    Resolution order (both modes):
-      1. ANTHROPIC_API_KEY environment variable
-      2. preferences.plist in data dir
-    Env var takes precedence. If both are set and differ, a warning is logged once.
+    Source mode: env var (ANTHROPIC_API_KEY) takes precedence over plist.
+    Bundle mode: plist only (env var ignored).
     """
     global _mismatch_warned
-
-    env_key = os.environ.get(_KEY_NAME)
-    if env_key == "your-api-key-here":
-        env_key = None
 
     prefs = _read_plist()
     plist_key = prefs.get(_KEY_NAME) or None
 
-    # Warn once if both sources have different non-empty keys
+    # Bundle mode: only use plist
+    if is_bundled():
+        return plist_key
+
+    # Source mode: env var takes precedence
+    env_key = os.environ.get(_KEY_NAME)
+    if env_key == "your-api-key-here":
+        env_key = None
+
     if env_key and plist_key and env_key != plist_key and not _mismatch_warned:
         logger.warning(
             "ANTHROPIC_API_KEY env var differs from preferences.plist; "
