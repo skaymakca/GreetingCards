@@ -43,25 +43,21 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
         sizer.AddSpacer(8)
 
         # Key entry with Save button
-        key_frame = wx.Panel(panel)
-        key_frame.SetMaxSize(wx.Size(340, -1))
         key_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        self._key_entry = wx.TextCtrl(key_frame, style=wx.TE_PASSWORD | wx.TE_PROCESS_ENTER)
+        self._key_entry = wx.TextCtrl(panel, style=wx.TE_PASSWORD | wx.TE_PROCESS_ENTER)
         self._key_entry.SetFont(styles.Font.BODY())
-        self._key_entry.SetMinSize((250, -1))
         current_key = get_api_key()
         if current_key:
             self._key_entry.SetValue(current_key)
         self._key_entry.Bind(wx.EVT_TEXT_ENTER, self._save_api_key)
         key_sizer.Add(self._key_entry, 1, wx.EXPAND)
 
-        save_btn = wx.Button(key_frame, label="Save")
+        save_btn = wx.Button(panel, label="Save")
         save_btn.Bind(wx.EVT_BUTTON, self._save_api_key)
-        key_sizer.Add(save_btn, 0, wx.LEFT, 8)
+        key_sizer.Add(save_btn, 0, wx.LEFT, 12)
 
-        key_frame.SetSizer(key_sizer)
-        sizer.Add(key_frame, 0, wx.LEFT | wx.RIGHT, _PREFS_PAD)
+        sizer.Add(key_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, _PREFS_PAD)
 
         # Status label (hidden until save action)
         self._key_status = wx.StaticText(panel, label="")
@@ -146,13 +142,13 @@ class AdvancedPreferencesPage(wx.StockPreferencesPage):
 
         db_desc = wx.StaticText(
             panel,
-            label="Clear all cached OCR/AI results and rebuild."
+            label="Erase all manual entries, candidates, cached OCR,\nand cached AI results. Cards will be reprocessed on next load."
         )
         db_desc.SetFont(styles.Font.SMALL())
         db_row.Add(db_desc, 1, wx.ALIGN_CENTER_VERTICAL)
 
-        rebuild_btn = wx.Button(panel, label="Rebuild Database")
-        rebuild_btn.Bind(wx.EVT_BUTTON, self._rebuild_db)
+        rebuild_btn = wx.Button(panel, label="Reset All Card Data")
+        rebuild_btn.Bind(wx.EVT_BUTTON, self._reset_card_data)
         db_row.Add(rebuild_btn, 0, wx.LEFT, 12)
 
         sizer.Add(db_row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, _PREFS_PAD)
@@ -162,11 +158,13 @@ class AdvancedPreferencesPage(wx.StockPreferencesPage):
         panel.SetSizer(sizer)
         return panel
 
-    def _rebuild_db(self, event):
-        """Rebuild database after confirmation."""
+    def _reset_card_data(self, event):
+        """Reset all card data after confirmation."""
         result = wx.MessageBox(
-            "This will delete all cached OCR results, AI results, and manual edits.\n\nContinue?",
-            "Rebuild Database",
+            "This will reset all card data including manual name entries, "
+            "collected candidates, cached OCR text, and cached AI results.\n\n"
+            "Cards will need to be reloaded and reprocessed.\n\nContinue?",
+            "Reset All Card Data",
             wx.OK | wx.CANCEL | wx.ICON_WARNING,
         )
         if result != wx.OK:
@@ -174,8 +172,8 @@ class AdvancedPreferencesPage(wx.StockPreferencesPage):
 
         reset_database()
         wx.MessageBox(
-            "The cache has been cleared.",
-            "Database Rebuilt",
+            "All card data has been reset.",
+            "Reset Complete",
             wx.OK | wx.ICON_INFORMATION,
         )
 

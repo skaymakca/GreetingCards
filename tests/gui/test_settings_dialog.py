@@ -106,18 +106,18 @@ class TestAdvancedPreferencesPage:
 
     @patch("app.gui.settings_dialog.reset_database")
     @patch("app.gui.settings_dialog.wx.MessageBox", return_value=wx.OK)
-    def test_rebuild_db_confirmed(self, mock_msgbox, mock_reset, wx_app, wx_frame):
+    def test_reset_card_data_confirmed(self, mock_msgbox, mock_reset, wx_app, wx_frame):
         callback = MagicMock()
         page = AdvancedPreferencesPage(on_db_reset=callback)
-        page._rebuild_db(None)
+        page._reset_card_data(None)
         mock_reset.assert_called_once()
         callback.assert_called_once()
 
     @patch("app.gui.settings_dialog.reset_database")
     @patch("app.gui.settings_dialog.wx.MessageBox", return_value=wx.CANCEL)
-    def test_rebuild_db_cancelled(self, mock_msgbox, mock_reset, wx_app, wx_frame):
+    def test_reset_card_data_cancelled(self, mock_msgbox, mock_reset, wx_app, wx_frame):
         page = AdvancedPreferencesPage()
-        page._rebuild_db(None)
+        page._reset_card_data(None)
         mock_reset.assert_not_called()
 
 

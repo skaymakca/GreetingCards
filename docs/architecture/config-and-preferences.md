@@ -76,5 +76,5 @@ The dropdown labels are built from the `AI_MODELS` registry: `"{label} — {desc
 
 ## Plist vs Database: Design Rationale
 
-- **Plist** is for user preferences that are small, opaque, and must survive database rebuilds. The "Rebuild Database" button in Advanced settings clears the SQLite DB but never touches the plist.
+- **Plist** is for user preferences that are small, opaque, and must survive data resets. The "Reset All Card Data" button in Advanced settings clears the SQLite DB (manual entries, candidates, cached OCR/AI) but never touches the plist.
 - **SQLite** is for cached/derived data that can be recomputed from source files. It's keyed by content hash, supports structured queries, and is safe to drop and recreate.

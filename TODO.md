@@ -3,11 +3,11 @@
 - [ ] Open dialog doesnt work quite correctly. Cannot choose a folder vs open it, which is the behavior seen in other apps.  Also looks off? What were our open dialog options again?
 - [ ] Dark mode detection and handling of ui changes
 - [ ] Check what happens when tesseract not in path.  Investigate options from either bundling the app (is license OK?) vs globally erroring out vs not getting candidates made and giving an error popup with instructions to donwload via homebrew or a link to the tessearct website.
-- [ ] Redo the name of the rebuild DB label to better represent everything being reset.
 - [ ] Add a menu item in file to clear the AI results (but not manual settings and OCR)
 
 
 ## Done
+- [x] Rename "Rebuild Database" to "Reset All Card Data" with descriptive text listing manual entries, candidates, cached OCR/AI; wider API key field in Settings
 - [x] AI Analyze scoped to visible/selected cards: unified single-card and batch paths, dynamic menu labels ("Visible (N)" / "Selected (N)"), static toolbar tooltip, API key cancel fix, code quality audit fixes (949 tests)
 - [x] File menu: AI Analyze All (Cmd+Shift+I), Rename Files (Cmd+R), Clear All with icons and EVT_UPDATE_UI state sync
 - [x] Confidence legend: colored hover popup replacing plain-text tooltip (native tooltips can't show colors)
