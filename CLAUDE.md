@@ -22,35 +22,36 @@
 
 ---
 
-## ⚠️ CRITICAL: ALWAYS USE VENV ⚠️
+## ⚠️ CRITICAL: ALWAYS USE UV ⚠️
 
-**NEVER use system Python. ONLY use the virtual environment.**
+**NEVER use system Python or pip. ONLY use `uv run` for all commands.**
 
-### Correct Python/pip usage:
+### Correct usage:
 ```bash
-# ✅ CORRECT - Use .venv Python
-.venv/bin/python -m pytest tests/
-.venv/bin/python main.py
-.venv/bin/python -m pip install package-name
+# ✅ CORRECT - Use uv run
+uv run pytest tests/
+uv run python main.py
+uv add package-name
 
-# ✅ CORRECT - Activate venv first
-source .venv/bin/activate
-python -m pytest tests/
-python main.py
+# ✅ CORRECT - Install/sync dependencies
+uv sync              # all deps (including dev)
+uv sync --no-dev     # production only
 
 # ❌ WRONG - System Python (DO NOT USE)
 python3 -m pytest tests/
 python3 main.py
-/usr/bin/python3 -m pip install package-name
+pip install package-name
+.venv/bin/python main.py
 /Library/Frameworks/Python.framework/Versions/3.14/bin/python3
 ```
 
 ### Rules:
-- **ALWAYS** use `.venv/bin/python` for all Python commands
-- **NEVER** use `python3`, `/usr/bin/python3`, or system Python paths
-- **NEVER** install packages outside the venv
-- If a command fails, check that you're using .venv Python first
-- The venv directory is `.venv` (with leading dot)
+- **ALWAYS** use `uv run` to execute Python commands
+- **ALWAYS** use `uv add` to add new dependencies
+- **NEVER** use `python3`, `pip`, or direct `.venv/bin/python` paths
+- **NEVER** install packages outside uv's management
+- If a command fails, check that you're using `uv run` first
+- The venv directory is `.venv` (managed by uv, do not create manually)
 
 ---
 
