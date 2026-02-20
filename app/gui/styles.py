@@ -143,7 +143,3 @@ class Layout:
     # Timing (ms)
     DEBOUNCE_MS = 1000
     INFO_DISMISS_MS = 4000
-
-    # Processing
-    PDF_DPI = 200
-    AI_CONCURRENCY = 3

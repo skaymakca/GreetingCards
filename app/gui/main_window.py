@@ -15,6 +15,7 @@ import wx.adv
 logger = logging.getLogger(__name__)
 
 from app.gui import styles
+from app.core.constants import PDF_DPI, AI_CONCURRENCY
 from app.gui.styles import Color, Font, Layout
 from app.gui.preview_panel import PreviewPanel
 from app.gui.review_panel import ReviewPanelMasterDetail
@@ -50,7 +51,7 @@ def _process_pdf_worker(pdf_path_str: str) -> dict:
         reprocess_candidates_from_raw
     )
     from app.models.card import Confidence
-    from app.gui.styles import Layout
+    from app.core.constants import PDF_DPI
 
     pdf_path = Path(pdf_path_str)
     result = {
@@ -79,7 +80,7 @@ def _process_pdf_worker(pdf_path_str: str) -> dict:
         card_state = get_card_state(file_hash)
 
         # Always render preview (needed for AI later)
-        images = render_all_pages(pdf_path, dpi=Layout.PDF_DPI)
+        images = render_all_pages(pdf_path, dpi=PDF_DPI)
         if images:
             # Serialize images to bytes
             preview_buf = io.BytesIO()
@@ -993,7 +994,7 @@ class MainWindow:
                 card.file_hash = file_hash
                 card_state = get_card_state(file_hash)
 
-                images = render_all_pages(pdf_path, dpi=Layout.PDF_DPI)
+                images = render_all_pages(pdf_path, dpi=PDF_DPI)
                 if images:
                     card.preview_image = images[0]
                     card.page_images = images
@@ -1322,7 +1323,7 @@ class MainWindow:
         """Async batch AI processing with concurrency limit."""
         import anthropic
 
-        semaphore = asyncio.Semaphore(Layout.AI_CONCURRENCY)
+        semaphore = asyncio.Semaphore(AI_CONCURRENCY)
         completed = 0
         total = len(self._cards_by_hash)
         auth_failed = asyncio.Event()
