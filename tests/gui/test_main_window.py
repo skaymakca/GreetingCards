@@ -466,6 +466,24 @@ def test_edit_menu_exists(wx_app):
     window._frame.Destroy()
 
 
+def test_clear_ai_menu_exists(wx_app):
+    """Test 'Clear AI Results' menu item exists in File menu."""
+    window = MainWindow()
+    menubar = window._frame.GetMenuBar()
+
+    file_menu_idx = menubar.FindMenu("File")
+    assert file_menu_idx != wx.NOT_FOUND
+
+    file_menu = menubar.GetMenu(file_menu_idx)
+    labels = [
+        it.GetItemLabelText() for it in file_menu.GetMenuItems()
+        if not it.IsSeparator()
+    ]
+    assert any("Clear AI Results" in label for label in labels)
+
+    window._frame.Destroy()
+
+
 def test_native_toolbar_created(wx_app):
     """Test native toolbar is created."""
     window = MainWindow()

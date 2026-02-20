@@ -511,13 +511,13 @@ class TestDismissOnKey:
         event.Skip.assert_not_called()
         dlg.Destroy()
 
-    def test_escape_key_ends_modal(self, wx_app, wx_frame):
+    def test_escape_key_ends_modal_with_cancel(self, wx_app, wx_frame):
         dlg = wx.Dialog(wx_frame)
         event = Mock(spec=wx.KeyEvent)
         event.GetKeyCode.return_value = wx.WXK_ESCAPE
         with patch.object(dlg, "EndModal") as mock_end:
             _dismiss_on_key(dlg, event)
-            mock_end.assert_called_once_with(wx.ID_OK)
+            mock_end.assert_called_once_with(wx.ID_CANCEL)
         event.Skip.assert_not_called()
         dlg.Destroy()
 

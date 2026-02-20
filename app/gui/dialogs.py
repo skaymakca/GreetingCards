@@ -82,8 +82,10 @@ class TableModel(dv.PyDataViewModel):
 def _dismiss_on_key(dialog: wx.Dialog, event: wx.KeyEvent) -> None:
     """Dismiss dialog on Enter or Escape, otherwise skip."""
     key_code = event.GetKeyCode()
-    if key_code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER, wx.WXK_ESCAPE):
+    if key_code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
         dialog.EndModal(wx.ID_OK)
+    elif key_code == wx.WXK_ESCAPE:
+        dialog.EndModal(wx.ID_CANCEL)
     else:
         event.Skip()
 

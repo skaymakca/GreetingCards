@@ -790,17 +790,23 @@ class ReviewPanelMasterDetail(wx.Panel):
 
         def _open_files(evt, _paths=paths):
             for p in _paths:
-                subprocess.Popen(["open", p])
+                try:
+                    subprocess.Popen(["open", p])
+                except OSError:
+                    pass
 
         menu.Bind(wx.EVT_MENU, _open_files, open_item)
 
         if not is_multi:
             primary_path = paths[0]
-            menu.Bind(
-                wx.EVT_MENU,
-                lambda evt: subprocess.Popen(["open", "-R", primary_path]),
-                reveal_item,
-            )
+
+            def _reveal_file(evt, _path=primary_path):
+                try:
+                    subprocess.Popen(["open", "-R", _path])
+                except OSError:
+                    pass
+
+            menu.Bind(wx.EVT_MENU, _reveal_file, reveal_item)
 
         hashes = [c.file_hash for c in cards if c.file_hash]
         if self._on_remove and hashes:

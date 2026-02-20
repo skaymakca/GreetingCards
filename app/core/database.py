@@ -113,7 +113,9 @@ def _ensure_schema() -> None:
     Base.metadata.drop_all(_engine)
 
     # Then check for and drop any orphaned tables not in current metadata
-    all_tables = inspector.get_table_names()
+    # Use fresh inspector since drop_all invalidated the cached one
+    fresh_inspector = inspect(_engine)
+    all_tables = fresh_inspector.get_table_names()
     known_tables = {table.name for table in Base.metadata.tables.values()}
     orphaned = set(all_tables) - known_tables
 
@@ -158,6 +160,68 @@ def reset_database() -> None:
     try:
         session.add(Settings(key="schema_version", value=_compute_schema_version()))
         session.commit()
+    finally:
+        session.close()
+
+
+def clear_ai_results(file_hashes: list[str]) -> int:
+    """Clear AI results for specific cards, preserving OCR and manual entries.
+
+    Deletes raw_ai_results and AI candidates for the given hashes.
+    For cards whose selected candidate was AI: re-selects best OCR candidate,
+    or clears selection if none remain. Manual entries are untouched.
+
+    Returns the number of cards whose selection changed.
+    """
+    if not file_hashes:
+        return 0
+
+    session = get_session()
+    try:
+        # Delete raw AI results for these hashes
+        session.query(RawAIResult).filter(RawAIResult.file_hash.in_(file_hashes)).delete(
+            synchronize_session="fetch"
+        )
+
+        # Find cards whose selected candidate is an AI candidate (within scope)
+        affected_cards = []
+        for file_hash in file_hashes:
+            card = session.query(Card).filter_by(file_hash=file_hash).first()
+            if not card:
+                continue
+            if card.selected_candidate_id:
+                selected = session.query(Candidate).filter_by(id=card.selected_candidate_id).first()
+                if selected and selected.method == "ai":
+                    affected_cards.append(card)
+
+        # Delete all AI candidates for these hashes
+        session.query(Candidate).filter(
+            Candidate.file_hash.in_(file_hashes),
+            Candidate.method == "ai"
+        ).delete(synchronize_session="fetch")
+
+        # Re-select best OCR candidate for affected cards
+        changed = 0
+        for card in affected_cards:
+            # Skip if manual entry exists — manual wins
+            if card.selected_family_name:
+                continue
+
+            # Find best remaining OCR candidate
+            best_ocr = (
+                session.query(Candidate)
+                .filter_by(file_hash=card.file_hash, method="ocr")
+                .all()
+            )
+            if best_ocr:
+                best = min(best_ocr, key=lambda c: _CONFIDENCE_ORDER.get(c.confidence, 999))
+                card.selected_candidate_id = best.id
+            else:
+                card.selected_candidate_id = None
+            changed += 1
+
+        session.commit()
+        return changed
     finally:
         session.close()
 
@@ -363,8 +427,21 @@ def get_card_state(file_hash: str) -> CardState | None:
         if not card:
             return None
 
-        # Get all candidates
-        candidates = get_candidates(file_hash)
+        # Inline candidate query to avoid opening a nested session
+        raw_candidates = (session.query(Candidate)
+                         .filter_by(file_hash=file_hash)
+                         .all())
+        sorted_candidates = sorted(
+            raw_candidates,
+            key=lambda c: (
+                _METHOD_ORDER.get(c.method, 999),
+                _CONFIDENCE_ORDER.get(c.confidence, 999)
+            )
+        )
+        candidates = [
+            CandidateInfo(id=c.id, family_name=c.family_name, method=c.method, confidence=c.confidence)
+            for c in sorted_candidates
+        ]
 
         # Determine display name, method, and confidence
         if card.selected_family_name:
@@ -417,7 +494,6 @@ def save_raw_ocr(file_hash: str, ocr_text: str) -> None:
         ocr_result = session.query(RawOCRResult).filter_by(file_hash=file_hash).first()
         if ocr_result:
             ocr_result.ocr_text = ocr_text
-            ocr_result.created_at = datetime.now(timezone.utc)
         else:
             ocr_result = RawOCRResult(file_hash=file_hash, ocr_text=ocr_text)
             session.add(ocr_result)
@@ -452,7 +528,6 @@ def save_raw_ai(file_hash: str, best_name: str, alternates: list[str]) -> None:
         ai_result = session.query(RawAIResult).filter_by(file_hash=file_hash).first()
         if ai_result:
             ai_result.raw_response = raw_data
-            ai_result.created_at = datetime.now(timezone.utc)
         else:
             ai_result = RawAIResult(file_hash=file_hash, raw_response=raw_data)
             session.add(ai_result)
@@ -499,14 +574,14 @@ def clear_unselected_candidates(file_hash: str, method: str) -> None:
             selected = session.query(Candidate).filter_by(id=selected_id).first()
             if selected and selected.method != method:
                 # Safe to delete all of this method
-                query.delete()
+                query.delete(synchronize_session="fetch")
             else:
                 # Selected candidate is of this method, preserve it
                 query = query.filter(Candidate.id != selected_id)
-                query.delete()
+                query.delete(synchronize_session="fetch")
         else:
             # No selection, safe to delete all
-            query.delete()
+            query.delete(synchronize_session="fetch")
 
         session.commit()
     finally:
@@ -521,7 +596,7 @@ def should_reprocess(file_hash: str, method: str) -> bool:
     session = get_session()
     try:
         count = session.query(Candidate).filter_by(file_hash=file_hash, method=method).count()
-        return count == 0
+        return not count
     finally:
         session.close()
 

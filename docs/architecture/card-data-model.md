@@ -126,6 +126,8 @@ Cards accumulate from multiple sources. `_load_paths()`:
 
 `_clear_all()` resets everything — clears all state, sidebar, preview. Also triggered by the Clear toolbar button.
 
+`clear_ai_results(file_hashes)` performs scoped deletion of AI data for specific cards. Deletes `raw_ai_results` and AI candidates for the given hashes. For cards whose selected candidate was AI, automatically re-selects the best OCR candidate (using `_CONFIDENCE_ORDER`), or clears the selection if no OCR candidates remain. Manual entries (`selected_family_name`) are preserved.
+
 ## Rename Flow
 
 After renaming, `_hash_by_path` is updated to map new paths to the same hash:

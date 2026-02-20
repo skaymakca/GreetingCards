@@ -97,14 +97,19 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
         panel.SetSizer(sizer)
         return panel
 
-    def _on_model_changed(self, event):
+    def _on_model_changed(self, event) -> None:
         """Save model selection immediately."""
+        if not self._model_choice:
+            return
         idx = self._model_choice.GetSelection()
         if idx != wx.NOT_FOUND:
             save_ai_model(AI_MODELS[idx].model_id)
 
-    def _save_api_key(self, event):
+    def _save_api_key(self, event) -> None:
         """Save API key and show status."""
+        # Guard against stale widget reference after CreateWindow re-creation
+        if not self._key_entry or not self._key_status:
+            return
         key = self._key_entry.GetValue().strip()
         if key:
             save_api_key(key)
