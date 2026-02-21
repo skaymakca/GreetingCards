@@ -25,6 +25,8 @@ dev = [
     "jinja2>=3.1.6",
     "markdown>=3.10.2",
     "tomli-w>=1.2.0",
+    "opencv-python-headless>=4.13.0.92",
+    "tesserocr>=2.10.0",
 ]
 
 [tool.pytest.ini_options]

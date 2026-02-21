@@ -23,3 +23,7 @@ htmlcov/
 *.cover
 .tox/
 *.log
+
+# Benchmark scripts
+scripts/tessdata_best/
+_script_output/
