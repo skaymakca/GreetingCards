@@ -1958,11 +1958,15 @@ def test_create_text_ctrl_with_callback(wx_app):
     called = []
 
     ctrl = create_text_ctrl(frame, value="initial", callback=lambda s: called.append(s))
-    ctrl.SetValue("new value")
-    wx.GetApp().Yield()
 
-    assert len(called) >= 1
-    assert "new value" in called
+    # Fire EVT_TEXT directly instead of SetValue + Yield, because Yield
+    # can trigger unrelated macOS timer callbacks that segfault.
+    evt = wx.CommandEvent(wx.wxEVT_TEXT, ctrl.GetId())
+    evt.SetString("new value")
+    ctrl.GetEventHandler().ProcessEvent(evt)
+
+    assert len(called) == 1
+    assert called[0] == "new value"
 
     frame.Destroy()
 

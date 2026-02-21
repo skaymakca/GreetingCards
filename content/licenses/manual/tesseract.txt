@@ -1,0 +1,11 @@
+Tesseract OCR Engine
+
+Copyright 2006 Google Inc.
+
+Licensed under the Apache License, Version 2.0.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Tesseract is an external dependency (not bundled with this application).
+Install via Homebrew: brew install tesseract

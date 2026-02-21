@@ -1,4 +1,4 @@
-"""Tests for app.gui.help_dialog module (WebView help system)."""
+"""Tests for app.gui.help_dialog module (help system wrapper)."""
 
 import wx
 from unittest.mock import patch
@@ -7,8 +7,15 @@ from pathlib import Path
 from app.gui import help_dialog
 from app.gui.help_dialog import (
     show_help, _get_help_index_path, _get_help_base_path,
-    _PAGE_ORDER, _PageMatch, _build_page_index, _count_occurrences,
-    _TextExtractor, _HELP_REL_PATH, _WINDOW_TITLE,
+    _HELP_REL_PATH,
+)
+from app.gui.html_viewer import (
+    _PageMatch, _build_page_index, _count_occurrences,
+    _TextExtractor, _viewer_refs,
+)
+from app.core.help_builder import (
+    get_page_order, _parse_frontmatter, _read_help_pages,
+    _validate_numbering,
 )
 
 import pytest
@@ -19,12 +26,14 @@ import pytest
 @pytest.fixture
 def help_window(wx_app, wx_frame):
     """Open help window and yield it; destroy on teardown."""
-    help_dialog._help_window_ref = None
+    _viewer_refs.pop("help", None)
     show_help(wx_frame)
-    window = help_dialog._help_window_ref()
+    ref = _viewer_refs.get("help")
+    window = ref() if ref else None
     yield window
     if window and not window.IsBeingDeleted():
         window.Destroy()
+    _viewer_refs.pop("help", None)
 
 
 def _get_toolbar(window: wx.Frame) -> wx.ToolBar:
@@ -57,8 +66,8 @@ class TestGetHelpIndexPath:
             assert str(result).startswith("/fake/bundle")
 
     def test_help_rel_path_is_consistent(self):
-        """_HELP_REL_PATH should point to help directory."""
-        assert _HELP_REL_PATH.name == "help"
+        """_HELP_REL_PATH should point to _runtime_content/html/help."""
+        assert _HELP_REL_PATH == Path("_runtime_content") / "html" / "help"
 
 
 # --- Content file tests ---
@@ -68,18 +77,16 @@ class TestHelpContentFiles:
 
     def test_all_pages_exist(self):
         base = _get_help_base_path()
-        for rel_path in _PAGE_ORDER:
+        page_order = get_page_order(_get_help_base_path())
+        for rel_path in page_order:
             full_path = base / rel_path
             assert full_path.exists(), f"Missing help page: {full_path}"
-
-    def test_css_exists(self):
-        base = _get_help_base_path()
-        assert (base / "css" / "help.css").exists()
 
     def test_pages_contain_sidebar(self):
         """All pages should include the CSS sidebar nav."""
         base = _get_help_base_path()
-        for rel_path in _PAGE_ORDER:
+        page_order = get_page_order(_get_help_base_path())
+        for rel_path in page_order:
             content = (base / rel_path).read_text()
             assert 'class="sidebar"' in content, f"No sidebar in {rel_path}"
             assert 'class="content"' in content, f"No content div in {rel_path}"
@@ -87,97 +94,85 @@ class TestHelpContentFiles:
     def test_each_page_marks_itself_active(self):
         """Each page should have exactly one 'active' link in the sidebar."""
         base = _get_help_base_path()
-        for rel_path in _PAGE_ORDER:
+        page_order = get_page_order(_get_help_base_path())
+        for rel_path in page_order:
             content = (base / rel_path).read_text()
             assert content.count('class="active"') == 1, \
                 f"Expected 1 active link in {rel_path}, found {content.count('class=\"active\"')}"
 
+    def test_pages_reference_shared_css(self):
+        """All pages should reference the shared viewer.css."""
+        base = _get_help_base_path()
+        page_order = get_page_order(_get_help_base_path())
+        for rel_path in page_order:
+            content = (base / rel_path).read_text()
+            assert "viewer.css" in content, f"No viewer.css reference in {rel_path}"
 
-# --- TextExtractor tests ---
-
-class TestTextExtractor:
-    """Tests for _TextExtractor HTML parser."""
-
-    def _extract(self, html: str) -> str:
-        ext = _TextExtractor()
-        ext.feed(html)
-        return ext.get_text()
-
-    def test_extracts_content_div_text(self):
-        html = '<div class="content"><p>Hello world</p></div>'
-        assert "Hello world" in self._extract(html)
-
-    def test_ignores_sidebar(self):
-        html = ('<div class="sidebar"><h2>Nav</h2></div>'
-                '<div class="content"><p>Body</p></div>')
-        text = self._extract(html)
-        assert "Body" in text
-        assert "Nav" not in text
-
-    def test_ignores_text_outside_content(self):
-        html = '<title>Page Title</title><div class="content">Inner</div>'
-        text = self._extract(html)
-        assert "Inner" in text
-        assert "Page Title" not in text
-
-    def test_ignores_script_inside_content(self):
-        html = '<div class="content">Text<script>var x=1;</script> more</div>'
-        text = self._extract(html)
-        assert "Text" in text
-        assert "more" in text
-        assert "var" not in text
-
-    def test_ignores_style_inside_content(self):
-        html = '<div class="content">A<style>.x{color:red}</style>B</div>'
-        text = self._extract(html)
-        assert "A" in text
-        assert "B" in text
-        assert "color" not in text
-
-    def test_handles_nested_divs_in_content(self):
-        html = '<div class="content"><div class="inner">Nested</div> Outer</div>'
-        text = self._extract(html)
-        assert "Nested" in text
-        assert "Outer" in text
-
-    def test_empty_html(self):
-        assert self._extract("") == ""
-
-    def test_no_content_div(self):
-        html = "<p>No content div here</p>"
-        assert self._extract(html) == ""
-
-    def test_matches_content_in_multi_class(self):
-        """class='main content' should still match."""
-        html = '<div class="main content"><p>Found</p></div>'
-        assert "Found" in self._extract(html)
-
-    def test_ignores_content_substring_class(self):
-        """class='not-content' should NOT match."""
-        html = '<div class="not-content"><p>Hidden</p></div>'
-        assert self._extract(html) == ""
+    def test_pages_include_search_js(self):
+        """All pages should include the search.js script."""
+        base = _get_help_base_path()
+        page_order = get_page_order(_get_help_base_path())
+        for rel_path in page_order:
+            content = (base / rel_path).read_text()
+            assert "search.js" in content, f"No search.js reference in {rel_path}"
 
 
-# --- Page index tests ---
+# --- Page order tests ---
+
+class TestGetPageOrder:
+    """Tests for get_page_order() — reads page_order.txt manifest."""
+
+    def test_index_is_first(self):
+        page_order = get_page_order(_get_help_base_path())
+        assert page_order[0] == "index.html"
+
+    def test_has_expected_page_count(self):
+        page_order = get_page_order(_get_help_base_path())
+        assert len(page_order) == 8
+
+    def test_all_pages_are_html(self):
+        page_order = get_page_order(_get_help_base_path())
+        assert all(p.endswith(".html") for p in page_order)
+
+    def test_order_matches_nav_order(self):
+        """Page order should follow the numeric prefix in markdown filenames."""
+        page_order = get_page_order(_get_help_base_path())
+        expected = [
+            "index.html",
+            "pages/getting-started.html",
+            "pages/toolbar.html",
+            "pages/card-list.html",
+            "pages/preview.html",
+            "pages/shortcuts.html",
+            "pages/ai-models.html",
+            "pages/tips.html",
+        ]
+        assert page_order == expected
+
+
+# --- Page index tests (using real help files) ---
 
 class TestBuildPageIndex:
-    """Tests for _build_page_index()."""
+    """Tests for _build_page_index() against real help content."""
 
     def test_returns_all_pages(self):
         base = _get_help_base_path()
-        index = _build_page_index(base)
-        for page in _PAGE_ORDER:
+        page_order = get_page_order(_get_help_base_path())
+        index = _build_page_index(base, page_order)
+        for page in page_order:
             assert page in index
 
     def test_text_is_lowercase(self):
         base = _get_help_base_path()
-        index = _build_page_index(base)
+        page_order = get_page_order(_get_help_base_path())
+        index = _build_page_index(base, page_order)
         for page, text in index.items():
             assert text == text.lower(), f"Text for {page} is not lowercase"
 
     def test_text_strips_html_tags(self):
         base = _get_help_base_path()
-        index = _build_page_index(base)
+        page_order = get_page_order(_get_help_base_path())
+        index = _build_page_index(base, page_order)
         for page, text in index.items():
             assert "<" not in text, f"HTML tag found in {page}"
             assert ">" not in text, f"HTML tag found in {page}"
@@ -185,23 +180,24 @@ class TestBuildPageIndex:
     def test_content_searchable(self):
         """Known words should be found on expected pages."""
         base = _get_help_base_path()
-        index = _build_page_index(base)
-        # index.html has "greeting cards help"
+        page_order = get_page_order(_get_help_base_path())
+        index = _build_page_index(base, page_order)
         assert "greeting cards help" in index["index.html"]
 
     def test_only_extracts_content_div(self):
         """Only text from .content div should appear; sidebar/title excluded."""
         base = _get_help_base_path()
-        index = _build_page_index(base)
-        # "contents" is the sidebar heading — must not appear in any page
+        page_order = get_page_order(_get_help_base_path())
+        index = _build_page_index(base, page_order)
         for page, text in index.items():
             assert "contents" not in text, \
                 f"Sidebar heading 'contents' found in {page} index"
 
     def test_missing_file_returns_empty_string(self, tmp_path):
         """Gracefully handle missing files."""
-        index = _build_page_index(tmp_path)
-        for page in _PAGE_ORDER:
+        page_order = get_page_order(_get_help_base_path())
+        index = _build_page_index(tmp_path, page_order)
+        for page in page_order:
             assert index[page] == ""
 
 
@@ -223,7 +219,6 @@ class TestCountOccurrences:
         assert _count_occurrences("hello", "") == 0
 
     def test_case_sensitive_input(self):
-        # function expects pre-lowercased text and query
         assert _count_occurrences("card card card", "card") == 3
 
     def test_non_overlapping(self):
@@ -232,8 +227,8 @@ class TestCountOccurrences:
     def test_counts_on_real_index(self):
         """Verify counts against real help page index."""
         base = _get_help_base_path()
-        index = _build_page_index(base)
-        # "greeting cards help" appears at least once on index page
+        page_order = get_page_order(_get_help_base_path())
+        index = _build_page_index(base, page_order)
         assert _count_occurrences(index["index.html"], "greeting cards help") >= 1
 
     def test_empty_text(self):
@@ -264,7 +259,7 @@ class TestHelpWebViewWindow:
 
     def test_window_creation(self, help_window):
         assert help_window is not None
-        assert help_window.GetTitle() == _WINDOW_TITLE
+        assert help_window.GetTitle() == "Greeting Cards Help"
 
     def test_singleton_reuse(self, help_window):
         """Second call should raise existing window, not create new one."""
@@ -275,16 +270,19 @@ class TestHelpWebViewWindow:
 
     def test_creates_new_after_close(self, wx_app, wx_frame):
         """After old window is destroyed, a new one should be created."""
-        help_dialog._help_window_ref = None
+        _viewer_refs.pop("help", None)
         show_help(wx_frame)
-        window = help_dialog._help_window_ref()
+        ref = _viewer_refs.get("help")
+        window = ref() if ref else None
         window.Destroy()
-        help_dialog._help_window_ref = None
+        _viewer_refs.pop("help", None)
 
         show_help(wx_frame)
-        second_window = help_dialog._help_window_ref()
+        ref2 = _viewer_refs.get("help")
+        second_window = ref2() if ref2 else None
         assert second_window is not None
         second_window.Destroy()
+        _viewer_refs.pop("help", None)
 
 
 # --- Toolbar tests ---
@@ -316,10 +314,11 @@ class TestHelpToolbar:
         assert not toolbar.GetToolEnabled(prev_tool.GetId())
 
     def test_page_order_matches_expected_pages(self):
-        """_PAGE_ORDER should list all expected help pages."""
-        assert _PAGE_ORDER[0] == "index.html"
-        assert len(_PAGE_ORDER) == 8
-        assert all(p.endswith(".html") for p in _PAGE_ORDER)
+        """Page order should list all expected help pages."""
+        page_order = get_page_order(_get_help_base_path())
+        assert page_order[0] == "index.html"
+        assert len(page_order) == 8
+        assert all(p.endswith(".html") for p in page_order)
 
 
 # --- Search control tests ---
@@ -335,22 +334,20 @@ class TestHelpSearchCtrl:
         assert len(search_ctrls) == 1
 
     def test_search_ctrl_descriptive_text(self, help_window):
-        """SearchCtrl should have 'Search help...' placeholder."""
+        """SearchCtrl should have 'Search' placeholder."""
         toolbar = _get_toolbar(help_window)
         search_ctrl = [c for c in toolbar.GetChildren()
                        if isinstance(c, wx.SearchCtrl)][0]
-        assert search_ctrl.GetDescriptiveText() == "Search help..."
+        assert search_ctrl.GetDescriptiveText() == "Search"
 
     def test_match_buttons_disabled_initially(self, help_window):
         """Prev/Next Match buttons should start disabled."""
         toolbar = _get_toolbar(help_window)
-        # Get all tools (skip separators)
         tools = []
         for i in range(toolbar.GetToolsCount()):
             tool = toolbar.GetToolByPos(i)
             if tool.GetId() != wx.ID_SEPARATOR:
                 tools.append(tool)
-        # Prev Match and Next Match are the last two tools
         prev_match = tools[-2]
         next_match = tools[-1]
         assert not toolbar.GetToolEnabled(prev_match.GetId())
@@ -369,3 +366,114 @@ class TestHelpSearchCtrl:
         label = [c for c in toolbar.GetChildren()
                  if isinstance(c, wx.StaticText)][0]
         assert label.GetLabel() == ""
+
+
+# --- Help builder: frontmatter parsing tests ---
+
+class TestParseFrontmatter:
+    """Tests for _parse_frontmatter()."""
+
+    def test_basic_frontmatter(self):
+        text = "---\ntitle: Home\n---\n\n# Content"
+        meta, body = _parse_frontmatter(text)
+        assert meta == {"title": "Home"}
+        assert body == "# Content"
+
+    def test_no_frontmatter(self):
+        text = "# Just content"
+        meta, body = _parse_frontmatter(text)
+        assert meta == {}
+        assert body == "# Just content"
+
+    def test_unclosed_frontmatter(self):
+        text = "---\ntitle: Oops\nNo closing"
+        meta, body = _parse_frontmatter(text)
+        assert meta == {}
+        assert body == text
+
+    def test_empty_frontmatter(self):
+        text = "---\n---\n\nBody."
+        meta, body = _parse_frontmatter(text)
+        assert meta == {}
+        assert body == "Body."
+
+    def test_multiple_keys(self):
+        text = "---\ntitle: Test\nauthor: Me\n---\nBody"
+        meta, body = _parse_frontmatter(text)
+        assert meta == {"title": "Test", "author": "Me"}
+
+
+# --- Help builder: filename numbering validation tests ---
+
+class TestValidateNumbering:
+    """Tests for _validate_numbering()."""
+
+    def test_valid_sequence(self):
+        _validate_numbering([1, 2, 3], ["1 - a.md", "2 - b.md", "3 - c.md"])
+
+    def test_single_file(self):
+        _validate_numbering([1], ["1 - index.md"])
+
+    def test_empty(self):
+        _validate_numbering([], [])
+
+    def test_duplicate_numbers(self):
+        with pytest.raises(ValueError, match="Duplicate.*2"):
+            _validate_numbering(
+                [1, 2, 2], ["1 - a.md", "2 - b.md", "2 - c.md"]
+            )
+
+    def test_gap_in_sequence(self):
+        with pytest.raises(ValueError, match="Gap.*expected 2"):
+            _validate_numbering([1, 3], ["1 - a.md", "3 - c.md"])
+
+    def test_not_starting_at_one(self):
+        with pytest.raises(ValueError, match="start at 1"):
+            _validate_numbering([2, 3], ["2 - a.md", "3 - b.md"])
+
+    def test_out_of_order_is_ok(self):
+        """Files can be discovered in any order; only values matter."""
+        _validate_numbering([3, 1, 2], ["3 - c.md", "1 - a.md", "2 - b.md"])
+
+
+# --- Help builder: read_help_pages tests ---
+
+class TestReadHelpPages:
+    """Tests for _read_help_pages() with real content."""
+
+    def test_reads_all_pages(self):
+        content_dir = Path(__file__).resolve().parent.parent.parent / "content" / "html"
+        pages = _read_help_pages(content_dir)
+        assert len(pages) == 8
+
+    def test_pages_sorted_by_order(self):
+        content_dir = Path(__file__).resolve().parent.parent.parent / "content" / "html"
+        pages = _read_help_pages(content_dir)
+        assert pages[0].slug == "index"
+        assert pages[-1].slug == "tips"
+
+    def test_title_from_frontmatter(self):
+        content_dir = Path(__file__).resolve().parent.parent.parent / "content" / "html"
+        pages = _read_help_pages(content_dir)
+        assert pages[0].title == "Home"
+
+    def test_body_html_not_empty(self):
+        content_dir = Path(__file__).resolve().parent.parent.parent / "content" / "html"
+        pages = _read_help_pages(content_dir)
+        for page in pages:
+            assert page.body_html, f"Empty body for {page.slug}"
+
+    def test_bad_filename_raises(self, tmp_path):
+        help_dir = tmp_path / "help"
+        help_dir.mkdir()
+        (help_dir / "bad-name.md").write_text("---\ntitle: Bad\n---\nContent")
+        with pytest.raises(ValueError, match="doesn't match"):
+            _read_help_pages(tmp_path)
+
+    def test_missing_number_raises(self, tmp_path):
+        help_dir = tmp_path / "help"
+        help_dir.mkdir()
+        (help_dir / "1 - a.md").write_text("---\ntitle: A\n---\nA")
+        (help_dir / "3 - c.md").write_text("---\ntitle: C\n---\nC")
+        with pytest.raises(ValueError, match="Gap"):
+            _read_help_pages(tmp_path)

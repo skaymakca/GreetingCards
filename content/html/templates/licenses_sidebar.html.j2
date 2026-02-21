@@ -1,0 +1,10 @@
+{% macro render(nav_items, active_slug) %}
+<div class="sidebar">
+    <h2>Licenses</h2>
+    <ul>
+{% for item in nav_items %}
+        <li><a href="{{ item.href }}"{% if item.slug == active_slug %} class="active"{% endif %}>{{ item.display }}</a></li>
+{% endfor %}
+    </ul>
+</div>
+{% endmacro %}

@@ -1,0 +1,38 @@
+{% extends "base.html.j2" %}
+{% from "licenses_sidebar.html.j2" import render as render_sidebar %}
+{% block sidebar %}{{ render_sidebar(nav_items, active_slug) }}{% endblock %}
+{% block content %}
+        <h1>Open-Source Licenses</h1>
+        <p>Greeting Cards is open-source software built with the help of these libraries and tools.</p>
+
+        <h2>Dependency Types</h2>
+        <ul>
+            <li><strong><a href="greeting-cards.html">Greeting Cards</a></strong> — This application's own license</li>
+            <li><strong><a href="system.html">System</a></strong> — Platform-level dependencies not managed by Python packaging (e.g. Python itself, Tesseract OCR)</li>
+            <li><strong><a href="runtime.html">Runtime</a></strong> — Libraries the app directly imports and depends on</li>
+            <li><strong><a href="development.html">Development</a></strong> — Testing, development, and build tools</li>
+            <li><strong><a href="transitive.html">Transitive</a></strong> — Dependencies pulled in by Runtime and Development packages</li>
+        </ul>
+
+        <h2>Greeting Cards</h2>
+        <table>
+            <tr><th>Project</th><th>License</th></tr>
+            <tr><td><a href="greeting-cards.html">Greeting Cards</a></td><td>BSD 3-Clause</td></tr>
+        </table>
+
+        <h2>System Dependencies</h2>
+        <table>
+            <tr><th>Name</th><th>License</th><th>Notes</th></tr>
+{% for dep in system_deps %}
+            <tr><td class="pkg-name"><a href="system.html#{{ dep.slug }}">{{ dep.display }}{{ ' ' + dep.version if dep.version else '' }}</a>{% if dep.url %} <a href="{{ dep.url }}">&nearr;</a>{% endif %}</td><td>{{ dep.license }}</td><td>{{ dep.notes }}</td></tr>
+{% endfor %}
+        </table>
+
+        <h2>Python Packages</h2>
+        <table>
+            <tr><th>Library</th><th>Version</th><th>License</th><th>Category</th><th>Required By</th></tr>
+{% for pkg in pkg_infos %}
+            <tr><td class="pkg-name"><a href="{{ pkg.page }}#{{ pkg.slug }}">{{ pkg.display }}</a>{% if pkg.homepage %} <a href="{{ pkg.homepage }}">&nearr;</a>{% endif %}</td><td>{{ pkg.version }}</td><td>{{ pkg.license_type }}</td><td>{{ pkg.category }}</td><td>{% for name in pkg.required_by.split(', ') %}<span class="pkg-name">{{ name }}</span>{% if not loop.last %}, {% endif %}{% endfor %}</td></tr>
+{% endfor %}
+        </table>
+{% endblock %}

@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev run app build clean icon loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-unit test-gui test-watch
+.PHONY: help setup setup-dev run app build clean icon html-content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-unit test-gui test-watch
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -9,7 +9,7 @@ endef
 help: ## Show this help message
 	@echo "Greeting Cards - Available make commands:"
 	@echo ""
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 
 setup: ## Install production dependencies (creates venv automatically)
@@ -24,13 +24,7 @@ setup-dev: ## Install all dependencies including dev/testing tools
 	@echo "✓ Development setup complete!"
 	@echo "  Run 'make test' to run tests."
 
-run: ## Run the app from source
-	@if [ -z "$$ANTHROPIC_API_KEY" ]; then \
-		echo "INFO: ANTHROPIC_API_KEY not set in environment"; \
-		echo "      Set via: export ANTHROPIC_API_KEY=sk-ant-..."; \
-		echo "      Or enter it in Settings (Cmd+,)"; \
-		echo ""; \
-	fi
+run: html-content ## Run the app from source
 	uv run python main.py
 
 test: ## Run all tests
@@ -54,25 +48,37 @@ build: app ## Build the macOS .app bundle (alias for 'app')
 
 LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister
 
-app: icon ## Build the macOS .app bundle
+html-content: ## Generate all HTML content (help, changelog, licenses)
+	@mkdir -p _runtime_content/html/common/css _runtime_content/html/common/js _runtime_content/images
+	@cp content/html/common/css/viewer.css _runtime_content/html/common/css/viewer.css
+	@cp content/html/common/js/search.js _runtime_content/html/common/js/search.js
+	@cp content/images/drop-target-background.png _runtime_content/images/drop-target-background.png
+	uv run python -c "from app.core.help_builder import generate_help_html; generate_help_html()"
+	uv run python -c "from app.core.changelog import generate_changelog_html; generate_changelog_html()"
+	uv run python -c "from app.core.license_discovery import generate_licenses_html; generate_licenses_html()"
+
+licenses-sync: ## Sync license registry from uv.lock + .dist-info
+	uv run python -c "from app.core.license_discovery import sync_registry; sync_registry()"
+
+app: icon html-content ## Build the macOS .app bundle
 	@$(LSREGISTER) -u "dist/Greeting Cards.app" 2>/dev/null || true
 	uv run pyinstaller -y "Greeting Cards.spec"
 
-icon: icon.png ## Generate icon.icns from icon.png
-	@mkdir -p icon.iconset
-	@sips -z 16 16 icon.png --out icon.iconset/icon_16x16.png > /dev/null
-	@sips -z 32 32 icon.png --out icon.iconset/icon_16x16@2x.png > /dev/null
-	@sips -z 32 32 icon.png --out icon.iconset/icon_32x32.png > /dev/null
-	@sips -z 64 64 icon.png --out icon.iconset/icon_32x32@2x.png > /dev/null
-	@sips -z 128 128 icon.png --out icon.iconset/icon_128x128.png > /dev/null
-	@sips -z 256 256 icon.png --out icon.iconset/icon_128x128@2x.png > /dev/null
-	@sips -z 256 256 icon.png --out icon.iconset/icon_256x256.png > /dev/null
-	@sips -z 512 512 icon.png --out icon.iconset/icon_256x256@2x.png > /dev/null
-	@sips -z 512 512 icon.png --out icon.iconset/icon_512x512.png > /dev/null
-	@sips -z 1024 1024 icon.png --out icon.iconset/icon_512x512@2x.png > /dev/null
-	@iconutil -c icns icon.iconset -o icon.icns
+icon: content/images/icon.png ## Generate icon.icns from icon.png
+	@mkdir -p _runtime_content icon.iconset
+	@sips -z 16 16 content/images/icon.png --out icon.iconset/icon_16x16.png > /dev/null
+	@sips -z 32 32 content/images/icon.png --out icon.iconset/icon_16x16@2x.png > /dev/null
+	@sips -z 32 32 content/images/icon.png --out icon.iconset/icon_32x32.png > /dev/null
+	@sips -z 64 64 content/images/icon.png --out icon.iconset/icon_32x32@2x.png > /dev/null
+	@sips -z 128 128 content/images/icon.png --out icon.iconset/icon_128x128.png > /dev/null
+	@sips -z 256 256 content/images/icon.png --out icon.iconset/icon_128x128@2x.png > /dev/null
+	@sips -z 256 256 content/images/icon.png --out icon.iconset/icon_256x256.png > /dev/null
+	@sips -z 512 512 content/images/icon.png --out icon.iconset/icon_256x256@2x.png > /dev/null
+	@sips -z 512 512 content/images/icon.png --out icon.iconset/icon_512x512.png > /dev/null
+	@sips -z 1024 1024 content/images/icon.png --out icon.iconset/icon_512x512@2x.png > /dev/null
+	@iconutil -c icns icon.iconset -o _runtime_content/icon.icns
 	@rm -rf icon.iconset
-	@echo "Generated icon.icns"
+	@echo "Generated _runtime_content/icon.icns"
 
 loc: ## Count lines of code (excludes dependencies)
 	@echo "Lines of code (project files only):"
@@ -82,11 +88,12 @@ loc: ## Count lines of code (excludes dependencies)
 	@find ./app/gui -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  GUI:" '$(FMT_LINE)'
 	@find ./tests -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  Tests:" '$(FMT_LINE)'
 	@echo ""
-	@find ./help \( -name "*.html" -o -name "*.css" \) -exec cat {} + | wc -l | awk -v lbl="HTML/CSS:" '$(FMT_LINE)'
+	@find ./content/html/help \( -name "*.md" \) -exec cat {} + 2>/dev/null | wc -l | awk -v lbl="Help MD:" '$(FMT_LINE)'
+	@find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null | wc -l | awk -v lbl="Web:" '$(FMT_LINE)'
 	@echo ""
 	@wc -l Makefile "Greeting Cards.spec" 2>/dev/null | tail -1 | awk -v lbl="Config:" '$(FMT_LINE)'
 	@echo ""
-	@(find . -name "*.py" -not -path "./.venv/*" -not -path "./build/*" -not -path "./dist/*" -not -path "*/__pycache__/*" -exec cat {} + ; find ./help \( -name "*.html" -o -name "*.css" \) -exec cat {} + ; cat Makefile "Greeting Cards.spec") | wc -l | awk -v lbl="Total:" '$(FMT_LINE)'
+	@(find . -name "*.py" -not -path "./.venv/*" -not -path "./build/*" -not -path "./dist/*" -not -path "*/__pycache__/*" -exec cat {} + ; find ./content/html/help -name "*.md" -exec cat {} + 2>/dev/null; find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null; cat Makefile "Greeting Cards.spec") | wc -l | awk -v lbl="Total:" '$(FMT_LINE)'
 
 version: ## Show current version
 	@uv run python -c "from app.version import __version__; print(__version__)"
@@ -118,4 +125,4 @@ tag-push: ## Push all tags to remote
 
 clean: ## Remove build artifacts
 	@$(LSREGISTER) -u "dist/Greeting Cards.app" 2>/dev/null || true
-	rm -rf build dist icon.iconset
+	rm -rf build dist _runtime_content

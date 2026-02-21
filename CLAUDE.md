@@ -89,8 +89,15 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `app/core/ai_analyzer.py` | `docs/architecture/async-processing.md` |
 | `app/core/name_extractor.py`, `app/core/name_formatting.py` | `docs/architecture/name-pipeline.md` |
 | `app/core/database.py`, `app/core/renamer.py` | `docs/architecture/name-pipeline.md` |
-| `app/gui/help_dialog.py` | `docs/architecture/help-system.md` |
-| `help/**/*.html` | `docs/architecture/help-system.md` |
+| `app/gui/help_dialog.py`, `app/core/help_builder.py` | `docs/architecture/help-system.md` |
+| `content/html/help/*.md` | `docs/architecture/help-system.md` |
+| `app/gui/html_viewer.py`, `content/html/common/js/search.js` | `docs/architecture/html-viewer.md` |
+| `app/core/changelog.py`, `app/core/changelog_models.py` | `docs/architecture/changelog-viewer.md` |
+| `app/gui/changelog_dialog.py`, `content/html/templates/changelog_page.html.j2` | `docs/architecture/changelog-viewer.md` |
+| `app/core/license_models.py`, `app/core/license_discovery.py` | `docs/architecture/licenses-viewer.md` |
+| `app/gui/licenses_dialog.py`, `content/html/templates/licenses_*.html.j2` | `docs/architecture/licenses-viewer.md` |
+| `content/licenses/config.toml`, `content/licenses/manual/*` | `docs/architecture/licenses-viewer.md` |
+| `CHANGELOG.md` | `CLAUDE.md` (changelog conventions below) |
 | `app/core/config.py`, `app/core/paths.py` | `docs/architecture/config-and-preferences.md` |
 | `app/gui/settings_dialog.py` | `docs/architecture/config-and-preferences.md` |
 
@@ -103,29 +110,23 @@ When adding or removing tests, update the test count in `README.md` (search for 
 - **If docs contradict code:** The code is the source of truth. Update the doc to match. If the code seems wrong based on the doc's described intent, flag the discrepancy to the user before changing either — it may be an out-of-date doc or a misaligned implementation that needs discussion.
 - **New subsystems:** If you add a major new subsystem (new panel, new processing pipeline, etc.), create a new doc in `docs/architecture/` and add it to the table above.
 
+### Changelog Conventions
+
+`CHANGELOG.md` is user-facing (not developer-facing). When updating it:
+
+- **Audience:** End users, not developers
+- **Format:** Summary sentence(s) first, then bullets
+- **Language:** Plain language — describe *what changed*, not *how*
+- **Grouping:** Each `major.minor` version gets its own `## ` entry with date; patch versions fold into their parent
+- **When to update:** When making user-visible changes
+- **Build step:** `make html-content` regenerates HTML from the markdown; `make app` runs this automatically
+
+### License Sync
+
+After adding or updating packages with `uv add`, run `make licenses-sync` to update the license registry and extract new license texts. Then run `make html-content` to regenerate the HTML.
+
 ---
 
-## Code Quality Audit Checklist
+## Code Quality Audit
 
-When asked to audit the codebase, check for these categories across all files in `app/` and `tests/`:
-
-### What to Look For
-1. **Missing tests** — public methods/functions without tests, untested error paths, shallow happy-path-only coverage
-2. **Unused code** — dead imports, unreachable code paths, unused functions/variables
-3. **Missing type annotations** — functions missing `-> None` or return types, untyped parameters
-4. **Repeated code** — duplicate logic across files that should be extracted to shared helpers
-5. **Unpythonic patterns** — `dict.__init__(self)` instead of `super().__init__()`, `lambda: Path()` instead of `Path`, `count == 0` instead of `not count`, etc.
-6. **Magic constants** — hardcoded strings, pixel values, colors, or numbers that should be named constants
-7. **Hardcoded colors** — `wx.Colour(...)` literals that duplicate values in `app/gui/styles.py`
-8. **print() instead of logging** — use `logging.getLogger(__name__)` instead
-9. **Incomplete logic** — missing else branches, unhandled empty/None cases, no input validation
-10. **Bugs and logic errors** — race conditions, off-by-one errors, unbounded loops, case-sensitivity mismatches, stale state after mutations, silent exception swallowing that hides real failures
-11. **Stale Makefile** — targets referencing outdated paths, wrong Python versions, missing new entry points, or commands that no longer match the project structure
-
-### How to Run
-Launch parallel Explore agents for each area:
-- `app/core/` — all core modules
-- `app/gui/main_window.py` — largest file, audit separately
-- `app/gui/` (excluding main_window) — all other GUI modules
-- `app/models/card.py` — data model
-- `tests/` — coverage gap analysis (compare test files against source modules)
+When asked to audit the codebase, follow the checklist in [`docs/code-quality-audit.md`](docs/code-quality-audit.md).

@@ -18,6 +18,9 @@ class Color:
     TEXT_PRIMARY = wx.Colour(29, 29, 31)       # #1D1D1F
     TEXT_SECONDARY = wx.Colour(110, 110, 115)  # #6E6E73
 
+    # Borders
+    BORDER = wx.Colour(0xDD, 0xDD, 0xDD)       # #DDDDDD
+
     # Semantic colors
     ACCENT = wx.Colour(0, 122, 255)            # #007AFF
     SUCCESS = wx.Colour(52, 199, 89)           # #34C759

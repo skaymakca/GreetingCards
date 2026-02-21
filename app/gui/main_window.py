@@ -23,6 +23,8 @@ from app.gui.filter_sidebar import FilterSidebar
 from app.gui.dialogs import ProgressDialog, RenameConfirmDialog, CompletionDialog, ErrorListDialog
 from app.gui.settings_dialog import create_preferences_editor, get_commit_hash
 from app.gui.help_dialog import show_help
+from app.gui.changelog_dialog import show_changelog
+from app.gui.licenses_dialog import show_licenses
 from app.gui.icons import load_sf_symbol, load_menu_icon
 from app.gui.api_key_dialog import show_api_key_dialog
 from app.models.card import CardResult, Confidence
@@ -130,9 +132,9 @@ def _load_drop_background() -> wx.Bitmap | None:
 
         # Resolve path for both dev and bundled app
         if getattr(sys, '_MEIPASS', None):
-            img_path = Path(sys._MEIPASS) / "Drop Target Background.png"
+            img_path = Path(sys._MEIPASS) / "_runtime_content" / "images" / "drop-target-background.png"
         else:
-            img_path = Path(__file__).resolve().parent.parent.parent / "Drop Target Background.png"
+            img_path = Path(__file__).resolve().parent.parent.parent / "_runtime_content" / "images" / "drop-target-background.png"
 
         if not img_path.exists():
             return None
@@ -384,6 +386,10 @@ class MainWindow:
         help_menu.Append(wx.ID_ABOUT, "About Greeting Cards")
         help_menu.AppendSeparator()
         help_menu.Append(wx.ID_HELP, "Greeting Cards Help")
+        self._whats_new_id = wx.NewIdRef()
+        help_menu.Append(self._whats_new_id, "What's New")
+        self._licenses_id = wx.NewIdRef()
+        help_menu.Append(self._licenses_id, "Licenses")
         menubar.Append(help_menu, "&Help")
 
         self._frame.SetMenuBar(menubar)
@@ -394,7 +400,9 @@ class MainWindow:
         self._frame.Bind(wx.EVT_MENU, lambda e: self._show_preferences(), id=wx.ID_PREFERENCES)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._frame.Close(), id=wx.ID_CLOSE)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._frame.Close(), id=wx.ID_EXIT)
+        self._frame.Bind(wx.EVT_MENU, lambda e: show_changelog(self._frame), id=self._whats_new_id)
         self._frame.Bind(wx.EVT_MENU, lambda e: show_help(self._frame), id=wx.ID_HELP)
+        self._frame.Bind(wx.EVT_MENU, lambda e: show_licenses(self._frame), id=self._licenses_id)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._search_ctrl.SetFocus(), id=self._find_menu_id)
         self._frame.Bind(wx.EVT_MENU, self._on_select_all, id=wx.ID_SELECTALL)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._review_panel.select_none(), id=self._select_none_id)
@@ -433,6 +441,7 @@ class MainWindow:
         # from Contents/Resources/icon.icns via CFBundleIconFile in Info.plist.
         # Only set the commit hash as the version — the native About panel
         # already shows CFBundleShortVersionString from Info.plist as the main version.
+        info.SetDescription("Open-source licenses: Help > Licenses")
         commit = get_commit_hash()
         if commit:
             info.SetVersion(commit)

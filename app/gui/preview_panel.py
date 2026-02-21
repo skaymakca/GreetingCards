@@ -404,6 +404,9 @@ class PreviewPanel(wx.Panel):
 
     def _on_modifier_timer(self, event):
         """Timer callback to check for modifier key changes without mouse movement."""
+        if not wx.GetApp():
+            self._modifier_timer.Stop()
+            return
         if self._images and self._drag_start is None:
             self._update_cursor()
 
