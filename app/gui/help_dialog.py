@@ -24,6 +24,7 @@ _SEARCH_MIN_WIDTH = 150
 _TOOL_WIDTH_EST = 36
 _TOOLBAR_MARGIN = 24
 _NUM_TOOLS = 5
+_TOOLBAR_BORDER_COLOUR = wx.Colour(0xDD, 0xDD, 0xDD)  # Matches CSS sidebar #ddd
 
 _HELP_REL_PATH = Path("help")
 
@@ -35,6 +36,7 @@ _PAGE_ORDER = [
     "pages/card-list.html",
     "pages/preview.html",
     "pages/shortcuts.html",
+    "pages/ai-models.html",
     "pages/tips.html",
 ]
 
@@ -242,9 +244,14 @@ def show_help(parent: wx.Window) -> None:
 
     frame.Bind(wx.EVT_SIZE, _resize_search_ctrl)
 
+    # #ddd line to cover the native dark toolbar border (overlaps it by 1px)
+    tb_line = wx.Panel(frame, size=(-1, 1))
+    tb_line.SetBackgroundColour(_TOOLBAR_BORDER_COLOUR)
+    sizer.Add(tb_line, 0, wx.EXPAND | wx.TOP, -1)
+
     # WebView — HTML pages have built-in CSS sidebar
     url = _get_help_index_path().as_uri()
-    webview = wx.html2.WebView.New(frame)
+    webview = wx.html2.WebView.New(frame, style=wx.BORDER_NONE)
     webview.LoadURL(url)
     sizer.Add(webview, 1, wx.EXPAND)
 

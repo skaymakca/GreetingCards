@@ -143,7 +143,7 @@ def test_min_size_set(wx_app):
     sidebar = FilterSidebar(parent, on_category_filter=lambda k: None)
 
     min_width, _ = sidebar.GetMinSize()
-    assert min_width == 150
+    assert min_width == 175
 
     parent.Destroy()
 
@@ -725,5 +725,166 @@ def test_update_folder_counts_does_not_fire_callback_on_fallback(wx_app):
 
     # But callback should NOT have been fired (prevents re-entrancy)
     assert folder_called_with == []
+
+    parent.Destroy()
+
+
+# --- Notification tests ---
+
+
+def test_notification_show(wx_app):
+    """Test show_notification displays a message."""
+    parent = wx.Frame(None)
+    sidebar = FilterSidebar(parent, on_category_filter=lambda k: None)
+
+    sidebar.show_notification("Test message")
+    assert sidebar._notify_label.IsShown()
+    # wx may wrap the label text, so normalize whitespace for comparison
+    assert sidebar._notify_label.GetLabel().replace("\n", " ") == "Test message"
+
+    parent.Destroy()
+
+
+def test_notification_timer_stop_on_reshow(wx_app):
+    """Test showing notification again stops existing timer (lines 130-131)."""
+    parent = wx.Frame(None)
+    sidebar = FilterSidebar(parent, on_category_filter=lambda k: None)
+
+    sidebar.show_notification("First", duration_ms=10000)
+    first_timer = sidebar._notify_timer
+    assert first_timer is not None
+
+    sidebar.show_notification("Second", duration_ms=10000)
+    # First timer should have been stopped and replaced
+    assert sidebar._notify_label.GetLabel() == "Second"
+    assert sidebar._notify_timer is not None
+
+    parent.Destroy()
+
+
+def test_notification_info_colour(wx_app):
+    """Test ICON_INFORMATION uses secondary text colour (line 135)."""
+    parent = wx.Frame(None)
+    sidebar = FilterSidebar(parent, on_category_filter=lambda k: None)
+
+    from app.gui import styles
+    sidebar.show_notification("Info", icon=wx.ICON_INFORMATION)
+    assert sidebar._notify_label.GetForegroundColour() == styles.Color.TEXT_SECONDARY
+
+    parent.Destroy()
+
+
+def test_notification_error_colour(wx_app):
+    """Test ICON_ERROR uses error colour (line 133)."""
+    parent = wx.Frame(None)
+    sidebar = FilterSidebar(parent, on_category_filter=lambda k: None)
+
+    from app.gui import styles
+    sidebar.show_notification("Error!", icon=wx.ICON_ERROR)
+    assert sidebar._notify_label.GetForegroundColour() == styles.Color.ERROR
+
+    parent.Destroy()
+
+
+def test_notification_warning_colour(wx_app):
+    """Test ICON_WARNING uses error colour (line 132)."""
+    parent = wx.Frame(None)
+    sidebar = FilterSidebar(parent, on_category_filter=lambda k: None)
+
+    from app.gui import styles
+    sidebar.show_notification("Warning!", icon=wx.ICON_WARNING)
+    assert sidebar._notify_label.GetForegroundColour() == styles.Color.ERROR
+
+    parent.Destroy()
+
+
+def test_dismiss_notification(wx_app):
+    """Test dismiss_notification hides the label."""
+    parent = wx.Frame(None)
+    sidebar = FilterSidebar(parent, on_category_filter=lambda k: None)
+
+    sidebar.show_notification("Test")
+    assert sidebar._notify_label.IsShown()
+
+    sidebar.dismiss_notification()
+    assert not sidebar._notify_label.IsShown()
+    assert sidebar._notify_timer is None
+
+    parent.Destroy()
+
+
+# --- _apply_count_fallback partial-disable branch ---
+
+
+def test_apply_count_fallback_partial_disable(wx_app):
+    """Test _apply_count_fallback when some (not all) selected filters are disabled (line 318)."""
+    parent = wx.Frame(None)
+    sidebar = FilterSidebar(parent, on_category_filter=lambda k: None)
+
+    # Set up with cards in high and errors
+    cards = [
+        CardResult(id=0, file_paths=[Path("/test/card1.pdf")], primary_path=Path("/test/card1.pdf")),
+        CardResult(id=1, file_paths=[Path("/test/card2.pdf")], primary_path=Path("/test/card2.pdf")),
+    ]
+    cards[0].confidence = Confidence.HIGH
+    cards[1].confidence = Confidence.NONE  # counts as error
+
+    sidebar.update_category_counts(cards)
+
+    # Select both "high" and "errors"
+    sidebar.set_category_filters(["high", "errors"])
+
+    # Now update with cards where only high exists (errors goes to 0)
+    cards_no_errors = [
+        CardResult(id=2, file_paths=[Path("/test/card3.pdf")], primary_path=Path("/test/card3.pdf")),
+    ]
+    cards_no_errors[0].confidence = Confidence.HIGH
+
+    sidebar.update_category_counts(cards_no_errors)
+
+    # "errors" was disabled but "high" remains — should keep just "high"
+    assert sidebar.get_selected_category_filters() == ["high"]
+
+    parent.Destroy()
+
+
+# --- Category check with explicit option_held ---
+
+
+def test_category_check_default_option_held_none(wx_app):
+    """Test _on_category_check with option_held=None falls back to wx.GetKeyState."""
+    parent = wx.Frame(None)
+    called = []
+    sidebar = FilterSidebar(parent, on_category_filter=lambda k: called.append(k))
+
+    # Enable "high" checkbox with cards
+    cards = [CardResult(id=0, file_paths=[Path("/a.pdf")], primary_path=Path("/a.pdf"))]
+    cards[0].confidence = Confidence.HIGH
+    sidebar.update_category_counts(cards)
+
+    # Call without option_held — it reads from wx.GetKeyState
+    sidebar._category_checkboxes[2].SetValue(True)
+    sidebar._on_category_check("high")  # default option_held=None
+    assert "high" in sidebar.get_selected_category_filters()
+
+    parent.Destroy()
+
+
+def test_folder_check_default_option_held_none(wx_app):
+    """Test _on_folder_check with option_held=None falls back to wx.GetKeyState."""
+    parent = wx.Frame(None)
+    called = []
+    sidebar = FilterSidebar(
+        parent,
+        on_category_filter=lambda k: None,
+        on_folder_filter=lambda k: called.append(k),
+    )
+
+    folders = [Path("/test/folder1"), Path("/test/folder2")]
+    sidebar.update_folders(folders)
+
+    sidebar._folder_checkboxes[1].SetValue(True)
+    sidebar._on_folder_check(str(Path("/test/folder1")))  # default option_held=None
+    assert len(called) >= 1
 
     parent.Destroy()

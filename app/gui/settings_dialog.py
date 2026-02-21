@@ -5,10 +5,12 @@ from collections.abc import Callable
 import wx
 
 from app.gui import styles
-from app.core.config import get_api_key, save_api_key
+from app.core.config import get_api_key, save_api_key, AI_MODELS, get_ai_model, save_ai_model
 from app.core.database import reset_database
 
 _PREFS_PAD = 20
+_PREFS_WIDTH = 480
+_STATUS_DISPLAY_MS = 3000
 
 
 def get_commit_hash() -> str:
@@ -18,7 +20,7 @@ def get_commit_hash() -> str:
             ["git", "rev-parse", "--short", "HEAD"],
             stderr=subprocess.DEVNULL,
         ).decode().strip()
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         return ""
 
 
@@ -31,6 +33,7 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
     def CreateWindow(self, parent):
         """Create the preferences panel. May be called multiple times."""
         panel = wx.Panel(parent)
+        panel.SetMaxSize(wx.Size(_PREFS_WIDTH, -1))
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         sizer.AddSpacer(16)
@@ -43,38 +46,77 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
         sizer.AddSpacer(8)
 
         # Key entry with Save button
-        key_frame = wx.Panel(panel)
-        key_frame.SetMaxSize(wx.Size(340, -1))
         key_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        self._key_entry = wx.TextCtrl(key_frame, style=wx.TE_PASSWORD | wx.TE_PROCESS_ENTER)
+        self._key_entry = wx.TextCtrl(panel, style=wx.TE_PASSWORD | wx.TE_PROCESS_ENTER)
         self._key_entry.SetFont(styles.Font.BODY())
-        self._key_entry.SetMinSize((250, -1))
         current_key = get_api_key()
         if current_key:
             self._key_entry.SetValue(current_key)
         self._key_entry.Bind(wx.EVT_TEXT_ENTER, self._save_api_key)
         key_sizer.Add(self._key_entry, 1, wx.EXPAND)
 
-        save_btn = wx.Button(key_frame, label="Save")
+        save_btn = wx.Button(panel, label="Save")
         save_btn.Bind(wx.EVT_BUTTON, self._save_api_key)
-        key_sizer.Add(save_btn, 0, wx.LEFT, 8)
+        key_sizer.Add(save_btn, 0, wx.LEFT, 12)
 
-        key_frame.SetSizer(key_sizer)
-        sizer.Add(key_frame, 0, wx.LEFT | wx.RIGHT, _PREFS_PAD)
+        sizer.Add(key_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, _PREFS_PAD)
 
-        sizer.AddSpacer(4)
-
-        # Status label
+        # Status label (hidden until save action)
         self._key_status = wx.StaticText(panel, label="")
         self._key_status.SetFont(styles.Font.SMALL())
-        sizer.Add(self._key_status, 0, wx.LEFT | wx.RIGHT, _PREFS_PAD)
+        sizer.Add(self._key_status, 0, wx.LEFT | wx.RIGHT | wx.TOP, _PREFS_PAD)
+        self._key_status.Hide()
+        self._status_timer = None
+
+        # Reset status when preferences window is reopened
+        panel.Bind(wx.EVT_SHOW, self._on_panel_shown)
+
+        sizer.AddSpacer(16)
+
+        # AI Model heading
+        model_heading = wx.StaticText(panel, label="AI Model")
+        model_heading.SetFont(styles.Font.HEADING())
+        sizer.Add(model_heading, 0, wx.LEFT | wx.RIGHT, _PREFS_PAD)
+
+        sizer.AddSpacer(8)
+
+        # Model dropdown
+        model_labels = [f"{m.label} \u2014 {m.description}" for m in AI_MODELS]
+        self._model_choice = wx.Choice(panel, choices=model_labels)
+        self._model_choice.SetMaxSize(wx.Size(340, -1))
+
+        current_model = get_ai_model()
+        for i, m in enumerate(AI_MODELS):
+            if m.model_id == current_model:
+                self._model_choice.SetSelection(i)
+                break
+
+        self._model_choice.Bind(wx.EVT_CHOICE, self._on_model_changed)
+        sizer.Add(self._model_choice, 0, wx.LEFT | wx.RIGHT, _PREFS_PAD)
+
+        model_desc = wx.StaticText(panel, label="Used for AI-assisted name extraction")
+        model_desc.SetFont(styles.Font.SMALL())
+        sizer.Add(model_desc, 0, wx.LEFT | wx.RIGHT | wx.TOP, _PREFS_PAD)
+
+        sizer.AddSpacer(20)
 
         panel.SetSizer(sizer)
         return panel
 
-    def _save_api_key(self, event):
+    def _on_model_changed(self, event) -> None:
+        """Save model selection immediately."""
+        if not self._model_choice:
+            return
+        idx = self._model_choice.GetSelection()
+        if idx != wx.NOT_FOUND:
+            save_ai_model(AI_MODELS[idx].model_id)
+
+    def _save_api_key(self, event) -> None:
         """Save API key and show status."""
+        # Guard against stale widget reference after CreateWindow re-creation
+        if not self._key_entry or not self._key_status:
+            return
         key = self._key_entry.GetValue().strip()
         if key:
             save_api_key(key)
@@ -83,7 +125,33 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
         else:
             self._key_status.SetLabel("Key cannot be empty")
             self._key_status.SetForegroundColour(styles.Color.ERROR)
+        self._key_status.Show()
         self._key_status.GetParent().Layout()
+
+        # Auto-hide after a few seconds
+        if self._status_timer is not None:
+            self._status_timer.Stop()
+        self._status_timer = wx.CallLater(_STATUS_DISPLAY_MS, self._cancel_status)
+
+
+    def _on_panel_shown(self, event: wx.ShowEvent) -> None:
+        """Clean up status label on show/hide transitions.
+
+        On hide (window closing): immediately hide status and cancel timer,
+        so the label is already gone before the next open.
+        On show (window reopening): safety net in case hide wasn't called.
+        """
+        event.Skip()
+        self._cancel_status()
+
+    def _cancel_status(self) -> None:
+        """Stop the auto-hide timer and hide the status label."""
+        if self._status_timer is not None:
+            self._status_timer.Stop()
+            self._status_timer = None
+        if self._key_status and self._key_status.IsShown():
+            self._key_status.Hide()
+            self._key_status.GetParent().Layout()
 
 
 class AdvancedPreferencesPage(wx.StockPreferencesPage):
@@ -96,6 +164,7 @@ class AdvancedPreferencesPage(wx.StockPreferencesPage):
     def CreateWindow(self, parent):
         """Create the preferences panel. May be called multiple times."""
         panel = wx.Panel(parent)
+        panel.SetMaxSize(wx.Size(_PREFS_WIDTH, -1))
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         sizer.AddSpacer(16)
@@ -107,42 +176,42 @@ class AdvancedPreferencesPage(wx.StockPreferencesPage):
 
         sizer.AddSpacer(8)
 
-        db_frame = wx.Panel(panel)
-        db_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        db_row = wx.BoxSizer(wx.HORIZONTAL)
 
         db_desc = wx.StaticText(
-            db_frame,
-            label="Clear all cached OCR/AI results and rebuild."
+            panel,
+            label="Erase all manual entries, candidates, cached OCR,\nand cached AI results. Cards will be reprocessed on next load."
         )
         db_desc.SetFont(styles.Font.SMALL())
-        db_sizer.Add(db_desc, 1, wx.ALIGN_CENTER_VERTICAL)
+        db_row.Add(db_desc, 1, wx.ALIGN_CENTER_VERTICAL)
 
-        rebuild_btn = wx.Button(db_frame, label="Rebuild")
-        rebuild_btn.Bind(wx.EVT_BUTTON, self._rebuild_db)
-        db_sizer.Add(rebuild_btn, 0, wx.LEFT, 8)
+        rebuild_btn = wx.Button(panel, label="Reset All Card Data")
+        rebuild_btn.Bind(wx.EVT_BUTTON, self._reset_card_data)
+        db_row.Add(rebuild_btn, 0, wx.LEFT, 12)
 
-        db_frame.SetSizer(db_sizer)
-        sizer.Add(db_frame, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, _PREFS_PAD)
+        sizer.Add(db_row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, _PREFS_PAD)
 
         sizer.AddSpacer(30)
 
         panel.SetSizer(sizer)
         return panel
 
-    def _rebuild_db(self, event):
-        """Rebuild database after confirmation."""
+    def _reset_card_data(self, event):
+        """Reset all card data after confirmation."""
         result = wx.MessageBox(
-            "This will delete all cached OCR results, AI results, and manual edits.\n\nContinue?",
-            "Rebuild Database",
-            wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION,
+            "This will reset all card data including manual name entries, "
+            "collected candidates, cached OCR text, and cached AI results.\n\n"
+            "Cards will need to be reloaded and reprocessed.\n\nContinue?",
+            "Reset All Card Data",
+            wx.OK | wx.CANCEL | wx.ICON_WARNING,
         )
-        if result != wx.YES:
+        if result != wx.OK:
             return
 
         reset_database()
         wx.MessageBox(
-            "The cache has been cleared.",
-            "Database Rebuilt",
+            "All card data has been reset.",
+            "Reset Complete",
             wx.OK | wx.ICON_INFORMATION,
         )
 

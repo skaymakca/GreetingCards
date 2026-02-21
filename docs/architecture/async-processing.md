@@ -64,19 +64,20 @@ If `multiprocessing.Pool` fails (common in frozen apps), `_process_cards_sequent
 
 ## AI Analysis
 
-### Single Card: `_on_ai_request()`
-1. Checks API key via `_ensure_api_key()`
-2. Disables AI button on the card
-3. Spawns `threading.Thread(target=_run_ai_analysis)`
-4. Worker calls `analyze_card_with_ai()` (sync Anthropic client)
-5. Saves raw AI result to DB, reprocesses candidates
-6. `wx.CallAfter(_ai_analysis_complete)` → updates UI
+### Unified Path: `_start_ai_all()`
+All AI analysis (single card, selected, or visible) flows through a single async batch path:
 
-### Batch AI: `_start_ai_all()`
-1. Spawns `threading.Thread(target=_run_ai_all)`
-2. Thread runs `asyncio.run(_run_ai_all_async())`
-3. Async function uses `Semaphore(3)` for 3 concurrent API calls
-4. Each card processed as an async task via `asyncio.gather()`
+1. `_get_ai_target_cards()` determines scope: 2+ selected → "selected", else → all "visible" cards
+2. Single card from detail panel AI button passes `cards=[card]` directly
+3. Spawns `threading.Thread(target=_run_ai_all)`
+4. Thread runs `asyncio.run(_run_ai_all_async())`
+5. Async function uses `Semaphore(3)` for concurrent API calls via `analyze_card_with_ai_async()`
+6. Each card processed as an async task via `asyncio.gather()`
+
+The menu label and toolbar tooltip update dynamically based on scope:
+- 0-1 selected: "AI Analyze Visible (N)"
+- 2+ selected: "AI Analyze Selected (N)"
+- Disabled: "AI Analyze"
 
 ### Auth Abort Pattern
 ```python

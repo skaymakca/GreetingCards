@@ -11,8 +11,10 @@ from app.core.ai_analyzer import (
     format_ai_error,
     _image_to_b64,
     _parse_response,
+    _build_content_blocks,
+    _normalize_images,
+    _get_validated_api_key,
     AIResult,
-    analyze_card_with_ai,
     analyze_card_with_ai_async,
 )
 
@@ -183,54 +185,7 @@ class TestParseResponse:
 
 
 class TestAnalyzeCardWithAi:
-    """Tests for analyze_card_with_ai()."""
-
-    @patch("app.core.ai_analyzer.get_api_key", return_value=None)
-    def test_no_api_key_raises(self, mock_key):
-        img = Image.new("RGB", (10, 10))
-        with pytest.raises(ValueError, match="not configured"):
-            analyze_card_with_ai(img)
-
-    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
-    def test_calls_anthropic(self, mock_key):
-        import anthropic
-        mock_msg = MagicMock()
-        mock_msg.content = [MagicMock(text="Smith")]
-        mock_client = MagicMock()
-        mock_client.messages.create.return_value = mock_msg
-
-        with patch.object(anthropic, "Anthropic", return_value=mock_client):
-            result = analyze_card_with_ai(Image.new("RGB", (10, 10)))
-            assert result.best_name == "Smith"
-
-    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
-    def test_accepts_single_image(self, mock_key):
-        import anthropic
-        mock_msg = MagicMock()
-        mock_msg.content = [MagicMock(text="Jones")]
-        mock_client = MagicMock()
-        mock_client.messages.create.return_value = mock_msg
-
-        with patch.object(anthropic, "Anthropic", return_value=mock_client):
-            result = analyze_card_with_ai(Image.new("RGB", (10, 10)))
-            assert result.best_name == "Jones"
-
-    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
-    def test_accepts_image_list(self, mock_key):
-        import anthropic
-        mock_msg = MagicMock()
-        mock_msg.content = [MagicMock(text="Smith")]
-        mock_client = MagicMock()
-        mock_client.messages.create.return_value = mock_msg
-
-        with patch.object(anthropic, "Anthropic", return_value=mock_client):
-            imgs = [Image.new("RGB", (10, 10)), Image.new("RGB", (10, 10))]
-            result = analyze_card_with_ai(imgs)
-            assert result.best_name == "Smith"
-
-
-class TestAnalyzeCardWithAiAsync:
-    """Tests for analyze_card_with_ai_async()."""
+    """Tests for analyze_card_with_ai_async() (unified async path)."""
 
     @pytest.mark.asyncio
     @patch("app.core.ai_analyzer.get_api_key", return_value=None)
@@ -240,8 +195,9 @@ class TestAnalyzeCardWithAiAsync:
             await analyze_card_with_ai_async(img)
 
     @pytest.mark.asyncio
+    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
     @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
-    async def test_calls_async_anthropic(self, mock_key):
+    async def test_calls_anthropic(self, mock_key, mock_model):
         import anthropic
         mock_msg = MagicMock()
         mock_msg.content = [MagicMock(text="Smith")]
@@ -251,3 +207,132 @@ class TestAnalyzeCardWithAiAsync:
         with patch.object(anthropic, "AsyncAnthropic", return_value=mock_client):
             result = await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
             assert result.best_name == "Smith"
+
+    @pytest.mark.asyncio
+    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    async def test_accepts_single_image(self, mock_key, mock_model):
+        import anthropic
+        mock_msg = MagicMock()
+        mock_msg.content = [MagicMock(text="Jones")]
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(return_value=mock_msg)
+
+        with patch.object(anthropic, "AsyncAnthropic", return_value=mock_client):
+            result = await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
+            assert result.best_name == "Jones"
+
+    @pytest.mark.asyncio
+    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    async def test_accepts_image_list(self, mock_key, mock_model):
+        import anthropic
+        mock_msg = MagicMock()
+        mock_msg.content = [MagicMock(text="Smith")]
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(return_value=mock_msg)
+
+        with patch.object(anthropic, "AsyncAnthropic", return_value=mock_client):
+            imgs = [Image.new("RGB", (10, 10)), Image.new("RGB", (10, 10))]
+            result = await analyze_card_with_ai_async(imgs)
+            assert result.best_name == "Smith"
+
+    @pytest.mark.asyncio
+    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    async def test_uses_configured_model(self, mock_key, mock_model):
+        """Verifies the configured model is passed to the API."""
+        import anthropic
+        mock_msg = MagicMock()
+        mock_msg.content = [MagicMock(text="Smith")]
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(return_value=mock_msg)
+
+        with patch.object(anthropic, "AsyncAnthropic", return_value=mock_client):
+            await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
+            call_kwargs = mock_client.messages.create.call_args
+            assert call_kwargs[1]["model"] == "claude-sonnet-4-6"
+
+
+class TestBuildContentBlocks:
+    """Tests for _build_content_blocks()."""
+
+    def test_single_image(self):
+        """Single image → 1 image block + 1 text block."""
+        img = Image.new("RGB", (10, 10))
+        blocks = _build_content_blocks([img])
+        assert len(blocks) == 2
+        assert blocks[0]["type"] == "image"
+        assert blocks[1]["type"] == "text"
+        assert "1 page" in blocks[1]["text"]
+
+    def test_multiple_images(self):
+        """Multiple images → N image blocks + 1 text block with 'pages'."""
+        imgs = [Image.new("RGB", (10, 10)) for _ in range(3)]
+        blocks = _build_content_blocks(imgs)
+        assert len(blocks) == 4  # 3 images + 1 text
+        assert blocks[2]["type"] == "image"
+        assert "3 pages" in blocks[3]["text"]
+
+
+class TestNormalizeImages:
+    """Tests for _normalize_images()."""
+
+    def test_single_image_to_list(self):
+        img = Image.new("RGB", (10, 10))
+        result = _normalize_images(img)
+        assert isinstance(result, list)
+        assert len(result) == 1
+
+    def test_list_passes_through(self):
+        imgs = [Image.new("RGB", (10, 10))]
+        result = _normalize_images(imgs)
+        assert result is imgs
+
+
+class TestGetValidatedApiKey:
+    """Tests for _get_validated_api_key()."""
+
+    @patch("app.core.ai_analyzer.get_api_key", return_value=None)
+    def test_no_key_raises(self, mock_key):
+        with pytest.raises(ValueError, match="not configured"):
+            _get_validated_api_key()
+
+    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    def test_returns_key(self, mock_key):
+        assert _get_validated_api_key() == "sk-test"
+
+
+class TestParseResponseEdgeCases:
+    """Edge case tests for _parse_response()."""
+
+    def test_unknown_case_insensitive(self):
+        """'UNKNOWN', 'unknown', 'Unknown' all return empty AIResult."""
+        for text in ["UNKNOWN", "unknown", "Unknown", "  UNKNOWN  "]:
+            result = _parse_response(text)
+            assert result.best_name == ""
+            assert result.alternates == []
+
+    def test_empty_response(self):
+        """Empty string returns empty AIResult."""
+        result = _parse_response("")
+        assert result.best_name == ""
+
+    def test_long_lines_filtered(self):
+        """Lines over 50 chars are filtered out."""
+        long_line = "A" * 51
+        result = _parse_response(f"Smith\n{long_line}\nJones")
+        assert result.best_name == "Smith"
+        assert result.alternates == ["Jones"]
+
+    def test_skip_words_filtered(self):
+        """Lines containing skip words are filtered out."""
+        result = _parse_response("Smith\nThis page shows a card\nJones")
+        assert result.best_name == "Smith"
+        assert result.alternates == ["Jones"]
+
+    def test_malformed_multiline(self):
+        """Response with blank lines and whitespace is handled."""
+        result = _parse_response("  Smith  \n\n  \n  Jones  \n\n")
+        assert result.best_name == "Smith"
+        assert result.alternates == ["Jones"]

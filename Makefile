@@ -12,20 +12,14 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 
-setup: ## Create venv and install production dependencies
-	python3 -m venv .venv
-	.venv/bin/pip install --upgrade pip
-	.venv/bin/pip install -r requirements.txt
+setup: ## Install production dependencies (creates venv automatically)
+	uv sync --no-dev
 	@echo ""
 	@echo "✓ Setup complete! Production dependencies installed."
 	@echo "  Run 'make setup-dev' to install development/testing tools."
 
-setup-dev: ## Install development dependencies (includes testing tools)
-	@if [ ! -d .venv ]; then \
-		echo "Error: .venv not found. Run 'make setup' first."; \
-		exit 1; \
-	fi
-	.venv/bin/pip install -r requirements-dev.txt
+setup-dev: ## Install all dependencies including dev/testing tools
+	uv sync
 	@echo ""
 	@echo "✓ Development setup complete!"
 	@echo "  Run 'make test' to run tests."
@@ -33,27 +27,28 @@ setup-dev: ## Install development dependencies (includes testing tools)
 run: ## Run the app from source
 	@if [ -z "$$ANTHROPIC_API_KEY" ]; then \
 		echo "INFO: ANTHROPIC_API_KEY not set in environment"; \
-		echo "      AI features will prompt for API key or read from .env file"; \
+		echo "      Set via: export ANTHROPIC_API_KEY=sk-ant-..."; \
+		echo "      Or enter it in Settings (Cmd+,)"; \
 		echo ""; \
 	fi
-	.venv/bin/python main.py
+	uv run python main.py
 
 test: ## Run all tests
-	.venv/bin/python -m pytest -v
+	uv run pytest -v
 
 test-cov: ## Run tests with coverage report
-	.venv/bin/python -m pytest --cov=app --cov-report=html --cov-report=term-missing
+	uv run pytest --cov=app --cov-report=html --cov-report=term-missing
 	@echo ""
 	@echo "Coverage report generated: htmlcov/index.html"
 
 test-unit: ## Run unit tests only (fast)
-	.venv/bin/python -m pytest -v -m unit
+	uv run pytest -v -m unit
 
 test-gui: ## Run GUI tests only
-	.venv/bin/python -m pytest -v -m gui
+	uv run pytest -v -m gui
 
 test-watch: ## Run tests on file changes (requires pytest-watch)
-	.venv/bin/ptw -- -v
+	uv run ptw -- -v
 
 build: app ## Build the macOS .app bundle (alias for 'app')
 
@@ -61,7 +56,7 @@ LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Versions/A/Frame
 
 app: icon ## Build the macOS .app bundle
 	@$(LSREGISTER) -u "dist/Greeting Cards.app" 2>/dev/null || true
-	.venv/bin/pyinstaller -y "Greeting Cards.spec"
+	uv run pyinstaller -y "Greeting Cards.spec"
 
 icon: icon.png ## Generate icon.icns from icon.png
 	@mkdir -p icon.iconset
@@ -94,28 +89,28 @@ loc: ## Count lines of code (excludes dependencies)
 	@(find . -name "*.py" -not -path "./.venv/*" -not -path "./build/*" -not -path "./dist/*" -not -path "*/__pycache__/*" -exec cat {} + ; find ./help \( -name "*.html" -o -name "*.css" \) -exec cat {} + ; cat Makefile "Greeting Cards.spec") | wc -l | awk -v lbl="Total:" '$(FMT_LINE)'
 
 version: ## Show current version
-	@.venv/bin/python -c "from app.version import __version__; print(__version__)"
+	@uv run python -c "from app.version import __version__; print(__version__)"
 
 bump-patch: ## Bump patch version (0.5.0 → 0.5.1)
-	@.venv/bin/python -c "\
+	@uv run python -c "\
 	p='app/version.py'; v=open(p).read().split('\"')[1].split('.'); \
 	v=[int(x) for x in v]; v[2]+=1; nv='.'.join(map(str,v)); \
 	open(p,'w').write(f'__version__ = \"{nv}\"\n'); print(nv)"
 
 bump-minor: ## Bump minor version (0.5.1 → 0.6.0)
-	@.venv/bin/python -c "\
+	@uv run python -c "\
 	p='app/version.py'; v=open(p).read().split('\"')[1].split('.'); \
 	v=[int(x) for x in v]; v[1]+=1; v[2]=0; nv='.'.join(map(str,v)); \
 	open(p,'w').write(f'__version__ = \"{nv}\"\n'); print(nv)"
 
 bump-major: ## Bump major version (0.6.0 → 1.0.0)
-	@.venv/bin/python -c "\
+	@uv run python -c "\
 	p='app/version.py'; v=open(p).read().split('\"')[1].split('.'); \
 	v=[int(x) for x in v]; v[0]+=1; v[1]=0; v[2]=0; nv='.'.join(map(str,v)); \
 	open(p,'w').write(f'__version__ = \"{nv}\"\n'); print(nv)"
 
 tag: ## Create git tag vX.Y.Z from current version
-	@v=$$(.venv/bin/python -c "from app.version import __version__; print(__version__)"); \
+	@v=$$(uv run python -c "from app.version import __version__; print(__version__)"); \
 	git tag "v$$v" && echo "Tagged v$$v"
 
 tag-push: ## Push all tags to remote

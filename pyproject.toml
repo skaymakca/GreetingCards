@@ -1,0 +1,64 @@
+[project]
+name = "greeting-cards"
+version = "0.8.0"
+description = "macOS app for organizing and renaming greeting card PDFs using OCR and AI"
+requires-python = ">=3.14"
+dependencies = [
+    "annotated-types==0.7.0",
+    "anthropic==0.83.0",
+    "anyio==4.12.1",
+    "certifi==2026.1.4",
+    "distro==1.9.0",
+    "docstring_parser==0.17.0",
+    "h11==0.16.0",
+    "httpcore==1.0.9",
+    "httpx==0.28.1",
+    "idna==3.11",
+    "jiter==0.13.0",
+    "packaging==26.0",
+    "pillow==12.1.1",
+    "pyobjc-framework-Cocoa==12.1",
+    "pydantic==2.12.5",
+    "pydantic_core==2.41.5",
+    "PyMuPDF==1.27.1",
+    "pytesseract==0.3.13",
+
+    "sniffio==1.3.1",
+    "SQLAlchemy==2.0.46",
+    "typing-inspection==0.4.2",
+    "typing_extensions==4.15.0",
+    "wxPython==4.2.5",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==9.0.2",
+    "pytest-cov==7.0.0",
+    "pytest-mock==3.15.1",
+    "pytest-xdist==3.8.0",
+    "pytest-watch==4.2.0",
+    "pytest-asyncio==1.3.0",
+    "pyinstaller>=6.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--verbose",
+    "--color=yes",
+    "--strict-markers",
+    "--tb=short",
+]
+markers = [
+    "unit: Unit tests for individual functions",
+    "integration: Integration tests across modules",
+    "gui: Tests requiring wx.App (GUI components)",
+    "slow: Tests that take significant time",
+]
+filterwarnings = [
+    "ignore:builtin type .* has no __module__:DeprecationWarning",
+    "ignore:unclosed database:ResourceWarning",
+]

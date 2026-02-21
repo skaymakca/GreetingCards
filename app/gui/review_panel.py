@@ -24,15 +24,56 @@ Benefits:
 - Cleaner code
 """
 
+import logging
+import subprocess
 import wx
 import wx.dataview as dv
+
+logger = logging.getLogger(__name__)
 from typing import Callable
 from pathlib import Path
 from app.models.card import CardResult, Confidence, CandidateInfo
 from app.gui.styles import Color, Font, Layout
-from app.gui.utils import create_static_text, create_button
-from app.gui.icons import load_sf_symbol
+from app.gui.utils import create_static_text
+from app.gui.icons import load_sf_symbol, load_menu_icon
 from app.gui.context_menu import add_entry_context_menu
+
+
+class _ConfidenceLegendPopup(wx.PopupWindow):
+    """Styled popup showing confidence legend with colored dots."""
+
+    def __init__(self, parent):
+        super().__init__(parent, wx.BORDER_SIMPLE)
+        panel = wx.Panel(self)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        rows = [
+            ("●", Color.SUCCESS, "High — strong pattern match or AI result"),
+            ("●", Color.WARNING, "Medium — partial pattern match"),
+            ("●", Color.ERROR, "Low — weak/fallback match"),
+            ("●", Color.MANUAL_BLUE, "Manual — manually entered name"),
+            ("⚠", Color.TEXT_SECONDARY, "No name extracted"),
+            ("✕", Color.ERROR, "Error during analysis"),
+        ]
+
+        for symbol, colour, label_text in rows:
+            row_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            symbol_st = wx.StaticText(panel, label=symbol)
+            symbol_st.SetForegroundColour(colour)
+            symbol_st.SetFont(Font.SMALL())
+            row_sizer.Add(symbol_st, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6)
+
+            label_st = wx.StaticText(panel, label=label_text)
+            label_st.SetForegroundColour(Color.TEXT_PRIMARY)
+            label_st.SetFont(Font.SMALL())
+            row_sizer.Add(label_st, 0, wx.ALIGN_CENTER_VERTICAL)
+
+            sizer.Add(row_sizer, 0, wx.ALL, 2)
+
+        panel.SetSizer(sizer)
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(panel, 1, wx.EXPAND | wx.ALL, Layout.PAD)
+        self.SetSizerAndFit(outer)
 
 
 class CardListModel(dv.PyDataViewModel):
@@ -167,7 +208,7 @@ class CardListModel(dv.PyDataViewModel):
         elif col == 1:
             if len(card.file_paths) > 1:
                 # macOS system blue for multi-path indicator
-                attr.SetColour(wx.Colour(0, 122, 255))
+                attr.SetColour(Color.ACCENT)
                 return True
             return False
 
@@ -187,18 +228,33 @@ class DetailPanel(wx.Panel):
         on_checkbox_toggle: Callable[[int, bool], None] | None,
         on_candidate_select: Callable[[int, int], None] | None,
         on_ai_request: Callable[[int], None] | None,
+        on_remove: Callable[[str], None] | None = None,
     ):
         super().__init__(parent)
         self._on_name_change = on_name_change
         self._on_checkbox_toggle = on_checkbox_toggle
         self._on_candidate_select = on_candidate_select
         self._on_ai_request = on_ai_request
+        self._on_remove = on_remove
         self._current_card: CardResult | None = None
         self._suppress_events = False
         self._candidate_map: dict[str, int] = {}
 
         self._build_ui()
         self.clear()
+
+    def _make_action_button(self, icon_name: str, label: str, handler) -> wx.Button:
+        """Create a compact action button with an SF Symbol icon."""
+        icon = load_sf_symbol(icon_name, Layout.ACTION_ICON_SIZE)
+        if icon:
+            btn = wx.Button(self._edit_panel, label=f"  {label}")
+            btn.SetBitmap(icon)
+        else:
+            btn = wx.Button(self._edit_panel, label=label)
+        btn.SetFont(Font.BODY())
+        btn.SetMinSize(wx.Size(-1, Layout.BUTTON_HEIGHT))
+        btn.Bind(wx.EVT_BUTTON, handler)
+        return btn
 
     def _build_ui(self):
         """Build the detail panel UI."""
@@ -244,23 +300,16 @@ class DetailPanel(wx.Panel):
         self._candidates_choice.Bind(wx.EVT_CHOICE, self._on_candidate)
         edit_sizer.Add(self._candidates_choice, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, Layout.PAD)
 
-        # Horizontal row: AI button + Remove Family checkbox
+        # Horizontal row: AI button, Remove button, Remove Family checkbox
         action_row = wx.BoxSizer(wx.HORIZONTAL)
 
-        # AI button (standard height button with icon)
-        # Use 9pt icon for compact size
-        ai_icon = load_sf_symbol("sparkles", 9, "#1D1D1F")
-        if ai_icon:
-            self._ai_btn = wx.Button(self._edit_panel, label="  AI Analyze")
-            self._ai_btn.SetBitmap(ai_icon)
-        else:
-            self._ai_btn = wx.Button(self._edit_panel, label="AI Analyze")
-
-        self._ai_btn.SetFont(Font.BODY())
-        # Match OK button height (standard macOS button)
-        self._ai_btn.SetMinSize(wx.Size(-1, 28))
-        self._ai_btn.Bind(wx.EVT_BUTTON, self._on_ai)
+        self._ai_btn = self._make_action_button("sparkles", "AI Analyze", self._on_ai)
         action_row.Add(self._ai_btn, 0, wx.ALIGN_CENTER_VERTICAL)
+
+        action_row.AddSpacer(Layout.PAD)
+
+        self._remove_btn = self._make_action_button("minus.circle", "Remove", self._on_remove_click)
+        action_row.Add(self._remove_btn, 0, wx.ALIGN_CENTER_VERTICAL)
 
         action_row.AddSpacer(Layout.PAD * 2)
 
@@ -295,7 +344,7 @@ class DetailPanel(wx.Panel):
             self._locations_panel,
             style=dv.DV_NO_HEADER | dv.DV_SINGLE | dv.DV_ROW_LINES
         )
-        self._locations_list.AppendTextColumn("", width=400)
+        self._locations_list.AppendTextColumn("", width=Layout.FILE_PATHS_COL_WIDTH)
         self._locations_list.SetMinSize((-1, 100))
         locations_sizer.Add(self._locations_list, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, Layout.PAD)
 
@@ -362,6 +411,7 @@ class DetailPanel(wx.Panel):
         self._name_text.Enable(not has_error)
         self._remove_family_check.Enable(not has_error)
         self._ai_btn.Enable(not has_error)
+        self._remove_btn.Enable(True)
 
         # Update file locations section
         self._update_locations(card)
@@ -419,6 +469,7 @@ class DetailPanel(wx.Panel):
         self._candidates_choice.SetSelection(0)
         self._candidates_choice.Enable(False)
         self._ai_btn.Enable(False)
+        self._remove_btn.Enable(False)
 
         # Clear file locations and remove tab if present
         self._locations_list.DeleteAllItems()
@@ -441,7 +492,7 @@ class DetailPanel(wx.Panel):
             return  # Swallow the keystroke
         event.Skip()
 
-    def _on_name_edit(self, event):
+    def _on_name_edit(self, event) -> None:
         """Handle name text change."""
         if self._suppress_events or not self._current_card:
             return
@@ -452,7 +503,7 @@ class DetailPanel(wx.Panel):
         if self._on_name_change:
             self._on_name_change(self._current_card.id, new_name)
 
-    def _on_checkbox(self, event):
+    def _on_checkbox(self, event) -> None:
         """Handle checkbox toggle."""
         if self._suppress_events or not self._current_card:
             return
@@ -463,7 +514,7 @@ class DetailPanel(wx.Panel):
         if self._on_checkbox_toggle:
             self._on_checkbox_toggle(self._current_card.id, new_value)
 
-    def _on_candidate(self, event):
+    def _on_candidate(self, event) -> None:
         """Handle candidate selection."""
         if self._suppress_events or not self._current_card:
             return
@@ -478,13 +529,21 @@ class DetailPanel(wx.Panel):
         if candidate_id is not None and self._on_candidate_select:
             self._on_candidate_select(self._current_card.id, candidate_id)
 
-    def _on_ai(self, event):
+    def _on_ai(self, event) -> None:
         """Handle AI button click."""
         if not self._current_card:
             return
 
         if self._on_ai_request:
             self._on_ai_request(self._current_card.id)
+
+    def _on_remove_click(self, event) -> None:
+        """Handle Remove button click."""
+        if not self._current_card:
+            return
+
+        if self._on_remove and self._current_card.file_hash:
+            self._on_remove(self._current_card.file_hash)
 
 
 class ReviewPanelMasterDetail(wx.Panel):
@@ -500,13 +559,15 @@ class ReviewPanelMasterDetail(wx.Panel):
         on_ai_request: Callable[[int], None],
         on_name_change: Callable[[int, str], None] | None = None,
         on_card_edited: Callable[[int], None] | None = None,
+        on_remove: Callable[[str], None] | None = None,
     ):
         super().__init__(parent)
         self._on_select = on_select
         self._on_ai_request = on_ai_request
         self._on_name_change = on_name_change
         self._on_card_edited = on_card_edited
-        self._selected_card_id: int | None = None
+        self._on_remove = on_remove
+        self._selected_card_ids: list[int] = []
         self._cards_by_id: dict[int, CardResult] = {}
         self._drag_highlight = False
 
@@ -536,6 +597,9 @@ class ReviewPanelMasterDetail(wx.Panel):
             colour=Color.TEXT_SECONDARY
         )
         header_sizer.Add(self._count_label, 0, wx.ALIGN_CENTER_VERTICAL)
+        self._count_label.Bind(wx.EVT_ENTER_WINDOW, self._on_legend_hover)
+        self._count_label.Bind(wx.EVT_LEAVE_WINDOW, self._on_legend_leave)
+        self._legend_popup = None
 
         sizer.Add(header_sizer, 0, wx.EXPAND | wx.ALL, Layout.PAD)
 
@@ -546,7 +610,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         # Master: DataViewCtrl
         self._list_ctrl = dv.DataViewCtrl(
             splitter,
-            style=dv.DV_SINGLE | dv.DV_ROW_LINES | dv.DV_VERT_RULES
+            style=dv.DV_MULTIPLE | dv.DV_ROW_LINES | dv.DV_VERT_RULES
         )
 
         # Create model
@@ -554,12 +618,15 @@ class ReviewPanelMasterDetail(wx.Panel):
         self._list_ctrl.AssociateModel(self._model)
 
         # Add columns
-        self._list_ctrl.AppendTextColumn("", 0, width=30, mode=dv.DATAVIEW_CELL_INERT)
-        self._list_ctrl.AppendTextColumn("File Name", 1, width=280, mode=dv.DATAVIEW_CELL_INERT)
-        self._list_ctrl.AppendTextColumn("Family Name", 2, width=200, mode=dv.DATAVIEW_CELL_INERT)
+        self._list_ctrl.AppendTextColumn("", 0, width=Layout.DOT_COL_WIDTH, mode=dv.DATAVIEW_CELL_INERT)
+        self._list_ctrl.AppendTextColumn("File Name", 1, width=Layout.FILENAME_COL_WIDTH, mode=dv.DATAVIEW_CELL_INERT)
+        self._list_ctrl.AppendTextColumn("Family Name", 2, width=Layout.FAMILY_NAME_COL_WIDTH, mode=dv.DATAVIEW_CELL_INERT)
 
         # Bind selection event
         self._list_ctrl.Bind(dv.EVT_DATAVIEW_SELECTION_CHANGED, self._on_selection_changed)
+
+        # Bind context menu event
+        self._list_ctrl.Bind(dv.EVT_DATAVIEW_ITEM_CONTEXT_MENU, self._on_context_menu)
 
         # Detail: Edit panel
         self._detail_panel = DetailPanel(
@@ -568,12 +635,13 @@ class ReviewPanelMasterDetail(wx.Panel):
             on_checkbox_toggle=self._handle_checkbox,
             on_candidate_select=self._handle_candidate,
             on_ai_request=self._on_ai_request,
+            on_remove=self._on_remove,
         )
 
         # Split horizontally (master on top, detail on bottom)
         splitter.SplitHorizontally(self._list_ctrl, self._detail_panel)
         splitter.SetSashGravity(1.0)  # Give all extra space to master list
-        splitter.SetMinimumPaneSize(100)
+        splitter.SetMinimumPaneSize(Layout.MIN_PANE_SIZE)
 
         sizer.Add(splitter, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, Layout.PAD)
 
@@ -586,7 +654,24 @@ class ReviewPanelMasterDetail(wx.Panel):
         self.Bind(wx.EVT_SIZE, self._on_panel_size, id=wx.ID_ANY)
         self._initial_sash_set = False
 
-    def _on_panel_size(self, event):
+    def _on_legend_hover(self, event) -> None:
+        """Show confidence legend popup on hover."""
+        if self._legend_popup is not None:
+            return
+        popup = _ConfidenceLegendPopup(self)
+        label = self._count_label
+        pos = label.ClientToScreen(wx.Point(0, label.GetSize().height + 2))
+        popup.SetPosition(pos)
+        popup.Show()
+        self._legend_popup = popup
+
+    def _on_legend_leave(self, event) -> None:
+        """Hide confidence legend popup when mouse leaves."""
+        if self._legend_popup is not None:
+            self._legend_popup.Destroy()
+            self._legend_popup = None
+
+    def _on_panel_size(self, event) -> None:
         """Set initial sash position to give detail panel minimum space."""
         if not self._initial_sash_set and self.GetSize().GetHeight() > 100:
             # Get the splitter (it's in our sizer)
@@ -603,30 +688,137 @@ class ReviewPanelMasterDetail(wx.Panel):
         event.Skip()
 
     def _on_key(self, event):
-        """Handle keyboard events (for consistency with original)."""
-        # DataViewCtrl handles Up/Down natively, but we intercept for consistency
+        """Handle keyboard events."""
         keycode = event.GetKeyCode()
 
-        if keycode == wx.WXK_UP:
+        if event.ShiftDown() and keycode == wx.WXK_UP:
+            self._extend_selection_up()
+        elif event.ShiftDown() and keycode == wx.WXK_DOWN:
+            self._extend_selection_down()
+        elif keycode == wx.WXK_UP:
             self.select_prev_card()
         elif keycode == wx.WXK_DOWN:
             self.select_next_card()
         else:
             event.Skip()
 
-    def _on_selection_changed(self, event):
-        """Handle list selection change."""
-        item = self._list_ctrl.GetSelection()
-        card = self._model.get_card_by_item(item)
+    @property
+    def selected_card_id(self) -> int | None:
+        """Return the single selected card ID, or None if zero or multiple selected."""
+        if len(self._selected_card_ids) == 1:
+            return self._selected_card_ids[0]
+        return None
 
-        if card:
-            self._selected_card_id = card.id
-            self._detail_panel.load_card(card)
-            self._on_select(card.id)
+    def _on_selection_changed(self, event) -> None:
+        """Handle list selection change (supports multi-select)."""
+        selections = self._list_ctrl.GetSelections()
+        self._selected_card_ids = []
+        for item in selections:
+            card = self._model.get_card_by_item(item)
+            if card:
+                self._selected_card_ids.append(card.id)
+
+        if len(self._selected_card_ids) == 1:
+            card = self._cards_by_id.get(self._selected_card_ids[0])
+            if card:
+                self._detail_panel.load_card(card)
+                self._on_select(card.id)
+            else:
+                self._detail_panel.clear()
+                self._on_select(None)
         else:
-            self._selected_card_id = None
+            # No selection or multiple selection: clear detail and preview
             self._detail_panel.clear()
             self._on_select(None)
+
+    def _on_context_menu(self, event: dv.DataViewEvent) -> None:
+        """Show context menu on right-click."""
+        clicked_item = event.GetItem()
+        clicked_card = self._model.get_card_by_item(clicked_item)
+        if not clicked_card:
+            return
+
+        # Finder behavior: if right-clicked item is not in the current selection,
+        # select only that item
+        if clicked_card.id not in self._selected_card_ids:
+            self._list_ctrl.UnselectAll()
+            self._list_ctrl.Select(clicked_item)
+            self._selected_card_ids = [clicked_card.id]
+            self._detail_panel.load_card(clicked_card)
+            self._on_select(clicked_card.id)
+
+        # Gather all selected cards
+        selected_cards = [
+            self._cards_by_id[cid] for cid in self._selected_card_ids
+            if cid in self._cards_by_id
+        ]
+
+        menu = self._build_context_menu(selected_cards)
+        self._list_ctrl.PopupMenu(menu)
+        menu.Destroy()
+
+    def _build_context_menu(self, cards: list[CardResult]) -> wx.Menu:
+        """Build context menu for single or multiple card selection."""
+        menu = wx.Menu()
+        is_multi = len(cards) > 1
+
+        # Open item
+        open_label = f"Open {len(cards)} Cards" if is_multi else "Open"
+        open_item = menu.Append(wx.ID_ANY, open_label)
+        open_icon = load_menu_icon("doc.text")
+        if open_icon:
+            open_item.SetBitmap(open_icon)
+
+        # Reveal in Finder (single card only)
+        if not is_multi:
+            reveal_item = menu.Append(wx.ID_ANY, "Reveal in Finder")
+            reveal_icon = load_menu_icon("folder")
+            if reveal_icon:
+                reveal_item.SetBitmap(reveal_icon)
+
+        menu.AppendSeparator()
+
+        # Remove item
+        remove_label = f"Remove {len(cards)} Cards" if is_multi else "Remove"
+        remove_item = menu.Append(wx.ID_ANY, remove_label)
+        remove_icon = load_menu_icon("minus.circle")
+        if remove_icon:
+            remove_item.SetBitmap(remove_icon)
+
+        # Bind handlers
+        paths = [str(c.primary_path) for c in cards]
+
+        def _open_files(evt, _paths=paths):
+            for p in _paths:
+                try:
+                    subprocess.Popen(["open", p])
+                except OSError:
+                    pass
+
+        menu.Bind(wx.EVT_MENU, _open_files, open_item)
+
+        if not is_multi:
+            primary_path = paths[0]
+
+            def _reveal_file(evt, _path=primary_path):
+                try:
+                    subprocess.Popen(["open", "-R", _path])
+                except OSError:
+                    pass
+
+            menu.Bind(wx.EVT_MENU, _reveal_file, reveal_item)
+
+        hashes = [c.file_hash for c in cards if c.file_hash]
+        if self._on_remove and hashes:
+            def _remove_cards(evt, _hashes=hashes):
+                for h in _hashes:
+                    self._on_remove(h)
+
+            menu.Bind(wx.EVT_MENU, _remove_cards, remove_item)
+        else:
+            remove_item.Enable(False)
+
+        return menu
 
     def _handle_name_change(self, card_id: int, new_name: str):
         """Handle name change from detail panel."""
@@ -663,6 +855,7 @@ class ReviewPanelMasterDetail(wx.Panel):
                     try:
                         card.confidence = Confidence(cand.confidence)
                     except ValueError:
+                        logger.debug("Unknown confidence %r for candidate %d, defaulting to MEDIUM", cand.confidence, cand.id)
                         card.confidence = Confidence.MEDIUM
 
                 break
@@ -680,28 +873,17 @@ class ReviewPanelMasterDetail(wx.Panel):
     # Public API (matches original ReviewPanel)
 
     def load_cards(self, cards: list[CardResult]):
-        """Load cards into the panel, preserving current selection if possible."""
-        prev_selected_id = self._selected_card_id
+        """Load cards into the panel, resetting selection."""
         self._cards_by_id = {card.id: card for card in cards}
         self._model.load_cards(cards)
         n = len(cards)
-        self._count_label.SetLabel(f"{n} {'Card' if n == 1 else 'Cards'}")
+        self._count_label.SetLabel(f"{n} {'Card' if n == 1 else 'Cards'} \u24D8")
 
-        if cards:
-            # Try to restore previous selection
-            if prev_selected_id is not None:
-                item = self._model.get_item_by_card_id(prev_selected_id)
-                if item.IsOk():
-                    self._list_ctrl.Select(item)
-                    self._list_ctrl.EnsureVisible(item)
-                    return
-            # Fallback: select first card
-            item = self._model.get_item_by_card_id(cards[0].id)
-            self._list_ctrl.Select(item)
-        else:
-            self._selected_card_id = None
-            self._detail_panel.clear()
-            self._on_select(None)
+        # Always reset selection — list content changes invalidate prior selection
+        self._list_ctrl.UnselectAll()
+        self._selected_card_ids = []
+        self._detail_panel.clear()
+        self._on_select(None)
 
     def get_cards(self) -> list[CardResult]:
         """Return all cards with edits, in display order."""
@@ -713,8 +895,8 @@ class ReviewPanelMasterDetail(wx.Panel):
         self._model.update_card(card_id, card)
         self._list_ctrl.Refresh()
 
-        # If this card is selected, update detail panel
-        if self._selected_card_id == card_id:
+        # If this card is the sole selection, update detail panel
+        if self._selected_card_ids == [card_id]:
             self._detail_panel.load_card(card)
 
     def update_dot(self, card_id: int, confidence: Confidence):
@@ -725,36 +907,84 @@ class ReviewPanelMasterDetail(wx.Panel):
             self._model.update_card(card_id, card)
 
     def select_next_card(self):
-        """Select next card in list."""
-        current_item = self._list_ctrl.GetSelection()
-        if not current_item.IsOk():
+        """Select next card in list (collapses multi-selection to single)."""
+        selections = self._list_ctrl.GetSelections()
+        if not selections:
             # Select first
+            if self._model.card_count > 0:
+                item = self._model.ObjectToItem(0)
+                self._list_ctrl.UnselectAll()
+                self._list_ctrl.Select(item)
+                self._list_ctrl.EnsureVisible(item)
+            return
+
+        # Use last selected item as anchor
+        last_item = selections[-1]
+        current_row = self._model.ItemToObject(last_item)
+        if current_row < self._model.card_count - 1:
+            next_item = self._model.ObjectToItem(current_row + 1)
+            self._list_ctrl.UnselectAll()
+            self._list_ctrl.Select(next_item)
+            self._list_ctrl.EnsureVisible(next_item)
+        elif len(selections) > 1:
+            # At end but multi-selected: collapse to last item
+            self._list_ctrl.UnselectAll()
+            self._list_ctrl.Select(last_item)
+            self._list_ctrl.EnsureVisible(last_item)
+
+    def select_prev_card(self):
+        """Select previous card in list (collapses multi-selection to single)."""
+        selections = self._list_ctrl.GetSelections()
+        if not selections:
+            # Select first
+            if self._model.card_count > 0:
+                item = self._model.ObjectToItem(0)
+                self._list_ctrl.UnselectAll()
+                self._list_ctrl.Select(item)
+                self._list_ctrl.EnsureVisible(item)
+            return
+
+        # Use first selected item as anchor
+        first_item = selections[0]
+        current_row = self._model.ItemToObject(first_item)
+        if current_row > 0:
+            prev_item = self._model.ObjectToItem(current_row - 1)
+            self._list_ctrl.UnselectAll()
+            self._list_ctrl.Select(prev_item)
+            self._list_ctrl.EnsureVisible(prev_item)
+        elif len(selections) > 1:
+            # At start but multi-selected: collapse to first item
+            self._list_ctrl.UnselectAll()
+            self._list_ctrl.Select(first_item)
+            self._list_ctrl.EnsureVisible(first_item)
+
+    def _extend_selection_down(self):
+        """Extend selection downward (Shift+Down)."""
+        selections = self._list_ctrl.GetSelections()
+        if not selections:
             if self._model.card_count > 0:
                 item = self._model.ObjectToItem(0)
                 self._list_ctrl.Select(item)
                 self._list_ctrl.EnsureVisible(item)
             return
-
-        current_row = self._model.ItemToObject(current_item)
-        if current_row < self._model.card_count - 1:
-            next_item = self._model.ObjectToItem(current_row + 1)
+        last_row = self._model.ItemToObject(selections[-1])
+        if last_row < self._model.card_count - 1:
+            next_item = self._model.ObjectToItem(last_row + 1)
             self._list_ctrl.Select(next_item)
             self._list_ctrl.EnsureVisible(next_item)
 
-    def select_prev_card(self):
-        """Select previous card in list."""
-        current_item = self._list_ctrl.GetSelection()
-        if not current_item.IsOk():
-            # Select first
+    def _extend_selection_up(self):
+        """Extend selection upward (Shift+Up)."""
+        selections = self._list_ctrl.GetSelections()
+        if not selections:
             if self._model.card_count > 0:
                 item = self._model.ObjectToItem(0)
                 self._list_ctrl.Select(item)
                 self._list_ctrl.EnsureVisible(item)
             return
-
-        current_row = self._model.ItemToObject(current_item)
-        if current_row > 0:
-            prev_item = self._model.ObjectToItem(current_row - 1)
+        first_row = self._model.ItemToObject(selections[0])
+        if first_row > 0:
+            prev_item = self._model.ObjectToItem(first_row - 1)
             self._list_ctrl.Select(prev_item)
             self._list_ctrl.EnsureVisible(prev_item)
 
@@ -776,17 +1006,29 @@ class ReviewPanelMasterDetail(wx.Panel):
             return
         w, h = self.GetSize()
         pen = gc.CreatePen(
-            wx.GraphicsPenInfo(wx.Colour(0, 122, 255)).Width(3)
+            wx.GraphicsPenInfo(Color.ACCENT).Width(Layout.HIGHLIGHT_WIDTH)
         )
         gc.SetPen(pen)
         gc.SetBrush(wx.NullBrush)
         path = gc.CreatePath()
-        path.AddRoundedRectangle(1.5, 1.5, w - 3, h - 3, 6)
+        inset = Layout.HIGHLIGHT_INSET
+        path.AddRoundedRectangle(inset, inset, w - inset * 2, h - inset * 2, Layout.HIGHLIGHT_RADIUS)
         gc.StrokePath(path)
 
-    def set_ai_button_state(self, card_id: int, state: str, text: str = "AI"):
+    def select_all(self):
+        """Select all cards in the list."""
+        for card_id in self._model.card_order:
+            item = self._model.get_item_by_card_id(card_id)
+            if item.IsOk():
+                self._list_ctrl.Select(item)
+
+    def select_none(self):
+        """Clear all selection."""
+        self._list_ctrl.UnselectAll()
+
+    def set_ai_button_state(self, card_id: int, state: str):
         """Set AI button state (enabled/disabled)."""
         # Only affects currently selected card in detail panel
-        if self._selected_card_id == card_id:
+        if self.selected_card_id == card_id:
             enable = (state == "normal")
             self._detail_panel._ai_btn.Enable(enable)

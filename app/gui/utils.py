@@ -159,7 +159,7 @@ def create_static_text(parent: wx.Window, label: str,
     return text
 
 
-def show_error(parent: wx.Window | None, message: str, title: str = "Error"):
+def show_error(parent: wx.Window | None, message: str, title: str = "Error") -> None:
     """Show an error message dialog.
 
     Args:
@@ -170,7 +170,7 @@ def show_error(parent: wx.Window | None, message: str, title: str = "Error"):
     wx.MessageBox(message, title, wx.OK | wx.ICON_ERROR, parent)
 
 
-def show_info(parent: wx.Window | None, message: str, title: str = "Information"):
+def show_info(parent: wx.Window | None, message: str, title: str = "Information") -> None:
     """Show an information message dialog.
 
     Args:
@@ -181,7 +181,7 @@ def show_info(parent: wx.Window | None, message: str, title: str = "Information"
     wx.MessageBox(message, title, wx.OK | wx.ICON_INFORMATION, parent)
 
 
-def show_warning(parent: wx.Window | None, message: str, title: str = "Warning"):
+def show_warning(parent: wx.Window | None, message: str, title: str = "Warning") -> None:
     """Show a warning message dialog.
 
     Args:
@@ -207,7 +207,7 @@ def confirm(parent: wx.Window | None, message: str, title: str = "Confirm") -> b
     return result == wx.YES
 
 
-def center_window(window: wx.Window):
+def center_window(window: wx.Window) -> None:
     """Center a window on the screen.
 
     Args:

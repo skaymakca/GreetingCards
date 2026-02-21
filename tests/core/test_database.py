@@ -31,6 +31,7 @@ from app.core.database import (
     save_raw_ai,
     get_raw_ai,
     clear_unselected_candidates,
+    clear_ai_results,
     reset_database,
     should_reprocess,
     reprocess_candidates_from_raw,
@@ -59,6 +60,9 @@ def in_memory_db():
     session.close()
 
     yield engine
+
+    # Clean up
+    engine.dispose()
 
     # Restore
     db_mod._engine = orig_engine
@@ -630,3 +634,141 @@ class TestClearUnselectedCandidatesEdgeCases:
         candidates = get_candidates("hash1")
         assert len(candidates) == 1
         assert candidates[0].method == "ai"
+
+
+class TestClearAIResults:
+    """Tests for clear_ai_results()."""
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_deletes_ai_candidates_and_raw(self, mock_title, mock_clean):
+        """AI candidates and raw_ai_results are deleted for given hashes."""
+        create_or_update_card("hash1")
+        add_candidate("hash1", "AiName", "ai", "high")
+        save_raw_ai("hash1", "AiName", ["Alt"])
+
+        clear_ai_results(["hash1"])
+
+        candidates = get_candidates("hash1")
+        assert all(c.method != "ai" for c in candidates)
+        assert get_raw_ai("hash1") is None
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_preserves_ocr_candidates(self, mock_title, mock_clean):
+        """OCR candidates and raw_ocr_results survive clearing."""
+        create_or_update_card("hash1")
+        add_candidate("hash1", "OcrName", "ocr", "high")
+        add_candidate("hash1", "AiName", "ai", "high")
+        save_raw_ocr("hash1", "OCR text")
+        save_raw_ai("hash1", "AiName", [])
+
+        clear_ai_results(["hash1"])
+
+        candidates = get_candidates("hash1")
+        assert len(candidates) == 1
+        assert candidates[0].family_name == "OcrName"
+        assert candidates[0].method == "ocr"
+        assert get_raw_ocr("hash1") == "OCR text"
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_reselects_ocr_after_ai_cleared(self, mock_title, mock_clean):
+        """Card with selected AI candidate reverts to best OCR candidate."""
+        create_or_update_card("hash1")
+        ocr_cid = add_candidate("hash1", "OcrName", "ocr", "high")
+        ai_cid = add_candidate("hash1", "AiName", "ai", "high")
+        select_candidate("hash1", ai_cid)
+
+        clear_ai_results(["hash1"])
+
+        state = get_card_state("hash1")
+        assert state.display_name == "OcrName"
+        assert state.method == "ocr"
+        assert state.selected_candidate_id == ocr_cid
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_clears_selection_when_no_ocr(self, mock_title, mock_clean):
+        """Card with only AI candidates gets empty selection after clearing."""
+        create_or_update_card("hash1")
+        ai_cid = add_candidate("hash1", "AiName", "ai", "high")
+        select_candidate("hash1", ai_cid)
+
+        clear_ai_results(["hash1"])
+
+        state = get_card_state("hash1")
+        assert state.display_name == ""
+        assert state.method == "missing"
+        assert state.selected_candidate_id is None
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_preserves_manual_entries(self, mock_title, mock_clean):
+        """Manual entries (selected_family_name) are untouched."""
+        create_or_update_card("hash1")
+        add_candidate("hash1", "AiName", "ai", "high")
+        set_manual_name("hash1", "ManualName")
+
+        clear_ai_results(["hash1"])
+
+        state = get_card_state("hash1")
+        assert state.display_name == "ManualName"
+        assert state.method == "manual"
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_preserves_remove_family(self, mock_title, mock_clean):
+        """remove_family flag survives clearing."""
+        create_or_update_card("hash1")
+        ai_cid = add_candidate("hash1", "AiName", "ai", "high")
+        select_candidate("hash1", ai_cid, remove_family=True)
+
+        clear_ai_results(["hash1"])
+
+        state = get_card_state("hash1")
+        assert state.remove_family is True
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_returns_affected_count(self, mock_title, mock_clean):
+        """Returns count of cards whose selection changed."""
+        create_or_update_card("hash1")
+        create_or_update_card("hash2")
+        ai_cid1 = add_candidate("hash1", "Ai1", "ai", "high")
+        select_candidate("hash1", ai_cid1)
+        add_candidate("hash2", "Ocr2", "ocr", "high")  # No AI selected
+
+        changed = clear_ai_results(["hash1", "hash2"])
+        assert changed == 1  # Only hash1 had AI selected
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_scoped_to_given_hashes(self, mock_title, mock_clean):
+        """Cards NOT in the list are untouched."""
+        create_or_update_card("hash1")
+        create_or_update_card("hash2")
+        ai_cid1 = add_candidate("hash1", "Ai1", "ai", "high")
+        ai_cid2 = add_candidate("hash2", "Ai2", "ai", "high")
+        select_candidate("hash1", ai_cid1)
+        select_candidate("hash2", ai_cid2)
+        save_raw_ai("hash1", "Ai1", [])
+        save_raw_ai("hash2", "Ai2", [])
+
+        # Only clear hash1
+        clear_ai_results(["hash1"])
+
+        # hash1 cleared
+        state1 = get_card_state("hash1")
+        assert state1.method == "missing"
+        assert get_raw_ai("hash1") is None
+
+        # hash2 untouched
+        state2 = get_card_state("hash2")
+        assert state2.display_name == "Ai2"
+        assert state2.method == "ai"
+        assert get_raw_ai("hash2") is not None
+
+    def test_empty_hashes_returns_zero(self):
+        """Passing empty list returns 0 without error."""
+        assert clear_ai_results([]) == 0

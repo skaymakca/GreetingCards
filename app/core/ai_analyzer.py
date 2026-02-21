@@ -1,11 +1,17 @@
 import base64
 import io
+import logging
 import re
 from dataclasses import dataclass, field
 
 from PIL import Image
 
-from app.core.config import get_api_key
+from app.core.config import get_api_key, get_ai_model
+
+logger = logging.getLogger(__name__)
+
+_MAX_TOKENS = 256
+_MAX_LINE_LENGTH = 50
 
 
 @dataclass
@@ -62,16 +68,16 @@ def clean_family_name(name: str) -> str:
     name = name.replace("From: ", "").replace("Sent by: ", "")
 
     # Remove ALL double quote variants (straight, curly, low-9, high-reversed-9)
-    # Covers: " (U+0022), " (U+201C), " (U+201D), „ (U+201E), ‟ (U+201F)
+    # Covers: " (U+0022), \u201c (U+201C), \u201d (U+201D), \u201e (U+201E), \u201f (U+201F)
     name = re.sub(r'["""\"\u201C\u201D\u201E\u201F]', '', name).strip()
 
     # Remove single quotes only at the start/end (not in middle like O'Brien)
-    # Handles both straight and curly quotes: ' (U+0027), ' (U+2018), ' (U+2019)
+    # Handles both straight and curly quotes: ' (U+0027), \u2018 (U+2018), \u2019 (U+2019)
     name = re.sub(r"^[''\u2018\u2019]+", "", name).strip()  # Leading single quotes
     name = re.sub(r"[''\u2018\u2019]+$", "", name).strip()  # Trailing single quotes
 
     # Final aggressive strip of any remaining punctuation at the ends
-    name = name.strip('.,!;:-—–"\'"''""')
+    name = name.strip('.,!;:-\u2014\u2013"\'"\u2018\u2019\u201c\u201d')
 
     # Strip plural 's' or 'es' in obvious cases
     name = _strip_plural(name)
@@ -104,17 +110,34 @@ def _image_to_b64(image: Image.Image) -> str:
 
 _SKIP_WORDS = {"shows", "appears", "page", "card", "signed", "written", "seems"}
 
+_PROMPT_TEMPLATE = (
+    "This is a holiday/greeting card with {count} {page_word}. "
+    "Look at ALL pages to find who sent this card. Extract the family name.\n\n"
+    "CRITICAL: Return ONLY family last names, one per line. No explanations, "
+    "no 'Page 1:', no 'The [Name] Family', no extra text.\n\n"
+    "Format:\n"
+    "- First line: most likely family name (e.g., 'Smith')\n"
+    "- Additional lines (if any): alternate possible names\n"
+    "- If uncertain, respond with just: UNKNOWN\n\n"
+    "Examples of CORRECT output:\n"
+    "Smith\nJones\n\n"
+    "Examples of INCORRECT output (DO NOT DO THIS):\n"
+    "Page 1: Shows the Smith family\n"
+    "The Smith Family\n"
+    "From: The Smiths"
+)
+
 
 def _parse_response(response_text: str) -> AIResult:
     """Parse raw AI response text into an AIResult."""
-    if response_text.upper() == "UNKNOWN":
+    if response_text.strip().upper() == "UNKNOWN":
         return AIResult()
 
     # Basic filtering to catch obvious non-name responses
     # NOTE: Comprehensive cleaning is applied AFTER loading from DB, not here
     lines = [
-        line for line in (l.strip() for l in response_text.split("\n"))
-        if line and len(line) <= 50
+        line for line in (raw.strip() for raw in response_text.split("\n"))
+        if line and len(line) <= _MAX_LINE_LENGTH
         and not any(w in line.lower() for w in _SKIP_WORDS)
     ]
 
@@ -124,22 +147,9 @@ def _parse_response(response_text: str) -> AIResult:
     )
 
 
-async def analyze_card_with_ai_async(images: list[Image.Image] | Image.Image) -> AIResult:
-    """Async version: analyze greeting card images with Claude AI and extract the family name."""
-    import anthropic
-
-    # Normalize to list
-    if isinstance(images, Image.Image):
-        images = [images]
-
-    api_key = get_api_key()
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY not configured.")
-
-    client = anthropic.AsyncAnthropic(api_key=api_key)
-
-    # Build content blocks — one image per page, then the text prompt
-    content = []
+def _build_content_blocks(images: list[Image.Image]) -> list[dict]:
+    """Build the content blocks for the Claude API request."""
+    content: list[dict] = []
     for image in images:
         img_b64 = _image_to_b64(image)
         content.append({
@@ -154,89 +164,42 @@ async def analyze_card_with_ai_async(images: list[Image.Image] | Image.Image) ->
     page_word = "page" if len(images) == 1 else "pages"
     content.append({
         "type": "text",
-        "text": (
-            f"This is a holiday/greeting card with {len(images)} {page_word}. "
-            "Look at ALL pages to find who sent this card. Extract the family name.\n\n"
-            "CRITICAL: Return ONLY family last names, one per line. No explanations, "
-            "no 'Page 1:', no 'The [Name] Family', no extra text.\n\n"
-            "Format:\n"
-            "- First line: most likely family name (e.g., 'Smith')\n"
-            "- Additional lines (if any): alternate possible names\n"
-            "- If uncertain, respond with just: UNKNOWN\n\n"
-            "Examples of CORRECT output:\n"
-            "Smith\nJones\n\n"
-            "Examples of INCORRECT output (DO NOT DO THIS):\n"
-            "Page 1: Shows the Smith family\n"
-            "The Smith Family\n"
-            "From: The Smiths"
-        ),
+        "text": _PROMPT_TEMPLATE.format(count=len(images), page_word=page_word),
     })
-
-    message = await client.messages.create(
-        model="claude-sonnet-4-5-20250929",
-        max_tokens=256,
-        messages=[{"role": "user", "content": content}],
-    )
-
-    response_text = message.content[0].text.strip()
-
-    return _parse_response(response_text)
+    return content
 
 
-def analyze_card_with_ai(images: list[Image.Image] | Image.Image) -> AIResult:
+def _normalize_images(images: list[Image.Image] | Image.Image) -> list[Image.Image]:
+    """Normalize a single image or list of images to a list."""
+    if isinstance(images, Image.Image):
+        return [images]
+    return images
+
+
+def _get_validated_api_key() -> str:
+    """Get and validate the API key, raising ValueError if not configured."""
+    api_key = get_api_key()
+    if not api_key:
+        raise ValueError("ANTHROPIC_API_KEY not configured.")
+    return api_key
+
+
+async def analyze_card_with_ai_async(images: list[Image.Image] | Image.Image) -> AIResult:
     """Analyze greeting card images with Claude AI and extract the family name."""
     import anthropic
 
-    # Normalize to list
-    if isinstance(images, Image.Image):
-        images = [images]
+    images = _normalize_images(images)
+    api_key = _get_validated_api_key()
+    client = anthropic.AsyncAnthropic(api_key=api_key)
+    content = _build_content_blocks(images)
 
-    api_key = get_api_key()
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY not configured.")
-
-    client = anthropic.Anthropic(api_key=api_key)
-
-    # Build content blocks — one image per page, then the text prompt
-    content = []
-    for image in images:
-        img_b64 = _image_to_b64(image)
-        content.append({
-            "type": "image",
-            "source": {
-                "type": "base64",
-                "media_type": "image/png",
-                "data": img_b64,
-            },
-        })
-
-    page_word = "page" if len(images) == 1 else "pages"
-    content.append({
-        "type": "text",
-        "text": (
-            f"This is a holiday/greeting card with {len(images)} {page_word}. "
-            "Look at ALL pages to find who sent this card. Extract the family name.\n\n"
-            "CRITICAL: Return ONLY family last names, one per line. No explanations, "
-            "no 'Page 1:', no 'The [Name] Family', no extra text.\n\n"
-            "Format:\n"
-            "- First line: most likely family name (e.g., 'Smith')\n"
-            "- Additional lines (if any): alternate possible names\n"
-            "- If uncertain, respond with just: UNKNOWN\n\n"
-            "Examples of CORRECT output:\n"
-            "Smith\nJones\n\n"
-            "Examples of INCORRECT output (DO NOT DO THIS):\n"
-            "Page 1: Shows the Smith family\n"
-            "The Smith Family\n"
-            "From: The Smiths"
-        ),
-    })
-
-    message = client.messages.create(
-        model="claude-sonnet-4-5-20250929",
-        max_tokens=256,
+    message = await client.messages.create(
+        model=get_ai_model(),
+        max_tokens=_MAX_TOKENS,
         messages=[{"role": "user", "content": content}],
     )
 
     response_text = message.content[0].text.strip()
-
     return _parse_response(response_text)
+
+

@@ -42,7 +42,7 @@ The CSS sidebar provides persistent navigation across all pages. Each page marks
 
 ## Page Navigation
 
-`_PAGE_ORDER` defines the sequential ordering of all 7 pages. The toolbar provides:
+`_PAGE_ORDER` defines the sequential ordering of all 8 pages. The toolbar provides:
 
 | Button | Action |
 |--------|--------|
@@ -58,7 +58,7 @@ Search spans three layers: Python text indexing, Python navigation logic, and Ja
 
 ### Layer 1: Python Text Index
 
-At window creation, `_build_page_index(base_path)` reads all 7 HTML files and builds a `dict[str, str]` mapping relative path → lowercase plain text. Text extraction uses `_TextExtractor(HTMLParser)`, which:
+At window creation, `_build_page_index(base_path)` reads all 8 HTML files and builds a `dict[str, str]` mapping relative path → lowercase plain text. Text extraction uses `_TextExtractor(HTMLParser)`, which:
 
 - **Only** captures text inside `<div class="content">`
 - Tracks nested div depth to correctly detect when the content div closes

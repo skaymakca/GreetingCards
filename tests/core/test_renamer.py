@@ -2,7 +2,10 @@
 
 import pytest
 from pathlib import Path
-from app.models.card import CardResult, Confidence, RenamePlanItem
+from app.models.card import (
+    CardResult, Confidence, RenamePlanItem,
+    STATUS_OK, STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR, STATUS_DUPLICATE,
+)
 from app.core.renamer import (
     build_rename_plan,
     execute_rename_plan,
@@ -43,7 +46,7 @@ class TestBuildRenamePlan:
         assert len(plan) == 1
         assert plan[0].old_path == Path("/dir/card.pdf")
         assert plan[0].new_path == Path("/dir/Holiday Cards 2024 - Smith Family.pdf")
-        assert plan[0].status == "ok"
+        assert plan[0].status == STATUS_OK
         assert plan[0].card is card
 
     def test_single_card_multiple_paths_different_dirs(self):
@@ -58,11 +61,11 @@ class TestBuildRenamePlan:
         assert len(plan) == 2
         assert plan[0].old_path == Path("/dir_a/card.pdf")
         assert plan[0].new_path == Path("/dir_a/Holiday Cards 2024 - Jones Family.pdf")
-        assert plan[0].status == "ok"
+        assert plan[0].status == STATUS_OK
 
         assert plan[1].old_path == Path("/dir_b/card.pdf")
         assert plan[1].new_path == Path("/dir_b/Holiday Cards 2024 - Jones Family.pdf")
-        assert plan[1].status == "ok"
+        assert plan[1].status == STATUS_OK
 
         # Both reference the same card
         assert plan[0].card is card
@@ -76,10 +79,10 @@ class TestBuildRenamePlan:
 
         assert len(plan) == 2
         assert plan[0].new_path == Path("/dir/Holiday Cards 2024 - Smith Family.pdf")
-        assert plan[0].status == "ok"
+        assert plan[0].status == STATUS_OK
 
         assert plan[1].new_path == Path("/dir/Holiday Cards 2024 - Smith Family (2).pdf")
-        assert plan[1].status == "duplicate"
+        assert plan[1].status == STATUS_DUPLICATE
 
     def test_two_cards_same_name_different_directories(self):
         """Two different cards with the same target name in DIFFERENT directories → no dedup."""
@@ -90,10 +93,10 @@ class TestBuildRenamePlan:
         assert len(plan) == 2
         # Both get the clean name (different directories, no conflict)
         assert plan[0].new_path == Path("/dir_a/Holiday Cards 2024 - Smith Family.pdf")
-        assert plan[0].status == "ok"
+        assert plan[0].status == STATUS_OK
 
         assert plan[1].new_path == Path("/dir_b/Holiday Cards 2024 - Smith Family.pdf")
-        assert plan[1].status == "ok"
+        assert plan[1].status == STATUS_OK
 
     def test_error_card_with_multiple_paths(self):
         """Error card with multiple paths → skip_error for each path."""
@@ -105,7 +108,7 @@ class TestBuildRenamePlan:
         plan = build_rename_plan([card], "2024")
 
         assert len(plan) == 2
-        assert all(item.status == "skip_error" for item in plan)
+        assert all(item.status == STATUS_SKIP_ERROR for item in plan)
         assert plan[0].old_path == Path("/dir_a/card.pdf")
         assert plan[1].old_path == Path("/dir_b/card.pdf")
 
@@ -120,7 +123,7 @@ class TestBuildRenamePlan:
         plan = build_rename_plan([card], "2024")
 
         assert len(plan) == 2
-        assert all(item.status == "skip_no_name" for item in plan)
+        assert all(item.status == STATUS_SKIP_NO_NAME for item in plan)
 
     def test_skip_same_detection(self):
         """Card already named correctly → skip_same."""
@@ -132,7 +135,7 @@ class TestBuildRenamePlan:
         plan = build_rename_plan([card], "2024")
 
         assert len(plan) == 1
-        assert plan[0].status == "skip_same"
+        assert plan[0].status == STATUS_SKIP_SAME
 
     def test_target_exists_on_disk(self, tmp_path):
         """Target file already exists on disk → duplicate with (2) suffix."""
@@ -144,7 +147,7 @@ class TestBuildRenamePlan:
         plan = build_rename_plan([card], "2024")
 
         assert len(plan) == 1
-        assert plan[0].status == "duplicate"
+        assert plan[0].status == STATUS_DUPLICATE
         assert plan[0].new_path == tmp_path / "Holiday Cards 2024 - Smith Family (2).pdf"
 
     def test_card_back_reference(self):
@@ -166,7 +169,7 @@ class TestBuildRenamePlan:
 
         assert len(plan) == 1
         assert plan[0].new_path == Path("/dir/Holiday Cards 2024 - The Smiths.pdf")
-        assert plan[0].status == "ok"
+        assert plan[0].status == STATUS_OK
 
 
     def test_disk_has_base_and_numbered_files(self, tmp_path):
@@ -180,7 +183,7 @@ class TestBuildRenamePlan:
 
         assert len(plan) == 1
         assert plan[0].new_path == tmp_path / "Holiday Cards 2024 - Walsh Family (4).pdf"
-        assert plan[0].status == "duplicate"
+        assert plan[0].status == STATUS_DUPLICATE
 
     def test_disk_has_numbered_two_new_cards(self, tmp_path):
         """Disk has base + (2) + (3), two new Walsh cards → get (4) and (5)."""
@@ -194,9 +197,9 @@ class TestBuildRenamePlan:
 
         assert len(plan) == 2
         assert plan[0].new_path == tmp_path / "Holiday Cards 2024 - Walsh Family (4).pdf"
-        assert plan[0].status == "duplicate"
+        assert plan[0].status == STATUS_DUPLICATE
         assert plan[1].new_path == tmp_path / "Holiday Cards 2024 - Walsh Family (5).pdf"
-        assert plan[1].status == "duplicate"
+        assert plan[1].status == STATUS_DUPLICATE
 
     def test_only_base_file_exists_on_disk(self, tmp_path):
         """Only base file on disk → new card gets (2)."""
@@ -207,7 +210,7 @@ class TestBuildRenamePlan:
 
         assert len(plan) == 1
         assert plan[0].new_path == tmp_path / "Holiday Cards 2024 - Smith Family (2).pdf"
-        assert plan[0].status == "duplicate"
+        assert plan[0].status == STATUS_DUPLICATE
 
     def test_disk_has_gap_two_new_cards(self, tmp_path):
         """Disk has (2), two new cards → first gets (3), second gets (4)."""
@@ -220,10 +223,10 @@ class TestBuildRenamePlan:
         assert len(plan) == 2
         # Base name not taken on disk, first card gets it
         assert plan[0].new_path == tmp_path / "Holiday Cards 2024 - Walsh Family.pdf"
-        assert plan[0].status == "ok"
+        assert plan[0].status == STATUS_OK
         # Second card clashes with first planned + (2) on disk → gets (3)
         assert plan[1].new_path == tmp_path / "Holiday Cards 2024 - Walsh Family (3).pdf"
-        assert plan[1].status == "duplicate"
+        assert plan[1].status == STATUS_DUPLICATE
 
     def test_source_file_already_correctly_numbered(self, tmp_path):
         """Card sees through its own slot: card_b keeps (2), card_c gets (3)."""
@@ -243,10 +246,10 @@ class TestBuildRenamePlan:
         plan = build_rename_plan([card_a, card_b, card_c], "2024")
 
         assert len(plan) == 3
-        assert plan[0].status == "skip_same"
-        assert plan[1].status == "skip_same"
+        assert plan[0].status == STATUS_SKIP_SAME
+        assert plan[1].status == STATUS_SKIP_SAME
         assert plan[2].new_path == tmp_path / "Holiday Cards 2024 - Walsh Family (3).pdf"
-        assert plan[2].status == "duplicate"
+        assert plan[2].status == STATUS_DUPLICATE
 
     def test_cross_card_slot_not_freed(self, tmp_path):
         """Other cards' source slots stay visible — conservative but safe for execution."""
@@ -267,12 +270,12 @@ class TestBuildRenamePlan:
         assert len(plan) == 3
         # card_a: renamed to Jones
         assert plan[0].new_path == tmp_path / "Holiday Cards 2024 - Jones Family.pdf"
-        assert plan[0].status == "ok"
+        assert plan[0].status == STATUS_OK
         # card_b: already named correctly
-        assert plan[1].status == "skip_same"
+        assert plan[1].status == STATUS_SKIP_SAME
         # card_c: (2) still visible in set → gets (3)
         assert plan[2].new_path == tmp_path / "Holiday Cards 2024 - Walsh Family (3).pdf"
-        assert plan[2].status == "duplicate"
+        assert plan[2].status == STATUS_DUPLICATE
 
 
 class TestReadDirectoryNames:
@@ -341,9 +344,9 @@ class TestExecuteRenamePlan:
     def test_skip_items_pass_through(self):
         """Skipped items are reported as success with descriptive messages."""
         plan = [
-            RenamePlanItem(Path("/a.pdf"), Path("/a.pdf"), "skip_no_name"),
-            RenamePlanItem(Path("/b.pdf"), Path("/b.pdf"), "skip_error"),
-            RenamePlanItem(Path("/c.pdf"), Path("/c.pdf"), "skip_same"),
+            RenamePlanItem(Path("/a.pdf"), Path("/a.pdf"), STATUS_SKIP_NO_NAME),
+            RenamePlanItem(Path("/b.pdf"), Path("/b.pdf"), STATUS_SKIP_ERROR),
+            RenamePlanItem(Path("/c.pdf"), Path("/c.pdf"), STATUS_SKIP_SAME),
         ]
 
         results = execute_rename_plan(plan)
@@ -436,10 +439,75 @@ class TestExecuteRenamePlan:
         old_file.touch()
         new_path = tmp_path / "new.pdf"
 
-        plan = [RenamePlanItem(old_file, new_path, "ok")]
+        plan = [RenamePlanItem(old_file, new_path, STATUS_OK)]
 
         results = execute_rename_plan(plan)
 
         assert len(results) == 1
         assert results[0].success is True
         assert new_path.exists()
+
+    def test_result_carries_card_reference(self, tmp_path):
+        """RenameResult.card is populated from the plan item."""
+        old_file = tmp_path / "card.pdf"
+        old_file.touch()
+        new_path = tmp_path / "Holiday Cards 2024 - Smith Family.pdf"
+
+        card = _make_card(1, [old_file], family_name="Smith")
+        plan = [RenamePlanItem(old_file, new_path, STATUS_OK, card=card)]
+
+        results = execute_rename_plan(plan)
+        assert results[0].card is card
+
+    def test_skip_result_carries_card_reference(self):
+        """Skipped results also carry card back-reference."""
+        card = _make_card(1, [Path("/a.pdf")], family_name="Smith")
+        plan = [RenamePlanItem(Path("/a.pdf"), Path("/a.pdf"), STATUS_SKIP_SAME, card=card)]
+
+        results = execute_rename_plan(plan)
+        assert results[0].card is card
+
+
+class TestBuildRenamePlanEdgeCases:
+    """Additional edge case tests for build_rename_plan."""
+
+    def test_card_with_empty_file_paths(self):
+        """Card with no file paths produces no plan items."""
+        card = CardResult(id=1, file_paths=[], family_name="Smith")
+        card.confidence = Confidence.HIGH
+        plan = build_rename_plan([card], "2024")
+        assert len(plan) == 0
+
+    def test_readonly_file_rename_fails(self, tmp_path):
+        """Rename of a read-only directory file fails gracefully."""
+        import os
+        readonly_dir = tmp_path / "readonly"
+        readonly_dir.mkdir()
+        old_file = readonly_dir / "card.pdf"
+        old_file.touch()
+        new_path = readonly_dir / "Holiday Cards 2024 - Smith Family.pdf"
+
+        # Make directory read-only
+        os.chmod(readonly_dir, 0o555)
+        try:
+            card = _make_card(1, [old_file], family_name="Smith")
+            plan = [RenamePlanItem(old_file, new_path, STATUS_OK, card=card)]
+            results = execute_rename_plan(plan)
+
+            assert len(results) == 1
+            assert results[0].success is False
+            assert results[0].card is card
+        finally:
+            os.chmod(readonly_dir, 0o755)
+
+
+class TestFindAvailableNameSafetyLimit:
+    """Test that _find_available_name has a safety limit."""
+
+    def test_safety_limit(self):
+        """When all numbered slots are taken, raises RuntimeError."""
+        from app.core.renamer import _find_available_name, _MAX_DUPLICATE_NUMBER
+        # Create a set with all numbered slots taken
+        existing = {f"smith ({n}).pdf" for n in range(2, _MAX_DUPLICATE_NUMBER + 1)}
+        with pytest.raises(RuntimeError, match="Cannot find available filename"):
+            _find_available_name(Path("/dir"), "Smith", ".pdf", existing)

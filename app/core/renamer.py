@@ -1,5 +1,8 @@
 from pathlib import Path
-from app.models.card import CardResult, RenamePlanItem, RenameResult
+from app.models.card import (
+    CardResult, RenamePlanItem, RenameResult,
+    STATUS_OK, STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR, STATUS_DUPLICATE,
+)
 
 
 def _is_same_file(a: Path, b: Path) -> bool:
@@ -17,6 +20,9 @@ def _read_directory_names(directory: Path) -> set[str]:
         return set()
 
 
+_MAX_DUPLICATE_NUMBER = 10000
+
+
 def _find_available_name(
     directory: Path, stem: str, suffix: str, existing: set[str]
 ) -> Path:
@@ -24,12 +30,11 @@ def _find_available_name(
 
     Tries: stem (2).suffix, stem (3).suffix, ... until one is not taken.
     """
-    n = 2
-    while True:
+    for n in range(2, _MAX_DUPLICATE_NUMBER + 1):
         candidate = f"{stem} ({n}){suffix}"
         if candidate.lower() not in existing:
             return directory / candidate
-        n += 1
+    raise RuntimeError(f"Cannot find available filename for {stem}{suffix} after {_MAX_DUPLICATE_NUMBER} attempts")
 
 
 def build_rename_plan(
@@ -58,21 +63,21 @@ def build_rename_plan(
             existing = dir_files[directory]
 
             if card.error:
-                plan.append(RenamePlanItem(file_path, file_path, "skip_error", card=card))
+                plan.append(RenamePlanItem(file_path, file_path, STATUS_SKIP_ERROR, card=card))
                 existing.add(file_path.name.lower())
                 continue
 
             target_name = card.target_filename(year)
 
             if not target_name:
-                plan.append(RenamePlanItem(file_path, file_path, "skip_no_name", card=card))
+                plan.append(RenamePlanItem(file_path, file_path, STATUS_SKIP_NO_NAME, card=card))
                 existing.add(file_path.name.lower())
                 continue
 
             new_path = directory / target_name
 
             if new_path == file_path or _is_same_file(new_path, file_path):
-                plan.append(RenamePlanItem(file_path, new_path, "skip_same", card=card))
+                plan.append(RenamePlanItem(file_path, new_path, STATUS_SKIP_SAME, card=card))
                 existing.add(target_name.lower())
                 continue
 
@@ -88,18 +93,18 @@ def build_rename_plan(
                 new_path = _find_available_name(directory, new_path.stem, new_path.suffix, existing)
 
                 if new_path == file_path:
-                    # File already sits at the right numbered slot — skip_same
+                    # File already sits at the right numbered slot
                     existing.add(own_name)
-                    plan.append(RenamePlanItem(file_path, new_path, "skip_same", card=card))
+                    plan.append(RenamePlanItem(file_path, new_path, STATUS_SKIP_SAME, card=card))
                 else:
                     # File moves to a new numbered slot
                     if had_own:
                         existing.add(own_name)
                     existing.add(new_path.name.lower())
-                    plan.append(RenamePlanItem(file_path, new_path, "duplicate", card=card))
+                    plan.append(RenamePlanItem(file_path, new_path, STATUS_DUPLICATE, card=card))
             else:
                 existing.add(target_name.lower())
-                plan.append(RenamePlanItem(file_path, new_path, "ok", card=card))
+                plan.append(RenamePlanItem(file_path, new_path, STATUS_OK, card=card))
 
     return plan
 
@@ -112,14 +117,14 @@ def execute_rename_plan(plan: list[RenamePlanItem]) -> list[RenameResult]:
     """
     results = []
     for item in plan:
-        if item.status.startswith("skip"):
-            if item.status == "skip_no_name":
+        if item.status in {STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR}:
+            if item.status == STATUS_SKIP_NO_NAME:
                 reason = "No name extracted"
-            elif item.status == "skip_error":
+            elif item.status == STATUS_SKIP_ERROR:
                 reason = "Processing error"
             else:
                 reason = "Already named correctly"
-            results.append(RenameResult(item.old_path, item.new_path, True, reason))
+            results.append(RenameResult(item.old_path, item.new_path, True, reason, card=item.card))
             continue
 
         try:
@@ -127,7 +132,8 @@ def execute_rename_plan(plan: list[RenamePlanItem]) -> list[RenameResult]:
             if item.new_path.exists() and not _is_same_file(item.new_path, item.old_path):
                 results.append(RenameResult(
                     item.old_path, item.new_path, False,
-                    f"Target already exists: {item.new_path.name}"
+                    f"Target already exists: {item.new_path.name}",
+                    card=item.card,
                 ))
                 continue
 
@@ -144,8 +150,8 @@ def execute_rename_plan(plan: list[RenamePlanItem]) -> list[RenameResult]:
                 if card.primary_path == item.old_path:
                     card.primary_path = item.new_path
 
-            results.append(RenameResult(item.old_path, item.new_path, True, "Renamed"))
+            results.append(RenameResult(item.old_path, item.new_path, True, "Renamed", card=item.card))
         except OSError as e:
-            results.append(RenameResult(item.old_path, item.new_path, False, str(e)))
+            results.append(RenameResult(item.old_path, item.new_path, False, str(e), card=item.card))
 
     return results

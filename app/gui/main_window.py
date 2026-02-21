@@ -1,34 +1,39 @@
 """wxPython Main Window for Greeting Cards application."""
 
+import asyncio
 import io
+import logging
 import sys
+import threading
+from datetime import datetime
+from pathlib import Path
+from typing import Callable
+
 import wx
 import wx.adv
-from pathlib import Path
-from datetime import datetime
-from typing import Callable
-import threading
-import asyncio
+
+logger = logging.getLogger(__name__)
 
 from app.gui import styles
-from app.gui.styles import Color, Font
+from app.core.constants import PDF_DPI, AI_CONCURRENCY
+from app.gui.styles import Color, Font, Layout
 from app.gui.preview_panel import PreviewPanel
 from app.gui.review_panel import ReviewPanelMasterDetail
 from app.gui.filter_sidebar import FilterSidebar
 from app.gui.dialogs import ProgressDialog, RenameConfirmDialog, CompletionDialog, ErrorListDialog
 from app.gui.settings_dialog import create_preferences_editor, get_commit_hash
 from app.gui.help_dialog import show_help
-from app.gui.icons import load_sf_symbol
+from app.gui.icons import load_sf_symbol, load_menu_icon
 from app.gui.api_key_dialog import show_api_key_dialog
 from app.models.card import CardResult, Confidence
 from app.core.pdf_renderer import render_all_pages
-from app.core.ocr_engine import extract_text_all_pages
-from app.core.ai_analyzer import analyze_card_with_ai, analyze_card_with_ai_async, format_ai_error
+from app.core.ocr_engine import extract_text_all_pages, is_tesseract_available
+from app.core.ai_analyzer import analyze_card_with_ai_async, format_ai_error
 from app.core.config import get_api_key
 from app.core.renamer import build_rename_plan, execute_rename_plan
 from app.core.database import (
     compute_file_hash, get_card_state, save_raw_ocr, save_raw_ai,
-    set_manual_name, reprocess_candidates_from_raw
+    set_manual_name, reprocess_candidates_from_raw, clear_ai_results
 )
 
 
@@ -46,6 +51,7 @@ def _process_pdf_worker(pdf_path_str: str) -> dict:
         reprocess_candidates_from_raw
     )
     from app.models.card import Confidence
+    from app.core.constants import PDF_DPI
 
     pdf_path = Path(pdf_path_str)
     result = {
@@ -74,7 +80,7 @@ def _process_pdf_worker(pdf_path_str: str) -> dict:
         card_state = get_card_state(file_hash)
 
         # Always render preview (needed for AI later)
-        images = render_all_pages(pdf_path, dpi=200)
+        images = render_all_pages(pdf_path, dpi=PDF_DPI)
         if images:
             # Serialize images to bytes
             preview_buf = io.BytesIO()
@@ -203,9 +209,10 @@ class _DropOverlay(wx.Panel):
 
         # If drag active, draw solid blue border at panel edges
         if self._drag_active:
+            inset = Layout.HIGHLIGHT_INSET
             edge_path = gc.CreatePath()
-            edge_path.AddRoundedRectangle(1.5, 1.5, w - 3, h - 3, 6)
-            gc.SetPen(gc.CreatePen(wx.GraphicsPenInfo(wx.Colour(0, 122, 255)).Width(3)))
+            edge_path.AddRoundedRectangle(inset, inset, w - inset * 2, h - inset * 2, Layout.HIGHLIGHT_RADIUS)
+            gc.SetPen(gc.CreatePen(wx.GraphicsPenInfo(Color.ACCENT).Width(Layout.HIGHLIGHT_WIDTH)))
             gc.SetBrush(wx.NullBrush)
             gc.StrokePath(edge_path)
 
@@ -253,7 +260,7 @@ class MainWindow:
             title="Greeting Cards",
             size=(styles.Layout.WINDOW_WIDTH, styles.Layout.WINDOW_HEIGHT)
         )
-        self._frame.SetMinSize((800, 500))
+        self._frame.SetMinSize(Layout.MIN_FRAME_SIZE)
 
         # State - Content-based deduplication (multi-load architecture)
         self._next_card_id = 0  # Monotonically increasing ID counter
@@ -263,6 +270,8 @@ class MainWindow:
         self._year = datetime.now().year - 1
         self._current_category_filters = ["all"]  # Current sidebar category filters
         self._current_folder_filters = ["all_folders"]  # Current sidebar folder filters
+        self._ai_target_cards: list[CardResult] = []  # Cards for current AI batch
+        self._state_lock = threading.Lock()  # Protects _cards_by_hash, _hash_by_path, _next_card_id
 
         # Preferences editor (lazy-init)
         self._prefs_editor = None
@@ -297,18 +306,78 @@ class MainWindow:
         return None
 
     def _setup_menu_bar(self) -> None:
-        """Create native macOS menu bar with File and Help menus."""
+        """Create native macOS menu bar with File, Edit, and Help menus."""
         menubar = wx.MenuBar()
 
         # File menu
         file_menu = wx.Menu()
         file_menu.Append(wx.ID_OPEN, "Open...\tCtrl+O")
         file_menu.AppendSeparator()
+
+        self._ai_menu_id = wx.NewIdRef()
+        ai_item = file_menu.Append(self._ai_menu_id, "AI Analyze\tCtrl+Shift+I")
+        ai_icon = load_menu_icon("sparkles")
+        if ai_icon:
+            ai_item.SetBitmap(ai_icon)
+
+        self._clear_ai_menu_id = wx.NewIdRef()
+        clear_ai_item = file_menu.Append(self._clear_ai_menu_id, "Clear AI Results")
+        clear_ai_icon = load_menu_icon("eraser")
+        if clear_ai_icon:
+            clear_ai_item.SetBitmap(clear_ai_icon)
+
+        file_menu.AppendSeparator()
+
+        self._rename_menu_id = wx.NewIdRef()
+        rename_item = file_menu.Append(self._rename_menu_id, "Rename Files...\tCtrl+R")
+        rename_icon = load_menu_icon("pencil")
+        if rename_icon:
+            rename_item.SetBitmap(rename_icon)
+
+        self._clear_menu_id = wx.NewIdRef()
+        clear_item = file_menu.Append(self._clear_menu_id, "Clear All")
+        clear_icon = load_menu_icon("xmark.circle")
+        if clear_icon:
+            clear_item.SetBitmap(clear_icon)
+
+        file_menu.AppendSeparator()
         file_menu.Append(wx.ID_PREFERENCES, "Settings...\tCtrl+,")
         file_menu.AppendSeparator()
         file_menu.Append(wx.ID_CLOSE, "Close Window\tCtrl+W")
         file_menu.Append(wx.ID_EXIT, "Quit\tCtrl+Q")
         menubar.Append(file_menu, "&File")
+
+        # Edit menu
+        edit_menu = wx.Menu()
+
+        self._find_menu_id = wx.NewIdRef()
+        find_item = edit_menu.Append(self._find_menu_id, "Find...\tCtrl+F")
+        find_icon = load_menu_icon("magnifyingglass")
+        if find_icon:
+            find_item.SetBitmap(find_icon)
+
+        edit_menu.AppendSeparator()
+
+        select_all_item = edit_menu.Append(wx.ID_SELECTALL, "Select All\tCtrl+A")
+        select_all_icon = load_menu_icon("checkmark.circle")
+        if select_all_icon:
+            select_all_item.SetBitmap(select_all_icon)
+
+        self._select_none_id = wx.NewIdRef()
+        select_none_item = edit_menu.Append(self._select_none_id, "Select None\tCtrl+Shift+A")
+        select_none_icon = load_menu_icon("circle")
+        if select_none_icon:
+            select_none_item.SetBitmap(select_none_icon)
+
+        edit_menu.AppendSeparator()
+
+        self._remove_menu_id = wx.NewIdRef()
+        remove_item = edit_menu.Append(self._remove_menu_id, "Remove\tCtrl+Backspace")
+        remove_icon = load_menu_icon("minus.circle")
+        if remove_icon:
+            remove_item.SetBitmap(remove_icon)
+
+        menubar.Append(edit_menu, "&Edit")
 
         # Help menu
         help_menu = wx.Menu()
@@ -326,6 +395,27 @@ class MainWindow:
         self._frame.Bind(wx.EVT_MENU, lambda e: self._frame.Close(), id=wx.ID_CLOSE)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._frame.Close(), id=wx.ID_EXIT)
         self._frame.Bind(wx.EVT_MENU, lambda e: show_help(self._frame), id=wx.ID_HELP)
+        self._frame.Bind(wx.EVT_MENU, lambda e: self._search_ctrl.SetFocus(), id=self._find_menu_id)
+        self._frame.Bind(wx.EVT_MENU, self._on_select_all, id=wx.ID_SELECTALL)
+        self._frame.Bind(wx.EVT_MENU, lambda e: self._review_panel.select_none(), id=self._select_none_id)
+        self._frame.Bind(wx.EVT_MENU, self._on_remove_menu, id=self._remove_menu_id)
+        self._frame.Bind(wx.EVT_UPDATE_UI, self._on_update_remove_menu, id=self._remove_menu_id)
+        self._frame.Bind(wx.EVT_MENU, lambda e: self._start_ai_all(), id=self._ai_menu_id)
+        self._frame.Bind(wx.EVT_MENU, lambda e: self._start_rename(), id=self._rename_menu_id)
+        self._frame.Bind(wx.EVT_MENU, lambda e: self._clear_all(), id=self._clear_menu_id)
+        self._frame.Bind(wx.EVT_MENU, self._on_clear_ai_results, id=self._clear_ai_menu_id)
+        self._frame.Bind(wx.EVT_UPDATE_UI, self._on_update_action_menu, id=self._ai_menu_id)
+        self._frame.Bind(wx.EVT_UPDATE_UI, self._on_update_action_menu, id=self._rename_menu_id)
+        self._frame.Bind(wx.EVT_UPDATE_UI, self._on_update_action_menu, id=self._clear_menu_id)
+        self._frame.Bind(wx.EVT_UPDATE_UI, self._on_update_action_menu, id=self._clear_ai_menu_id)
+
+    def _on_select_all(self, event: wx.CommandEvent) -> None:
+        """Handle Select All — route to text field if focused, else select all cards."""
+        focus = self._frame.FindFocus()
+        if isinstance(focus, wx.TextCtrl):
+            focus.SelectAll()
+        else:
+            self._review_panel.select_all()
 
     def _show_preferences(self) -> None:
         """Show the native macOS Preferences editor."""
@@ -337,7 +427,7 @@ class MainWindow:
         """Show the native macOS About dialog."""
         info = wx.adv.AboutDialogInfo()
         info.SetName("Greeting Cards")
-        info.SetCopyright("(c) 2026")
+        info.SetCopyright(f"(c) {datetime.now().year}")
         # Do not call SetIcon() — it forces the generic About box on macOS.
         # The native About panel automatically uses the app bundle icon
         # from Contents/Resources/icon.icns via CFBundleIconFile in Info.plist.
@@ -374,10 +464,10 @@ class MainWindow:
     def _build_toolbar(self) -> None:
         """Build toolbar with SF Symbol icons."""
         toolbar = wx.ToolBar(self._panel, style=wx.TB_HORIZONTAL | wx.TB_NODIVIDER)
-        toolbar.SetToolBitmapSize(wx.Size(24, 24))
+        toolbar.SetToolBitmapSize(wx.Size(Layout.TOOLBAR_ICON_SIZE, Layout.TOOLBAR_ICON_SIZE))
 
         # Add Files tool
-        browse_bmp = load_sf_symbol("folder.badge.plus", point_size=16) or wx.NullBitmap
+        browse_bmp = load_sf_symbol("folder.badge.plus", point_size=Layout.TOOLBAR_ICON_POINTS) or wx.NullBitmap
         self._browse_id = toolbar.AddTool(
             wx.ID_ANY, "Add Files", browse_bmp,
             shortHelp="Add PDF files or folders to analyze (can add from multiple sources)"
@@ -386,15 +476,15 @@ class MainWindow:
         toolbar.AddSeparator()
 
         # AI Analyze tool
-        ai_bmp = load_sf_symbol("sparkles", point_size=16) or wx.NullBitmap
+        ai_bmp = load_sf_symbol("sparkles", point_size=Layout.TOOLBAR_ICON_POINTS) or wx.NullBitmap
         self._ai_all_id = toolbar.AddTool(
             wx.ID_ANY, "AI Analyze", ai_bmp,
-            shortHelp="Analyze all loaded cards with AI to extract family names"
+            shortHelp="Analyze cards with AI to extract family names (\u21e7\u2318I)"
         ).GetId()
         toolbar.EnableTool(self._ai_all_id, False)
 
         # Rename tool
-        rename_bmp = load_sf_symbol("pencil", point_size=16) or wx.NullBitmap
+        rename_bmp = load_sf_symbol("pencil", point_size=Layout.TOOLBAR_ICON_POINTS) or wx.NullBitmap
         self._rename_id = toolbar.AddTool(
             wx.ID_ANY, "Rename", rename_bmp,
             shortHelp="Rename all files based on detected family names"
@@ -402,7 +492,7 @@ class MainWindow:
         toolbar.EnableTool(self._rename_id, False)
 
         # Clear tool
-        clear_bmp = load_sf_symbol("xmark.circle", point_size=16) or wx.NullBitmap
+        clear_bmp = load_sf_symbol("xmark.circle", point_size=Layout.TOOLBAR_ICON_POINTS) or wx.NullBitmap
         self._clear_id = toolbar.AddTool(
             wx.ID_ANY, "Clear", clear_bmp,
             shortHelp="Clear all loaded cards and reset the application"
@@ -415,14 +505,14 @@ class MainWindow:
         year_label = wx.StaticText(toolbar, label="Year:")
         year_label.SetFont(styles.Font.BODY())
         toolbar.AddControl(year_label)
-        self._year_ctrl = wx.TextCtrl(toolbar, value=str(self._year), size=(60, -1))
+        self._year_ctrl = wx.TextCtrl(toolbar, value=str(self._year), size=(Layout.YEAR_WIDTH, -1))
         self._year_ctrl.SetToolTip("Year to use in renamed file names (e.g., 2024)")
         toolbar.AddControl(self._year_ctrl)
 
         toolbar.AddStretchableSpace()
 
         # Search control
-        self._search_ctrl = wx.SearchCtrl(toolbar, style=wx.TE_PROCESS_ENTER, size=(200, -1))
+        self._search_ctrl = wx.SearchCtrl(toolbar, style=wx.TE_PROCESS_ENTER, size=(Layout.SEARCH_WIDTH, -1))
         self._search_ctrl.ShowSearchButton(True)
         self._search_ctrl.ShowCancelButton(True)
         self._search_ctrl.SetDescriptiveText("Filter cards...")
@@ -444,7 +534,7 @@ class MainWindow:
         """Filter cards as user types in search field."""
         self._refresh_display()
 
-    def _on_search_cancel(self, event) -> None:
+    def _on_search_cancel(self, event: wx.CommandEvent) -> None:
         """Clear filter when cancel button clicked."""
         self._search_ctrl.ChangeValue("")
         self._refresh_display()
@@ -572,6 +662,7 @@ class MainWindow:
             on_ai_request=self._on_ai_request,
             on_name_change=self._on_name_change,
             on_card_edited=self._on_card_edited,
+            on_remove=self._on_remove_card,
         )
 
         # Preview panel
@@ -579,17 +670,16 @@ class MainWindow:
 
         # Split nested content splitter vertically
         content_splitter.SplitVertically(self._review_panel, self._preview_panel)
-        content_splitter.SetSashGravity(0.5)  # Both panes share extra space equally
-        content_splitter.SetMinimumPaneSize(200)
+        content_splitter.SetSashGravity(0.55)  # Cards panel gets slightly more space
+        content_splitter.SetMinimumPaneSize(Layout.CONTENT_MIN_PANE)
         self._inner_splitter = content_splitter
 
         # Split main splitter vertically (sidebar | content)
         main_splitter.SplitVertically(self._sidebar, content_splitter)
-        main_splitter.SetMinimumPaneSize(150)
+        main_splitter.SetMinimumPaneSize(Layout.SIDEBAR_WIDTH)
 
         # Set initial sash positions after layout
-        sidebar_width = 150
-        wx.CallAfter(lambda: main_splitter.SetSashPosition(sidebar_width))
+        wx.CallAfter(lambda: main_splitter.SetSashPosition(Layout.SIDEBAR_WIDTH))
 
         return main_splitter
 
@@ -598,7 +688,7 @@ class MainWindow:
         def _apply():
             w = self._inner_splitter.GetSize().GetWidth()
             if w > 0:
-                self._inner_splitter.SetSashPosition(w // 2)
+                self._inner_splitter.SetSashPosition(int(w * 0.55))
         wx.CallAfter(_apply)
 
     def _set_empty_state(self, is_empty: bool) -> None:
@@ -644,15 +734,7 @@ class MainWindow:
 
     def _setup_keyboard_shortcuts(self) -> None:
         """Set up keyboard accelerators."""
-        # Menu shortcuts (Cmd+O, Cmd+W, Cmd+Q) handled by menu bar
-
-        # Add Cmd+F for search
-        search_id = wx.NewIdRef()
-        self._frame.Bind(wx.EVT_MENU, lambda e: self._search_ctrl.SetFocus(), id=search_id)
-        accel_tbl = wx.AcceleratorTable([
-            (wx.ACCEL_CMD, ord('F'), search_id)
-        ])
-        self._frame.SetAcceleratorTable(accel_tbl)
+        # Menu shortcuts (Cmd+O, Cmd+W, Cmd+Q, Cmd+F, Cmd+A, Cmd+Shift+A) handled by menu bar
 
         # Navigation shortcuts
         self._frame.Bind(wx.EVT_CHAR_HOOK, self._on_key_press)
@@ -696,20 +778,13 @@ class MainWindow:
         Returns:
             List of PDF paths (absolute, resolved)
         """
-        import os
-
         if path.is_file():
             if path.suffix.lower() == '.pdf':
                 return [path.resolve()]
             return []
 
         # Recursive directory scan
-        pdf_paths = []
-        for root, dirs, files in os.walk(path):
-            for file in files:
-                if file.lower().endswith('.pdf'):
-                    pdf_paths.append((Path(root) / file).resolve())
-
+        pdf_paths = [p.resolve() for p in path.rglob("*.[pP][dD][fF]")]
         return sorted(pdf_paths)
 
     def _add_files_folders(self) -> None:
@@ -767,12 +842,7 @@ class MainWindow:
 
         # 5. Process new PDFs
         if new_pdfs and auto_process:
-            # Process only the new PDFs, not all accumulated PDFs
-            temp_pdf_files = self._pdf_files
-            self._pdf_files = new_pdfs
-            self._start_processing()
-            # After processing starts, restore full list
-            self._pdf_files = temp_pdf_files
+            self._start_processing(new_pdfs)
 
     def _clear_all(self) -> None:
         """Clear all loaded cards (from all sources) and reset UI."""
@@ -804,10 +874,55 @@ class MainWindow:
         # Show confirmation
         self._show_info_message("All cards cleared", wx.ICON_INFORMATION)
 
-    def _start_processing(self) -> None:
-        """Start processing PDFs in background."""
-        if not self._pdf_files:
+    def _on_clear_ai_results(self, event: wx.CommandEvent) -> None:
+        """Clear AI results for selected or visible cards."""
+        if not self._cards_by_hash:
             return
+
+        cards, scope = self._get_target_cards()
+        if not cards:
+            return
+
+        n = len(cards)
+        scope_word = "selected" if scope == "selected" else "visible"
+        result = wx.MessageBox(
+            f"This will clear AI results for {n} {scope_word} card(s).\n\n"
+            "OCR results, manual entries, and preferences preserved.\n"
+            "Cards can be re-analyzed afterwards.\n\n"
+            "Continue?",
+            "Clear AI Results",
+            wx.YES_NO | wx.ICON_QUESTION,
+            self._frame
+        )
+        if result != wx.YES:
+            return
+
+        file_hashes = [card.file_hash for card in cards if card.file_hash]
+        changed = clear_ai_results(file_hashes)
+
+        # Reload card state from DB
+        for card in cards:
+            if card.file_hash:
+                self._load_card_state_from_db(card)
+
+        self._refresh_display()
+        self._show_info_message(
+            f"AI results cleared for {n} card(s). {changed} reverted to OCR names.",
+            wx.ICON_INFORMATION
+        )
+
+    def _start_processing(self, files: list[Path] | None = None) -> None:
+        """Start processing PDFs in background.
+
+        Args:
+            files: Specific files to process. If None, processes self._pdf_files.
+        """
+        files_to_process = files or self._pdf_files
+        if not files_to_process:
+            return
+
+        # Snapshot the file list for the background thread
+        self._processing_files = list(files_to_process)
 
         # Show busy cursor
         wx.BeginBusyCursor()
@@ -820,7 +935,7 @@ class MainWindow:
         # Note: Card deduplication happens in _process_cards during processing
 
         # Show progress dialog
-        total = len(self._pdf_files)
+        total = len(self._processing_files)
         self._progress = ProgressDialog(self._frame, "Processing Cards", total)
         self._progress.Show()
 
@@ -839,9 +954,9 @@ class MainWindow:
         except RuntimeError:
             pass  # Already set
 
-        total = len(self._pdf_files)
+        total = len(self._processing_files)
         num_workers = max(1, cpu_count() // 2)
-        pdf_paths_str = [str(p) for p in self._pdf_files]
+        pdf_paths_str = [str(p) for p in self._processing_files]
 
         try:
             with Pool(num_workers) as pool:
@@ -850,29 +965,30 @@ class MainWindow:
                     file_hash = result_dict['file_hash']
 
                     # Content-based deduplication: check if we already have this content
-                    if file_hash in self._cards_by_hash:
-                        # Duplicate content - add path to existing card
-                        existing_card = self._cards_by_hash[file_hash]
-                        if pdf_path not in existing_card.file_paths:
-                            existing_card.file_paths.append(pdf_path)
-                        card = existing_card
-                    else:
-                        # New content - create new card
-                        card_id = self._next_card_id
-                        self._next_card_id += 1
+                    with self._state_lock:
+                        if file_hash and file_hash in self._cards_by_hash:
+                            # Duplicate content - add path to existing card
+                            existing_card = self._cards_by_hash[file_hash]
+                            if pdf_path not in existing_card.file_paths:
+                                existing_card.file_paths.append(pdf_path)
+                            card = existing_card
+                        else:
+                            # New content - create new card
+                            card_id = self._next_card_id
+                            self._next_card_id += 1
 
-                        # Convert dict to CardResult
-                        card = self._dict_to_card(result_dict, card_id)
-                        self._cards_by_hash[file_hash] = card
+                            # Convert dict to CardResult
+                            card = self._dict_to_card(result_dict, card_id)
+                            self._cards_by_hash[file_hash] = card
 
-                    # Always update path → hash mapping
-                    self._hash_by_path[pdf_path] = file_hash
+                        # Always update path → hash mapping
+                        self._hash_by_path[pdf_path] = file_hash
 
                     # Update UI (thread-safe with wx.CallAfter)
                     wx.CallAfter(self._update_processing_progress, i + 1, total, card.filename)
 
         except Exception as e:
-            print(f"Multiprocessing error: {e}")
+            logger.warning("Multiprocessing error: %s", e)
             # Fallback to sequential processing
             self._process_cards_sequential()
             return
@@ -922,26 +1038,27 @@ class MainWindow:
 
     def _process_cards_sequential(self) -> None:
         """Fallback: sequential processing if multiprocessing fails."""
-        total = len(self._pdf_files)
-        for i, pdf_path in enumerate(self._pdf_files):
+        total = len(self._processing_files)
+        for i, pdf_path in enumerate(self._processing_files):
             card = None
             try:
                 file_hash = compute_file_hash(pdf_path)
 
                 # Content-based deduplication: check if we already have this content
-                if file_hash in self._cards_by_hash:
-                    # Duplicate content - add path to existing card
-                    existing_card = self._cards_by_hash[file_hash]
-                    if pdf_path not in existing_card.file_paths:
-                        existing_card.file_paths.append(pdf_path)
-                    # Update path → hash mapping
-                    self._hash_by_path[pdf_path] = file_hash
-                    wx.CallAfter(self._update_processing_progress, i + 1, total, pdf_path.name)
-                    continue  # Skip to next file
+                with self._state_lock:
+                    if file_hash in self._cards_by_hash:
+                        # Duplicate content - add path to existing card
+                        existing_card = self._cards_by_hash[file_hash]
+                        if pdf_path not in existing_card.file_paths:
+                            existing_card.file_paths.append(pdf_path)
+                        # Update path → hash mapping
+                        self._hash_by_path[pdf_path] = file_hash
+                        wx.CallAfter(self._update_processing_progress, i + 1, total, pdf_path.name)
+                        continue  # Skip to next file
 
-                # New content - create new card
-                card_id = self._next_card_id
-                self._next_card_id += 1
+                    # New content - create new card
+                    card_id = self._next_card_id
+                    self._next_card_id += 1
                 card = CardResult(
                     id=card_id,
                     file_paths=[pdf_path],
@@ -950,7 +1067,7 @@ class MainWindow:
                 card.file_hash = file_hash
                 card_state = get_card_state(file_hash)
 
-                images = render_all_pages(pdf_path, dpi=200)
+                images = render_all_pages(pdf_path, dpi=PDF_DPI)
                 if images:
                     card.preview_image = images[0]
                     card.page_images = images
@@ -961,7 +1078,7 @@ class MainWindow:
                     card_state = get_card_state(card.file_hash)
                 else:
                     # New file - run OCR and save raw
-                    ocr_text = extract_text_all_pages(images)
+                    ocr_text = extract_text_all_pages(images) if images else ""
                     card.ocr_text = ocr_text
                     save_raw_ocr(card.file_hash, ocr_text)
 
@@ -969,18 +1086,8 @@ class MainWindow:
                     reprocess_candidates_from_raw(card.file_hash)
                     card_state = get_card_state(card.file_hash)
 
-                # Load card state
-                if card_state:
-                    card.family_name = card_state.display_name
-                    try:
-                        card.confidence = Confidence(card_state.confidence)
-                    except ValueError:
-                        card.confidence = Confidence.MEDIUM
-                    card.alternates = [c.family_name for c in card_state.candidates]
-                    card.candidates = card_state.candidates
-                    card.remove_family = card_state.remove_family
-                    card.selected_candidate_id = card_state.selected_candidate_id
-                    card.method = card_state.method
+                # Load card state from DB
+                self._load_card_state_from_db(card)
 
             except Exception as e:
                 if card is None:
@@ -991,8 +1098,10 @@ class MainWindow:
                 card.confidence = Confidence.NONE
 
             # Store by hash and update path mapping
-            self._cards_by_hash[card.file_hash] = card
-            self._hash_by_path[pdf_path] = card.file_hash
+            if card.file_hash:
+                with self._state_lock:
+                    self._cards_by_hash[card.file_hash] = card
+                    self._hash_by_path[pdf_path] = card.file_hash
             wx.CallAfter(self._update_processing_progress, i + 1, total, pdf_path.name)
 
         wx.CallAfter(self._processing_complete)
@@ -1029,12 +1138,29 @@ class MainWindow:
         self._toolbar.EnableTool(self._ai_all_id, True)
         self._toolbar.EnableTool(self._clear_id, True)
 
-        # Show success message with auto-dismiss
+        # Show success/warning message
         count = len(self._cards_by_hash)
-        self._show_info_message(
-            f"Processing complete\n{count} card{'s' if count != 1 else ''} loaded",
-            wx.ICON_INFORMATION
-        )
+        if not is_tesseract_available():
+            self._show_info_message(
+                f"{count} card{'s' if count != 1 else ''} loaded without OCR\n"
+                "Tesseract not found!\nInstall with:\nbrew install tesseract",
+                wx.ICON_WARNING,
+                duration_ms=0,
+            )
+            wx.MessageBox(
+                "Tesseract OCR is not installed.\n\n"
+                "Cards have been loaded but text extraction was skipped. "
+                "AI analysis can still be used.\n\n"
+                "To enable OCR, install Tesseract and restart:\n"
+                "  brew install tesseract",
+                "Tesseract Not Found",
+                wx.OK | wx.ICON_WARNING,
+            )
+        else:
+            self._show_info_message(
+                f"Processing complete\n{count} card{'s' if count != 1 else ''} loaded",
+                wx.ICON_INFORMATION,
+            )
 
     def _on_card_select(self, card_id: int | None) -> None:
         """Handle card selection - update preview panel."""
@@ -1075,17 +1201,88 @@ class MainWindow:
             # Save to database
             if card.file_hash:
                 set_manual_name(card.file_hash, new_name, card.remove_family)
+        else:
+            # User cleared the name — revert to pre-manual state
+            card.manual_override = ""
+
+            # Clear manual name in database
+            if card.file_hash:
+                set_manual_name(card.file_hash, "", card.remove_family)
+
+            # Reload state from DB to get the best candidate name
+            self._load_card_state_from_db(card)
 
         # Update review panel
         self._review_panel.update_card(card_id, card)
 
         # Debounce: restart 1-second timer on each keystroke
         self._edit_debounce_timer.Stop()
-        self._edit_debounce_timer.StartOnce(1000)
+        self._edit_debounce_timer.StartOnce(Layout.DEBOUNCE_MS)
 
     def _on_card_edited(self, card_id: int) -> None:
         """Handle discrete card edits (e.g. candidate selection) that change confidence."""
         self._refresh_display()
+
+    def _on_remove_card(self, file_hash: str) -> None:
+        """Remove a card from the in-memory table (non-destructive — does not delete files).
+
+        Args:
+            file_hash: The content hash of the card to remove
+        """
+        card = self._cards_by_hash.get(file_hash)
+        if not card:
+            return
+
+        # Remove all path → hash mappings for this card
+        for path in card.file_paths:
+            self._hash_by_path.pop(path, None)
+            if path in self._pdf_files:
+                self._pdf_files.remove(path)
+
+        # Remove the card itself
+        del self._cards_by_hash[file_hash]
+
+        # Refresh display (handles filter counts, list reload, empty state)
+        self._refresh_display()
+
+    def _on_remove_menu(self, event: wx.CommandEvent) -> None:
+        """Handle Edit > Remove — remove all selected cards."""
+        for card_id in list(self._review_panel._selected_card_ids):
+            card = self._get_card_by_id(card_id)
+            if card and card.file_hash:
+                self._on_remove_card(card.file_hash)
+
+    def _on_update_remove_menu(self, event: wx.UpdateUIEvent) -> None:
+        """Enable Remove menu item only when cards are selected."""
+        event.Enable(bool(self._review_panel._selected_card_ids))
+
+    def _on_update_action_menu(self, event: wx.UpdateUIEvent) -> None:
+        """Enable/disable AI, Rename, Clear, Clear AI menu items and update labels dynamically."""
+        menu_to_tool = {
+            self._ai_menu_id: self._ai_all_id,
+            self._rename_menu_id: self._rename_id,
+            self._clear_menu_id: self._clear_id,
+            self._clear_ai_menu_id: self._ai_all_id,
+        }
+        tool_id = menu_to_tool.get(event.GetId())
+        if tool_id is not None:
+            enabled = self._toolbar.GetToolEnabled(tool_id)
+            event.Enable(enabled)
+
+            # Dynamic labels for scoped actions
+            scoped_labels = {
+                self._ai_menu_id: ("AI Analyze", "\tCtrl+Shift+I"),
+                self._clear_ai_menu_id: ("Clear AI Results", ""),
+            }
+            if event.GetId() in scoped_labels:
+                base, shortcut = scoped_labels[event.GetId()]
+                if enabled and self._cards_by_hash:
+                    cards, scope = self._get_target_cards()
+                    n = len(cards)
+                    scope_label = "Selected" if scope == "selected" else "Visible"
+                    event.SetText(f"{base} {scope_label} ({n}){shortcut}")
+                else:
+                    event.SetText(f"{base}{shortcut}")
 
     def _on_edit_debounce_fire(self, event: wx.TimerEvent) -> None:
         """Fire after user stops typing for 1 second — refresh filters."""
@@ -1111,13 +1308,23 @@ class MainWindow:
 
         return False
 
+    def _get_target_cards(self) -> tuple[list[CardResult], str]:
+        """Return (cards, scope) based on selection state.
+
+        If 2+ cards are selected, returns those cards with scope "selected".
+        Otherwise returns all visible (filtered) cards with scope "visible".
+        """
+        selected_ids = self._review_panel._selected_card_ids
+        if len(selected_ids) >= 2:
+            cards = [self._review_panel._cards_by_id[cid] for cid in selected_ids
+                     if cid in self._review_panel._cards_by_id]
+            return cards, "selected"
+        return self._review_panel.get_cards(), "visible"
+
     def _on_ai_request(self, card_id: int) -> None:
-        """Handle AI button click for single card."""
+        """Handle AI button click for single card — delegates to batch path."""
         card = self._get_card_by_id(card_id)
         if not card or card.error:
-            return
-
-        if not self._ensure_api_key():
             return
 
         if not card.page_images and not card.preview_image:
@@ -1129,38 +1336,14 @@ class MainWindow:
             )
             return
 
-        # Disable AI button
-        self._review_panel.set_ai_button_state(card_id, "disabled", "...")
+        if not self._ensure_api_key():
+            return
 
-        # Start background thread
-        thread = threading.Thread(target=self._run_ai_analysis, args=(card_id, card), daemon=True)
-        thread.start()
+        # Disable AI button before delegating (after API key check so
+        # cancelling the key dialog doesn't leave the button stuck disabled)
+        self._review_panel.set_ai_button_state(card_id, "disabled")
 
-    def _run_ai_analysis(self, card_id: int, card: CardResult) -> None:
-        """Run AI analysis for single card (runs in background thread)."""
-        try:
-            # Check if we already have AI candidates
-            card_state = get_card_state(card.file_hash) if card.file_hash else None
-            has_ai_candidates = False
-            if card_state:
-                has_ai_candidates = any(c.method == 'ai' for c in card_state.candidates)
-
-            if not has_ai_candidates:
-                # Run AI analysis
-                ai_images = card.page_images or [card.preview_image]
-                result = analyze_card_with_ai(ai_images)
-
-                if card.file_hash and result.best_name:
-                    save_raw_ai(card.file_hash, result.best_name, result.alternates)
-                    reprocess_candidates_from_raw(card.file_hash)
-
-            self._load_card_state_from_db(card)
-
-        except Exception as e:
-            msg = format_ai_error(e)
-            wx.CallAfter(lambda: wx.MessageBox(msg, "AI Error", wx.OK | wx.ICON_ERROR, self._frame))
-
-        wx.CallAfter(self._ai_analysis_complete, card_id, card)
+        self._start_ai_all(cards=[card], title="AI Analysis")
 
     @staticmethod
     def _load_card_state_from_db(card: CardResult) -> None:
@@ -1177,7 +1360,10 @@ class MainWindow:
         card_state = get_card_state(card.file_hash)
         if card_state:
             card.family_name = card_state.display_name
-            card.confidence = Confidence(card_state.confidence)
+            try:
+                card.confidence = Confidence(card_state.confidence)
+            except ValueError:
+                card.confidence = Confidence.NONE
             card.alternates = [c.family_name for c in card_state.candidates]
             card.candidates = card_state.candidates
             card.remove_family = card_state.remove_family
@@ -1188,20 +1374,45 @@ class MainWindow:
             if not card.manual_override or card.method != "manual":
                 card.manual_override = ""
         else:
+            # No DB state — reset to clean state
+            card.family_name = ""
+            card.confidence = Confidence.NONE
+            card.method = "missing"
+            card.candidates = []
+            card.alternates = []
+            card.selected_candidate_id = None
+            card.manual_override = ""
             card.ai_analyzed = True
 
-    def _ai_analysis_complete(self, card_id: int, card: CardResult) -> None:
-        """Update UI after AI analysis completes."""
-        self._review_panel.update_card(card_id, card)
-        self._review_panel.set_ai_button_state(card_id, "normal", "AI")
+    def _start_ai_all(self, cards: list[CardResult] | None = None, title: str | None = None) -> None:
+        """Start AI analysis for given cards, selected cards, or all visible cards.
 
-    def _start_ai_all(self) -> None:
-        """Start AI analysis for all cards."""
+        Args:
+            cards: Explicit card list (e.g. single card from detail button).
+                   If None, determines scope from selection state.
+            title: Progress dialog title. If None, auto-generated from scope.
+        """
         if not self._cards_by_hash:
             return
 
         if not self._ensure_api_key():
             return
+
+        # Determine target cards and title
+        if cards is None:
+            cards, scope = self._get_target_cards()
+            n = len(cards)
+            if scope == "selected":
+                title = f"AI Analysis \u2014 {n} Selected"
+            else:
+                title = f"AI Analysis \u2014 {n} Cards"
+        elif title is None:
+            title = "AI Analysis"
+
+        if not cards:
+            return
+
+        self._ai_target_cards = cards
 
         # Show busy cursor
         wx.BeginBusyCursor()
@@ -1211,8 +1422,8 @@ class MainWindow:
         self._toolbar.EnableTool(self._rename_id, False)
 
         # Show progress
-        total = len(self._cards_by_hash)
-        self._progress = ProgressDialog(self._frame, "AI Analysis", total)
+        total = len(cards)
+        self._progress = ProgressDialog(self._frame, title, total)
         self._progress.Show()
 
         # Start background thread
@@ -1221,15 +1432,21 @@ class MainWindow:
 
     def _run_ai_all(self) -> None:
         """Run async AI batch processing in background thread."""
-        asyncio.run(self._run_ai_all_async())
+        try:
+            asyncio.run(self._run_ai_all_async())
+        except Exception as e:
+            error_msg = str(e)
+            logger.error("AI batch processing failed: %s", error_msg)
+            wx.CallAfter(self._ai_all_complete, [("Batch", error_msg)])
 
     async def _run_ai_all_async(self) -> None:
         """Async batch AI processing with concurrency limit."""
         import anthropic
 
-        semaphore = asyncio.Semaphore(3)  # Limit to 3 concurrent API calls
+        target_cards = self._ai_target_cards
+        semaphore = asyncio.Semaphore(AI_CONCURRENCY)
         completed = 0
-        total = len(self._cards_by_hash)
+        total = len(target_cards)
         auth_failed = asyncio.Event()
         errors: list[tuple[str, str]] = []
 
@@ -1282,7 +1499,7 @@ class MainWindow:
                 wx.CallAfter(self._update_ai_all_progress, completed, total, card.filename, card_id, card)
 
         # Process all cards concurrently with semaphore limiting concurrency
-        await asyncio.gather(*[process_card(card.id, card) for card in self._cards_by_hash.values()])
+        await asyncio.gather(*[process_card(card.id, card) for card in target_cards])
 
         aborted = auth_failed.is_set()
         wx.CallAfter(self._ai_all_complete, errors, aborted)
@@ -1318,7 +1535,7 @@ class MainWindow:
             dialog.Destroy()
         else:
             # Show success message with auto-dismiss
-            count = len(self._cards_by_hash)
+            count = len(self._ai_target_cards) or len(self._cards_by_hash)
             self._show_info_message(
                 f"Analysis complete\n{count} card{'s' if count != 1 else ''} analyzed",
                 wx.ICON_INFORMATION
@@ -1329,8 +1546,8 @@ class MainWindow:
         cards = self._review_panel.get_cards()
         year_str = self._year_ctrl.GetValue().strip()
 
-        if not year_str:
-            wx.MessageBox("Please enter a year.", "No Year", wx.OK | wx.ICON_WARNING, self._frame)
+        if not year_str or not year_str.isdigit() or len(year_str) != 4:
+            wx.MessageBox("Please enter a valid 4-digit year.", "Invalid Year", wx.OK | wx.ICON_WARNING, self._frame)
             return
 
         # Build rename plan
@@ -1356,12 +1573,53 @@ class MainWindow:
             completion.ShowModal()
             completion.Destroy()
 
-            # Clear everything
-            self._clear_all()
+            # Remove successfully processed paths from cards
+            self._remove_completed_results(results)
 
         dialog.Destroy()
 
-    def _show_info_message(self, message: str, icon: int = wx.ICON_INFORMATION, duration_ms: int = 4000) -> None:
+    def _remove_completed_results(self, results: list) -> None:
+        """Remove successfully renamed/skip_same paths from cards; drop empty cards.
+
+        Paths with message "Renamed" or "Already named correctly" are considered
+        resolved. Paths that failed or had no name are kept for the user to address.
+        """
+        # Collect paths to remove (use new_path — that's where the file is now)
+        resolved_messages = {"Renamed", "Already named correctly"}
+        paths_to_remove: set[Path] = set()
+        for r in results:
+            if r.success and r.message in resolved_messages:
+                paths_to_remove.add(r.new_path)
+
+        if not paths_to_remove:
+            return
+
+        # Remove paths from cards and tracking dicts
+        for path in paths_to_remove:
+            file_hash = self._hash_by_path.pop(path, None)
+            if path in self._pdf_files:
+                self._pdf_files.remove(path)
+            if file_hash and file_hash in self._cards_by_hash:
+                card = self._cards_by_hash[file_hash]
+                if path in card.file_paths:
+                    card.file_paths.remove(path)
+                # Remove card if it has no remaining paths
+                if not card.file_paths:
+                    del self._cards_by_hash[file_hash]
+
+        # Rebuild folder list and refresh display
+        self._sidebar.update_folders(self._derive_folders())
+        self._current_folder_filters = self._sidebar.get_selected_folder_filters()
+        self._refresh_display()
+
+        # Disable toolbar tools if no cards remain
+        if not self._cards_by_hash:
+            self._toolbar.EnableTool(self._ai_all_id, False)
+            self._toolbar.EnableTool(self._rename_id, False)
+            self._toolbar.EnableTool(self._clear_id, False)
+            self._search_ctrl.SetValue("")
+
+    def _show_info_message(self, message: str, icon: int = wx.ICON_INFORMATION, duration_ms: int = Layout.INFO_DISMISS_MS) -> None:
         """Show notification in sidebar bottom.
 
         Args:

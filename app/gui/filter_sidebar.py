@@ -5,7 +5,7 @@ from pathlib import Path
 from app.gui import styles
 from app.models.card import CardResult, Confidence
 
-_SIDEBAR_MIN_WIDTH = 150
+_SIDEBAR_MIN_WIDTH = 175
 _SIDEBAR_PAD = 10
 _NOTIFY_PAD = 20
 
@@ -122,15 +122,13 @@ class FilterSidebar(wx.Panel):
 
     # --- Notification area ---
 
-    _NOTIFY_COLOR_ERROR = wx.Colour(255, 59, 48)
-
     def show_notification(self, message: str, icon: int = wx.ICON_INFORMATION, duration_ms: int = 4000) -> None:
         """Show a notification message at the bottom of the sidebar."""
         if self._notify_timer is not None:
             self._notify_timer.Stop()
             self._notify_timer = None
         if icon in (wx.ICON_WARNING, wx.ICON_ERROR):
-            colour = self._NOTIFY_COLOR_ERROR
+            colour = styles.Color.ERROR
         else:
             colour = styles.Color.TEXT_SECONDARY
         self._notify_label.SetForegroundColour(colour)
