@@ -89,17 +89,19 @@ def format_ai_error(error: Exception) -> str:
     """Format an AI API error into a clean user-facing message."""
     import anthropic
 
-    if isinstance(error, anthropic.AuthenticationError):
-        return "Invalid API key"
-    if isinstance(error, anthropic.RateLimitError):
-        return "Rate limit exceeded — try again later"
-    if isinstance(error, anthropic.APITimeoutError):
-        return "Request timed out"
-    if isinstance(error, anthropic.APIConnectionError):
-        return "Network connection error"
-    if isinstance(error, anthropic.APIStatusError):
-        return f"API error (HTTP {error.status_code})"
-    return str(error)
+    match error:
+        case anthropic.AuthenticationError():
+            return "Invalid API key"
+        case anthropic.RateLimitError():
+            return "Rate limit exceeded — try again later"
+        case anthropic.APITimeoutError():
+            return "Request timed out"
+        case anthropic.APIConnectionError():
+            return "Network connection error"
+        case anthropic.APIStatusError(status_code=code):
+            return f"API error (HTTP {code})"
+        case _:
+            return str(error)
 
 
 def _image_to_b64(image: Image.Image) -> str:

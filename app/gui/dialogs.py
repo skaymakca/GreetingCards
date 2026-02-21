@@ -215,18 +215,15 @@ class RenameConfirmDialog(wx.Dialog):
 
         sizer.AddSpacer(_SECTION_GAP)
 
-        # Status labels and colors
-        STATUS_LABELS = {
-            STATUS_OK: "OK", STATUS_DUPLICATE: "DUP",
-            STATUS_SKIP_NO_NAME: "SKIP", STATUS_SKIP_SAME: "SAME", STATUS_SKIP_ERROR: "ERROR",
+        # Status → (label, color) mapping
+        _STATUS_STYLE: dict[str, tuple[str, wx.Colour]] = {
+            STATUS_OK: ("OK", styles.Color.SUCCESS),
+            STATUS_DUPLICATE: ("DUP", styles.Color.TEXT_PRIMARY),
+            STATUS_SKIP_NO_NAME: ("SKIP", styles.Color.TEXT_SECONDARY),
+            STATUS_SKIP_SAME: ("SAME", styles.Color.TEXT_SECONDARY),
+            STATUS_SKIP_ERROR: ("ERROR", styles.Color.ERROR),
         }
-        STATUS_COLORS = {
-            STATUS_OK: styles.Color.SUCCESS,
-            STATUS_DUPLICATE: styles.Color.TEXT_PRIMARY,
-            STATUS_SKIP_NO_NAME: styles.Color.TEXT_SECONDARY,
-            STATUS_SKIP_SAME: styles.Color.TEXT_SECONDARY,
-            STATUS_SKIP_ERROR: styles.Color.ERROR,
-        }
+        _SKIP_STATUSES = {STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR}
 
         # Show full paths only when multiple directories
         multi_dir = len(directories) > 1
@@ -236,13 +233,14 @@ class RenameConfirmDialog(wx.Dialog):
         colors = []
         for item in plan:
             old_display = _display_path(item.old_path) if multi_dir else item.old_path.name
-            if item.status not in (STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR):
-                new_display = _display_path(item.new_path) if multi_dir else item.new_path.name
-            else:
-                new_display = "-"
-            status_text = STATUS_LABELS.get(item.status, item.status)
-            data.append([old_display, new_display, status_text])
-            colors.append(STATUS_COLORS.get(item.status, styles.Color.TEXT_PRIMARY))
+            new_display = "-" if item.status in _SKIP_STATUSES else (
+                _display_path(item.new_path) if multi_dir else item.new_path.name
+            )
+            label, color = _STATUS_STYLE.get(
+                item.status, (item.status, styles.Color.TEXT_PRIMARY)
+            )
+            data.append([old_display, new_display, label])
+            colors.append(color)
 
         # Create model and ctrl
         self.model = TableModel(data, colors)

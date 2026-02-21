@@ -444,28 +444,28 @@ def get_card_state(file_hash: str) -> CardState | None:
         ]
 
         # Determine display name, method, and confidence
-        if card.selected_family_name:
-            # Manual entry
-            display_name = card.selected_family_name
-            method = "manual"
-            confidence = "manual"
-        elif card.selected_candidate_id:
-            # Selected candidate
-            candidate = session.query(Candidate).filter_by(id=card.selected_candidate_id).first()
-            if candidate:
-                display_name = candidate.family_name
-                method = candidate.method
-                confidence = candidate.confidence
-            else:
-                # Candidate was deleted somehow
+        match (card.selected_family_name, card.selected_candidate_id):
+            case (str(name), _) if name:
+                # Manual entry
+                display_name = name
+                method = "manual"
+                confidence = "manual"
+            case (_, int(cid)) if cid:
+                # Selected candidate
+                candidate = session.query(Candidate).filter_by(id=cid).first()
+                if candidate:
+                    display_name = candidate.family_name
+                    method = candidate.method
+                    confidence = candidate.confidence
+                else:
+                    display_name = ""
+                    method = "missing"
+                    confidence = "none"
+            case _:
+                # No selection
                 display_name = ""
                 method = "missing"
                 confidence = "none"
-        else:
-            # No selection - missing
-            display_name = ""
-            method = "missing"
-            confidence = "none"
 
         return CardState(
             display_name=display_name,

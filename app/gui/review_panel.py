@@ -161,18 +161,21 @@ class CardListModel(dv.PyDataViewModel):
 
         card = self._cards[row]
 
-        if col == 0:  # Confidence dot - return symbol or empty
-            if card.error:
-                return "✕"
-            elif card.confidence == Confidence.NONE:
-                return "⚠"
-            else:
-                return "●"  # Filled circle (we'll color it)
-        elif col == 1:  # Filename
-            return card.filename
-        elif col == 2:  # Family name
-            return card.display_name
-        return ""
+        match col:
+            case 0:  # Confidence dot
+                match card:
+                    case CardResult(error=e) if e:
+                        return "✕"
+                    case CardResult(confidence=Confidence.NONE):
+                        return "⚠"
+                    case _:
+                        return "●"
+            case 1:  # Filename
+                return card.filename
+            case 2:  # Family name
+                return card.display_name
+            case _:
+                return ""
 
     def SetValue(self, value, item, col) -> bool:
         """Not editable in list (edit in detail panel)."""
@@ -186,31 +189,30 @@ class CardListModel(dv.PyDataViewModel):
 
         card = self._cards[row]
 
-        # Column 0: Confidence dot - set color based on confidence
-        if col == 0:
-            if card.error:
-                attr.SetColour(Color.ERROR)
-            elif card.confidence == Confidence.NONE:
-                attr.SetColour(Color.TEXT_SECONDARY)
-            elif card.confidence == Confidence.HIGH:
-                attr.SetColour(Color.SUCCESS)
-            elif card.confidence == Confidence.MEDIUM:
-                attr.SetColour(Color.WARNING)
-            elif card.confidence == Confidence.LOW:
-                attr.SetColour(Color.ERROR)
-            elif card.confidence == Confidence.MANUAL:
-                attr.SetColour(Color.MANUAL_BLUE)
-            else:
-                attr.SetColour(Color.TEXT_PRIMARY)
-            return True
-
-        # Column 1: Filename - show in blue if card has multiple paths
-        elif col == 1:
-            if len(card.file_paths) > 1:
-                # macOS system blue for multi-path indicator
-                attr.SetColour(Color.ACCENT)
+        match col:
+            case 0:  # Confidence dot color
+                match card:
+                    case CardResult(error=e) if e:
+                        attr.SetColour(Color.ERROR)
+                    case CardResult(confidence=Confidence.NONE):
+                        attr.SetColour(Color.TEXT_SECONDARY)
+                    case CardResult(confidence=Confidence.HIGH):
+                        attr.SetColour(Color.SUCCESS)
+                    case CardResult(confidence=Confidence.MEDIUM):
+                        attr.SetColour(Color.WARNING)
+                    case CardResult(confidence=Confidence.LOW):
+                        attr.SetColour(Color.ERROR)
+                    case CardResult(confidence=Confidence.MANUAL):
+                        attr.SetColour(Color.MANUAL_BLUE)
+                    case _:
+                        attr.SetColour(Color.TEXT_PRIMARY)
                 return True
-            return False
+
+            case 1:  # Filename - blue for multi-path cards
+                if len(card.file_paths) > 1:
+                    attr.SetColour(Color.ACCENT)
+                    return True
+                return False
 
         return False
 
