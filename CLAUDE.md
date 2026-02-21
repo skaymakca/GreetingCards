@@ -9,48 +9,51 @@
 - ❌ Do NOT commit after fixing bugs
 - ✅ ONLY commit when user explicitly says "commit X"
 - ✅ Keep track of changes to write good commit messages when asked
+- ✅ Include `Fixes #N` or `Fixes #N, #M` in commit/PR messages when the work resolves GitHub issues
 
 ---
 
-## 🚫 CRITICAL: DO NOT MODIFY TODO.md 🚫
+## 🚫 CRITICAL: DO NOT MODIFY GITHUB ISSUES 🚫
 
-**NEVER edit TODO.md without explicit user permission.**
+**NEVER create, close, or edit GitHub issues without explicit user permission.**
 
-- ❌ Do NOT remove, reorder, or edit items in TODO.md
-- ❌ Do NOT mark items as done or delete completed items
-- ✅ ONLY modify TODO.md when user explicitly asks you to
+- ❌ Do NOT create new issues without being asked
+- ❌ Do NOT close or modify existing issues without being asked
+- ✅ ONLY manage issues when user explicitly asks you to
+- Use `gh issue list` to view open issues
 
 ---
 
-## ⚠️ CRITICAL: ALWAYS USE VENV ⚠️
+## ⚠️ CRITICAL: ALWAYS USE UV ⚠️
 
-**NEVER use system Python. ONLY use the virtual environment.**
+**NEVER use system Python or pip. ONLY use `uv run` for all commands.**
 
-### Correct Python/pip usage:
+### Correct usage:
 ```bash
-# ✅ CORRECT - Use .venv Python
-.venv/bin/python -m pytest tests/
-.venv/bin/python main.py
-.venv/bin/python -m pip install package-name
+# ✅ CORRECT - Use uv run
+uv run pytest tests/
+uv run python main.py
+uv add package-name
 
-# ✅ CORRECT - Activate venv first
-source .venv/bin/activate
-python -m pytest tests/
-python main.py
+# ✅ CORRECT - Install/sync dependencies
+uv sync              # all deps (including dev)
+uv sync --no-dev     # production only
 
 # ❌ WRONG - System Python (DO NOT USE)
 python3 -m pytest tests/
 python3 main.py
-/usr/bin/python3 -m pip install package-name
+pip install package-name
+.venv/bin/python main.py
 /Library/Frameworks/Python.framework/Versions/3.14/bin/python3
 ```
 
 ### Rules:
-- **ALWAYS** use `.venv/bin/python` for all Python commands
-- **NEVER** use `python3`, `/usr/bin/python3`, or system Python paths
-- **NEVER** install packages outside the venv
-- If a command fails, check that you're using .venv Python first
-- The venv directory is `.venv` (with leading dot)
+- **ALWAYS** use `uv run` to execute Python commands
+- **ALWAYS** use `uv add` to add new dependencies
+- **NEVER** use `python3`, `pip`, or direct `.venv/bin/python` paths
+- **NEVER** install packages outside uv's management
+- If a command fails, check that you're using `uv run` first
+- The venv directory is `.venv` (managed by uv, do not create manually)
 
 ---
 
@@ -86,11 +89,44 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `app/core/ai_analyzer.py` | `docs/architecture/async-processing.md` |
 | `app/core/name_extractor.py`, `app/core/name_formatting.py` | `docs/architecture/name-pipeline.md` |
 | `app/core/database.py`, `app/core/renamer.py` | `docs/architecture/name-pipeline.md` |
-| `app/gui/help_dialog.py` | `docs/architecture/help-system.md` |
-| `help/**/*.html` | `docs/architecture/help-system.md` |
+| `app/gui/help_dialog.py`, `app/core/help_builder.py` | `docs/architecture/help-system.md` |
+| `content/html/help/*.md` | `docs/architecture/help-system.md` |
+| `app/gui/html_viewer.py`, `content/html/common/js/search.js` | `docs/architecture/html-viewer.md` |
+| `app/core/changelog.py`, `app/core/changelog_models.py` | `docs/architecture/changelog-viewer.md` |
+| `app/gui/changelog_dialog.py`, `content/html/templates/changelog_page.html.j2` | `docs/architecture/changelog-viewer.md` |
+| `app/core/license_models.py`, `app/core/license_discovery.py` | `docs/architecture/licenses-viewer.md` |
+| `app/gui/licenses_dialog.py`, `content/html/templates/licenses_*.html.j2` | `docs/architecture/licenses-viewer.md` |
+| `content/licenses/config.toml`, `content/licenses/manual/*` | `docs/architecture/licenses-viewer.md` |
+| `CHANGELOG.md` | `CLAUDE.md` (changelog conventions below) |
+| `app/core/config.py`, `app/core/paths.py` | `docs/architecture/config-and-preferences.md` |
+| `app/gui/settings_dialog.py` | `docs/architecture/config-and-preferences.md` |
+
+### Test Count
+When adding or removing tests, update the test count in `README.md` (search for "tests** covering") to match the actual number from `pytest` output.
 
 ### Keeping Docs in Sync
 
 - **After modifying code:** If your changes affect control flow, data structures, callback contracts, or gotchas described in an architecture doc, update the doc in the same work session. Don't leave stale docs behind.
 - **If docs contradict code:** The code is the source of truth. Update the doc to match. If the code seems wrong based on the doc's described intent, flag the discrepancy to the user before changing either — it may be an out-of-date doc or a misaligned implementation that needs discussion.
 - **New subsystems:** If you add a major new subsystem (new panel, new processing pipeline, etc.), create a new doc in `docs/architecture/` and add it to the table above.
+
+### Changelog Conventions
+
+`CHANGELOG.md` is user-facing (not developer-facing). When updating it:
+
+- **Audience:** End users, not developers
+- **Format:** Summary sentence(s) first, then bullets
+- **Language:** Plain language — describe *what changed*, not *how*
+- **Grouping:** Each `major.minor` version gets its own `## ` entry with date; patch versions fold into their parent
+- **When to update:** When making user-visible changes
+- **Build step:** `make html-content` regenerates HTML from the markdown; `make app` runs this automatically
+
+### License Sync
+
+After adding or updating packages with `uv add`, run `make licenses-sync` to update the license registry and extract new license texts. Then run `make html-content` to regenerate the HTML.
+
+---
+
+## Code Quality Audit
+
+When asked to audit the codebase, follow the checklist in [`docs/code-quality-audit.md`](docs/code-quality-audit.md).

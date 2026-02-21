@@ -1,0 +1,14 @@
+{% extends "base.html.j2" %}
+{% block sidebar %}
+<div class="sidebar">
+    <h2>Contents</h2>
+    <ul>
+{% for page in nav %}
+        <li><a href="{{ page.href }}"{% if page.slug == active_slug %} class="active"{% endif %}>{{ page.title }}</a></li>
+{% endfor %}
+    </ul>
+</div>
+{% endblock %}
+{% block content %}
+{{ body_html|safe }}
+{% endblock %}

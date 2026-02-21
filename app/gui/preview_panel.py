@@ -64,7 +64,7 @@ class PreviewPanel(wx.Panel):
 
         self._build_ui()
 
-    def _build_ui(self):
+    def _build_ui(self) -> None:
         """Create the UI components."""
         sizer = wx.BoxSizer(wx.VERTICAL)
 
@@ -152,7 +152,7 @@ class PreviewPanel(wx.Panel):
 
     # --- Public API ---
 
-    def show_images(self, images: list[Image.Image], filename: str = ""):
+    def show_images(self, images: list[Image.Image], filename: str = "") -> None:
         """Display a list of page images.
 
         Args:
@@ -173,7 +173,7 @@ class PreviewPanel(wx.Panel):
         self._update_zoom_controls()
         self._render()
 
-    def show_image(self, image: Image.Image, filename: str = ""):
+    def show_image(self, image: Image.Image, filename: str = "") -> None:
         """Display a single image (backward compat).
 
         Args:
@@ -182,7 +182,7 @@ class PreviewPanel(wx.Panel):
         """
         self.show_images([image], filename)
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear the preview and reset state."""
         self._error_message = ""
         self._images = []
@@ -195,7 +195,7 @@ class PreviewPanel(wx.Panel):
         self._update_zoom_controls()
         self._canvas.Refresh()
 
-    def show_error(self, message: str, filename: str = ""):
+    def show_error(self, message: str, filename: str = "") -> None:
         """Display an error message on the preview canvas.
 
         Args:
@@ -236,7 +236,7 @@ class PreviewPanel(wx.Panel):
             self._update_page_controls()
             self._render()
 
-    def _update_page_controls(self):
+    def _update_page_controls(self) -> None:
         """Update page navigation button states and label."""
         total = len(self._images)
         if total <= 1:
@@ -250,7 +250,7 @@ class PreviewPanel(wx.Panel):
 
     # --- Zoom ---
 
-    def _update_zoom_controls(self):
+    def _update_zoom_controls(self) -> None:
         """Enable zoom buttons when images are loaded, disable otherwise."""
         has_images = bool(self._images)
         self._fit_btn.Enable(has_images)
@@ -404,6 +404,9 @@ class PreviewPanel(wx.Panel):
 
     def _on_modifier_timer(self, event):
         """Timer callback to check for modifier key changes without mouse movement."""
+        if not wx.GetApp():
+            self._modifier_timer.Stop()
+            return
         if self._images and self._drag_start is None:
             self._update_cursor()
 

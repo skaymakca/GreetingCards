@@ -16,6 +16,8 @@ def wx_app():
     app.Destroy()
 
 
+
+
 @pytest.fixture
 def wx_frame(wx_app):
     """Create a temporary frame for testing widgets.

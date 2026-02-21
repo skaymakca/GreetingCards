@@ -18,6 +18,9 @@ class Color:
     TEXT_PRIMARY = wx.Colour(29, 29, 31)       # #1D1D1F
     TEXT_SECONDARY = wx.Colour(110, 110, 115)  # #6E6E73
 
+    # Borders
+    BORDER = wx.Colour(0xDD, 0xDD, 0xDD)       # #DDDDDD
+
     # Semantic colors
     ACCENT = wx.Colour(0, 122, 255)            # #007AFF
     SUCCESS = wx.Colour(52, 199, 89)           # #34C759
@@ -116,3 +119,30 @@ class Layout:
     ROW_HEIGHT = 36
     TOOLBAR_HEIGHT = 90
     PAD = 10
+
+    # Review panel column widths
+    DOT_COL_WIDTH = 30
+    FILENAME_COL_WIDTH = 280
+    FAMILY_NAME_COL_WIDTH = 200
+    FILE_PATHS_COL_WIDTH = 400
+
+    # Component sizes
+    TOOLBAR_ICON_SIZE = 24
+    TOOLBAR_ICON_POINTS = 16
+    ACTION_ICON_SIZE = 9
+    BUTTON_HEIGHT = 28
+    MIN_PANE_SIZE = 100
+    SIDEBAR_WIDTH = 175
+    CONTENT_MIN_PANE = 200
+    SEARCH_WIDTH = 200
+    YEAR_WIDTH = 60
+    MIN_FRAME_SIZE = (800, 500)
+
+    # Drag highlight drawing
+    HIGHLIGHT_WIDTH = 3
+    HIGHLIGHT_RADIUS = 6
+    HIGHLIGHT_INSET = 1.5
+
+    # Timing (ms)
+    DEBOUNCE_MS = 1000
+    INFO_DISMISS_MS = 4000

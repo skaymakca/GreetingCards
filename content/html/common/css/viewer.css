@@ -8,7 +8,8 @@ body {
     margin: 0;
     padding: 0;
     display: flex;
-    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
 }
 
 /* Sidebar TOC */
@@ -17,8 +18,9 @@ body {
     min-width: 160px;
     background: #f5f5f5;
     border-right: 1px solid #ddd;
-    padding: 16px 0;
+    padding: 12px 0;
     box-sizing: border-box;
+    overflow-y: auto;
 }
 
 .sidebar h2 {
@@ -28,7 +30,7 @@ body {
     letter-spacing: 0.5px;
     color: #888;
     margin: 0 0 8px 0;
-    padding: 0 14px 6px 14px;
+    padding: 0 14px 12px 14px;
     border-bottom: 1px solid #ddd;
 }
 
@@ -64,7 +66,7 @@ body {
 .content {
     flex: 1;
     padding: 20px 30px;
-    max-width: 600px;
+    overflow-y: auto;
 }
 
 h1 {
@@ -121,6 +123,27 @@ code {
     border-radius: 3px;
 }
 
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+}
+
+th, td {
+    padding: 6px 10px;
+    border: 1px solid #e0e0e0;
+    text-align: left;
+}
+
+th {
+    background: #f5f5f5;
+    font-weight: 600;
+}
+
+.pkg-name {
+    white-space: nowrap;
+}
+
 .note {
     background: #f5f5f5;
     border-left: 3px solid #0066cc;
@@ -137,4 +160,28 @@ kbd {
     border-radius: 3px;
     padding: 1px 5px;
     box-shadow: 0 1px 0 #bbb;
+}
+
+pre {
+    white-space: pre-wrap;
+    font-family: "SF Mono", Menlo, monospace;
+    font-size: 11px;
+    line-height: 1.6;
+    background: #f8f8f8;
+    padding: 12px;
+    border-radius: 4px;
+    overflow-x: auto;
+}
+
+.version-date {
+    font-size: 12px;
+    color: #888;
+    margin: -12px 0 16px 0;
+}
+
+.version-divider {
+    border: none;
+    border-top: 1px solid #ddd;
+    width: 90%;
+    margin: 24px auto;
 }

@@ -4,7 +4,10 @@ import wx
 import wx.dataview as dv
 from pathlib import Path
 from app.gui import styles
-from app.models.card import RenamePlanItem, RenameResult
+from app.models.card import (
+    RenamePlanItem, RenameResult,
+    STATUS_OK, STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR, STATUS_DUPLICATE,
+)
 
 
 # Dialog layout constants
@@ -28,14 +31,14 @@ def _display_path(path: Path) -> str:
 class TableModel(dv.PyDataViewModel):
     """DataViewModel for tables with colored rows."""
 
-    def __init__(self, data, colors):
+    def __init__(self, data: list[list[str]], colors: list[wx.Colour]):
         """Initialize model.
 
         Args:
             data: List of lists (rows x columns)
             colors: List of wx.Colour for each row
         """
-        dv.PyDataViewModel.__init__(self)
+        super().__init__()
         self.data = data
         self.colors = colors
 
@@ -74,6 +77,17 @@ class TableModel(dv.PyDataViewModel):
             attr.SetColour(self.colors[row])
             return True
         return False
+
+
+def _dismiss_on_key(dialog: wx.Dialog, event: wx.KeyEvent) -> None:
+    """Dismiss dialog on Enter or Escape, otherwise skip."""
+    key_code = event.GetKeyCode()
+    if key_code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
+        dialog.EndModal(wx.ID_OK)
+    elif key_code == wx.WXK_ESCAPE:
+        dialog.EndModal(wx.ID_CANCEL)
+    else:
+        event.Skip()
 
 
 class ProgressDialog(wx.Dialog):
@@ -176,10 +190,10 @@ class RenameConfirmDialog(wx.Dialog):
         sizer.AddSpacer(_HEADER_GAP)
 
         # Summary counts
-        ok_count = sum(1 for item in plan if item.status == "ok")
-        dup_count = sum(1 for item in plan if item.status == "duplicate")
-        error_count = sum(1 for item in plan if item.status == "skip_error")
-        skip_count = sum(1 for item in plan if item.status.startswith("skip") and item.status != "skip_error")
+        ok_count = sum(1 for item in plan if item.status == STATUS_OK)
+        dup_count = sum(1 for item in plan if item.status == STATUS_DUPLICATE)
+        error_count = sum(1 for item in plan if item.status == STATUS_SKIP_ERROR)
+        skip_count = sum(1 for item in plan if item.status.startswith("skip") and item.status != STATUS_SKIP_ERROR)
 
         # Count unique directories
         directories = {item.old_path.parent for item in plan}
@@ -203,15 +217,15 @@ class RenameConfirmDialog(wx.Dialog):
 
         # Status labels and colors
         STATUS_LABELS = {
-            "ok": "OK", "duplicate": "DUP",
-            "skip_no_name": "SKIP", "skip_same": "SAME", "skip_error": "ERROR",
+            STATUS_OK: "OK", STATUS_DUPLICATE: "DUP",
+            STATUS_SKIP_NO_NAME: "SKIP", STATUS_SKIP_SAME: "SAME", STATUS_SKIP_ERROR: "ERROR",
         }
         STATUS_COLORS = {
-            "ok": styles.Color.SUCCESS,
-            "duplicate": styles.Color.TEXT_PRIMARY,
-            "skip_no_name": styles.Color.TEXT_SECONDARY,
-            "skip_same": styles.Color.TEXT_SECONDARY,
-            "skip_error": styles.Color.ERROR,
+            STATUS_OK: styles.Color.SUCCESS,
+            STATUS_DUPLICATE: styles.Color.TEXT_PRIMARY,
+            STATUS_SKIP_NO_NAME: styles.Color.TEXT_SECONDARY,
+            STATUS_SKIP_SAME: styles.Color.TEXT_SECONDARY,
+            STATUS_SKIP_ERROR: styles.Color.ERROR,
         }
 
         # Show full paths only when multiple directories
@@ -222,7 +236,7 @@ class RenameConfirmDialog(wx.Dialog):
         colors = []
         for item in plan:
             old_display = _display_path(item.old_path) if multi_dir else item.old_path.name
-            if item.status not in ("skip_no_name", "skip_same", "skip_error"):
+            if item.status not in (STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR):
                 new_display = _display_path(item.new_path) if multi_dir else item.new_path.name
             else:
                 new_display = "-"
@@ -244,7 +258,8 @@ class RenameConfirmDialog(wx.Dialog):
         file_col_width = (700 - 2 * _DIALOG_PADDING - _SCROLLBAR_WIDTH - _STATUS_COL_WIDTH) // 2
         self.list_ctrl.AppendTextColumn(col_label, 0, width=file_col_width)
         self.list_ctrl.AppendTextColumn(new_label, 1, width=file_col_width)
-        self.list_ctrl.AppendTextColumn("Status", 2, width=_STATUS_COL_WIDTH)
+        status_col = self.list_ctrl.AppendTextColumn("Status", 2, width=_STATUS_COL_WIDTH)
+        status_col.SetMinWidth(_STATUS_COL_WIDTH)
 
         sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
@@ -363,15 +378,7 @@ class ErrorListDialog(wx.Dialog):
         self.CenterOnParent()
 
         # Keyboard shortcuts
-        self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
-
-    def _on_key(self, event):
-        """Handle keyboard shortcuts."""
-        key_code = event.GetKeyCode()
-        if key_code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER, wx.WXK_ESCAPE):
-            self.EndModal(wx.ID_OK)
-        else:
-            event.Skip()
+        self.Bind(wx.EVT_CHAR_HOOK, lambda e: _dismiss_on_key(self, e))
 
 
 class CompletionDialog(wx.Dialog):
@@ -464,12 +471,4 @@ class CompletionDialog(wx.Dialog):
         self.CenterOnParent()
 
         # Keyboard shortcuts
-        self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
-
-    def _on_key(self, event):
-        """Handle keyboard shortcuts."""
-        key_code = event.GetKeyCode()
-        if key_code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER, wx.WXK_ESCAPE):
-            self.EndModal(wx.ID_OK)
-        else:
-            event.Skip()
+        self.Bind(wx.EVT_CHAR_HOOK, lambda e: _dismiss_on_key(self, e))

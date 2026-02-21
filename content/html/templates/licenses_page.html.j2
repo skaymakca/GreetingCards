@@ -1,0 +1,17 @@
+{% extends "base.html.j2" %}
+{% from "licenses_sidebar.html.j2" import render as render_sidebar %}
+{% block sidebar %}{{ render_sidebar(nav_items, active_slug) }}{% endblock %}
+{% block content %}
+        <h1>{{ page_title }}</h1>
+{% for entry in entries %}
+{% if not loop.first %}
+        <hr class="version-divider">
+{% endif %}
+        <h2 id="{{ entry.slug }}">{{ entry.display }}{% if entry.version %} {{ entry.version }}{% endif %}{% if entry.homepage %} <a href="{{ entry.homepage }}">&nearr;</a>{% endif %}</h2>
+        <p><strong>License:</strong> {{ entry.license_type }}</p>
+{% if entry.notes %}
+        <p><strong>Notes:</strong> {{ entry.notes }}</p>
+{% endif %}
+        <pre>{{ entry.license_text | linkify }}</pre>
+{% endfor %}
+{% endblock %}

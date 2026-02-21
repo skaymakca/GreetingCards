@@ -3,19 +3,18 @@
 __pycache__/
 *.pyc
 
-# Environment
-.env
+# Dev-mode data (preferences, database)
+.local/
 
 # macOS
 .DS_Store
 
-# Application data
-*.sqlite
-preferences.plist
-
 # Build artifacts
 build/
 dist/
+_runtime_content/
+content/licenses/texts/
+content/licenses/registry.toml
 
 # Testing
 .pytest_cache/

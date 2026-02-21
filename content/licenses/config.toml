@@ -1,0 +1,81 @@
+# License configuration — manually maintained
+# Run `make licenses-sync` after editing this file
+#
+# [[system]]  — seeds for deps not in uv.lock
+# [[package]] — overrides for auto-discovered fields (non-empty fields win)
+# exclude     — list of package names to skip (e.g. platform-specific deps)
+
+# --- Excluded packages (not installable on macOS ARM) ---
+
+exclude = [
+    "pefile",           # Windows-only (sys_platform == 'win32')
+    "pywin32-ctypes",   # Windows-only (sys_platform == 'win32')
+    "greenlet",         # Not on macOS ARM (platform_machine marker)
+]
+
+# --- System dependencies (not in uv.lock) ---
+
+[[system]]
+slug = "python"
+display = "Python"
+version = "3.14"
+license_type = "PSF License 2.0"
+notes = "Bundled via PyInstaller"
+url = "https://python.org"
+
+[[system]]
+slug = "tesseract"
+display = "Tesseract OCR"
+license_type = "Apache 2.0"
+notes = "External (not bundled)"
+url = "https://github.com/tesseract-ocr/tesseract"
+
+# --- Package overrides (display name, homepage, etc.) ---
+
+[[package]]
+name = "anthropic"
+display = "Anthropic SDK"
+
+[[package]]
+name = "pyobjc-framework-cocoa"
+display = "PyObjC"
+
+[[package]]
+name = "pyobjc-core"
+display = "PyObjC Core"
+
+[[package]]
+name = "pymupdf"
+display = "PyMuPDF"
+
+[[package]]
+name = "sqlalchemy"
+display = "SQLAlchemy"
+
+[[package]]
+name = "wxpython"
+display = "wxPython"
+
+[[package]]
+name = "pyinstaller"
+display = "PyInstaller"
+
+[[package]]
+name = "pyinstaller-hooks-contrib"
+display = "PyInstaller Hooks"
+
+[[package]]
+name = "pytest-cov"
+homepage = "https://github.com/pytest-dev/pytest-cov"
+
+[[package]]
+name = "anyio"
+homepage = "https://github.com/agronholm/anyio"
+
+[[package]]
+name = "jiter"
+homepage = "https://github.com/pydantic/jiter"
+
+[[package]]
+name = "pluggy"
+homepage = "https://github.com/pytest-dev/pluggy"

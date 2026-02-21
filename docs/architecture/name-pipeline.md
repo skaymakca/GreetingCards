@@ -17,7 +17,7 @@ PDF file
     │       Regex patterns: HIGH → MEDIUM → LOW
     │
     ├─ AI path:
-    │   analyze_card_with_ai() → AIResult(best_name, alternates)
+    │   analyze_card_with_ai_async() → AIResult(best_name, alternates)
     │       Claude Sonnet with page images + extraction prompt
     │
     ├─ Raw storage (DB):
@@ -64,9 +64,8 @@ Results are deduplicated by name (case-insensitive) preserving order. Greeting w
 
 ## AI Analysis (`ai_analyzer.py`)
 
-Two versions with identical prompt logic:
-- `analyze_card_with_ai()` — sync `anthropic.Anthropic` client (single card)
-- `analyze_card_with_ai_async()` — async `anthropic.AsyncAnthropic` client (batch)
+Single async function used for all AI analysis (single card, selected, or batch):
+- `analyze_card_with_ai_async()` — async `anthropic.AsyncAnthropic` client
 
 ### Prompt Structure
 Sends all page images as base64 PNG content blocks, followed by a text prompt requesting just family last names, one per line. Model: `claude-sonnet-4-5-20250929`, max 256 tokens.
@@ -162,7 +161,10 @@ if new_path == file_path:
 ```
 
 ### Execution
-`execute_rename_plan()` performs actual renames and updates each card's `file_paths` and `primary_path` in-place for consistency.
+`execute_rename_plan()` performs actual renames and updates each card's `file_paths` and `primary_path` in-place for consistency. Each `RenameResult` carries a `card` back-reference (from the plan item) so the caller can trace results back to their source cards.
+
+### Post-Rename Cleanup
+`MainWindow._remove_completed_results()` selectively removes resolved paths (renamed or already correct) from cards. Cards with no remaining paths are deleted. Failed or unresolved paths (no name, errors) are kept for the user to address.
 
 ## Gotchas
 

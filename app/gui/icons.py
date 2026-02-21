@@ -7,7 +7,6 @@ import wx
 
 # NSImage rendering constants
 _NS_FONT_WEIGHT_MEDIUM = 5
-_NS_IMAGE_SYMBOL_SCALE_SMALL = 1
 _NS_IMAGE_SYMBOL_SCALE_MEDIUM = 2
 _NS_IMAGE_INTERPOLATION_HIGH = 3
 _DEFAULT_RETINA_SCALE = 2
@@ -132,7 +131,7 @@ def load_menu_icon(name: str, color_hex: str = "#1D1D1F") -> wx.Bitmap | None:
     Returns:
         wx.Bitmap with the rendered symbol, or None if unavailable
     """
-    return load_sf_symbol(name, point_size=6, color_hex=color_hex, scale=1)
+    return load_sf_symbol(name, point_size=11, color_hex=color_hex, scale=1)
 
 
 def load_cursor_from_symbol(
@@ -178,8 +177,8 @@ def load_cursor_from_symbol(
         return wx.Cursor(wx_image)
 
     except Exception as e:
-        # Log error and return None for fallback
-        print(f"Warning: Failed to load cursor from SF Symbol '{name}': {e}")
+        import logging
+        logging.getLogger(__name__).warning("Failed to load cursor from SF Symbol '%s': %s", name, e)
         return None
 
 

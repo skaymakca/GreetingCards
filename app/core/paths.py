@@ -10,15 +10,16 @@ def is_bundled() -> bool:
 def get_data_dir() -> Path:
     """Return the directory for user data (DB, preferences).
 
-    Dev mode  : project root (directory containing main.py)
+    Dev mode  : project_root/.local/ (auto-created)
     Bundled   : ~/Library/Application Support/GreetingCards/ (auto-created)
     """
     if is_bundled():
         data_dir = Path.home() / "Library" / "Application Support" / "GreetingCards"
-        data_dir.mkdir(parents=True, exist_ok=True)
-        return data_dir
-    # Dev mode — project root (two levels up from this file: core/ -> app/ -> project)
-    return Path(__file__).resolve().parent.parent.parent
+    else:
+        # Dev mode — .local/ subdir of project root (keeps project root clean)
+        data_dir = Path(__file__).resolve().parent.parent.parent / ".local"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir
 
 
 def get_db_path() -> Path:
