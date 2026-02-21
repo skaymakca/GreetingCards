@@ -17,7 +17,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import jinja2
 import tomli_w
 from markupsafe import Markup, escape
 
@@ -29,17 +28,10 @@ from app.core.license_models import (
     PackageOverride,
     SystemDep,
 )
+from app.core.template_env import jinja_env as _jinja_env
+from app.core.template_env import get_page_order as _get_page_order
 
 logger = logging.getLogger(__name__)
-
-_TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "content" / "html" / "templates"
-
-_jinja_env = jinja2.Environment(
-    loader=jinja2.FileSystemLoader(str(_TEMPLATES_DIR)),
-    autoescape=True,
-    trim_blocks=True,
-    lstrip_blocks=True,
-)
 
 
 def _linkify(text: str) -> Markup:
@@ -556,10 +548,10 @@ def _category_page_for(category: PackageCategory) -> str:
 
 def get_page_order(base_path: Path) -> list[str]:
     """Read page order from the generated manifest file."""
-    manifest = base_path / "page_order.txt"
-    if manifest.exists():
-        return [line for line in manifest.read_text(encoding="utf-8").splitlines() if line]
-    # Fallback to hardcoded order
+    order = _get_page_order(base_path)
+    if order != ["index.html"]:
+        return order
+    # Fallback to hardcoded nav order when manifest is missing
     return [item["href"] for item in _build_nav_items()]
 
 

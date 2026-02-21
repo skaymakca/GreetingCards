@@ -8,20 +8,10 @@ import logging
 import re
 from pathlib import Path
 
-import jinja2
-
 from app.core.changelog_models import ChangelogGroup, ChangelogVersion
+from app.core.template_env import jinja_env as _jinja_env
 
 logger = logging.getLogger(__name__)
-
-_TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "content" / "html" / "templates"
-
-_jinja_env = jinja2.Environment(
-    loader=jinja2.FileSystemLoader(str(_TEMPLATES_DIR)),
-    autoescape=True,
-    trim_blocks=True,
-    lstrip_blocks=True,
-)
 
 
 def _parse_changelog(md_text: str) -> list[ChangelogVersion]:
@@ -205,12 +195,8 @@ def _generate_changelog_html(versions: list[ChangelogVersion],
     return page_order
 
 
-def get_page_order(base_path: Path) -> list[str]:
-    """Read page order from the generated manifest file."""
-    manifest = base_path / "page_order.txt"
-    if manifest.exists():
-        return [line for line in manifest.read_text(encoding="utf-8").splitlines() if line]
-    return ["index.html"]
+# Re-export for consumers that import from here
+from app.core.template_env import get_page_order  # noqa: E402, F811
 
 
 def _get_project_root() -> Path:

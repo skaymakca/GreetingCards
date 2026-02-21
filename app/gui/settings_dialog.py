@@ -30,7 +30,7 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
     def __init__(self):
         super().__init__(wx.StockPreferencesPage.Kind_General)
 
-    def CreateWindow(self, parent):
+    def CreateWindow(self, parent) -> wx.Panel:
         """Create the preferences panel. May be called multiple times."""
         panel = wx.Panel(parent)
         panel.SetMaxSize(wx.Size(_PREFS_WIDTH, -1))
@@ -161,7 +161,7 @@ class AdvancedPreferencesPage(wx.StockPreferencesPage):
         super().__init__(wx.StockPreferencesPage.Kind_Advanced)
         self._on_db_reset = on_db_reset
 
-    def CreateWindow(self, parent):
+    def CreateWindow(self, parent) -> wx.Panel:
         """Create the preferences panel. May be called multiple times."""
         panel = wx.Panel(parent)
         panel.SetMaxSize(wx.Size(_PREFS_WIDTH, -1))
@@ -196,7 +196,7 @@ class AdvancedPreferencesPage(wx.StockPreferencesPage):
         panel.SetSizer(sizer)
         return panel
 
-    def _reset_card_data(self, event):
+    def _reset_card_data(self, event) -> None:
         """Reset all card data after confirmation."""
         result = wx.MessageBox(
             "This will reset all card data including manual name entries, "

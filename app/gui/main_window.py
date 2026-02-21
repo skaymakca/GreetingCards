@@ -14,7 +14,6 @@ import wx.adv
 
 logger = logging.getLogger(__name__)
 
-from app.gui import styles
 from app.core.constants import PDF_DPI, AI_CONCURRENCY
 from app.gui.styles import Color, Font, Layout
 from app.gui.preview_panel import PreviewPanel
@@ -27,7 +26,7 @@ from app.gui.changelog_dialog import show_changelog
 from app.gui.licenses_dialog import show_licenses
 from app.gui.icons import load_sf_symbol, load_menu_icon
 from app.gui.api_key_dialog import show_api_key_dialog
-from app.models.card import CardResult, Confidence
+from app.models.card import CardResult, Confidence, RenameResult
 from app.core.pdf_renderer import render_all_pages
 from app.core.ocr_engine import extract_text_all_pages, is_tesseract_available
 from app.core.ai_analyzer import analyze_card_with_ai_async, format_ai_error
@@ -218,19 +217,19 @@ class _DropOverlay(wx.Panel):
             gc.SetBrush(wx.NullBrush)
             gc.StrokePath(edge_path)
 
-        # Background image at ~50% of overlay area, centered in overlay
-        img_area_w = int(w * 0.5)
-        img_area_h = int(h * 0.5)
+        # Background image scaled to fraction of overlay area, centered
+        img_area_w = int(w * Layout.DROP_BG_SCALE)
+        img_area_h = int(h * Layout.DROP_BG_SCALE)
         bg = self._scale_bg(img_area_w, img_area_h)
         if bg:
             bw = bg.GetWidth()
             bh = bg.GetHeight()
             img_x = (w - bw) / 2
-            img_y = (h - bh) / 2 - h * 0.06  # Shift up slightly for text room
+            img_y = (h - bh) / 2 - h * Layout.DROP_IMG_SHIFT
             gc.DrawBitmap(bg, img_x, img_y, bw, bh)
             img_bottom = img_y + bh
         else:
-            img_bottom = h * 0.5
+            img_bottom = h * Layout.DROP_BG_SCALE
 
         # Text halfway between image bottom and overlay bottom
         text_center_y = (img_bottom + h) / 2
@@ -240,7 +239,7 @@ class _DropOverlay(wx.Panel):
         gc.SetFont(Font.BODY(), Color.TEXT_SECONDARY)
         tw, th = gc.GetTextExtent(primary)[:2]
         tx = (w - tw) / 2
-        ty = text_center_y - th - 2
+        ty = text_center_y - th - Layout.DROP_TEXT_GAP
         gc.DrawText(primary, tx, ty)
 
         # Secondary text
@@ -248,7 +247,7 @@ class _DropOverlay(wx.Panel):
         gc.SetFont(Font.SMALL(), Color.TEXT_SECONDARY)
         tw2, th2 = gc.GetTextExtent(secondary)[:2]
         tx2 = (w - tw2) / 2
-        ty2 = text_center_y + 2
+        ty2 = text_center_y + Layout.DROP_TEXT_GAP
         gc.DrawText(secondary, tx2, ty2)
 
 
@@ -260,7 +259,7 @@ class MainWindow:
         self._frame = wx.Frame(
             None,
             title="Greeting Cards",
-            size=(styles.Layout.WINDOW_WIDTH, styles.Layout.WINDOW_HEIGHT)
+            size=(Layout.WINDOW_WIDTH, Layout.WINDOW_HEIGHT)
         )
         self._frame.SetMinSize(Layout.MIN_FRAME_SIZE)
 
@@ -273,6 +272,7 @@ class MainWindow:
         self._current_category_filters = ["all"]  # Current sidebar category filters
         self._current_folder_filters = ["all_folders"]  # Current sidebar folder filters
         self._ai_target_cards: list[CardResult] = []  # Cards for current AI batch
+        self._processing_files: list[Path] = []  # Files currently being processed
         self._state_lock = threading.Lock()  # Protects _cards_by_hash, _hash_by_path, _next_card_id
 
         # Preferences editor (lazy-init)
@@ -512,7 +512,7 @@ class MainWindow:
 
         # Year controls
         year_label = wx.StaticText(toolbar, label="Year:")
-        year_label.SetFont(styles.Font.BODY())
+        year_label.SetFont(Font.BODY())
         toolbar.AddControl(year_label)
         self._year_ctrl = wx.TextCtrl(toolbar, value=str(self._year), size=(Layout.YEAR_WIDTH, -1))
         self._year_ctrl.SetToolTip("Year to use in renamed file names (e.g., 2024)")
@@ -1256,14 +1256,14 @@ class MainWindow:
 
     def _on_remove_menu(self, event: wx.CommandEvent) -> None:
         """Handle Edit > Remove — remove all selected cards."""
-        for card_id in list(self._review_panel._selected_card_ids):
+        for card_id in list(self._review_panel.selected_card_ids):
             card = self._get_card_by_id(card_id)
             if card and card.file_hash:
                 self._on_remove_card(card.file_hash)
 
     def _on_update_remove_menu(self, event: wx.UpdateUIEvent) -> None:
         """Enable Remove menu item only when cards are selected."""
-        event.Enable(bool(self._review_panel._selected_card_ids))
+        event.Enable(bool(self._review_panel.selected_card_ids))
 
     def _on_update_action_menu(self, event: wx.UpdateUIEvent) -> None:
         """Enable/disable AI, Rename, Clear, Clear AI menu items and update labels dynamically."""
@@ -1323,7 +1323,7 @@ class MainWindow:
         If 2+ cards are selected, returns those cards with scope "selected".
         Otherwise returns all visible (filtered) cards with scope "visible".
         """
-        selected_ids = self._review_panel._selected_card_ids
+        selected_ids = self._review_panel.selected_card_ids
         if len(selected_ids) >= 2:
             cards = [self._review_panel._cards_by_id[cid] for cid in selected_ids
                      if cid in self._review_panel._cards_by_id]
@@ -1587,7 +1587,7 @@ class MainWindow:
 
         dialog.Destroy()
 
-    def _remove_completed_results(self, results: list) -> None:
+    def _remove_completed_results(self, results: list[RenameResult]) -> None:
         """Remove successfully renamed/skip_same paths from cards; drop empty cards.
 
         Paths with message "Renamed" or "Already named correctly" are considered

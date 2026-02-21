@@ -143,6 +143,11 @@ class Layout:
     HIGHLIGHT_RADIUS = 6
     HIGHLIGHT_INSET = 1.5
 
+    # Drop overlay
+    DROP_BG_SCALE = 0.5        # Background image area as fraction of overlay
+    DROP_IMG_SHIFT = 0.06      # Upward shift of background image
+    DROP_TEXT_GAP = 2          # Pixel gap between primary/secondary text
+
     # Timing (ms)
     DEBOUNCE_MS = 1000
     INFO_DISMISS_MS = 4000

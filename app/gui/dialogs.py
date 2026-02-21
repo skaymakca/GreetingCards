@@ -42,11 +42,11 @@ class TableModel(dv.PyDataViewModel):
         self.data = data
         self.colors = colors
 
-    def GetColumnCount(self):
+    def GetColumnCount(self) -> int:
         """Return number of columns."""
         return len(self.data[0]) if self.data else 0
 
-    def GetChildren(self, parent, children):
+    def GetChildren(self, parent, children) -> int:
         """Return list of children for parent item."""
         # For a flat list, root has all items as children
         if not parent:
@@ -55,22 +55,22 @@ class TableModel(dv.PyDataViewModel):
             return len(self.data)
         return 0
 
-    def IsContainer(self, item):
+    def IsContainer(self, item) -> bool:
         """Check if item is a container (has children)."""
         # Only root is a container
         return not item
 
-    def GetParent(self, item):
+    def GetParent(self, item) -> dv.DataViewItem:
         """Return parent of item."""
         # All items have root as parent
         return dv.NullDataViewItem
 
-    def GetValue(self, item, col):
+    def GetValue(self, item, col) -> str:
         """Return value for item and column."""
         row = self.ItemToObject(item)
         return self.data[row][col]
 
-    def GetAttr(self, item, col, attr):
+    def GetAttr(self, item, col, attr) -> bool:
         """Set display attributes for item."""
         row = self.ItemToObject(item)
         if row < len(self.colors):
@@ -141,7 +141,7 @@ class ProgressDialog(wx.Dialog):
         # Prevent closing
         self.Bind(wx.EVT_CLOSE, lambda evt: None)
 
-    def update_progress(self, current: int, message: str = ""):
+    def update_progress(self, current: int, message: str = "") -> None:
         """Update progress bar and labels.
 
         Args:
@@ -157,7 +157,7 @@ class ProgressDialog(wx.Dialog):
         # Force UI update
         wx.SafeYield()
 
-    def finish(self):
+    def finish(self) -> None:
         """Close the dialog."""
         self.EndModal(wx.ID_OK)
         self.Destroy()
@@ -287,17 +287,17 @@ class RenameConfirmDialog(wx.Dialog):
         # Keyboard shortcuts
         self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
 
-    def _on_confirm(self, event):
+    def _on_confirm(self, event) -> None:
         """Handle Rename All button."""
         self.result = True
         self.EndModal(wx.ID_OK)
 
-    def _on_cancel(self, event):
+    def _on_cancel(self, event) -> None:
         """Handle Cancel button."""
         self.result = False
         self.EndModal(wx.ID_CANCEL)
 
-    def _on_key(self, event):
+    def _on_key(self, event) -> None:
         """Handle keyboard shortcuts."""
         key_code = event.GetKeyCode()
         if key_code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):

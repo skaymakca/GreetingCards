@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlalchemy import create_engine, String, DateTime, Text, Boolean, ForeignKey, UniqueConstraint, inspect
-from sqlalchemy.orm import declarative_base, sessionmaker, Mapped, mapped_column
+from sqlalchemy.orm import Session, declarative_base, sessionmaker, Mapped, mapped_column
 
 from app.core.paths import get_db_path
 from app.models.card import CandidateInfo, CardState
@@ -85,7 +85,7 @@ _engine = None
 _Session = None
 
 
-def get_session():
+def get_session() -> Session:
     global _engine, _Session
     if _Session is None:
         _engine = create_engine(f"sqlite:///{get_db_path()}", echo=False)

@@ -1,8 +1,12 @@
+import logging
 from pathlib import Path
+
 from app.models.card import (
     CardResult, RenamePlanItem, RenameResult,
     STATUS_OK, STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR, STATUS_DUPLICATE,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _is_same_file(a: Path, b: Path) -> bool:
@@ -146,7 +150,7 @@ def execute_rename_plan(plan: list[RenamePlanItem]) -> list[RenameResult]:
                     idx = card.file_paths.index(item.old_path)
                     card.file_paths[idx] = item.new_path
                 except ValueError:
-                    pass
+                    logger.debug("old_path %s not in card.file_paths", item.old_path)
                 if card.primary_path == item.old_path:
                     card.primary_path = item.new_path
 

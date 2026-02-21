@@ -259,7 +259,7 @@ class PreviewPanel(wx.Panel):
         if not has_images:
             self._zoom_label.SetLabel("")
 
-    def _reset_view(self):
+    def _reset_view(self) -> None:
         """Reset to fit mode and clear pan offsets."""
         self._is_fit = True
         self._zoom = 1.0
@@ -267,20 +267,20 @@ class PreviewPanel(wx.Panel):
         self._pan_y = 0.0
         self._zoom_label.SetLabel("Fit")
 
-    def _zoom_fit(self):
+    def _zoom_fit(self) -> None:
         """Zoom to fit mode."""
         self._reset_view()
         self._render()
 
-    def _zoom_in(self):
+    def _zoom_in(self) -> None:
         """Zoom in by ZOOM_STEP."""
         self._apply_zoom(self.ZOOM_STEP)
 
-    def _zoom_out(self):
+    def _zoom_out(self) -> None:
         """Zoom out by ZOOM_STEP."""
         self._apply_zoom(1.0 / self.ZOOM_STEP)
 
-    def _apply_zoom(self, factor: float):
+    def _apply_zoom(self, factor: float) -> None:
         """Apply a zoom factor.
 
         Args:
@@ -303,7 +303,7 @@ class PreviewPanel(wx.Panel):
 
     # --- Pan ---
 
-    def _on_left_down(self, event):
+    def _on_left_down(self, event) -> None:
         """Handle left mouse button down - start pan or modifier zoom.
 
         Important: Always call event.Skip() to ensure proper focus handling
@@ -340,14 +340,14 @@ class PreviewPanel(wx.Panel):
         wx.CallAfter(self._modifier_timer.Start, 50)
         event.Skip()  # Allow default processing
 
-    def _on_pan_start(self, event):
+    def _on_pan_start(self, event) -> None:
         """Start panning."""
         if not self._images:
             return
         self._drag_start = (event.GetX(), event.GetY())
         self._canvas.SetCursor(wx.Cursor(wx.CURSOR_SIZING))
 
-    def _on_pan_drag(self, event):
+    def _on_pan_drag(self, event) -> None:
         """Update pan offsets during drag."""
         if self._drag_start is None:
             return
@@ -359,14 +359,14 @@ class PreviewPanel(wx.Panel):
         self._pan_y += dy
         self._canvas.Refresh()
 
-    def _on_pan_end(self, event):
+    def _on_pan_end(self, event) -> None:
         """End panning."""
         self._drag_start = None
         self._canvas.SetCursor(wx.NullCursor)
 
     # --- Mouse events ---
 
-    def _on_scroll_zoom(self, event):
+    def _on_scroll_zoom(self, event) -> None:
         """Handle mouse wheel for zooming."""
         if not self._images:
             return
@@ -376,7 +376,7 @@ class PreviewPanel(wx.Panel):
         elif rotation < 0:
             self._apply_zoom(1.0 / self.ZOOM_STEP)
 
-    def _on_motion(self, event):
+    def _on_motion(self, event) -> None:
         """Update cursor based on modifiers or handle pan drag."""
         if not self._images:
             return
@@ -388,21 +388,21 @@ class PreviewPanel(wx.Panel):
         # Update cursor based on current modifiers
         self._update_cursor()
 
-    def _on_enter(self, event):
+    def _on_enter(self, event) -> None:
         """Update cursor when mouse enters canvas and start modifier polling."""
         if self._images and self._drag_start is None:
             self._update_cursor()
             # Start timer to poll for modifier key changes (50ms = 20 times per second)
             self._modifier_timer.Start(50)
 
-    def _on_leave(self, event):
+    def _on_leave(self, event) -> None:
         """Reset cursor when mouse leaves canvas and stop modifier polling."""
         if self._drag_start is None:
             self._canvas.SetCursor(wx.NullCursor)
         # Stop polling timer when mouse leaves
         self._modifier_timer.Stop()
 
-    def _on_modifier_timer(self, event):
+    def _on_modifier_timer(self, event) -> None:
         """Timer callback to check for modifier key changes without mouse movement."""
         if not wx.GetApp():
             self._modifier_timer.Stop()
@@ -410,7 +410,7 @@ class PreviewPanel(wx.Panel):
         if self._images and self._drag_start is None:
             self._update_cursor()
 
-    def _update_cursor(self):
+    def _update_cursor(self) -> None:
         """Update cursor based on current modifier key state.
 
         Uses wx.GetMouseState().GetModifiers() to poll modifier keys,
@@ -436,7 +436,7 @@ class PreviewPanel(wx.Panel):
 
     # --- Rendering ---
 
-    def _on_resize(self, event):
+    def _on_resize(self, event) -> None:
         """Handle canvas resize - recompute and repaint."""
         if self._error_message:
             self._canvas.Refresh()
@@ -445,7 +445,7 @@ class PreviewPanel(wx.Panel):
         if event:
             event.Skip()
 
-    def _render(self):
+    def _render(self) -> None:
         """Prepare bitmap for current page with zoom and pan."""
         if not self._images or self._page_idx >= len(self._images):
             self._bitmap_cache = None
@@ -478,7 +478,7 @@ class PreviewPanel(wx.Panel):
         # Trigger repaint
         self._canvas.Refresh()
 
-    def _on_paint(self, event):
+    def _on_paint(self, event) -> None:
         """Paint the cached bitmap with pan offsets."""
         dc = wx.PaintDC(self._canvas)
         dc.Clear()
@@ -502,7 +502,7 @@ class PreviewPanel(wx.Panel):
         # Draw bitmap
         dc.DrawBitmap(self._bitmap_cache, x, y, useMask=False)
 
-    def _paint_placeholder(self, dc):
+    def _paint_placeholder(self, dc) -> None:
         """Draw placeholder text when no images are loaded."""
         dc.SetTextForeground(styles.Color.TEXT_SECONDARY)
         dc.SetFont(styles.Font.BODY())
@@ -511,7 +511,7 @@ class PreviewPanel(wx.Panel):
         cw, ch = self._canvas.GetSize()
         dc.DrawText(text, (cw - tw) // 2, (ch - th) // 2)
 
-    def _paint_error(self, dc):
+    def _paint_error(self, dc) -> None:
         """Draw error message on canvas."""
         cw, ch = self._canvas.GetSize()
         if cw < 10 or ch < 10:

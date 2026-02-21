@@ -32,7 +32,7 @@ import wx.dataview as dv
 logger = logging.getLogger(__name__)
 from typing import Callable
 from pathlib import Path
-from app.models.card import CardResult, Confidence, CandidateInfo
+from app.models.card import CardResult, Confidence
 from app.gui.styles import Color, Font, Layout
 from app.gui.utils import create_static_text
 from app.gui.icons import load_sf_symbol, load_menu_icon
@@ -87,7 +87,7 @@ class CardListModel(dv.PyDataViewModel):
         self._cards: list[CardResult] = []
         self._card_order: list[int] = []  # Card IDs in display order
 
-    def load_cards(self, cards: list[CardResult]):
+    def load_cards(self, cards: list[CardResult]) -> None:
         """Load cards into the model."""
         self._cards = cards
         self._card_order = [card.id for card in cards]
@@ -109,7 +109,7 @@ class CardListModel(dv.PyDataViewModel):
                 return self.ObjectToItem(i)
         return dv.NullDataViewItem
 
-    def update_card(self, card_id: int, updated_card: CardResult):
+    def update_card(self, card_id: int, updated_card: CardResult) -> None:
         """Update a card in the model."""
         for i, card in enumerate(self._cards):
             if card.id == card_id:
@@ -129,15 +129,15 @@ class CardListModel(dv.PyDataViewModel):
         return list(self._card_order)
 
     # PyDataViewModel interface
-    def GetColumnCount(self):
+    def GetColumnCount(self) -> int:
         """3 columns: dot, filename, family name."""
         return 3
 
-    def GetColumnType(self, col):
+    def GetColumnType(self, col) -> str:
         """All columns return strings (we'll use custom renderer for dot)."""
         return "string"
 
-    def GetChildren(self, parent, children):
+    def GetChildren(self, parent, children) -> int:
         """Flat list - root has all cards, cards have no children."""
         if not parent.IsOk():  # Root
             for i in range(len(self._cards)):
@@ -145,15 +145,15 @@ class CardListModel(dv.PyDataViewModel):
             return len(self._cards)
         return 0  # Cards have no children
 
-    def IsContainer(self, item):
+    def IsContainer(self, item) -> bool:
         """Only root is container."""
         return not item.IsOk()
 
-    def GetParent(self, item):
+    def GetParent(self, item) -> dv.DataViewItem:
         """All items are children of root."""
         return dv.NullDataViewItem
 
-    def GetValue(self, item, col):
+    def GetValue(self, item, col) -> str:
         """Return value for cell."""
         row = self.ItemToObject(item)
         if row < 0 or row >= len(self._cards):
@@ -174,11 +174,11 @@ class CardListModel(dv.PyDataViewModel):
             return card.display_name
         return ""
 
-    def SetValue(self, value, item, col):
+    def SetValue(self, value, item, col) -> bool:
         """Not editable in list (edit in detail panel)."""
         return False
 
-    def GetAttr(self, item, col, attr):
+    def GetAttr(self, item, col, attr) -> bool:
         """Set color for confidence dot and filename (blue for multi-path cards)."""
         row = self.ItemToObject(item)
         if row < 0 or row >= len(self._cards):
@@ -256,7 +256,7 @@ class DetailPanel(wx.Panel):
         btn.Bind(wx.EVT_BUTTON, handler)
         return btn
 
-    def _build_ui(self):
+    def _build_ui(self) -> None:
         """Build the detail panel UI."""
         sizer = wx.BoxSizer(wx.VERTICAL)
 
@@ -372,7 +372,7 @@ class DetailPanel(wx.Panel):
         sizer.Fit(self)
         self.SetMinSize(self.GetSize())
 
-    def load_card(self, card: CardResult | None):
+    def load_card(self, card: CardResult | None) -> None:
         """Load a card into the detail panel."""
         self._current_card = card
         self._suppress_events = True
@@ -418,7 +418,7 @@ class DetailPanel(wx.Panel):
 
         self._suppress_events = False
 
-    def _update_locations(self, card: CardResult):
+    def _update_locations(self, card: CardResult) -> None:
         """Update the file locations tab (always shown)."""
         num_paths = len(card.file_paths)
 
@@ -454,7 +454,7 @@ class DetailPanel(wx.Panel):
             # Update tab label
             self._notebook.SetPageText(self._locations_tab_index, f"File Paths ({num_paths})")
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear the detail panel (no card selected)."""
         # Reset current card first to prevent any event handlers from using it
         self._current_card = None
@@ -483,6 +483,10 @@ class DetailPanel(wx.Panel):
             self._notebook.SetPageText(0, "Edit Card")
 
         self._suppress_events = False
+
+    def enable_ai_button(self, enable: bool) -> None:
+        """Enable or disable the AI analyze button."""
+        self._ai_btn.Enable(enable)
 
     def _on_name_char(self, event: wx.KeyEvent) -> None:
         """Block filesystem-invalid characters from being typed."""
@@ -574,7 +578,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         self._build_ui()
         self.Bind(wx.EVT_PAINT, self._on_paint_highlight)
 
-    def _build_ui(self):
+    def _build_ui(self) -> None:
         """Build master-detail UI."""
         sizer = wx.BoxSizer(wx.VERTICAL)
 
@@ -687,7 +691,7 @@ class ReviewPanelMasterDetail(wx.Panel):
                     break
         event.Skip()
 
-    def _on_key(self, event):
+    def _on_key(self, event) -> None:
         """Handle keyboard events."""
         keycode = event.GetKeyCode()
 
@@ -708,6 +712,11 @@ class ReviewPanelMasterDetail(wx.Panel):
         if len(self._selected_card_ids) == 1:
             return self._selected_card_ids[0]
         return None
+
+    @property
+    def selected_card_ids(self) -> list[int]:
+        """Return list of currently selected card IDs."""
+        return list(self._selected_card_ids)
 
     def _on_selection_changed(self, event) -> None:
         """Handle list selection change (supports multi-select)."""
@@ -820,19 +829,19 @@ class ReviewPanelMasterDetail(wx.Panel):
 
         return menu
 
-    def _handle_name_change(self, card_id: int, new_name: str):
+    def _handle_name_change(self, card_id: int, new_name: str) -> None:
         """Handle name change from detail panel."""
         if self._on_name_change:
             self._on_name_change(card_id, new_name)
 
-    def _handle_checkbox(self, card_id: int, new_value: bool):
+    def _handle_checkbox(self, card_id: int, new_value: bool) -> None:
         """Handle checkbox toggle from detail panel."""
         card = self._cards_by_id.get(card_id)
         if card and card.file_hash:
             from app.core.database import update_remove_family
             update_remove_family(card.file_hash, new_value)
 
-    def _handle_candidate(self, card_id: int, candidate_id: int):
+    def _handle_candidate(self, card_id: int, candidate_id: int) -> None:
         """Handle candidate selection from detail panel."""
         card = self._cards_by_id.get(card_id)
         if not card or not card.file_hash:
@@ -872,7 +881,7 @@ class ReviewPanelMasterDetail(wx.Panel):
 
     # Public API (matches original ReviewPanel)
 
-    def load_cards(self, cards: list[CardResult]):
+    def load_cards(self, cards: list[CardResult]) -> None:
         """Load cards into the panel, resetting selection."""
         self._cards_by_id = {card.id: card for card in cards}
         self._model.load_cards(cards)
@@ -889,7 +898,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         """Return all cards with edits, in display order."""
         return [self._cards_by_id[cid] for cid in self._model.card_order if cid in self._cards_by_id]
 
-    def update_card(self, card_id: int, card: CardResult):
+    def update_card(self, card_id: int, card: CardResult) -> None:
         """Update a single card after AI analysis."""
         self._cards_by_id[card_id] = card
         self._model.update_card(card_id, card)
@@ -899,14 +908,14 @@ class ReviewPanelMasterDetail(wx.Panel):
         if self._selected_card_ids == [card_id]:
             self._detail_panel.load_card(card)
 
-    def update_dot(self, card_id: int, confidence: Confidence):
+    def update_dot(self, card_id: int, confidence: Confidence) -> None:
         """Update confidence indicator (handled by model)."""
         card = self._cards_by_id.get(card_id)
         if card:
             card.confidence = confidence
             self._model.update_card(card_id, card)
 
-    def select_next_card(self):
+    def select_next_card(self) -> None:
         """Select next card in list (collapses multi-selection to single)."""
         selections = self._list_ctrl.GetSelections()
         if not selections:
@@ -932,7 +941,7 @@ class ReviewPanelMasterDetail(wx.Panel):
             self._list_ctrl.Select(last_item)
             self._list_ctrl.EnsureVisible(last_item)
 
-    def select_prev_card(self):
+    def select_prev_card(self) -> None:
         """Select previous card in list (collapses multi-selection to single)."""
         selections = self._list_ctrl.GetSelections()
         if not selections:
@@ -958,7 +967,7 @@ class ReviewPanelMasterDetail(wx.Panel):
             self._list_ctrl.Select(first_item)
             self._list_ctrl.EnsureVisible(first_item)
 
-    def _extend_selection_down(self):
+    def _extend_selection_down(self) -> None:
         """Extend selection downward (Shift+Down)."""
         selections = self._list_ctrl.GetSelections()
         if not selections:
@@ -973,7 +982,7 @@ class ReviewPanelMasterDetail(wx.Panel):
             self._list_ctrl.Select(next_item)
             self._list_ctrl.EnsureVisible(next_item)
 
-    def _extend_selection_up(self):
+    def _extend_selection_up(self) -> None:
         """Extend selection upward (Shift+Up)."""
         selections = self._list_ctrl.GetSelections()
         if not selections:
@@ -1015,20 +1024,20 @@ class ReviewPanelMasterDetail(wx.Panel):
         path.AddRoundedRectangle(inset, inset, w - inset * 2, h - inset * 2, Layout.HIGHLIGHT_RADIUS)
         gc.StrokePath(path)
 
-    def select_all(self):
+    def select_all(self) -> None:
         """Select all cards in the list."""
         for card_id in self._model.card_order:
             item = self._model.get_item_by_card_id(card_id)
             if item.IsOk():
                 self._list_ctrl.Select(item)
 
-    def select_none(self):
+    def select_none(self) -> None:
         """Clear all selection."""
         self._list_ctrl.UnselectAll()
 
-    def set_ai_button_state(self, card_id: int, state: str):
+    def set_ai_button_state(self, card_id: int, state: str) -> None:
         """Set AI button state (enabled/disabled)."""
         # Only affects currently selected card in detail panel
         if self.selected_card_id == card_id:
             enable = (state == "normal")
-            self._detail_panel._ai_btn.Enable(enable)
+            self._detail_panel.enable_ai_button(enable)
