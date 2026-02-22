@@ -26,26 +26,35 @@ corpus, yielding one OCR result per (card × config) pair.
 
 AI Scoring (optional)
 ---------------------
-With ``--ai-score``, the benchmark sends OCR results to a Claude model for
-quality evaluation.  This supplements Tesseract's self-reported confidence
-(which only measures the engine's certainty, not actual text quality) with an
-LLM judgment of how well the extracted text reads as a greeting card.
+AI scoring is enabled by default.  The benchmark sends OCR results to a Claude
+model for quality evaluation.  This supplements Tesseract's self-reported
+confidence (which only measures the engine's certainty, not actual text quality)
+with an LLM judgment of how well the extracted text reads as a greeting card.
 
 Scoring uses a two-pass design:
 
-  Pass 1 — Triage:  All 192 OCR texts for each card are sent in a single API
-  call.  The LLM assigns quick 0-100 scores.  Cards where ALL configs score
-  below ``--dud-threshold`` (default 15) are classified as "duds" — image-heavy
-  cards with no extractable text.  Duds are excluded from pass 2.
+  Pass 1 — Triage:  OCR texts for each card are split into chunks of 48 and
+  sent to the LLM as separate API calls.  The LLM returns a JSON object keyed
+  by config number (``{"1": score, "2": score, ...}``), which prevents the
+  count-mismatch errors that flat arrays are prone to with large batches.
+  Cards where ALL configs score below ``--dud-threshold`` (default 15) are
+  classified as "duds" — image-heavy cards with no extractable text.  Duds are
+  excluded from pass 2.
 
   Pass 2 — Refined:  Non-dud cards are re-scored with a detailed prompt that
   emphasises names (most important), readability, structure, completeness, and
   noise.  Pass 2 scores replace pass 1 scores for these cards.
 
+Each chunk is retried up to 4 times.  Scores are accumulated across retries:
+if one attempt drops a key, the next attempt (at a slightly higher temperature)
+may return it, filling the gap.  After all retries, any still-missing configs
+are assigned a score of -1, which is excluded from aggregate statistics and
+shown as "n/a" in the report.
+
 Because the OCR texts are very short (avg ~28 tokens), all 192 texts for one
-card fit comfortably in a single API call (~5K input tokens).  With the default
+card fit comfortably in 4 API calls (~5K input tokens each).  With the default
 concurrency of 5, scoring completes in under a minute for a typical 41-card
-corpus.  Estimated cost: ~$2.40 with Opus, ~$0.11 with Haiku.
+corpus.  Estimated cost: ~$0.11 with Sonnet (default), ~$0.04 with Haiku.
 
 Output
 ------
@@ -65,31 +74,32 @@ The benchmark writes several outputs to the output directory:
 
   detail.csv         One row per (card × config) run with individual metrics.
 
-When ``--ai-score`` is not used, the AI Score column is omitted entirely from
+When ``--no-ai-score`` is passed, the AI Score column is omitted entirely from
 all outputs — the report is identical to the non-AI version.
 
 Dependencies
 ------------
-Required (already in project deps):
-    pytesseract, Pillow, PyMuPDF, anthropic
+Always available:
+    Pillow, PyMuPDF, anthropic
 
-Optional (dev):
-    uv add --dev opencv-python-headless tesserocr
+May need installing (``uv add --dev <package>``):
+    pytesseract              Python wrapper for the Tesseract CLI.
+    tesserocr                Alternative OCR library wrapping the Tesseract C++ API.
+    opencv-python-headless   Enables clahe and otsu preprocessing pipelines.
 
-    - opencv-python-headless: enables clahe and otsu preprocessing pipelines
-    - tesserocr: enables the tesserocr OCR library (alternative to pytesseract)
-
-    If unavailable, configs using those features are automatically skipped.
+    Which of these are already installed depends on the main app's current
+    OCR library choice.  If any are missing, configs using those features
+    are automatically skipped.
 
 Usage
 -----
-Basic benchmark (no AI scoring):
+Basic benchmark (AI scoring enabled by default):
 
     uv run python scripts/benchmark_ocr_configuration_quality.py ~/Desktop/cards
 
-With AI scoring:
+Without AI scoring:
 
-    uv run python scripts/benchmark_ocr_configuration_quality.py ~/Desktop/cards --ai-score
+    uv run python scripts/benchmark_ocr_configuration_quality.py ~/Desktop/cards --no-ai-score
 
 Custom output directory and config filter:
 
@@ -99,7 +109,7 @@ Custom output directory and config filter:
 AI scoring with Haiku for lower cost:
 
     uv run python scripts/benchmark_ocr_configuration_quality.py ~/Desktop/cards \\
-        --ai-score --ai-model claude-haiku-4-5-20251001
+        --ai-model claude-haiku-4-5-20251001
 
 Open the report:
 
@@ -107,7 +117,7 @@ Open the report:
 
 Environment Variables
 ---------------------
-ANTHROPIC_API_KEY   Required when using ``--ai-score``.  The API key for
+ANTHROPIC_API_KEY   Required for AI scoring (enabled by default).  The API key for
                     Claude model access.
 """
 
@@ -115,58 +125,51 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import base64
 import csv
-import io
 import itertools
 import json
-import math
+import subprocess
 import multiprocessing as mp
 import os
-import shutil
-import statistics
 import sys
 import time
-import urllib.request
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import fitz  # PyMuPDF
-from PIL import Image, ImageChops, ImageFilter, ImageOps
+if TYPE_CHECKING:
+    import anthropic
 
-# Optional imports — fail gracefully if not installed
-try:
-    import cv2
-    import numpy as np
-
-    _HAS_OPENCV = True
-except ImportError:
-    _HAS_OPENCV = False
-
-try:
-    import pytesseract
-
-    _HAS_PYTESSERACT = True
-except ImportError:
-    _HAS_PYTESSERACT = False
-
-try:
-    import tesserocr
-
-    _HAS_TESSEROCR = True
-except ImportError:
-    _HAS_TESSEROCR = False
-
-
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-
-TESSDATA_BEST_URL = (
-    "https://github.com/tesseract-ocr/tessdata_best/raw/main/eng.traineddata"
+from benchmark_common import (
+    CSS,
+    Config,
+    HAS_OPENCV,
+    HAS_PYTESSERACT,
+    HAS_TESSEROCR,
+    OCR_FNS,
+    REPORT_JS,
+    _detect_system_tessdata,
+    ensure_tessdata_best,
+    find_pdfs,
+    fmt_mean_std,
+    get_tessdata_path,
+    html_escape,
+    image_to_base64,
+    image_to_png_bytes,
+    mean_std,
+    png_bytes_to_image,
+    preprocess_clahe,
+    preprocess_otsu,
+    preprocess_pillow,
+    quartile_class,
+    render_all_pages,
+    sortable_th,
 )
-TESSDATA_BEST_DIR = Path(__file__).parent / "tessdata_best"
+
+_HAS_PYTESSERACT = HAS_PYTESSERACT
+_HAS_TESSEROCR = HAS_TESSEROCR
+_HAS_OPENCV = HAS_OPENCV
 
 OCR_LIBRARIES = ["pytesseract", "tesserocr"]
 TESSDATA_OPTIONS = ["default", "tessdata_best"]
@@ -174,49 +177,6 @@ DPI_OPTIONS = [200, 300]
 PSM_OPTIONS = [3, 6, 11]
 PREPROCESS_OPTIONS = ["pillow", "clahe", "sauvola", "otsu"]
 DICT_PENALTY_OPTIONS = [0.15, 0.0]
-
-# Map integer PSM values to tesserocr enum members (tesserocr.PSM can't be
-# constructed from an int).
-_TESSEROCR_PSM_MAP: dict[int, object] = {}
-if _HAS_TESSEROCR:
-    _TESSEROCR_PSM_MAP = {
-        0: tesserocr.PSM.OSD_ONLY,
-        1: tesserocr.PSM.AUTO_OSD,
-        2: tesserocr.PSM.AUTO_ONLY,
-        3: tesserocr.PSM.AUTO,
-        4: tesserocr.PSM.SINGLE_COLUMN,
-        5: tesserocr.PSM.SINGLE_BLOCK_VERT_TEXT,
-        6: tesserocr.PSM.SINGLE_BLOCK,
-        7: tesserocr.PSM.SINGLE_LINE,
-        8: tesserocr.PSM.SINGLE_WORD,
-        9: tesserocr.PSM.CIRCLE_WORD,
-        10: tesserocr.PSM.SINGLE_CHAR,
-        11: tesserocr.PSM.SPARSE_TEXT,
-        12: tesserocr.PSM.SPARSE_TEXT_OSD,
-        13: tesserocr.PSM.RAW_LINE,
-    }
-
-
-@dataclass
-class Config:
-    library: str
-    tessdata: str
-    dpi: int
-    psm: int
-    preprocess: str
-    dict_penalty: float
-
-    @property
-    def name(self) -> str:
-        return f"{self.library}/{self.tessdata}/{self.dpi}/{self.psm}/{self.preprocess}/{self.dict_penalty}"
-
-    @property
-    def short_name(self) -> str:
-        return f"{self.library[:4]}/{self.tessdata[:4]}/{self.dpi}/{self.psm}/{self.preprocess}/{self.dict_penalty}"
-
-    @property
-    def slug(self) -> str:
-        return self.name.replace("/", "_")
 
 
 @dataclass
@@ -265,238 +225,14 @@ def build_configs(filter_str: str | None = None) -> list[Config]:
     return filtered
 
 
-# ---------------------------------------------------------------------------
-# tessdata management
-# ---------------------------------------------------------------------------
-
-
-def _detect_system_tessdata() -> str | None:
-    """Find system tessdata directory (Homebrew or default locations)."""
-    candidates = [
-        "/opt/homebrew/share/tessdata",
-        "/usr/local/share/tessdata",
-    ]
-    for path in candidates:
-        if os.path.isdir(path):
-            return path
-    return None
-
-
-def ensure_tessdata_best() -> Path:
-    """Download tessdata_best/eng.traineddata if not already cached."""
-    TESSDATA_BEST_DIR.mkdir(parents=True, exist_ok=True)
-    eng_path = TESSDATA_BEST_DIR / "eng.traineddata"
-    if eng_path.exists():
-        return TESSDATA_BEST_DIR
-    print(f"Downloading tessdata_best eng.traineddata...")
-    urllib.request.urlretrieve(TESSDATA_BEST_URL, eng_path)
-    size_mb = eng_path.stat().st_size / 1024 / 1024
-    print(f"  Downloaded {size_mb:.1f} MB to {eng_path}")
-    return TESSDATA_BEST_DIR
-
-
-def get_tessdata_path(tessdata: str) -> str | None:
-    """Return --tessdata-dir path for the given tessdata option.
-
-    For 'default', returns the detected system tessdata path (if found).
-    This ensures worker processes can locate tessdata even without the
-    TESSDATA_PREFIX environment variable.
-    """
-    if tessdata == "default":
-        return _detect_system_tessdata()
-    return str(ensure_tessdata_best())
-
-
-# ---------------------------------------------------------------------------
-# PDF rendering (self-contained, copied from app/core/pdf_renderer.py)
-# ---------------------------------------------------------------------------
-
-
-def _capped_zoom(page: fitz.Page, dpi: int) -> fitz.Matrix:
-    target_zoom = dpi / 72
-    image_infos = page.get_image_info()
-    if image_infos:
-        max_native_dpi = max(
-            max(info.get("xres", 72), info.get("yres", 72)) for info in image_infos
-        )
-        target_zoom = min(target_zoom, max_native_dpi / 72)
-    return fitz.Matrix(target_zoom, target_zoom)
-
-
-def autocrop_whitespace(
-    image: Image.Image, threshold: int = 245, padding: int = 10
-) -> Image.Image:
-    gray = image.convert("L")
-    blurred = gray.filter(ImageFilter.GaussianBlur(radius=5))
-    bg = Image.new("L", blurred.size, threshold)
-    diff = ImageChops.subtract(bg, blurred)
-    bbox = diff.getbbox()
-    if not bbox:
-        return image
-    left = max(0, bbox[0] - padding)
-    top = max(0, bbox[1] - padding)
-    right = min(image.width, bbox[2] + padding)
-    bottom = min(image.height, bbox[3] + padding)
-    return image.crop((left, top, right, bottom))
-
-
-def render_all_pages(pdf_path: Path, dpi: int = 200) -> list[Image.Image]:
-    doc = fitz.open(str(pdf_path))
-    images = []
-    try:
-        for page in doc:
-            pix = page.get_pixmap(matrix=_capped_zoom(page, dpi))
-            img_data = pix.tobytes("png")
-            images.append(autocrop_whitespace(Image.open(io.BytesIO(img_data))))
-    finally:
-        doc.close()
-    return images
-
-
-def image_to_base64(img: Image.Image, max_width: int = 300) -> str:
-    """Resize image to thumbnail and encode as base64 data URI."""
-    if img.width > max_width:
-        ratio = max_width / img.width
-        new_size = (max_width, int(img.height * ratio))
-        img = img.resize(new_size, Image.LANCZOS)
-    buf = io.BytesIO()
-    img.save(buf, format="PNG", optimize=True)
-    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
-    return f"data:image/png;base64,{b64}"
-
-
-# ---------------------------------------------------------------------------
-# Preprocessing pipelines
-# ---------------------------------------------------------------------------
-
-
-def preprocess_pillow(img: Image.Image) -> Image.Image:
-    """Current production pipeline: grayscale -> autocontrast -> sharpen."""
-    img = ImageOps.grayscale(img)
-    img = ImageOps.autocontrast(img, cutoff=2)
-    img = img.filter(ImageFilter.SHARPEN)
-    return img
-
-
-def preprocess_clahe(img: Image.Image) -> Image.Image:
-    """CLAHE + denoising + adaptive threshold (OpenCV)."""
-    if not _HAS_OPENCV:
-        raise RuntimeError("opencv-python-headless required for clahe preprocessing")
-    gray = np.array(ImageOps.grayscale(img))
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    enhanced = clahe.apply(gray)
-    denoised = cv2.fastNlMeansDenoising(enhanced, h=10)
-    binary = cv2.adaptiveThreshold(
-        denoised, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
-    )
-    return Image.fromarray(binary)
-
-
-def preprocess_otsu(img: Image.Image) -> Image.Image:
-    """Otsu threshold + sharpen (OpenCV)."""
-    if not _HAS_OPENCV:
-        raise RuntimeError("opencv-python-headless required for otsu preprocessing")
-    gray = np.array(ImageOps.grayscale(img))
-    _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    result = Image.fromarray(binary)
-    return result.filter(ImageFilter.SHARPEN)
-
-
-def preprocess_sauvola(img: Image.Image) -> Image.Image:
-    """Pillow preprocessing (same as pillow) -- Sauvola thresholding is done by Tesseract."""
-    img = ImageOps.grayscale(img)
-    img = ImageOps.autocontrast(img, cutoff=2)
-    img = img.filter(ImageFilter.SHARPEN)
-    return img
-
-
+# Sauvola uses identical preprocessing to pillow — the difference is a Tesseract
+# config flag, not a preprocessing step.  Keep all 4 entries here because the
+# quality benchmark needs to distinguish them at the Tesseract level.
 PREPROCESS_FNS = {
     "pillow": preprocess_pillow,
     "clahe": preprocess_clahe,
     "otsu": preprocess_otsu,
-    "sauvola": preprocess_sauvola,
-}
-
-
-# ---------------------------------------------------------------------------
-# OCR engines
-# ---------------------------------------------------------------------------
-
-
-def _build_tesseract_config(cfg: Config) -> str:
-    """Build Tesseract config string from a Config."""
-    parts = [f"--psm {cfg.psm}"]
-    if cfg.preprocess == "sauvola":
-        parts.append("-c thresholding_method=2")
-    tessdata_path = get_tessdata_path(cfg.tessdata)
-    if tessdata_path:
-        parts.append(f"--tessdata-dir {tessdata_path}")
-    parts.append(f"-c language_model_penalty_non_dict_word={cfg.dict_penalty}")
-    return " ".join(parts)
-
-
-def ocr_pytesseract(img: Image.Image, cfg: Config) -> tuple[str, float]:
-    """Run OCR with pytesseract. Returns (text, confidence).
-
-    Uses image_to_data (single Tesseract call) to get both text and confidence.
-    Reconstructs text structure using block_num, par_num, line_num from TSV output.
-    """
-    config_str = _build_tesseract_config(cfg)
-    try:
-        data = pytesseract.image_to_data(img, config=config_str, output_type=pytesseract.Output.DICT)
-        # Group words by (block_num, par_num, line_num) to preserve structure
-        lines_map: dict[tuple[int, int, int], list[str]] = defaultdict(list)
-        confidences: list[int] = []
-        for i, word in enumerate(data["text"]):
-            conf = int(data["conf"][i])
-            if conf > 0:
-                confidences.append(conf)
-            if word.strip():
-                key = (data["block_num"][i], data["par_num"][i], data["line_num"][i])
-                lines_map[key].append(word)
-
-        # Reconstruct with paragraph structure
-        paragraphs: dict[tuple[int, int], list[str]] = defaultdict(list)
-        for (block, par, line), words in sorted(lines_map.items()):
-            paragraphs[(block, par)].append(" ".join(words))
-
-        text = "\n\n".join(
-            "\n".join(lines)
-            for _, lines in sorted(paragraphs.items())
-        )
-        avg_conf = sum(confidences) / len(confidences) if confidences else 0.0
-    except Exception:
-        text = ""
-        avg_conf = -1.0
-    return text.strip(), avg_conf
-
-
-def ocr_tesserocr(img: Image.Image, cfg: Config) -> tuple[str, float]:
-    """Run OCR with tesserocr. Returns (text, confidence)."""
-    tessdata_path = get_tessdata_path(cfg.tessdata)
-    kwargs: dict = {}
-    if tessdata_path:
-        kwargs["path"] = tessdata_path
-    kwargs["lang"] = "eng"
-
-    psm_enum = _TESSEROCR_PSM_MAP.get(cfg.psm)
-    if psm_enum is None:
-        raise ValueError(f"Unknown PSM value: {cfg.psm}")
-
-    with tesserocr.PyTessBaseAPI(**kwargs) as api:
-        api.SetPageSegMode(psm_enum)
-        if cfg.preprocess == "sauvola":
-            api.SetVariable("thresholding_method", "2")
-        api.SetVariable("language_model_penalty_non_dict_word", str(cfg.dict_penalty))
-        api.SetImage(img)
-        text = api.GetUTF8Text().strip()
-        confidence = api.MeanTextConf()
-    return text, float(confidence)
-
-
-OCR_FNS = {
-    "pytesseract": ocr_pytesseract,
-    "tesserocr": ocr_tesserocr,
+    "sauvola": preprocess_pillow,  # same preprocessing; Tesseract flag differs
 }
 
 
@@ -508,24 +244,8 @@ OCR_FNS = {
 _SENTINEL = None
 
 
-def find_pdfs(corpus_path: Path) -> list[Path]:
-    """Find all PDF files in the corpus directory."""
-    pdfs = sorted(corpus_path.glob("*.pdf"))
-    if not pdfs:
-        pdfs = sorted(corpus_path.rglob("*.pdf"))
-    return pdfs
-
-
-def _image_to_png_bytes(img: Image.Image) -> bytes:
-    """Serialize a PIL Image to PNG bytes for passing through multiprocessing queues."""
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    return buf.getvalue()
-
-
-def _png_bytes_to_image(data: bytes) -> Image.Image:
-    """Deserialize PNG bytes back to a PIL Image."""
-    return Image.open(io.BytesIO(data))
+_image_to_png_bytes = image_to_png_bytes
+_png_bytes_to_image = png_bytes_to_image
 
 
 def _cfg_to_dict(cfg: Config) -> dict:
@@ -646,8 +366,8 @@ def _validate_configs(
 
     if failed:
         print(f"  {len(failed)} configs failed validation:")
-        for cfg, err in failed:
-            print(f"    {cfg.name}: {err}")
+        for cfg, err_msg in failed:
+            print(f"    {cfg.name}: {err_msg}")
     print(f"  {len(valid)} configs passed validation")
     return valid
 
@@ -826,7 +546,7 @@ def run_benchmark(
         job_queue.put(_SENTINEL)
 
     # Collect results with progress
-    card_map: dict[str, CardResult] = {}
+    card_map = {}  # type: ignore[no-redef]  # sequential branch returns early
     card_done_count: dict[str, int] = defaultdict(int)
     card_first_seen: dict[str, float] = {}
     cards_completed = 0
@@ -892,18 +612,8 @@ def run_benchmark(
 # ---------------------------------------------------------------------------
 
 
-def _mean_std(values: list[float]) -> tuple[float, float]:
-    """Return (mean, stdev) for a list of values. Returns (0, 0) if empty."""
-    if not values:
-        return 0.0, 0.0
-    m = statistics.mean(values)
-    sd = statistics.pstdev(values) if len(values) > 1 else 0.0
-    return m, sd
-
-
-def _fmt_mean_std(mean: float, std: float, fmt: str = ".1f") -> str:
-    """Format mean +/- std as a string."""
-    return f"{mean:{fmt}} &plusmn; {std:{fmt}}"
+_mean_std = mean_std
+_fmt_mean_std = fmt_mean_std
 
 
 def _compute_config_stats(
@@ -959,8 +669,8 @@ def _build_scoring_prompt(texts: list[str], pass_num: int) -> tuple[str, str]:
     if pass_num == 1:
         system = (
             "You score OCR-extracted text from greeting cards. "
-            "You ALWAYS respond with ONLY a JSON array of integers — no explanation, no commentary, no markdown. "
-            f"The array must have exactly {n} elements, each 0-100."
+            "You ALWAYS respond with ONLY a JSON object mapping config number to score — no explanation, no commentary, no markdown. "
+            f'The object must have exactly {n} keys ("1" through "{n}"), each value an integer 0-100.'
         )
         user = (
             f"Below are {n} text extractions from the same card using different OCR configurations.\n"
@@ -970,13 +680,13 @@ def _build_scoring_prompt(texts: list[str], pass_num: int) -> tuple[str, str]:
             "- 31-60: partially readable, some greeting card content visible\n"
             "- 61-80: mostly readable greeting card text\n"
             "- 81-100: clear, well-structured greeting card text\n\n"
-            f"Reply with ONLY a JSON array of {n} integers. No other text.\n\n"
+            f'Reply with ONLY a JSON object {{"1": score, "2": score, ..., "{n}": score}}. No other text.\n\n'
         )
     else:
         system = (
             "You score OCR-extracted text from greeting cards. "
-            "You ALWAYS respond with ONLY a JSON array of integers — no explanation, no commentary, no markdown. "
-            f"The array must have exactly {n} elements, each 0-100."
+            "You ALWAYS respond with ONLY a JSON object mapping config number to score — no explanation, no commentary, no markdown. "
+            f'The object must have exactly {n} keys ("1" through "{n}"), each value an integer 0-100.'
         )
         user = (
             f"Below are {n} text extractions from the same card using different OCR configurations.\n"
@@ -987,7 +697,7 @@ def _build_scoring_prompt(texts: list[str], pass_num: int) -> tuple[str, str]:
             "3. Structure: Preserved line breaks and paragraphs vs flat wall of text\n"
             "4. Completeness: More captured content is better than less\n"
             "5. Noise: Penalize OCR artifacts, random symbols, fragmented words\n\n"
-            f"Reply with ONLY a JSON array of {n} integers. No other text.\n\n"
+            f'Reply with ONLY a JSON object {{"1": score, "2": score, ..., "{n}": score}}. No other text.\n\n'
         )
 
     # Build text blocks
@@ -999,74 +709,167 @@ def _build_scoring_prompt(texts: list[str], pass_num: int) -> tuple[str, str]:
     return system, user + "\n".join(blocks)
 
 
-def _parse_scores(response_text: str, expected_n: int) -> list[int] | None:
-    """Parse JSON array of scores from LLM response. Returns None on failure."""
-    # Strip markdown code fences if present
-    text = response_text.strip()
-    if text.startswith("```"):
-        lines = text.split("\n")
-        # Remove first line (```json or ```) and last line (```)
-        lines = [l for l in lines if not l.strip().startswith("```")]
-        text = "\n".join(lines).strip()
 
-    try:
-        scores = json.loads(text)
-    except json.JSONDecodeError:
-        return None
+_MAX_SCORING_RETRIES = 4
+_SCORING_BATCH_SIZE = 48
 
-    if not isinstance(scores, list) or len(scores) != expected_n:
-        return None
 
-    # Validate and clamp
-    result = []
-    for s in scores:
-        if not isinstance(s, (int, float)):
-            return None
-        result.append(max(0, min(100, int(round(s)))))
-    return result
+async def _score_chunk(
+    client: "anthropic.AsyncAnthropic",  # pyright: ignore[reportUndefinedVariable]
+    card_id: str,
+    texts: list[str],
+    chunk_idx: int,
+    pass_num: int,
+    model: str,
+    semaphore: asyncio.Semaphore,
+) -> list[int]:
+    """Score a single chunk of texts with retries.
+
+    Uses raw JSON (not structured output) because the Anthropic SDK's
+    structured output transforms ``dict[str, int]`` into a schema with
+    ``additionalProperties: false``, which blocks dynamic keys entirely.
+
+    Accumulates scores across retries using dict-keyed responses so that
+    different attempts may fill in keys the others missed.  Always returns
+    a list of scores (with -1 for any configs that could not be scored).
+    """
+    system_prompt, user_message = _build_scoring_prompt(texts, pass_num)
+    expected_keys = {str(i) for i in range(1, len(texts) + 1)}
+    accumulated: dict[str, int] = {}
+
+    async with semaphore:
+        for attempt in range(1, _MAX_SCORING_RETRIES + 1):
+            if set(accumulated.keys()) >= expected_keys:
+                break  # all keys collected
+
+            temperature = 0 if attempt == 1 else 0.1
+            try:
+                response = await client.messages.create(
+                    model=model,
+                    max_tokens=4096,
+                    temperature=temperature,
+                    system=system_prompt,
+                    messages=[{"role": "user", "content": user_message}],
+                )
+                raw_text = response.content[0].text if response.content and response.content[0].type == "text" else ""
+
+                # Strip markdown fences the model sometimes wraps around JSON
+                stripped = raw_text.strip()
+                if stripped.startswith("```"):
+                    # Remove opening ```json or ``` and closing ```
+                    lines = stripped.split("\n")
+                    if lines[0].startswith("```"):
+                        lines = lines[1:]
+                    if lines and lines[-1].strip() == "```":
+                        lines = lines[:-1]
+                    stripped = "\n".join(lines)
+
+                if response.stop_reason == "max_tokens":
+                    print(
+                        f"\n  Warning: {card_id} chunk {chunk_idx} "
+                        f"(pass {pass_num}, attempt {attempt}/{_MAX_SCORING_RETRIES}): "
+                        f"response truncated (max_tokens), skipping",
+                        file=sys.stderr,
+                    )
+                    continue
+
+                raw_scores: dict[str, int] = json.loads(stripped)
+
+                if not isinstance(raw_scores, dict):
+                    print(
+                        f"\n  Warning: {card_id} chunk {chunk_idx} "
+                        f"(pass {pass_num}, attempt {attempt}/{_MAX_SCORING_RETRIES}): "
+                        f"expected JSON object, got {type(raw_scores).__name__}: {raw_text[:200]!r}",
+                        file=sys.stderr,
+                    )
+                    continue
+
+                # Merge new keys into accumulated (don't overwrite existing)
+                for key, value in raw_scores.items():
+                    if key in expected_keys and key not in accumulated:
+                        if isinstance(value, (int, float)):
+                            accumulated[key] = max(0, min(100, int(value)))
+
+                missing = expected_keys - set(accumulated.keys())
+                if missing:
+                    print(
+                        f"\n  Warning: {card_id} chunk {chunk_idx} "
+                        f"(pass {pass_num}, attempt {attempt}/{_MAX_SCORING_RETRIES}): "
+                        f"missing keys {sorted(missing, key=int)} "
+                        f"(got {len(raw_scores)}, accumulated {len(accumulated)}/{len(expected_keys)})",
+                        file=sys.stderr,
+                    )
+
+            except json.JSONDecodeError as exc:
+                json_err = exc
+                # raw_text is always defined before json.loads can raise
+                raw_preview = raw_text[:300] if raw_text else "<empty>"  # pyright: ignore[reportPossiblyUnboundVariable]
+                print(
+                    f"\n  Warning: JSON parse error for {card_id} chunk {chunk_idx} "
+                    f"(pass {pass_num}, attempt {attempt}/{_MAX_SCORING_RETRIES}): "
+                    f"{json_err}\n    Raw text: {raw_preview!r}",
+                    file=sys.stderr,
+                )
+            except Exception as exc:
+                err = exc
+                print(
+                    f"\n  Warning: API error for {card_id} chunk {chunk_idx} "
+                    f"(pass {pass_num}, attempt {attempt}/{_MAX_SCORING_RETRIES}): "
+                    f"{type(err).__name__}: {err}",
+                    file=sys.stderr,
+                )
+
+    # Fill missing keys with -1
+    missing = expected_keys - set(accumulated.keys())
+    if missing:
+        print(
+            f"\n  Warning: {card_id} chunk {chunk_idx} (pass {pass_num}): "
+            f"filling {len(missing)} missing configs with -1: {sorted(missing, key=int)}",
+            file=sys.stderr,
+        )
+        for key in missing:
+            accumulated[key] = -1
+
+    return [accumulated[str(i)] for i in range(1, len(texts) + 1)]
 
 
 async def _score_card(
-    client: "anthropic.AsyncAnthropic",
+    client: "anthropic.AsyncAnthropic",  # pyright: ignore[reportUndefinedVariable]
     card_id: str,
     texts: list[str],
     pass_num: int,
     model: str,
     semaphore: asyncio.Semaphore,
-) -> tuple[str, list[int] | None, float]:
-    """Score one card's OCR texts via a single API call.
+) -> tuple[str, list[int], float]:
+    """Score one card's OCR texts, chunking into batches for reliability.
 
-    Returns (card_id, scores_or_None, elapsed_seconds).
+    Splits texts into chunks of _SCORING_BATCH_SIZE, scores each chunk
+    independently with retries, then concatenates results.  Chunks always
+    return scores (with -1 for unresolvable configs), so this never fails.
+
+    Returns (card_id, scores, elapsed_seconds).
     """
-    system_prompt, user_message = _build_scoring_prompt(texts, pass_num)
+    t0 = time.monotonic()
 
-    async with semaphore:
-        t0 = time.monotonic()
-        try:
-            response = await client.messages.create(
-                model=model,
-                max_tokens=4096,
-                temperature=0,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_message}],
-            )
-            response_text = response.content[0].text
-            scores = _parse_scores(response_text, len(texts))
-            if scores is None:
-                # Show truncated response for debugging
-                preview = response_text[:200] + "..." if len(response_text) > 200 else response_text
-                print(
-                    f"\n  Warning: parse failure for {card_id} (pass {pass_num}), "
-                    f"stop={response.stop_reason}, response preview: {preview}",
-                    file=sys.stderr,
-                )
-        except Exception as exc:
-            err = exc
-            print(f"\n  Warning: API error for {card_id} (pass {pass_num}): {err}", file=sys.stderr)
-            scores = None
-        elapsed = time.monotonic() - t0
+    # Split into chunks
+    chunks = [
+        texts[i:i + _SCORING_BATCH_SIZE]
+        for i in range(0, len(texts), _SCORING_BATCH_SIZE)
+    ]
 
-    return card_id, scores, elapsed
+    # Score all chunks concurrently
+    chunk_tasks = [
+        _score_chunk(client, card_id, chunk, idx, pass_num, model, semaphore)
+        for idx, chunk in enumerate(chunks)
+    ]
+    chunk_results = await asyncio.gather(*chunk_tasks)
+
+    all_scores: list[int] = []
+    for result in chunk_results:
+        all_scores.extend(result)
+
+    elapsed = time.monotonic() - t0
+    return card_id, all_scores, elapsed
 
 
 async def score_all_cards(
@@ -1106,10 +909,7 @@ async def score_all_cards(
     for coro in asyncio.as_completed(tasks):
         card_id, scores, elapsed = await coro
         completed += 1
-        if scores is not None:
-            pass1_scores[card_id] = scores
-        else:
-            print(f"\n  Warning: failed to parse scores for {card_id} (pass 1)", file=sys.stderr)
+        pass1_scores[card_id] = scores
 
         if is_tty:
             print(
@@ -1125,10 +925,11 @@ async def score_all_cards(
     if is_tty:
         print(file=sys.stderr)
 
-    # Identify dud cards (all scores <= dud_threshold)
+    # Identify dud cards (all valid scores <= dud_threshold)
     dud_cards = set()
     for card_id, scores in pass1_scores.items():
-        if max(scores) <= dud_threshold:
+        valid_scores = [s for s in scores if s >= 0]
+        if not valid_scores or max(valid_scores) <= dud_threshold:
             dud_cards.add(card_id)
 
     non_dud_cards = [c for c in card_results if c.card_id not in dud_cards and c.card_id in pass1_scores]
@@ -1161,22 +962,12 @@ async def score_all_cards(
             card_id, scores, elapsed = await coro
             completed += 1
 
-            if scores is not None:
-                # Find the card and apply scores
-                for card in card_results:
-                    if card.card_id == card_id:
-                        for r, score in zip(card.results, scores):
-                            r.ai_score = float(score)
-                        break
-            else:
-                # Fall back to pass 1 scores
-                print(f"\n  Warning: failed to parse scores for {card_id} (pass 2), using pass 1", file=sys.stderr)
-                if card_id in pass1_scores:
-                    for card in card_results:
-                        if card.card_id == card_id:
-                            for r, score in zip(card.results, pass1_scores[card_id]):
-                                r.ai_score = float(score)
-                            break
+            # Apply pass 2 scores
+            for card in card_results:
+                if card.card_id == card_id:
+                    for r, score in zip(card.results, scores):
+                        r.ai_score = float(score)
+                    break
 
             if is_tty:
                 print(
@@ -1192,271 +983,28 @@ async def score_all_cards(
         if is_tty:
             print(file=sys.stderr)
 
-    # Cards that failed both passes keep ai_score = -1
+    # Report scoring results
     scored = sum(1 for c in card_results if any(r.ai_score >= 0 for r in c.results))
     print(f"  AI scoring complete: {scored}/{total_cards} cards scored", file=sys.stderr)
+
+    # Count configs with -1 (unscored) across all cards
+    total_neg1 = sum(1 for c in card_results for r in c.results if r.ai_score < 0)
+    if total_neg1:
+        total_scores = sum(len(c.results) for c in card_results)
+        print(
+            f"  Warning: {total_neg1}/{total_scores} config scores could not be resolved "
+            f"(marked as -1, excluded from stats)",
+            file=sys.stderr,
+        )
 
 
 # ---------------------------------------------------------------------------
 # HTML report generation
 # ---------------------------------------------------------------------------
 
-CSS = """
-:root {
-    --bg: #ffffff;
-    --fg: #1a1a1a;
-    --bg-alt: #f5f5f5;
-    --border: #ddd;
-    --accent: #2563eb;
-    --green: #22c55e;
-    --red: #ef4444;
-    --yellow: #eab308;
-    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    --mono: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace;
-}
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg: #1a1a1a;
-        --fg: #e5e5e5;
-        --bg-alt: #2a2a2a;
-        --border: #444;
-        --accent: #60a5fa;
-    }
-}
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-    font-family: var(--font);
-    background: var(--bg);
-    color: var(--fg);
-    line-height: 1.6;
-    padding: 2rem;
-    max-width: 1400px;
-    margin: 0 auto;
-}
-h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-h2 { font-size: 1.2rem; margin: 1.5rem 0 0.5rem; }
-.meta { color: #888; font-size: 0.85rem; margin-bottom: 1.5rem; }
-.meta span { margin-right: 1.5rem; }
-a { color: var(--accent); text-decoration: none; }
-a:hover { text-decoration: underline; }
-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.85rem;
-    margin-bottom: 2rem;
-}
-th, td {
-    padding: 0.4rem 0.6rem;
-    border: 1px solid var(--border);
-    text-align: left;
-    white-space: nowrap;
-}
-th {
-    background: var(--bg-alt);
-    position: sticky;
-    top: 0;
-    z-index: 1;
-}
-tr:hover { background: var(--bg-alt); }
-.num { text-align: right; font-variant-numeric: tabular-nums; }
-.best { font-weight: bold; }
-.card-images {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-}
-.card-images img {
-    max-width: 300px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-}
-.text-cell {
-    white-space: pre-wrap;
-    word-break: break-word;
-    max-width: 500px;
-    max-height: 150px;
-    overflow-y: auto;
-    font-family: var(--mono);
-    font-size: 0.75rem;
-    line-height: 1.4;
-}
-.text-cell.expanded { max-height: none; }
-.toggle-btn {
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: 0.1rem 0.4rem;
-    cursor: pointer;
-    font-size: 0.7rem;
-    color: var(--accent);
-    margin-top: 0.2rem;
-}
-nav {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-    font-size: 0.9rem;
-}
-.heatmap-q4 { background-color: rgba(22, 163, 74, 0.20); }
-.heatmap-q3 { background-color: rgba(34, 197, 94, 0.12); }
-.heatmap-q2 { background-color: rgba(234, 179, 8, 0.12); }
-.heatmap-q1 { background-color: rgba(239, 68, 68, 0.15); }
-th.sortable {
-    cursor: pointer;
-    user-select: none;
-}
-th.sortable:hover {
-    filter: brightness(0.95);
-}
-.filter-toolbar {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-    flex-wrap: wrap;
-    margin-bottom: 1rem;
-    font-size: 0.85rem;
-}
-.filter-toolbar label {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-}
-.filter-toolbar select {
-    padding: 0.2rem 0.4rem;
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    background: var(--bg);
-    color: var(--fg);
-    font-size: 0.85rem;
-}
-.filter-toolbar button {
-    padding: 0.2rem 0.6rem;
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    background: var(--bg-alt);
-    color: var(--fg);
-    cursor: pointer;
-    font-size: 0.85rem;
-}
-.card-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0;
-    font-size: 0.85rem;
-    margin-bottom: 2rem;
-}
-.card-grid td, .card-grid th {
-    padding: 0.3rem 0.6rem;
-}
-.config-params {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
-    font-size: 0.85rem;
-}
-.config-params dt { font-weight: bold; color: #888; }
-.config-params dd { margin: 0; }
-"""
-
-REPORT_JS = """
-<script>
-function toggleText(btn) {
-    const cell = btn.previousElementSibling;
-    cell.classList.toggle('expanded');
-    btn.textContent = cell.classList.contains('expanded') ? 'collapse' : 'expand';
-}
-
-function sortTable(th) {
-    const table = th.closest('table');
-    const tbody = table.querySelector('tbody');
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    const colIdx = Array.from(th.parentElement.children).indexOf(th);
-    const asc = th.dataset.sortDir !== 'asc';
-
-    // Clear all sort indicators in this table
-    th.parentElement.querySelectorAll('th').forEach(h => {
-        h.textContent = h.textContent.replace(/ [\\u25B2\\u25BC]/g, '');
-        delete h.dataset.sortDir;
-    });
-    th.dataset.sortDir = asc ? 'asc' : 'desc';
-    th.textContent += asc ? ' \\u25B2' : ' \\u25BC';
-
-    rows.sort((a, b) => {
-        const aCell = a.cells[colIdx];
-        const bCell = b.cells[colIdx];
-        if (aCell.hasAttribute('data-value')) {
-            const aVal = parseFloat(aCell.dataset.value);
-            const bVal = parseFloat(bCell.dataset.value);
-            return asc ? aVal - bVal : bVal - aVal;
-        }
-        return asc
-            ? aCell.textContent.localeCompare(bCell.textContent)
-            : bCell.textContent.localeCompare(aCell.textContent);
-    });
-    rows.forEach(row => tbody.appendChild(row));
-}
-
-function applyFilters() {
-    const selects = document.querySelectorAll('.filter-select');
-    const rows = document.querySelectorAll('#ranking-table tbody tr');
-    rows.forEach(row => {
-        let show = true;
-        selects.forEach(sel => {
-            if (sel.value && row.dataset[sel.dataset.axis] !== sel.value) {
-                show = false;
-            }
-        });
-        row.style.display = show ? '' : 'none';
-    });
-}
-
-function resetFilters() {
-    document.querySelectorAll('.filter-select').forEach(sel => sel.value = '');
-    applyFilters();
-}
-</script>
-"""
-
-
-def _quartile_class(value: float, all_values: list[float], reverse: bool = False) -> str:
-    """Return a CSS class based on which quartile *value* falls into.
-
-    reverse=False: higher value = better (confidence) — top quartile = heatmap-q4
-    reverse=True:  lower value = better (time) — bottom quartile = heatmap-q4
-    """
-    if len(all_values) < 4:
-        return "heatmap-q3"
-    q1, q2, q3 = statistics.quantiles(all_values, n=4)
-    if reverse:
-        # Lower is better
-        if value <= q1:
-            return "heatmap-q4"
-        elif value <= q2:
-            return "heatmap-q3"
-        elif value <= q3:
-            return "heatmap-q2"
-        return "heatmap-q1"
-    else:
-        # Higher is better
-        if value >= q3:
-            return "heatmap-q4"
-        elif value >= q2:
-            return "heatmap-q3"
-        elif value >= q1:
-            return "heatmap-q2"
-        return "heatmap-q1"
-
-
-def _html_escape(text: str) -> str:
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
-
-
-def _sortable_th(label: str, is_num: bool = False) -> str:
-    """Generate a sortable <th> element."""
-    cls = "num sortable" if is_num else "sortable"
-    return f"<th class='{cls}' onclick='sortTable(this)'>{label}</th>"
+_quartile_class = quartile_class
+_html_escape = html_escape
+_sortable_th = sortable_th
 
 
 def _has_ai_scores(card_results: list[CardResult]) -> bool:
@@ -1562,7 +1110,7 @@ def generate_summary_html(
     lines.append("</div>")
 
     # Config ranking table
-    lines.append("<table id='ranking-table'>")
+    lines.append("<table id='ranking-table' class='filterable-table'>")
     lines.append("<thead><tr>")
     lines.append(_sortable_th("#", is_num=True))
     lines.append(_sortable_th("Library"))
@@ -1810,7 +1358,7 @@ def generate_config_html(
         REPORT_JS,
         "</head>",
         "<body>",
-        f"<h1>Config #{config_idx + 1}</h1>",
+        f"<h1>Config #{config_idx + 1} &mdash; {_html_escape(cfg.short_name)}</h1>",
         "<nav>",
         '  <a href="../index.html">Summary</a>',
     ]
@@ -2001,15 +1549,15 @@ def main() -> None:
         help=f"Number of parallel workers (default: {mp.cpu_count()}, use 1 for sequential)",
     )
     parser.add_argument(
-        "--ai-score",
+        "--no-ai-score",
         action="store_true",
-        help="Enable AI scoring of OCR results using Claude API",
+        help="Disable AI scoring of OCR results (enabled by default)",
     )
     parser.add_argument(
         "--ai-model",
         type=str,
-        default="claude-opus-4-6",
-        help="Model for AI scoring (default: claude-opus-4-6)",
+        default="claude-sonnet-4-5",
+        help="Model for AI scoring (default: claude-sonnet-4-5)",
     )
     parser.add_argument(
         "--ai-concurrency",
@@ -2022,6 +1570,11 @@ def main() -> None:
         type=int,
         default=15,
         help="Max score for a card to be considered a dud in pass 1 (default: 15)",
+    )
+    parser.add_argument(
+        "--no-open",
+        action="store_true",
+        help="Don't open the report in a browser when done",
     )
     args = parser.parse_args()
 
@@ -2040,8 +1593,10 @@ def main() -> None:
     print(f"  Corpus: {corpus_path}")
     print(f"  Configs: {len(configs)}")
     print(f"  Workers: {num_workers}")
-    if args.ai_score:
+    if not args.no_ai_score:
         print(f"  AI Scoring: enabled (model={args.ai_model}, concurrency={args.ai_concurrency})")
+    else:
+        print(f"  AI Scoring: disabled")
     print()
 
     output_dir = args.output
@@ -2056,7 +1611,7 @@ def main() -> None:
     elapsed_total = time.monotonic() - t0
 
     # AI scoring (after benchmark, before report generation)
-    if args.ai_score:
+    if not args.no_ai_score:
         ai_t0 = time.monotonic()
         asyncio.run(score_all_cards(
             card_results,
@@ -2123,7 +1678,11 @@ def main() -> None:
     print(f"  Configs:  {len(ranked_configs)} pages in {configs_dir}/")
     print(f"  CSV:      summary.csv, detail.csv")
     print(f"  Total time: {elapsed_total:.1f}s")
-    print(f"\nOpen {output_dir / 'index.html'} in a browser to view results.")
+    index_path = output_dir / "index.html"
+    print(f"\nOpen {index_path} in a browser to view results.")
+
+    if not args.no_open:
+        subprocess.Popen(["open", str(index_path)])
 
 
 if __name__ == "__main__":

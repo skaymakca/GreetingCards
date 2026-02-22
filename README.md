@@ -205,3 +205,32 @@ The app stores OCR results, AI results, and manual name edits in a SQLite databa
 | Bundled (`.app`) | `~/Library/Application Support/GreetingCards/` |
 
 **Automatic schema management:** The schema version is a hash computed from all model column definitions at startup. If the models change (columns added, removed, or altered), the hash changes and the database is automatically dropped and recreated. There is no manual migration step — the cache simply rebuilds on next use. This is safe because the database only contains derived/cached data, never source data.
+
+## Scripts
+
+Benchmark and analysis scripts live in `scripts/`. They take a corpus directory (folder of PDF files) as a positional argument.
+
+> **Note:** Some scripts require packages beyond the standard runtime/dev dependencies (e.g. `pytesseract`, `tesserocr`, `opencv-python-headless`). Install any missing ones with `uv add --dev <package>`. Unavailable features are skipped gracefully.
+
+| Script | Description |
+|--------|-------------|
+| `benchmark_ocr_configuration_quality.py` | Exhaustive search of the Tesseract configuration space (192 configs) with optional AI scoring. Produces per-card and per-config HTML detail pages, a ranked summary, and CSV exports. |
+| `benchmark_pre_processing_concurrency.py` | Measures how 6 Python concurrency models (sequential, threads, futures processes, asyncio threads/processes, mp.Queue) scale for the CPU-bound image preprocessing step across 3 pipelines (pillow, clahe, otsu). |
+| `benchmark_ocr_concurrency.py` | Measures how sequential, threads, and futures processes scale for the OCR step using a single configuration. Confirms that processes achieve near-linear scaling while threads are GIL-limited. |
+
+### Usage
+
+```bash
+# OCR configuration quality (AI scoring enabled by default)
+uv run python scripts/benchmark_ocr_configuration_quality.py ~/Desktop/Cards
+
+# Preprocessing concurrency
+uv run python scripts/benchmark_pre_processing_concurrency.py ~/Desktop/Cards
+
+# OCR concurrency (default config: tesserocr-default-200-3-pillow-0.15)
+uv run python scripts/benchmark_ocr_concurrency.py ~/Desktop/Cards
+
+# All scripts support --help, --no-open, and custom output dirs (-o)
+```
+
+Each script generates a self-contained HTML report (with sorting, filtering, and heatmap coloring) and a CSV export in `_script_output/`.
