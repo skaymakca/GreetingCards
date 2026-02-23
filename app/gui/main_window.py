@@ -1316,8 +1316,10 @@ class MainWindow:
 
                     if not has_ai_candidates:
                         # Run AI analysis
-                        ai_images = card.page_images if card.page_images else [card.preview_image]
-                        ai_images = [img for img in ai_images if img is not None]
+                        source = card.page_images or []
+                        if not source and card.preview_image is not None:
+                            source = [card.preview_image]
+                        ai_images = [img for img in source if img is not None]
                         if not ai_images:
                             completed += 1
                             wx.CallAfter(self._update_ai_all_progress, completed, total, card.filename, card_id, None)

@@ -548,7 +548,7 @@ class PreviewPanel(wx.Panel):
         """
         words = text.split()
         lines = []
-        current_line = []
+        current_line: list[str] = []
 
         for word in words:
             test_line = ' '.join(current_line + [word])

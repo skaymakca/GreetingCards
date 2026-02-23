@@ -606,7 +606,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         header_sizer.Add(self._count_label, 0, wx.ALIGN_CENTER_VERTICAL)
         self._count_label.Bind(wx.EVT_ENTER_WINDOW, self._on_legend_hover)
         self._count_label.Bind(wx.EVT_LEAVE_WINDOW, self._on_legend_leave)
-        self._legend_popup = None
+        self._legend_popup: _ConfidenceLegendPopup | None = None
 
         sizer.Add(header_sizer, 0, wx.EXPAND | wx.ALL, Layout.PAD)
 

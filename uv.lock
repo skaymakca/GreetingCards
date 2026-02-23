@@ -211,6 +211,7 @@ dev = [
     { name = "pytest-watch" },
     { name = "pytest-xdist" },
     { name = "tomli-w" },
+    { name = "types-markdown" },
 ]
 
 [package.metadata]
@@ -239,6 +240,7 @@ dev = [
     { name = "pytest-watch", specifier = "==4.2.0" },
     { name = "pytest-xdist", specifier = "==3.8.0" },
     { name = "tomli-w", specifier = ">=1.2.0" },
+    { name = "types-markdown", specifier = ">=3.10.2.20260211" },
 ]
 
 [[package]]
@@ -885,6 +887,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/19/75/241269d1da26b624c0d5e110e8149093c759b7a286138f4efd61a60e75fe/tomli_w-1.2.0.tar.gz", hash = "sha256:2dd14fac5a47c27be9cd4c976af5a12d87fb1f0b4512f81d69cce3b35ae25021", size = 7184, upload-time = "2025-01-15T12:07:24.262Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c7/18/c86eb8e0202e32dd3df50d43d7ff9854f8e0603945ff398974c1d91ac1ef/tomli_w-1.2.0-py3-none-any.whl", hash = "sha256:188306098d013b691fcadc011abd66727d3c414c571bb01b1a174ba8c983cf90", size = 6675, upload-time = "2025-01-15T12:07:22.074Z" },
+]
+
+[[package]]
+name = "types-markdown"
+version = "3.10.2.20260211"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6d/2e/35b30a09f6ee8a69142408d3ceb248c4454aa638c0a414d8704a3ef79563/types_markdown-3.10.2.20260211.tar.gz", hash = "sha256:66164310f88c11a58c6c706094c6f8c537c418e3525d33b76276a5fbd66b01ce", size = 19768, upload-time = "2026-02-11T04:19:29.497Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/54/c9/659fa2df04b232b0bfcd05d2418e683080e91ec68f636f3c0a5a267350e7/types_markdown-3.10.2.20260211-py3-none-any.whl", hash = "sha256:2d94d08587e3738203b3c4479c449845112b171abe8b5cadc9b0c12fcf3e99da", size = 25854, upload-time = "2026-02-11T04:19:28.647Z" },
 ]
 
 [[package]]

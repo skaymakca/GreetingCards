@@ -28,6 +28,7 @@ dev = [
     "opencv-python-headless>=4.13.0.92",
     "mypy>=1.19.1",
     "pytesseract>=0.3.13",
+    "types-markdown>=3.10.2.20260211",
 ]
 
 [tool.pytest.ini_options]
@@ -51,3 +52,6 @@ filterwarnings = [
     "ignore:builtin type .* has no __module__:DeprecationWarning",
     "ignore:unclosed database:ResourceWarning",
 ]
+
+[tool.mypy]
+plugins = ["sqlalchemy.ext.mypy.plugin"]

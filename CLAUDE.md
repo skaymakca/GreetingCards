@@ -140,10 +140,10 @@ Before committing, run these checks and fix any issues:
 
 | Command | Purpose | Expected |
 |---------|---------|----------|
-| `uv run pyright app/` | Static type checking (strict structural types) | 0 errors, 0 warnings |
-| `uv run mypy app/` | Static type checking (nominal types, plugin-based) | 0 new errors (baseline has import-untyped warnings) |
+| `uv run pyright app/ scripts/` | Static type checking (strict structural types) | 0 errors, 0 warnings |
+| `uv run mypy app/ scripts/` | Static type checking (nominal types, plugin-based) | 0 new errors (baseline has import-untyped warnings) |
 | `uv run pytest tests/ -x` | Run all tests | All pass |
 
 **pyright** (`pyrightconfig.json`): Catches structural type errors, unused imports, unreachable code. Zero-warning baseline.
 
-**mypy** (no config file yet): Catches nominal type mismatches, SQLAlchemy plugin issues. Has existing `import-untyped` warnings for wx/tesserocr/fitz — don't increase the count.
+**mypy** (`[tool.mypy]` in `pyproject.toml`): Catches nominal type mismatches, SQLAlchemy plugin issues. Has existing `import-untyped` warnings for wx/tesserocr/fitz/AppKit/Foundation — don't increase the count.

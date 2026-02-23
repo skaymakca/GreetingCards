@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlalchemy import create_engine, Engine, String, DateTime, Text, Boolean, ForeignKey, UniqueConstraint, inspect
-from sqlalchemy.orm import Session, declarative_base, sessionmaker, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker, Mapped, mapped_column
 
 from app.core.paths import get_db_path
 from app.models.card import CandidateInfo, CardState
@@ -20,7 +20,8 @@ _FILTER_OUT = {
     "shutterfly",  # Card printing service
 }
 
-Base = declarative_base()
+class Base(DeclarativeBase):
+    pass
 
 
 class Settings(Base):

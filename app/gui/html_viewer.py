@@ -15,9 +15,13 @@ from app.gui.styles import Color
 _viewer_refs: dict[str, weakref.ref] = {}
 
 _TOOL_BITMAP_SIZE = wx.Size(24, 24)
-_ICON_KW = dict(point_size=16, weight=0.0)  # Regular weight to match main toolbar
 _LABEL_WIDTH = 80
 _SEARCH_MIN_WIDTH = 150
+
+
+def _toolbar_icon(name: str) -> "wx.Bitmap":
+    """Load an SF Symbol sized for the HTML viewer toolbar (regular weight)."""
+    return load_sf_symbol(name, point_size=16, weight=0.0) or wx.NullBitmap
 _TOOL_WIDTH_EST = 36
 _TOOLBAR_MARGIN = 24
 _NUM_TOOLS = 5
@@ -128,15 +132,15 @@ class HTMLViewerWindow:
         toolbar = wx.ToolBar(frame, style=wx.TB_HORIZONTAL | wx.TB_NODIVIDER)
         toolbar.SetToolBitmapSize(_TOOL_BITMAP_SIZE)
 
-        home_bmp = load_sf_symbol("house", **_ICON_KW) or wx.NullBitmap
+        home_bmp = _toolbar_icon("house")
         home_id = toolbar.AddTool(wx.ID_ANY, "Home", home_bmp,
                                   shortHelp="Home").GetId()
 
-        prev_bmp = load_sf_symbol("chevron.left", **_ICON_KW) or wx.NullBitmap
+        prev_bmp = _toolbar_icon("chevron.left")
         prev_id = toolbar.AddTool(wx.ID_ANY, "Previous", prev_bmp,
                                   shortHelp="Previous page").GetId()
 
-        next_bmp = load_sf_symbol("chevron.right", **_ICON_KW) or wx.NullBitmap
+        next_bmp = _toolbar_icon("chevron.right")
         next_id = toolbar.AddTool(wx.ID_ANY, "Next", next_bmp,
                                   shortHelp="Next page").GetId()
 
@@ -153,11 +157,11 @@ class HTMLViewerWindow:
         search_ctrl.ShowCancelButton(True)
         toolbar.AddControl(search_ctrl)
 
-        prev_match_bmp = load_sf_symbol("chevron.up", **_ICON_KW) or wx.NullBitmap
+        prev_match_bmp = _toolbar_icon("chevron.up")
         prev_match_id = toolbar.AddTool(wx.ID_ANY, "Prev Match", prev_match_bmp,
                                         shortHelp="Previous match").GetId()
 
-        next_match_bmp = load_sf_symbol("chevron.down", **_ICON_KW) or wx.NullBitmap
+        next_match_bmp = _toolbar_icon("chevron.down")
         next_match_id = toolbar.AddTool(wx.ID_ANY, "Next Match", next_match_bmp,
                                         shortHelp="Next match").GetId()
 

@@ -199,7 +199,7 @@ async def analyze_card_with_ai_async(images: list[Image.Image] | Image.Image) ->
     message = await client.messages.create(
         model=get_ai_model(),
         max_tokens=_MAX_TOKENS,
-        messages=[{"role": "user", "content": content}],  # pyright: ignore[reportArgumentType]  # dict matches MessageParam
+        messages=[{"role": "user", "content": content}],  # type: ignore[typeddict-item]  # pyright: ignore[reportArgumentType]  # dict matches MessageParam
     )
 
     block = message.content[0]
