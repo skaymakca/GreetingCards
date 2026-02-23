@@ -3,9 +3,37 @@
 Common helpers for image conversion, widget creation, and other UI operations.
 """
 
+from pathlib import Path
+
 import wx
+from AppKit import NSOpenPanel, NSModalResponseOK  # type: ignore[import-untyped]
 from PIL import Image
 from collections.abc import Callable
+
+
+def open_files_and_folders(message: str, file_types: list[str]) -> list[Path]:
+    """Show a native macOS open panel that can select both files and folders.
+
+    Uses NSOpenPanel directly via pyobjc to allow unified file/folder selection,
+    which wx.FileDialog cannot do on macOS.
+
+    Args:
+        message: Message displayed in the dialog
+        file_types: List of allowed file extensions (e.g. ["pdf"])
+
+    Returns:
+        List of selected paths (empty if cancelled)
+    """
+    panel = NSOpenPanel.openPanel()
+    panel.setCanChooseFiles_(True)
+    panel.setCanChooseDirectories_(True)
+    panel.setAllowsMultipleSelection_(True)
+    panel.setAllowedFileTypes_(file_types)
+    panel.setMessage_(message)
+
+    if panel.runModal() == NSModalResponseOK:
+        return [Path(url.path()) for url in panel.URLs()]
+    return []
 
 
 def pil_to_bitmap(pil_image: Image.Image) -> wx.Bitmap:

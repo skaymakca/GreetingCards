@@ -719,20 +719,11 @@ class MainWindow:
 
     def _add_files_folders(self) -> None:
         """Add PDF files or folders (unified picker - multi-load architecture)."""
-        # Show file dialog for PDFs (supports multi-select)
-        dlg = wx.FileDialog(
-            self._frame,
-            message="Add PDF Files or Folders",
-            defaultDir=str(Path.home()),
-            wildcard="PDF files (*.pdf)|*.pdf|All files (*.*)|*.*",
-            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST | wx.FD_MULTIPLE
-        )
+        from app.gui.utils import open_files_and_folders
 
-        if dlg.ShowModal() == wx.ID_OK:
-            paths = [Path(p) for p in dlg.GetPaths()]
+        paths = open_files_and_folders("Add PDF Files or Folders", ["pdf"])
+        if paths:
             self._load_paths(paths, auto_process=True)
-
-        dlg.Destroy()
 
     def _load_paths(self, paths: list[Path], auto_process: bool = True) -> None:
         """Load PDFs from multiple files/folders (accumulating, not replacing).

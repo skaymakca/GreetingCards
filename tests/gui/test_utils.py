@@ -1,5 +1,8 @@
 """Tests for wxPython utility functions."""
 
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
 import pytest
 import wx
 from PIL import Image
@@ -318,3 +321,65 @@ class TestMessageDialogs:
     def test_confirm_callable(self, wx_frame):
         """Verify confirm is callable (doesn't test display)."""
         assert callable(utils.confirm)
+
+
+class TestOpenFilesAndFolders:
+    """Tests for open_files_and_folders() using mocked NSOpenPanel."""
+
+    @pytest.mark.unit
+    def test_returns_selected_paths(self):
+        """Should return list of Paths when user selects files/folders."""
+        mock_url1 = MagicMock()
+        mock_url1.path.return_value = "/Users/test/Documents/card.pdf"
+        mock_url2 = MagicMock()
+        mock_url2.path.return_value = "/Users/test/Documents/Cards"
+
+        mock_panel = MagicMock()
+        mock_panel.runModal.return_value = 1
+        mock_panel.URLs.return_value = [mock_url1, mock_url2]
+
+        mock_cls = MagicMock()
+        mock_cls.openPanel.return_value = mock_panel
+
+        with patch.object(utils, "NSOpenPanel", mock_cls), \
+             patch.object(utils, "NSModalResponseOK", 1):
+            result = utils.open_files_and_folders("Pick files", ["pdf"])
+
+        assert result == [
+            Path("/Users/test/Documents/card.pdf"),
+            Path("/Users/test/Documents/Cards"),
+        ]
+
+    @pytest.mark.unit
+    def test_returns_empty_on_cancel(self):
+        """Should return empty list when user cancels the dialog."""
+        mock_panel = MagicMock()
+        mock_panel.runModal.return_value = 0
+
+        mock_cls = MagicMock()
+        mock_cls.openPanel.return_value = mock_panel
+
+        with patch.object(utils, "NSOpenPanel", mock_cls), \
+             patch.object(utils, "NSModalResponseOK", 1):
+            result = utils.open_files_and_folders("Pick files", ["pdf"])
+
+        assert result == []
+
+    @pytest.mark.unit
+    def test_configures_panel_correctly(self):
+        """Should configure NSOpenPanel with correct settings."""
+        mock_panel = MagicMock()
+        mock_panel.runModal.return_value = 0
+
+        mock_cls = MagicMock()
+        mock_cls.openPanel.return_value = mock_panel
+
+        with patch.object(utils, "NSOpenPanel", mock_cls), \
+             patch.object(utils, "NSModalResponseOK", 1):
+            utils.open_files_and_folders("Test Message", ["pdf"])
+
+        mock_panel.setCanChooseFiles_.assert_called_once_with(True)
+        mock_panel.setCanChooseDirectories_.assert_called_once_with(True)
+        mock_panel.setAllowsMultipleSelection_.assert_called_once_with(True)
+        mock_panel.setAllowedFileTypes_.assert_called_once_with(["pdf"])
+        mock_panel.setMessage_.assert_called_once_with("Test Message")
