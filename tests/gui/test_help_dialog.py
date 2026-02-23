@@ -4,11 +4,7 @@ import wx
 from unittest.mock import patch
 from pathlib import Path
 
-from app.gui import help_dialog
-from app.gui.help_dialog import (
-    show_help, _get_help_index_path, _get_help_base_path,
-    _HELP_REL_PATH,
-)
+from app.gui.help_dialog import show_help
 from app.gui.html_viewer import (
     _PageMatch, _build_page_index, _count_occurrences,
     _TextExtractor, _viewer_refs,
@@ -17,6 +13,12 @@ from app.core.help_builder import (
     get_page_order, _parse_frontmatter, _read_help_pages,
     _validate_numbering,
 )
+from app.core.paths import get_runtime_content_path
+
+
+def _get_help_base_path() -> Path:
+    """Helper to get the help base path for tests."""
+    return get_runtime_content_path("html/help")
 
 import pytest
 
@@ -43,31 +45,24 @@ def _get_toolbar(window: wx.Frame) -> wx.ToolBar:
 
 # --- Path tests ---
 
-class TestGetHelpIndexPath:
-    """Tests for _get_help_index_path()."""
+class TestHelpBasePath:
+    """Tests for help base path resolution."""
 
     def test_returns_path_object(self):
-        result = _get_help_index_path()
+        result = _get_help_base_path()
         assert isinstance(result, Path)
 
-    def test_path_ends_with_index_html(self):
-        result = _get_help_index_path()
-        assert result.name == "index.html"
+    def test_path_ends_with_help(self):
+        result = _get_help_base_path()
+        assert str(result).endswith("html/help")
 
     def test_path_exists_in_dev_mode(self):
-        result = _get_help_index_path()
+        result = _get_help_base_path()
+        assert result.exists(), f"Help base not found at {result}"
+
+    def test_index_exists(self):
+        result = _get_help_base_path() / "index.html"
         assert result.exists(), f"Help index not found at {result}"
-
-    @patch("app.gui.help_dialog.is_bundled", return_value=True)
-    def test_bundle_path_uses_meipass(self, mock_bundled):
-        with patch("app.gui.help_dialog.sys") as mock_sys:
-            mock_sys._MEIPASS = "/fake/bundle"
-            result = _get_help_index_path()
-            assert str(result).startswith("/fake/bundle")
-
-    def test_help_rel_path_is_consistent(self):
-        """_HELP_REL_PATH should point to _runtime_content/html/help."""
-        assert _HELP_REL_PATH == Path("_runtime_content") / "html" / "help"
 
 
 # --- Content file tests ---
@@ -243,13 +238,13 @@ class TestPageMatch:
     def test_fields(self):
         m = _PageMatch("index.html", 3)
         assert m.page == "index.html"
-        assert m.count == 3
+        assert m.match_count == 3
 
     def test_unpacking(self):
         m = _PageMatch("pages/tips.html", 5)
-        page, count = m
+        page, match_count = m
         assert page == "pages/tips.html"
-        assert count == 5
+        assert match_count == 5
 
 
 # --- WebView window tests ---

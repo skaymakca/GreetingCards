@@ -29,7 +29,7 @@ _DEBOUNCE_MS = 200
 class _PageMatch(NamedTuple):
     """A page that matched a search query."""
     page: str
-    count: int
+    match_count: int
 
 
 class _TextExtractor(HTMLParser):
@@ -51,7 +51,7 @@ class _TextExtractor(HTMLParser):
             return
         if tag == "div":
             if not self._in_content:
-                classes = dict(attrs).get("class", "").split()
+                classes = (dict(attrs).get("class") or "").split()
                 if "content" in classes:
                     self._in_content = True
                     self._content_depth = 1
@@ -221,11 +221,11 @@ class HTMLViewerWindow:
             toolbar.EnableTool(next_id, 0 <= idx < len(page_order) - 1)
 
         def _total_matches() -> int:
-            return sum(m.count for m in search_pages)
+            return sum(m.match_count for m in search_pages)
 
         def _global_position() -> int:
             nonlocal page_cursor, match_cursor
-            return sum(m.count for m in search_pages[:page_cursor]) + match_cursor + 1
+            return sum(m.match_count for m in search_pages[:page_cursor]) + match_cursor + 1
 
         def _update_search_ui() -> None:
             total = _total_matches()
@@ -360,13 +360,13 @@ class HTMLViewerWindow:
                 _update_search_ui()
             else:
                 prev_pg = (page_cursor - 1) % len(search_pages)
-                _navigate_to_page(prev_pg, search_pages[prev_pg].count - 1)
+                _navigate_to_page(prev_pg, search_pages[prev_pg].match_count - 1)
 
         def on_next_match(evt: wx.CommandEvent) -> None:
             nonlocal match_cursor
             if not search_pages:
                 return
-            if match_cursor < search_pages[page_cursor].count - 1:
+            if match_cursor < search_pages[page_cursor].match_count - 1:
                 match_cursor += 1
                 _focus_match(match_cursor)
                 _update_search_ui()

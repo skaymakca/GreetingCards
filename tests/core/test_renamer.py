@@ -511,3 +511,120 @@ class TestFindAvailableNameSafetyLimit:
         existing = {f"smith ({n}).pdf" for n in range(2, _MAX_DUPLICATE_NUMBER + 1)}
         with pytest.raises(RuntimeError, match="Cannot find available filename"):
             _find_available_name(Path("/dir"), "Smith", ".pdf", existing)
+
+
+class TestExecuteRenamePlanErrorPaths:
+    """Tests for execute_rename_plan error and edge case paths."""
+
+    def test_special_chars_in_filename(self, tmp_path):
+        """Filenames with special characters (spaces, hyphens, parens) rename correctly."""
+        old_file = tmp_path / "card (copy).pdf"
+        old_file.touch()
+        new_path = tmp_path / "Holiday Cards 2024 - O'Brien Family.pdf"
+
+        card = _make_card(1, [old_file], family_name="O'Brien")
+        plan = [RenamePlanItem(old_file, new_path, STATUS_OK, card=card)]
+
+        results = execute_rename_plan(plan)
+
+        assert len(results) == 1
+        assert results[0].success is True
+        assert new_path.exists()
+
+    def test_target_dir_missing(self, tmp_path):
+        """Rename to a nonexistent directory fails with OSError."""
+        old_file = tmp_path / "card.pdf"
+        old_file.touch()
+        new_path = tmp_path / "nonexistent_dir" / "new.pdf"
+
+        card = _make_card(1, [old_file], family_name="Smith")
+        plan = [RenamePlanItem(old_file, new_path, STATUS_OK, card=card)]
+
+        results = execute_rename_plan(plan)
+
+        assert len(results) == 1
+        assert results[0].success is False
+
+    def test_duplicate_status_renames_successfully(self, tmp_path):
+        """Items with STATUS_DUPLICATE are renamed (not skipped)."""
+        old_file = tmp_path / "card.pdf"
+        old_file.touch()
+        new_path = tmp_path / "Holiday Cards 2024 - Smith Family (2).pdf"
+
+        card = _make_card(1, [old_file], family_name="Smith")
+        plan = [RenamePlanItem(old_file, new_path, STATUS_DUPLICATE, card=card)]
+
+        results = execute_rename_plan(plan)
+
+        assert len(results) == 1
+        assert results[0].success is True
+        assert results[0].message == "Renamed"
+        assert new_path.exists()
+        assert not old_file.exists()
+
+    def test_partial_failure(self, tmp_path):
+        """When one rename fails, others still succeed."""
+        good_file = tmp_path / "good.pdf"
+        good_file.touch()
+        bad_file = tmp_path / "nonexistent.pdf"  # doesn't exist
+
+        good_new = tmp_path / "Holiday Cards 2024 - Smith Family.pdf"
+        bad_new = tmp_path / "Holiday Cards 2024 - Jones Family.pdf"
+
+        card_good = _make_card(1, [good_file], family_name="Smith")
+        card_bad = _make_card(2, [bad_file], family_name="Jones")
+
+        plan = [
+            RenamePlanItem(good_file, good_new, STATUS_OK, card=card_good),
+            RenamePlanItem(bad_file, bad_new, STATUS_OK, card=card_bad),
+        ]
+
+        results = execute_rename_plan(plan)
+
+        assert len(results) == 2
+        assert results[0].success is True
+        assert results[1].success is False
+        assert good_new.exists()
+
+    def test_card_path_mismatch(self, tmp_path):
+        """Rename succeeds when card.file_paths doesn't contain old_path (logs debug)."""
+        old_file = tmp_path / "card.pdf"
+        old_file.touch()
+        new_path = tmp_path / "renamed.pdf"
+
+        # Card has different paths than the plan item
+        card = _make_card(1, [Path("/some/other/path.pdf")], family_name="Smith")
+        plan = [RenamePlanItem(old_file, new_path, STATUS_OK, card=card)]
+
+        results = execute_rename_plan(plan)
+
+        assert results[0].success is True
+        assert new_path.exists()
+        # Card's file_paths unchanged since old_path wasn't found
+        assert card.file_paths == [Path("/some/other/path.pdf")]
+        # primary_path unchanged since it didn't match
+        assert card.primary_path == Path("/some/other/path.pdf")
+
+    def test_os_error_message_preserved(self, tmp_path):
+        """OSError message is preserved in the result."""
+        old_file = tmp_path / "card.pdf"
+        old_file.touch()
+        # Target in read-only directory
+        import os
+        readonly_dir = tmp_path / "readonly"
+        readonly_dir.mkdir()
+        os.chmod(readonly_dir, 0o555)
+        new_path = readonly_dir / "new.pdf"
+
+        try:
+            card = _make_card(1, [old_file], family_name="Smith")
+            plan = [RenamePlanItem(old_file, new_path, STATUS_OK, card=card)]
+
+            results = execute_rename_plan(plan)
+
+            assert len(results) == 1
+            assert results[0].success is False
+            # Error message should be non-empty
+            assert len(results[0].message) > 0
+        finally:
+            os.chmod(readonly_dir, 0o755)

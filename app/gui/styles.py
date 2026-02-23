@@ -138,6 +138,9 @@ class Layout:
     YEAR_WIDTH = 60
     MIN_FRAME_SIZE = (800, 500)
 
+    # Splitter sash position
+    CONTENT_SASH_GRAVITY = 0.55  # Cards panel gets slightly more space
+
     # Drag highlight drawing
     HIGHLIGHT_WIDTH = 3
     HIGHLIGHT_RADIUS = 6

@@ -46,10 +46,10 @@ class TableModel(dv.PyDataViewModel):
         """Return number of columns."""
         return len(self.data[0]) if self.data else 0
 
-    def GetChildren(self, parent, children) -> int:
+    def GetChildren(self, item, children) -> int:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Return list of children for parent item."""
         # For a flat list, root has all items as children
-        if not parent:
+        if not item:
             for i in range(len(self.data)):
                 children.append(self.ObjectToItem(i))
             return len(self.data)
@@ -138,8 +138,8 @@ class ProgressDialog(wx.Dialog):
         # Center on parent
         self.CenterOnParent()
 
-        # Prevent closing
-        self.Bind(wx.EVT_CLOSE, lambda evt: None)
+        # Prevent closing (Veto the close event so the dialog stays open)
+        self.Bind(wx.EVT_CLOSE, lambda evt: evt.Veto())
 
     def update_progress(self, current: int, message: str = "") -> None:
         """Update progress bar and labels.

@@ -22,5 +22,18 @@ def get_data_dir() -> Path:
     return data_dir
 
 
+def get_runtime_content_path(rel_path: str = "") -> Path:
+    """Return path under _runtime_content/ (works in both dev and bundled mode).
+
+    Args:
+        rel_path: Relative path within _runtime_content (e.g. "tessdata", "html/help")
+    """
+    if is_bundled():
+        base = Path(sys._MEIPASS) / "_runtime_content"  # type: ignore[attr-defined]
+    else:
+        base = Path(__file__).resolve().parent.parent.parent / "_runtime_content"
+    return base / rel_path if rel_path else base
+
+
 def get_db_path() -> Path:
     return get_data_dir() / "GreetingCards.sqlite"

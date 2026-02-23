@@ -777,7 +777,7 @@ class TestNameCharFiltering:
             event = Mock(spec=wx.KeyEvent)
             event.GetUnicodeKey.return_value = ord(char)
             detail._on_name_char(event)
-            event.Skip.assert_not_called(), f"Should block '{char}'"
+            event.Skip.assert_not_called()
 
     def test_allows_normal_letters(self, parent_frame):
         """_on_name_char allows regular letters through."""

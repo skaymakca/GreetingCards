@@ -27,7 +27,6 @@ Scans holiday/greeting card PDFs, extracts family names via OCR and AI, and batc
 
 - Python 3.14
 - [uv](https://docs.astral.sh/uv/) (`brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`)
-- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) (`brew install tesseract`)
 
 ## Quick Start
 
@@ -179,8 +178,8 @@ tests/
 
 ### Current Coverage
 
-- **1151 tests** covering core logic and GUI components
-- **Core** (13 test files): AI analysis, card model, config, database, filename sanitization, name extraction, name formatting, OCR engine, paths, PDF rendering, renamer, template environment, version
+- **1187 tests** covering core logic and GUI components
+- **Core** (14 test files): AI analysis, card model, config, database, filename sanitization, name extraction, name formatting, OCR engine, paths, PDF rendering, PDF worker, renamer, template environment, version
 - **GUI** (14 test files): API key dialog, context menu, dialogs, filter sidebar, help system, icons, main window, preview cursor behavior, preview panel, review panel, settings, styles, utilities
 
 ### Adding Tests

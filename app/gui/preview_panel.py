@@ -470,7 +470,7 @@ class PreviewPanel(wx.Panel):
         # Scale image
         new_w = max(1, int(iw * scale))
         new_h = max(1, int(ih * scale))
-        resized = img.resize((new_w, new_h), Image.LANCZOS)
+        resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
 
         # Convert to wx.Bitmap
         self._bitmap_cache = utils.pil_to_bitmap(resized)

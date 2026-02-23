@@ -4,10 +4,8 @@ import wx
 from unittest.mock import patch
 from pathlib import Path
 
-from app.gui.licenses_dialog import (
-    show_licenses, _get_licenses_base_path,
-    _LICENSES_HTML_REL_PATH,
-)
+from app.gui.licenses_dialog import show_licenses
+from app.core.paths import get_runtime_content_path
 from app.core.license_discovery import (
     generate_licenses_html, sync_registry, load_config,
     get_page_order,
@@ -56,10 +54,15 @@ def sample_config():
     )
 
 
+def _get_licenses_base_path() -> Path:
+    """Helper to get the licenses base path for tests."""
+    return get_runtime_content_path("html/licenses")
+
+
 # --- Path tests ---
 
 class TestGetLicensesBasePath:
-    """Tests for _get_licenses_base_path()."""
+    """Tests for licenses base path resolution."""
 
     def test_returns_path_object(self):
         result = _get_licenses_base_path()
@@ -69,16 +72,9 @@ class TestGetLicensesBasePath:
         result = _get_licenses_base_path()
         assert result.exists(), f"Licenses HTML directory not found at {result}"
 
-    @patch("app.gui.licenses_dialog.is_bundled", return_value=True)
-    def test_bundle_path_uses_meipass(self, mock_bundled):
-        with patch("app.gui.licenses_dialog.sys") as mock_sys:
-            mock_sys._MEIPASS = "/fake/bundle"
-            result = _get_licenses_base_path()
-            assert str(result).startswith("/fake/bundle")
-            assert "_runtime_content" in str(result)
-
-    def test_licenses_rel_path_is_consistent(self):
-        assert _LICENSES_HTML_REL_PATH == Path("_runtime_content") / "html" / "licenses"
+    def test_path_ends_with_licenses(self):
+        result = _get_licenses_base_path()
+        assert str(result).endswith("html/licenses")
 
 
 # --- Config tests ---

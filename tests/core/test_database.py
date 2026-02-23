@@ -772,3 +772,107 @@ class TestClearAIResults:
     def test_empty_hashes_returns_zero(self):
         """Passing empty list returns 0 without error."""
         assert clear_ai_results([]) == 0
+
+
+class TestClearAIResultsEdgeCases:
+    """Edge case tests for clear_ai_results()."""
+
+    def test_nonexistent_hash(self):
+        """Nonexistent hash doesn't error and returns 0."""
+        changed = clear_ai_results(["nonexistent_hash"])
+        assert changed == 0
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_manual_plus_ai_preserves_manual(self, mock_title, mock_clean):
+        """Card with manual entry + AI selected: manual preserved, AI cleared."""
+        create_or_update_card("hash1")
+        ai_cid = add_candidate("hash1", "AiName", "ai", "high")
+        # Set manual name (this clears selected_candidate_id)
+        set_manual_name("hash1", "ManualName")
+        # Now also have AI candidate (but not selected due to manual)
+        save_raw_ai("hash1", "AiName", [])
+
+        changed = clear_ai_results(["hash1"])
+
+        state = get_card_state("hash1")
+        assert state.display_name == "ManualName"
+        assert state.method == "manual"
+        # AI candidate should be gone
+        candidates = get_candidates("hash1")
+        assert all(c.method != "ai" for c in candidates)
+        # No selection changed (manual was already selected)
+        assert changed == 0
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_multi_ocr_selects_best(self, mock_title, mock_clean):
+        """After clearing AI, best OCR candidate (by confidence) is selected."""
+        create_or_update_card("hash1")
+        ocr_low = add_candidate("hash1", "LowName", "ocr", "low")
+        ocr_high = add_candidate("hash1", "HighName", "ocr", "high")
+        ai_cid = add_candidate("hash1", "AiName", "ai", "high")
+        select_candidate("hash1", ai_cid)
+
+        clear_ai_results(["hash1"])
+
+        state = get_card_state("hash1")
+        assert state.selected_candidate_id == ocr_high
+        assert state.display_name == "HighName"
+        assert state.confidence == "high"
+
+
+class TestReprocessCandidatesEdgeCases:
+    """Edge case tests for reprocess_candidates_from_raw()."""
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_empty_ocr_text(self, mock_title, mock_clean):
+        """Empty OCR text produces no OCR candidates."""
+        create_or_update_card("hash1")
+        save_raw_ocr("hash1", "")
+        reprocess_candidates_from_raw("hash1")
+        candidates = get_candidates("hash1")
+        # No meaningful names from empty text
+        assert len(candidates) == 0
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_empty_best_name_and_alternates(self, mock_title, mock_clean):
+        """AI result with empty best_name and no alternates produces no AI candidates."""
+        create_or_update_card("hash1")
+        save_raw_ai("hash1", "", [])
+        reprocess_candidates_from_raw("hash1")
+        candidates = get_candidates("hash1")
+        ai_candidates = [c for c in candidates if c.method == "ai"]
+        assert len(ai_candidates) == 0
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_no_alternates(self, mock_title, mock_clean):
+        """AI result with only best_name and no alternates produces one AI candidate."""
+        create_or_update_card("hash1")
+        save_raw_ai("hash1", "Smith", [])
+        reprocess_candidates_from_raw("hash1")
+        candidates = get_candidates("hash1")
+        ai_candidates = [c for c in candidates if c.method == "ai"]
+        assert len(ai_candidates) == 1
+        assert ai_candidates[0].family_name == "Smith"
+        assert ai_candidates[0].confidence == "high"
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_corrupted_json(self, mock_title, mock_clean):
+        """Corrupted JSON in raw_ai_results raises during reprocessing."""
+        create_or_update_card("hash1")
+        # Directly insert corrupted JSON into raw_ai_results
+        session = db_mod._Session()
+        from app.core.database import RawAIResult
+        card = session.query(Card).filter_by(file_hash="hash1").first()
+        ai_result = RawAIResult(file_hash="hash1", raw_response="not valid json{{{")
+        session.add(ai_result)
+        session.commit()
+        session.close()
+
+        with pytest.raises(Exception):
+            reprocess_candidates_from_raw("hash1")

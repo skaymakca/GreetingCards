@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import logging
 import wx
 
 # NSImage rendering constants
@@ -177,7 +178,6 @@ def load_cursor_from_symbol(
         return wx.Cursor(wx_image)
 
     except Exception as e:
-        import logging
         logging.getLogger(__name__).warning("Failed to load cursor from SF Symbol '%s': %s", name, e)
         return None
 

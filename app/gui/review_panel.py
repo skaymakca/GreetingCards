@@ -133,11 +133,11 @@ class CardListModel(dv.PyDataViewModel):
         """3 columns: dot, filename, family name."""
         return 3
 
-    def GetColumnType(self, col) -> str:
+    def GetColumnType(self, col: int) -> str:  # pyright: ignore[reportIncompatibleMethodOverride]
         """All columns return strings (we'll use custom renderer for dot)."""
         return "string"
 
-    def GetChildren(self, parent, children) -> int:
+    def GetChildren(self, parent, children) -> int:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Flat list - root has all cards, cards have no children."""
         if not parent.IsOk():  # Root
             for i in range(len(self._cards)):
@@ -153,7 +153,7 @@ class CardListModel(dv.PyDataViewModel):
         """All items are children of root."""
         return dv.NullDataViewItem
 
-    def GetValue(self, item, col) -> str:
+    def GetValue(self, item, col) -> str:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Return value for cell."""
         row = self.ItemToObject(item)
         if row < 0 or row >= len(self._cards):
@@ -177,11 +177,11 @@ class CardListModel(dv.PyDataViewModel):
             case _:
                 return ""
 
-    def SetValue(self, value, item, col) -> bool:
+    def SetValue(self, value, item, col) -> bool:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Not editable in list (edit in detail panel)."""
         return False
 
-    def GetAttr(self, item, col, attr) -> bool:
+    def GetAttr(self, item, col, attr) -> bool:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Set color for confidence dot and filename (blue for multi-path cards)."""
         row = self.ItemToObject(item)
         if row < 0 or row >= len(self._cards):
@@ -781,6 +781,7 @@ class ReviewPanelMasterDetail(wx.Panel):
             open_item.SetBitmap(open_icon)
 
         # Reveal in Finder (single card only)
+        reveal_item: wx.MenuItem | None = None
         if not is_multi:
             reveal_item = menu.Append(wx.ID_ANY, "Reveal in Finder")
             reveal_icon = load_menu_icon("folder")
@@ -817,13 +818,15 @@ class ReviewPanelMasterDetail(wx.Panel):
                 except OSError:
                     pass
 
-            menu.Bind(wx.EVT_MENU, _reveal_file, reveal_item)
+            menu.Bind(wx.EVT_MENU, _reveal_file, reveal_item)  # reveal_item defined in matching `if not is_multi` above
 
         hashes = [c.file_hash for c in cards if c.file_hash]
         if self._on_remove and hashes:
+            on_remove = self._on_remove
+
             def _remove_cards(evt, _hashes=hashes):
                 for h in _hashes:
-                    self._on_remove(h)
+                    on_remove(h)
 
             menu.Bind(wx.EVT_MENU, _remove_cards, remove_item)
         else:

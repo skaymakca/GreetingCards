@@ -7,7 +7,7 @@ dependencies = [
     "anthropic==0.83.0",
     "pillow==12.1.1",
     "PyMuPDF==1.27.1",
-    "pytesseract==0.3.13",
+    "tesserocr>=2.10.0",
     "pyobjc-framework-Cocoa==12.1",
     "SQLAlchemy==2.0.46",
     "wxPython==4.2.5",
@@ -26,7 +26,6 @@ dev = [
     "markdown>=3.10.2",
     "tomli-w>=1.2.0",
     "opencv-python-headless>=4.13.0.92",
-    "tesserocr>=2.10.0",
     "mypy>=1.19.1",
 ]
 

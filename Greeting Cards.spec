@@ -12,6 +12,13 @@ hiddenimports = []
 tmp_ret = collect_all('wx')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
+# Collect tesserocr shared library and its cysignals dependency
+tmp_ret = collect_all('tesserocr')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
+tmp_ret = collect_all('cysignals')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
 
 a = Analysis(
     ['main.py'],

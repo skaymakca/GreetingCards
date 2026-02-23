@@ -46,7 +46,7 @@ def add_entry_context_menu(text_ctrl: wx.TextCtrl) -> None:
         menu.Destroy()
 
     # Store icons reference to prevent garbage collection
-    text_ctrl._context_menu_icons = icons
+    text_ctrl._context_menu_icons = icons  # pyright: ignore[reportAttributeAccessIssue]  # prevent GC
 
     # Bind right-click event
     text_ctrl.Bind(wx.EVT_CONTEXT_MENU, on_context_menu)

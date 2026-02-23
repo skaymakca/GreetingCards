@@ -27,8 +27,15 @@ url = "https://python.org"
 slug = "tesseract"
 display = "Tesseract OCR"
 license_type = "Apache 2.0"
-notes = "External (not bundled)"
+notes = "Bundled via tesserocr (library, data files, and transitive dependencies)"
 url = "https://github.com/tesseract-ocr/tesseract"
+
+[[system]]
+slug = "leptonica"
+display = "Leptonica"
+license_type = "BSD-2-Clause"
+notes = "Bundled as transitive dependency of tesserocr"
+url = "https://github.com/DanBloomberg/leptonica"
 
 # --- Package overrides (display name, homepage, etc.) ---
 

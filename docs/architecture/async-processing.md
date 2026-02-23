@@ -1,8 +1,8 @@
 # Async Processing
 
-Multiprocessing for PDF rendering, asyncio for AI batch, and thread-safety patterns.
+ProcessPoolExecutor for PDF rendering + OCR, asyncio for AI batch, and thread-safety patterns.
 
-**Key files:** `app/gui/main_window.py` (processing methods), `app/core/ai_analyzer.py`
+**Key files:** `app/core/pdf_worker.py` (subprocess worker), `app/gui/main_window.py` (processing methods), `app/core/ai_analyzer.py`
 
 ## Architecture Overview
 
@@ -19,28 +19,31 @@ Multiprocessing for PDF rendering, asyncio for AI batch, and thread-safety patte
      └─────┬──────┘            └──────┬──────┘
            │                          │
   ┌────────▼─────────┐      ┌────────▼─────────┐
-  │ multiprocessing  │      │ asyncio.Semaphore │
-  │     Pool         │      │   (3 concurrent)  │
-  │  N/2 workers     │      │                   │
+  │ ProcessPool      │      │ asyncio.Semaphore │
+  │   Executor       │      │   (3 concurrent)  │
+  │ OCR_WORKERS      │      │                   │
   └──────────────────┘      └───────────────────┘
 ```
 
-## PDF Processing: Multiprocessing Pool
+## PDF Processing: ProcessPoolExecutor
 
 ### Entry Point: `_start_processing()`
 1. Shows ProgressDialog, begins busy cursor
 2. Spawns `threading.Thread(target=_process_cards)`
 
-### Worker: `_process_pdf_worker()` (module-level function)
-Runs in a **separate process** (via `multiprocessing.Pool`). Must be module-level (not a method) for pickling.
+### Worker: `process_pdf_worker()` in `app/core/pdf_worker.py`
+Runs in a **separate process** (via `ProcessPoolExecutor`). Must be module-level (not a method) for pickling. Lives in the core layer since it contains only core logic (PDF rendering, OCR, database ops, image serialization) with zero GUI dependencies.
 
 Each worker:
 1. `compute_file_hash()` → SHA256
 2. `get_card_state()` → check DB cache
 3. `render_all_pages()` → PIL images at 200 DPI
 4. If cached: `reprocess_candidates_from_raw()` (re-applies current cleaning)
-5. If new: `extract_text_all_pages()` → OCR, then save + reprocess
+5. If new: `extract_text_all_pages()` → OCR via tesserocr (PSM AUTO, dict penalty 0.15), then save + reprocess
 6. Returns a **plain dict** (not CardResult — must be picklable)
+
+### Worker Count
+`OCR_WORKERS = cpu_count()` (defined in `app/core/constants.py`). Uses all available cores since OCR is CPU-bound and workers spend time in C++ tesserocr calls.
 
 ### Image Serialization
 PIL Images can't be pickled across processes. The worker serializes them:
@@ -58,9 +61,6 @@ card.preview_image = Image.open(io.BytesIO(result_dict['preview_image_bytes']))
 In `_process_cards()` (background thread, receiving results):
 - Hash already in `_cards_by_hash` → add path to existing card
 - New hash → `_dict_to_card()` creates CardResult with next monotonic ID
-
-### Fallback
-If `multiprocessing.Pool` fails (common in frozen apps), `_process_cards_sequential()` runs everything in the background thread directly.
 
 ## AI Analysis
 
@@ -126,7 +126,8 @@ Both PDF processing and AI batch use `ProgressDialog`:
 ## Gotchas
 
 - **spawn method:** `multiprocessing.set_start_method('spawn', force=True)` is required for PyInstaller-bundled apps (fork doesn't work with frozen modules).
-- **Module-level worker:** `_process_pdf_worker` is defined at module level, not as a method. Methods can't be pickled for multiprocessing.
+- **Module-level worker:** `process_pdf_worker` is defined at module level in `app/core/pdf_worker.py`, not as a method. Methods can't be pickled for multiprocessing.
 - **Semaphore(3):** Limits concurrent API calls to prevent rate limiting. The Anthropic API has per-account rate limits.
 - **asyncio.run() in thread:** Creates a new event loop in the background thread. The main thread's wx event loop is separate.
 - **Busy cursor:** `wx.BeginBusyCursor()` / `wx.EndBusyCursor()` bracket processing. Guard: `if wx.IsBusy()` prevents double-end.
+- **tesserocr C API:** Uses tesserocr (C++ bindings to Tesseract) instead of pytesseract (CLI wrapper). No binary path resolution needed — tesserocr links directly to libtesseract. Tessdata (`eng.traineddata`) is bundled in `_runtime_content/tessdata/` and the path is set deterministically via `_get_tessdata_path()` in `ocr_engine.py` (uses `sys._MEIPASS` when bundled, project root in dev).

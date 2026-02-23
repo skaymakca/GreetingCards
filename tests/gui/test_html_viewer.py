@@ -215,13 +215,13 @@ class TestPageMatch:
     def test_fields(self):
         m = _PageMatch("index.html", 3)
         assert m.page == "index.html"
-        assert m.count == 3
+        assert m.match_count == 3
 
     def test_unpacking(self):
         m = _PageMatch("pages/tips.html", 5)
-        page, count = m
+        page, match_count = m
         assert page == "pages/tips.html"
-        assert count == 5
+        assert match_count == 5
 
 
 # --- WebView window tests ---

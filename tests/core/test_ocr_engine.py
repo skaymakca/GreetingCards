@@ -6,7 +6,7 @@ from PIL import Image
 
 import app.core.ocr_engine as ocr_module
 from app.core.ocr_engine import (
-    preprocess_image, extract_text, extract_text_all_pages, is_tesseract_available,
+    preprocess_image, extract_text, extract_text_all_pages,
 )
 
 
@@ -43,25 +43,50 @@ class TestPreprocessImage:
 class TestExtractText:
     """Tests for extract_text()."""
 
-    @patch("app.core.ocr_engine.pytesseract.image_to_string")
-    def test_calls_pytesseract(self, mock_ocr):
-        mock_ocr.return_value = "Hello World"
+    @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI")
+    def test_calls_tesserocr(self, mock_api_cls):
+        mock_api = MagicMock()
+        mock_api.__enter__ = MagicMock(return_value=mock_api)
+        mock_api.__exit__ = MagicMock(return_value=False)
+        mock_api.GetUTF8Text.return_value = "Hello World"
+        mock_api_cls.return_value = mock_api
         img = _make_test_image()
         result = extract_text(img)
         assert result == "Hello World"
-        mock_ocr.assert_called_once()
+        mock_api.SetImage.assert_called_once()
+        mock_api.GetUTF8Text.assert_called_once()
 
-    @patch("app.core.ocr_engine.pytesseract.image_to_string")
-    def test_passes_psm6_config(self, mock_ocr):
-        mock_ocr.return_value = ""
+    @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI")
+    def test_sets_psm_auto(self, mock_api_cls):
+        mock_api = MagicMock()
+        mock_api.__enter__ = MagicMock(return_value=mock_api)
+        mock_api.__exit__ = MagicMock(return_value=False)
+        mock_api.GetUTF8Text.return_value = ""
+        mock_api_cls.return_value = mock_api
         img = _make_test_image()
         extract_text(img)
-        _, kwargs = mock_ocr.call_args
-        assert "--psm 6" in kwargs.get("config", "")
+        mock_api.SetPageSegMode.assert_called_once()
 
-    @patch("app.core.ocr_engine.pytesseract.image_to_string")
-    def test_strips_result(self, mock_ocr):
-        mock_ocr.return_value = "  text with spaces  \n"
+    @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI")
+    def test_sets_dict_penalty(self, mock_api_cls):
+        mock_api = MagicMock()
+        mock_api.__enter__ = MagicMock(return_value=mock_api)
+        mock_api.__exit__ = MagicMock(return_value=False)
+        mock_api.GetUTF8Text.return_value = ""
+        mock_api_cls.return_value = mock_api
+        img = _make_test_image()
+        extract_text(img)
+        mock_api.SetVariable.assert_called_once_with(
+            "language_model_penalty_non_dict_word", "0.15"
+        )
+
+    @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI")
+    def test_strips_result(self, mock_api_cls):
+        mock_api = MagicMock()
+        mock_api.__enter__ = MagicMock(return_value=mock_api)
+        mock_api.__exit__ = MagicMock(return_value=False)
+        mock_api.GetUTF8Text.return_value = "  text with spaces  \n"
+        mock_api_cls.return_value = mock_api
         result = extract_text(_make_test_image())
         assert result == "text with spaces"
 
@@ -69,115 +94,140 @@ class TestExtractText:
 class TestExtractTextAllPages:
     """Tests for extract_text_all_pages()."""
 
-    @patch("app.core.ocr_engine.pytesseract.image_to_string")
-    def test_combines_pages(self, mock_ocr):
-        mock_ocr.side_effect = ["Page 1 text", "Page 2 text"]
+    @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI")
+    def test_combines_pages(self, mock_api_cls):
+        texts = iter(["Page 1 text", "Page 2 text"])
+        mock_api = MagicMock()
+        mock_api.__enter__ = MagicMock(return_value=mock_api)
+        mock_api.__exit__ = MagicMock(return_value=False)
+        mock_api.GetUTF8Text.side_effect = lambda: next(texts)
+        mock_api_cls.return_value = mock_api
         images = [_make_test_image(), _make_test_image()]
         result = extract_text_all_pages(images)
         assert "Page 1 text" in result
         assert "Page 2 text" in result
         assert "\n\n" in result
 
-    @patch("app.core.ocr_engine.pytesseract.image_to_string")
-    def test_empty_list(self, mock_ocr):
+    @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI")
+    def test_empty_list(self, mock_api_cls):
         result = extract_text_all_pages([])
         assert result == ""
-        mock_ocr.assert_not_called()
+        mock_api_cls.assert_not_called()
 
-    @patch("app.core.ocr_engine.pytesseract.image_to_string")
-    def test_skips_empty_pages(self, mock_ocr):
-        mock_ocr.side_effect = ["Page 1", "", "Page 3"]
+    @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI")
+    def test_skips_empty_pages(self, mock_api_cls):
+        texts = iter(["Page 1", "", "Page 3"])
+        mock_api = MagicMock()
+        mock_api.__enter__ = MagicMock(return_value=mock_api)
+        mock_api.__exit__ = MagicMock(return_value=False)
+        mock_api.GetUTF8Text.side_effect = lambda: next(texts)
+        mock_api_cls.return_value = mock_api
         images = [_make_test_image(), _make_test_image(), _make_test_image()]
         result = extract_text_all_pages(images)
         assert result == "Page 1\n\nPage 3"
 
 
-class TestBundledTesseractPathResolution:
-    """Tests for bundled app Tesseract path resolution (lines 10-19)."""
+class TestTessdataPath:
+    """Tests for tessdata path resolution."""
 
-    def test_bundled_finds_homebrew_arm(self):
-        """When bundled and no tesseract in PATH, finds Apple Silicon Homebrew path."""
+    def test_dev_path_points_to_runtime_content(self):
+        """In dev mode, tessdata path is under project root/_runtime_content/tessdata."""
         import importlib
-        import app.core.ocr_engine as ocr_mod
+        import sys
 
-        with patch("app.core.paths.is_bundled", return_value=True), \
-             patch("shutil.which", return_value=None), \
-             patch("os.path.isfile") as mock_isfile, \
-             patch("os.access") as mock_access:
-            mock_isfile.side_effect = lambda p: p == "/opt/homebrew/bin/tesseract"
-            mock_access.side_effect = lambda p, _: p == "/opt/homebrew/bin/tesseract"
-            importlib.reload(ocr_mod)
+        # In dev mode sys._MEIPASS does not exist — just reload
+        if hasattr(sys, '_MEIPASS'):
+            delattr(sys, '_MEIPASS')
+        importlib.reload(ocr_module)
+        path = ocr_module._tessdata_path
+        assert path.endswith("_runtime_content/tessdata")
+        assert "_MEIPASS" not in path
 
-            assert ocr_mod.pytesseract.pytesseract.tesseract_cmd == "/opt/homebrew/bin/tesseract"
-
-        # Restore module to clean state
-        importlib.reload(ocr_mod)
-
-    def test_bundled_finds_intel_homebrew(self):
-        """When ARM path doesn't exist, falls back to Intel Homebrew path."""
+    def test_bundled_path_uses_meipass(self):
+        """In bundled app, tessdata path is under sys._MEIPASS/_runtime_content/tessdata."""
         import importlib
-        import app.core.ocr_engine as ocr_mod
+        import sys
 
-        with patch("app.core.paths.is_bundled", return_value=True), \
-             patch("shutil.which", return_value=None), \
-             patch("os.path.isfile") as mock_isfile, \
-             patch("os.access") as mock_access:
-            mock_isfile.side_effect = lambda p: p == "/usr/local/bin/tesseract"
-            mock_access.side_effect = lambda p, _: p == "/usr/local/bin/tesseract"
-            importlib.reload(ocr_mod)
-
-            assert ocr_mod.pytesseract.pytesseract.tesseract_cmd == "/usr/local/bin/tesseract"
-
-        importlib.reload(ocr_mod)
-
-    def test_not_bundled_skips_path_search(self):
-        """When not bundled, does not search for tesseract binary."""
-        import importlib
-        import app.core.ocr_engine as ocr_mod
-
-        with patch("app.core.paths.is_bundled", return_value=False), \
-             patch("os.path.isfile") as mock_isfile:
-            importlib.reload(ocr_mod)
-            mock_isfile.assert_not_called()
-
-        importlib.reload(ocr_mod)
+        sys._MEIPASS = "/tmp/fake_meipass"  # type: ignore[attr-defined]
+        try:
+            importlib.reload(ocr_module)
+            assert ocr_module._tessdata_path == "/tmp/fake_meipass/_runtime_content/tessdata"
+        finally:
+            del sys._MEIPASS  # type: ignore[attr-defined]
+            importlib.reload(ocr_module)
 
 
-class TestTesseractAvailability:
-    """Tests for is_tesseract_available() and graceful degradation."""
+class TestPreprocessImageModes:
+    """Tests for preprocess_image() with different input modes."""
 
-    def setup_method(self):
-        ocr_module._tesseract_available = None
+    def test_rgba_input(self):
+        """RGBA image is converted to grayscale."""
+        img = Image.new("RGBA", (100, 50), (255, 0, 0, 128))
+        result = preprocess_image(img)
+        assert result.mode == "L"
+        assert result.size == (100, 50)
 
-    def teardown_method(self):
-        ocr_module._tesseract_available = None
+    def test_palette_input(self):
+        """Palette (P) mode image is converted to grayscale."""
+        img = Image.new("P", (100, 50))
+        result = preprocess_image(img)
+        assert result.mode == "L"
+        assert result.size == (100, 50)
 
-    @patch("app.core.ocr_engine.shutil.which", return_value="/opt/homebrew/bin/tesseract")
-    def test_available_when_in_path(self, mock_which):
-        assert is_tesseract_available() is True
-        assert ocr_module._tesseract_available is True
+    def test_one_bit_input(self):
+        """1-bit (binary) image is converted to grayscale."""
+        img = Image.new("1", (100, 50))
+        result = preprocess_image(img)
+        assert result.mode == "L"
+        assert result.size == (100, 50)
 
-    @patch("app.core.ocr_engine.pytesseract.get_tesseract_version",
-           side_effect=ocr_module.pytesseract.TesseractNotFoundError)
-    @patch("app.core.ocr_engine.shutil.which", return_value=None)
-    def test_unavailable_when_not_found(self, mock_which, mock_version):
-        assert is_tesseract_available() is False
-        assert ocr_module._tesseract_available is False
 
-    @patch("app.core.ocr_engine.shutil.which", return_value="/usr/bin/tesseract")
-    def test_caches_result(self, mock_which):
-        assert is_tesseract_available() is True
-        mock_which.reset_mock()
-        # Second call should use cache
-        assert is_tesseract_available() is True
-        mock_which.assert_not_called()
+class TestExtractTextErrors:
+    """Tests for extract_text() error handling."""
 
-    def test_extract_text_returns_empty_when_unavailable(self):
-        ocr_module._tesseract_available = False
-        img = _make_test_image()
-        assert extract_text(img) == ""
+    @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI", side_effect=RuntimeError("init failed"))
+    def test_tesseract_init_failure(self, mock_api_cls):
+        """Tesseract initialization failure raises RuntimeError."""
+        with pytest.raises(RuntimeError, match="init failed"):
+            extract_text(_make_test_image())
 
-    def test_extract_text_all_pages_returns_empty_when_unavailable(self):
-        ocr_module._tesseract_available = False
-        images = [_make_test_image(), _make_test_image()]
-        assert extract_text_all_pages(images) == ""
+    @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI")
+    def test_get_utf8_text_exception(self, mock_api_cls):
+        """GetUTF8Text exception propagates."""
+        mock_api = MagicMock()
+        mock_api.__enter__ = MagicMock(return_value=mock_api)
+        mock_api.__exit__ = MagicMock(return_value=False)
+        mock_api.GetUTF8Text.side_effect = RuntimeError("extraction failed")
+        mock_api_cls.return_value = mock_api
+
+        with pytest.raises(RuntimeError, match="extraction failed"):
+            extract_text(_make_test_image())
+
+
+class TestExtractTextAllPagesEdgeCases:
+    """Edge case tests for extract_text_all_pages()."""
+
+    @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI")
+    def test_single_page_no_separator(self, mock_api_cls):
+        """Single page result has no separator."""
+        mock_api = MagicMock()
+        mock_api.__enter__ = MagicMock(return_value=mock_api)
+        mock_api.__exit__ = MagicMock(return_value=False)
+        mock_api.GetUTF8Text.return_value = "Single page text"
+        mock_api_cls.return_value = mock_api
+
+        result = extract_text_all_pages([_make_test_image()])
+        assert result == "Single page text"
+        assert "\n\n" not in result
+
+    @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI")
+    def test_all_pages_empty(self, mock_api_cls):
+        """All pages returning empty text gives empty result."""
+        mock_api = MagicMock()
+        mock_api.__enter__ = MagicMock(return_value=mock_api)
+        mock_api.__exit__ = MagicMock(return_value=False)
+        mock_api.GetUTF8Text.return_value = "   "  # whitespace-only, strips to empty
+        mock_api_cls.return_value = mock_api
+
+        result = extract_text_all_pages([_make_test_image(), _make_test_image()])
+        assert result == ""

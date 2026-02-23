@@ -10,6 +10,7 @@
 - ✅ ONLY commit when user explicitly says "commit X"
 - ✅ Keep track of changes to write good commit messages when asked
 - ✅ Include `Fixes #N` or `Fixes #N, #M` in commit/PR messages when the work resolves GitHub issues
+- ✅ **Always commit ALL unstaged changes** — never do partial/selective commits unless explicitly told to. Tests run against the full working tree, so partial commits can leave broken states in the history.
 
 ---
 

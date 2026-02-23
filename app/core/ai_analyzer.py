@@ -198,10 +198,11 @@ async def analyze_card_with_ai_async(images: list[Image.Image] | Image.Image) ->
     message = await client.messages.create(
         model=get_ai_model(),
         max_tokens=_MAX_TOKENS,
-        messages=[{"role": "user", "content": content}],
+        messages=[{"role": "user", "content": content}],  # pyright: ignore[reportArgumentType]  # dict matches MessageParam
     )
 
-    response_text = message.content[0].text.strip()
+    block = message.content[0]
+    response_text = block.text.strip() if hasattr(block, "text") else ""  # pyright: ignore[reportAttributeAccessIssue]
     return _parse_response(response_text)
 
 

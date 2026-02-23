@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev run app build clean icon html-content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-unit test-gui test-watch
+.PHONY: help setup setup-dev run app build clean icon html-content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-unit test-gui test-watch tessdata
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -24,7 +24,16 @@ setup-dev: ## Install all dependencies including dev/testing tools
 	@echo "✓ Development setup complete!"
 	@echo "  Run 'make test' to run tests."
 
-run: html-content ## Run the app from source
+TESSDATA_DIR := _runtime_content/tessdata
+TESSDATA_ENG := $(TESSDATA_DIR)/eng.traineddata
+TESSDATA_URL := https://github.com/tesseract-ocr/tessdata_fast/raw/main/eng.traineddata
+
+tessdata: $(TESSDATA_ENG) ## Download tessdata (eng.traineddata)
+$(TESSDATA_ENG):
+	@mkdir -p $(TESSDATA_DIR)
+	@curl -sL -o $@ $(TESSDATA_URL)
+
+run: html-content tessdata ## Run the app from source
 	uv run python main.py
 
 test: ## Run all tests
@@ -60,7 +69,7 @@ html-content: ## Generate all HTML content (help, changelog, licenses)
 licenses-sync: ## Sync license registry from uv.lock + .dist-info
 	uv run python -c "from app.core.license_discovery import sync_registry; sync_registry()"
 
-app: icon html-content ## Build the macOS .app bundle
+app: icon html-content tessdata ## Build the macOS .app bundle
 	@$(LSREGISTER) -u "dist/Greeting Cards.app" 2>/dev/null || true
 	uv run pyinstaller -y "Greeting Cards.spec"
 

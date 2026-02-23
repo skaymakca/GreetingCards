@@ -1,9 +1,10 @@
 import hashlib
 import json
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
-from sqlalchemy import create_engine, String, DateTime, Text, Boolean, ForeignKey, UniqueConstraint, inspect
+from sqlalchemy import create_engine, Engine, String, DateTime, Text, Boolean, ForeignKey, UniqueConstraint, inspect
 from sqlalchemy.orm import Session, declarative_base, sessionmaker, Mapped, mapped_column
 
 from app.core.paths import get_db_path
@@ -81,26 +82,44 @@ def _compute_schema_version() -> str:
     return hashlib.sha256(schema_str.encode()).hexdigest()[:16]
 
 
-_engine = None
-_Session = None
+_engine: Engine | None = None
+_Session: sessionmaker[Session] | None = None
+_init_lock = threading.Lock()
+
+
+def _get_engine() -> Engine:
+    """Return the engine, raising if not yet initialized."""
+    if _engine is None:
+        raise RuntimeError("Database not initialized — call get_session() first")
+    return _engine
+
+
+def _get_session_factory() -> sessionmaker[Session]:
+    """Return the session factory, raising if not yet initialized."""
+    if _Session is None:
+        raise RuntimeError("Database not initialized — call get_session() first")
+    return _Session
 
 
 def get_session() -> Session:
     global _engine, _Session
-    if _Session is None:
-        _engine = create_engine(f"sqlite:///{get_db_path()}", echo=False)
-        _Session = sessionmaker(bind=_engine)
-        _ensure_schema()
+    with _init_lock:
+        if _Session is None:
+            _engine = create_engine(f"sqlite:///{get_db_path()}", echo=False)
+            _Session = sessionmaker(bind=_engine)
+            _ensure_schema()
     return _Session()
 
 
 def _ensure_schema() -> None:
     """Check schema version; if mismatch, drop all tables and recreate."""
+    engine = _get_engine()
+    session_factory = _get_session_factory()
     expected = _compute_schema_version()
-    inspector = inspect(_engine)
+    db_inspector = inspect(engine)
 
-    if "settings" in inspector.get_table_names():
-        session = _Session()
+    if "settings" in db_inspector.get_table_names():
+        session = session_factory()
         try:
             row = session.query(Settings).filter_by(key="schema_version").first()
             if row and row.value == expected:
@@ -110,25 +129,25 @@ def _ensure_schema() -> None:
 
     # Schema mismatch or missing — drop ALL tables including orphaned ones
     # First drop tables known to SQLAlchemy
-    Base.metadata.drop_all(_engine)
+    Base.metadata.drop_all(engine)
 
     # Then check for and drop any orphaned tables not in current metadata
     # Use fresh inspector since drop_all invalidated the cached one
-    fresh_inspector = inspect(_engine)
+    fresh_inspector = inspect(engine)
     all_tables = fresh_inspector.get_table_names()
     known_tables = {table.name for table in Base.metadata.tables.values()}
     orphaned = set(all_tables) - known_tables
 
     if orphaned:
         from sqlalchemy import text
-        with _engine.begin() as conn:
+        with engine.begin() as conn:
             for table_name in orphaned:
                 conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))
 
     # Create new schema
-    Base.metadata.create_all(_engine)
+    Base.metadata.create_all(engine)
 
-    session = _Session()
+    session = session_factory()
     try:
         session.add(Settings(key="schema_version", value=expected))
         session.commit()
@@ -139,24 +158,28 @@ def _ensure_schema() -> None:
 def reset_database() -> None:
     """Drop all tables and recreate from scratch."""
     global _engine, _Session
-    # Ensure engine exists
-    if _engine is None:
-        _engine = create_engine(f"sqlite:///{get_db_path()}", echo=False)
-        _Session = sessionmaker(bind=_engine)
+    with _init_lock:
+        # Ensure engine exists
+        if _engine is None:
+            _engine = create_engine(f"sqlite:///{get_db_path()}", echo=False)
+            _Session = sessionmaker(bind=_engine)
+
+    engine = _get_engine()
+    session_factory = _get_session_factory()
 
     # Drop all tables including orphaned ones
-    inspector = inspect(_engine)
-    all_tables = inspector.get_table_names()
+    db_inspector = inspect(engine)
+    all_tables = db_inspector.get_table_names()
 
     if all_tables:
         from sqlalchemy import text
-        with _engine.begin() as conn:
+        with engine.begin() as conn:
             for table_name in all_tables:
                 conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))
 
     # Create new schema
-    Base.metadata.create_all(_engine)
-    session = _Session()
+    Base.metadata.create_all(engine)
+    session = session_factory()
     try:
         session.add(Settings(key="schema_version", value=_compute_schema_version()))
         session.commit()
@@ -269,6 +292,21 @@ _METHOD_ORDER = {"ai": 0, "ocr": 1}
 _CONFIDENCE_ORDER = {"high": 0, "medium": 1, "low": 2}
 
 
+def _sort_candidates(candidates: list) -> list[CandidateInfo]:
+    """Sort candidates by method (AI first) then confidence (high first), returning CandidateInfo list."""
+    sorted_candidates = sorted(
+        candidates,
+        key=lambda c: (
+            _METHOD_ORDER.get(c.method, 999),
+            _CONFIDENCE_ORDER.get(c.confidence, 999)
+        )
+    )
+    return [
+        CandidateInfo(id=c.id, family_name=c.family_name, method=c.method, confidence=c.confidence)
+        for c in sorted_candidates
+    ]
+
+
 def create_or_update_card(file_hash: str, remove_family: bool = False) -> None:
     """Create or update a card record. Call this when first processing a file."""
     session = get_session()
@@ -339,25 +377,7 @@ def get_candidates(file_hash: str) -> list[CandidateInfo]:
         candidates = (session.query(Candidate)
                      .filter_by(file_hash=file_hash)
                      .all())
-
-        # Sort by method (AI first), then confidence (high first)
-        sorted_candidates = sorted(
-            candidates,
-            key=lambda c: (
-                _METHOD_ORDER.get(c.method, 999),
-                _CONFIDENCE_ORDER.get(c.confidence, 999)
-            )
-        )
-
-        return [
-            CandidateInfo(
-                id=c.id,
-                family_name=c.family_name,
-                method=c.method,
-                confidence=c.confidence
-            )
-            for c in sorted_candidates
-        ]
+        return _sort_candidates(candidates)
     finally:
         session.close()
 
@@ -431,17 +451,7 @@ def get_card_state(file_hash: str) -> CardState | None:
         raw_candidates = (session.query(Candidate)
                          .filter_by(file_hash=file_hash)
                          .all())
-        sorted_candidates = sorted(
-            raw_candidates,
-            key=lambda c: (
-                _METHOD_ORDER.get(c.method, 999),
-                _CONFIDENCE_ORDER.get(c.confidence, 999)
-            )
-        )
-        candidates = [
-            CandidateInfo(id=c.id, family_name=c.family_name, method=c.method, confidence=c.confidence)
-            for c in sorted_candidates
-        ]
+        candidates = _sort_candidates(raw_candidates)
 
         # Determine display name, method, and confidence
         match (card.selected_family_name, card.selected_candidate_id):
