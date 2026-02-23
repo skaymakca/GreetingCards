@@ -25,7 +25,7 @@ from app.gui.changelog_dialog import show_changelog
 from app.gui.licenses_dialog import show_licenses
 from app.gui.icons import load_sf_symbol, load_menu_icon
 from app.gui.api_key_dialog import show_api_key_dialog
-from app.models.card import CardResult, Confidence, RenameResult
+from app.models.card import CardResult, Confidence, PdfWorkerResult, RenameResult
 from app.core.pdf_worker import process_pdf_worker
 from app.core.ai_analyzer import analyze_card_with_ai_async, format_ai_error
 from app.core.config import get_api_key
@@ -891,9 +891,9 @@ class MainWindow:
                 for path_str in pdf_paths_str
             }
             for future in as_completed(futures):
-                result_dict = future.result()
-                pdf_path = Path(result_dict['pdf_path'])
-                file_hash = result_dict['file_hash']
+                worker_result = future.result()
+                pdf_path = Path(worker_result.pdf_path)
+                file_hash = worker_result.file_hash
 
                 # Content-based deduplication: check if we already have this content
                 with self._state_lock:
@@ -908,8 +908,7 @@ class MainWindow:
                         card_id = self._next_card_id
                         self._next_card_id += 1
 
-                        # Convert dict to CardResult
-                        card = self._dict_to_card(result_dict, card_id)
+                        card = self._worker_result_to_card(worker_result, card_id)
                         self._cards_by_hash[file_hash] = card
 
                     # Always update path → hash mapping
@@ -921,43 +920,42 @@ class MainWindow:
 
         wx.CallAfter(self._processing_complete)
 
-    def _dict_to_card(self, result_dict: dict, card_id: int) -> CardResult:
-        """Convert result dict from worker to CardResult object with assigned ID."""
+    def _worker_result_to_card(self, wr: PdfWorkerResult, card_id: int) -> CardResult:
+        """Convert PdfWorkerResult from worker to CardResult with assigned ID."""
         from PIL import Image
 
-        pdf_path = Path(result_dict['pdf_path'])
+        pdf_path = Path(wr.pdf_path)
         card = CardResult(
             id=card_id,
-            file_paths=[pdf_path],  # Initialize with single path
-            primary_path=pdf_path
+            file_paths=[pdf_path],
+            primary_path=pdf_path,
+            file_hash=wr.file_hash or "",
+            family_name=wr.family_name,
+            alternates=wr.alternates,
+            candidates=wr.candidates,
+            remove_family=wr.remove_family,
+            selected_candidate_id=wr.selected_candidate_id,
+            method=wr.method,
+            ocr_text=wr.ocr_text,
         )
 
-        card.file_hash = result_dict['file_hash']
-        card.family_name = result_dict['family_name']
-        card.alternates = result_dict['alternates']
-        card.candidates = result_dict.get('candidates', [])
-        card.remove_family = result_dict.get('remove_family', False)
-        card.selected_candidate_id = result_dict.get('selected_candidate_id')
-        card.method = result_dict.get('method', 'missing')
-        card.ocr_text = result_dict['ocr_text']
-
         try:
-            card.confidence = Confidence(result_dict['confidence'])
+            card.confidence = Confidence(wr.confidence)
         except ValueError:
             card.confidence = Confidence.NONE
 
         # Deserialize images from bytes
-        if result_dict['preview_image_bytes']:
-            card.preview_image = Image.open(io.BytesIO(result_dict['preview_image_bytes']))
+        if wr.preview_image_bytes:
+            card.preview_image = Image.open(io.BytesIO(wr.preview_image_bytes))
 
-        if result_dict['page_images_bytes']:
+        if wr.page_images_bytes:
             card.page_images = [
                 Image.open(io.BytesIO(img_bytes))
-                for img_bytes in result_dict['page_images_bytes']
+                for img_bytes in wr.page_images_bytes
             ]
 
-        if result_dict['error']:
-            card.error = result_dict['error']
+        if wr.error:
+            card.error = wr.error
             card.confidence = Confidence.NONE
 
         return card

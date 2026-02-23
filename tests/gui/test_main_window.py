@@ -218,9 +218,10 @@ def test_processing_progress_without_dialog(wx_app):
     window._frame.Destroy()
 
 
-def test_dict_to_card_conversion(wx_app):
-    """Test conversion of worker dict to CardResult."""
+def test_worker_result_to_card_conversion(wx_app):
+    """Test conversion of PdfWorkerResult to CardResult."""
     from PIL import Image
+    from app.models.card import PdfWorkerResult
     import io
 
     window = MainWindow()
@@ -231,27 +232,24 @@ def test_dict_to_card_conversion(wx_app):
     img.save(buf, format='PNG')
     img_bytes = buf.getvalue()
 
-    # Create result dict (like from worker)
-    result_dict = {
-        'pdf_path': '/test/card.pdf',
-        'file_hash': 'abc123',
-        'family_name': 'Smith',
-        'confidence': 'high',
-        'method': 'ocr',
-        'alternates': ['Smyth'],
-        'candidates': [],
-        'remove_family': False,
-        'selected_candidate_id': None,
-        'ocr_text': 'Smith Family',
-        'error': None,
-        'preview_image_bytes': img_bytes,
-        'page_images_bytes': [img_bytes],
-    }
+    worker_result = PdfWorkerResult(
+        pdf_path='/test/card.pdf',
+        file_hash='abc123',
+        family_name='Smith',
+        confidence='high',
+        method='ocr',
+        alternates=['Smyth'],
+        candidates=[],
+        remove_family=False,
+        selected_candidate_id=None,
+        ocr_text='Smith Family',
+        error=None,
+        preview_image_bytes=img_bytes,
+        page_images_bytes=[img_bytes],
+    )
 
-    # Convert
-    card = window._dict_to_card(result_dict, card_id=1)
+    card = window._worker_result_to_card(worker_result, card_id=1)
 
-    # Verify
     assert card.id == 1
     assert card.filename == "card.pdf"
     assert card.file_hash == 'abc123'
@@ -262,30 +260,26 @@ def test_dict_to_card_conversion(wx_app):
     window._frame.Destroy()
 
 
-def test_dict_to_card_with_error(wx_app):
-    """Test conversion handles error cards."""
+def test_worker_result_to_card_error_preserves_fields(wx_app):
+    """Test conversion handles error cards with null hash."""
+    from app.models.card import PdfWorkerResult
+
     window = MainWindow()
 
-    result_dict = {
-        'pdf_path': '/test/card.pdf',
-        'file_hash': None,
-        'family_name': '',
-        'confidence': 'none',
-        'method': 'missing',
-        'alternates': [],
-        'candidates': [],
-        'remove_family': False,
-        'selected_candidate_id': None,
-        'ocr_text': '',
-        'error': 'Failed to process',
-        'preview_image_bytes': None,
-        'page_images_bytes': [],
-    }
+    worker_result = PdfWorkerResult(
+        pdf_path='/test/card.pdf',
+        file_hash=None,
+        family_name='',
+        confidence='none',
+        method='missing',
+        error='Failed to process',
+    )
 
-    card = window._dict_to_card(result_dict, card_id=1)
+    card = window._worker_result_to_card(worker_result, card_id=1)
 
     assert card.error == 'Failed to process'
     assert card.confidence.value == 'none'
+    assert card.file_hash == ''
 
     window._frame.Destroy()
 
@@ -1626,59 +1620,43 @@ def test_scan_for_pdfs_case_insensitive(wx_app, tmp_path):
 
 
 # ============================================================================
-# _dict_to_card Tests (lines 887-926)
+# _worker_result_to_card Tests
 # ============================================================================
 
 
-def test_dict_to_card_invalid_confidence(wx_app):
-    """_dict_to_card falls back to NONE for invalid confidence (lines 909-910)."""
-    from app.models.card import Confidence
+def test_worker_result_to_card_invalid_confidence(wx_app):
+    """_worker_result_to_card falls back to NONE for invalid confidence."""
+    from app.models.card import Confidence, PdfWorkerResult
 
     window = MainWindow()
-    result_dict = {
-        'pdf_path': '/test.pdf',
-        'file_hash': 'abc123',
-        'family_name': 'Smith',
-        'confidence': 'invalid_value',
-        'method': 'ocr',
-        'alternates': [],
-        'candidates': [],
-        'remove_family': False,
-        'selected_candidate_id': None,
-        'ocr_text': '',
-        'error': None,
-        'preview_image_bytes': None,
-        'page_images_bytes': [],
-    }
+    worker_result = PdfWorkerResult(
+        pdf_path='/test.pdf',
+        file_hash='abc123',
+        family_name='Smith',
+        confidence='invalid_value',
+        method='ocr',
+    )
 
-    card = window._dict_to_card(result_dict, 0)
+    card = window._worker_result_to_card(worker_result, 0)
     assert card.confidence == Confidence.NONE
 
     window._frame.Destroy()
 
 
-def test_dict_to_card_with_error(wx_app):
-    """_dict_to_card sets error and confidence=NONE when error is present."""
-    from app.models.card import Confidence
+def test_worker_result_to_card_with_error(wx_app):
+    """_worker_result_to_card sets error and confidence=NONE when error is present."""
+    from app.models.card import Confidence, PdfWorkerResult
 
     window = MainWindow()
-    result_dict = {
-        'pdf_path': '/test.pdf',
-        'file_hash': 'abc123',
-        'family_name': '',
-        'confidence': 'high',
-        'method': 'ocr',
-        'alternates': [],
-        'candidates': [],
-        'remove_family': False,
-        'selected_candidate_id': None,
-        'ocr_text': '',
-        'error': 'Something broke',
-        'preview_image_bytes': None,
-        'page_images_bytes': [],
-    }
+    worker_result = PdfWorkerResult(
+        pdf_path='/test.pdf',
+        file_hash='abc123',
+        confidence='high',
+        method='ocr',
+        error='Something broke',
+    )
 
-    card = window._dict_to_card(result_dict, 0)
+    card = window._worker_result_to_card(worker_result, 0)
     assert card.error == "Something broke"
     assert card.confidence == Confidence.NONE
 

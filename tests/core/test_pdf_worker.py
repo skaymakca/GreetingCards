@@ -1,10 +1,11 @@
 """Tests for app.core.pdf_worker module."""
+from dataclasses import fields
 from unittest.mock import patch
 
 from PIL import Image
 
 from app.core.pdf_worker import process_pdf_worker
-from app.models.card import CardState, CandidateInfo
+from app.models.card import CardState, CandidateInfo, PdfWorkerResult
 
 
 def _make_test_image(width=10, height=10, color="red"):
@@ -37,9 +38,9 @@ class TestProcessPdfWorkerSuccess:
 
         result = process_pdf_worker("/fake/card.pdf")
 
-        assert result["file_hash"] == "abc123"
-        assert result["family_name"] == "Smith"
-        assert result["error"] is None
+        assert result.file_hash == "abc123"
+        assert result.family_name == "Smith"
+        assert result.error is None
         mock_ocr.assert_called_once()
         mock_save.assert_called_once_with("abc123", "OCR text here")
         assert mock_reprocess.call_count == 1
@@ -63,7 +64,7 @@ class TestProcessPdfWorkerSuccess:
 
         result = process_pdf_worker("/fake/card.pdf")
 
-        assert result["family_name"] == "Jones"
+        assert result.family_name == "Jones"
         mock_ocr.assert_not_called()
         mock_save.assert_not_called()
         mock_reprocess.assert_called_once_with("abc123")
@@ -74,21 +75,19 @@ class TestProcessPdfWorkerSuccess:
     @patch("app.core.pdf_worker.render_all_pages")
     @patch("app.core.pdf_worker.get_card_state")
     @patch("app.core.pdf_worker.compute_file_hash", return_value="abc123")
-    def test_result_structure_keys(
+    def test_result_is_dataclass_with_expected_fields(
         self, mock_hash, mock_state, mock_render, mock_ocr, mock_save, mock_reprocess
     ):
-        """Result dict contains all expected keys."""
+        """Result is a PdfWorkerResult with all expected fields."""
         mock_render.return_value = [_make_test_image()]
         mock_state.side_effect = [None, None]
 
         result = process_pdf_worker("/fake/card.pdf")
 
-        expected_keys = {
-            "pdf_path", "file_hash", "family_name", "confidence", "method",
-            "alternates", "candidates", "remove_family", "selected_candidate_id",
-            "ocr_text", "error", "preview_image_bytes", "page_images_bytes",
-        }
-        assert set(result.keys()) == expected_keys
+        assert isinstance(result, PdfWorkerResult)
+        expected_fields = {f.name for f in fields(PdfWorkerResult)}
+        actual_fields = {f.name for f in fields(result)}
+        assert actual_fields == expected_fields
 
 
 class TestProcessPdfWorkerImageHandling:
@@ -106,8 +105,8 @@ class TestProcessPdfWorkerImageHandling:
         """When render returns empty list, preview and page bytes are None/empty."""
         result = process_pdf_worker("/fake/card.pdf")
 
-        assert result["preview_image_bytes"] is None
-        assert result["page_images_bytes"] == []
+        assert result.preview_image_bytes is None
+        assert result.page_images_bytes == []
         # No OCR should be called since no images
         mock_ocr.assert_not_called()
 
@@ -126,11 +125,11 @@ class TestProcessPdfWorkerImageHandling:
 
         result = process_pdf_worker("/fake/card.pdf")
 
-        assert result["preview_image_bytes"] is not None
+        assert result.preview_image_bytes is not None
         # Verify it's valid PNG
-        assert result["preview_image_bytes"][:4] == b"\x89PNG"
-        assert len(result["page_images_bytes"]) == 1
-        assert result["page_images_bytes"][0][:4] == b"\x89PNG"
+        assert result.preview_image_bytes[:4] == b"\x89PNG"
+        assert len(result.page_images_bytes) == 1
+        assert result.page_images_bytes[0][:4] == b"\x89PNG"
 
     @patch("app.core.pdf_worker.reprocess_candidates_from_raw")
     @patch("app.core.pdf_worker.save_raw_ocr")
@@ -147,8 +146,8 @@ class TestProcessPdfWorkerImageHandling:
 
         result = process_pdf_worker("/fake/card.pdf")
 
-        assert len(result["page_images_bytes"]) == 3
-        for page_bytes in result["page_images_bytes"]:
+        assert len(result.page_images_bytes) == 3
+        for page_bytes in result.page_images_bytes:
             assert page_bytes[:4] == b"\x89PNG"
 
 
@@ -160,8 +159,8 @@ class TestProcessPdfWorkerErrors:
         """Hash computation error is captured in result."""
         result = process_pdf_worker("/fake/card.pdf")
 
-        assert result["error"] == "disk error"
-        assert result["file_hash"] is None
+        assert result.error == "disk error"
+        assert result.file_hash is None
 
     @patch("app.core.pdf_worker.render_all_pages", side_effect=RuntimeError("render failed"))
     @patch("app.core.pdf_worker.get_card_state", return_value=None)
@@ -170,8 +169,8 @@ class TestProcessPdfWorkerErrors:
         """Render error is captured in result."""
         result = process_pdf_worker("/fake/card.pdf")
 
-        assert result["error"] == "render failed"
-        assert result["file_hash"] == "abc123"
+        assert result.error == "render failed"
+        assert result.file_hash == "abc123"
 
     @patch("app.core.pdf_worker.extract_text_all_pages", side_effect=RuntimeError("OCR failed"))
     @patch("app.core.pdf_worker.render_all_pages")
@@ -183,7 +182,7 @@ class TestProcessPdfWorkerErrors:
 
         result = process_pdf_worker("/fake/card.pdf")
 
-        assert result["error"] == "OCR failed"
+        assert result.error == "OCR failed"
 
     @patch("app.core.pdf_worker.reprocess_candidates_from_raw", side_effect=RuntimeError("reprocess failed"))
     @patch("app.core.pdf_worker.render_all_pages")
@@ -200,7 +199,7 @@ class TestProcessPdfWorkerErrors:
 
         result = process_pdf_worker("/fake/card.pdf")
 
-        assert result["error"] == "reprocess failed"
+        assert result.error == "reprocess failed"
 
 
 class TestProcessPdfWorkerCardState:
@@ -215,7 +214,7 @@ class TestProcessPdfWorkerCardState:
     def test_card_state_maps_to_result(
         self, mock_hash, mock_state, mock_render, mock_ocr, mock_save, mock_reprocess
     ):
-        """CardState fields are correctly mapped to result dict."""
+        """CardState fields are correctly mapped to result."""
         mock_render.return_value = [_make_test_image()]
         candidate = CandidateInfo(id=42, family_name="Smith", method="ai", confidence="high")
         state = CardState(
@@ -226,13 +225,13 @@ class TestProcessPdfWorkerCardState:
 
         result = process_pdf_worker("/fake/card.pdf")
 
-        assert result["family_name"] == "Smith"
-        assert result["confidence"] == "high"
-        assert result["method"] == "ai"
-        assert result["alternates"] == ["Smith"]
-        assert result["candidates"] == [candidate]
-        assert result["remove_family"] is True
-        assert result["selected_candidate_id"] == 42
+        assert result.family_name == "Smith"
+        assert result.confidence == "high"
+        assert result.method == "ai"
+        assert result.alternates == ["Smith"]
+        assert result.candidates == [candidate]
+        assert result.remove_family is True
+        assert result.selected_candidate_id == 42
 
     @patch("app.core.pdf_worker.reprocess_candidates_from_raw")
     @patch("app.core.pdf_worker.save_raw_ocr")
@@ -249,9 +248,9 @@ class TestProcessPdfWorkerCardState:
 
         result = process_pdf_worker("/fake/card.pdf")
 
-        assert result["family_name"] == ""
-        assert result["confidence"] == "none"
-        assert result["method"] == "missing"
-        assert result["alternates"] == []
-        assert result["remove_family"] is False
-        assert result["selected_candidate_id"] is None
+        assert result.family_name == ""
+        assert result.confidence == "none"
+        assert result.method == "missing"
+        assert result.alternates == []
+        assert result.remove_family is False
+        assert result.selected_candidate_id is None

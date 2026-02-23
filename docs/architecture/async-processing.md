@@ -38,29 +38,29 @@ Each worker:
 1. `compute_file_hash()` → SHA256
 2. `get_card_state()` → check DB cache
 3. `render_all_pages()` → PIL images at 200 DPI
-4. If cached: `reprocess_candidates_from_raw()` (re-applies current cleaning)
-5. If new: `extract_text_all_pages()` → OCR via tesserocr (PSM AUTO, dict penalty 0.15), then save + reprocess
-6. Returns a **plain dict** (not CardResult — must be picklable)
+4. If new: `extract_text_all_pages()` → OCR via tesserocr (PSM AUTO, dict penalty 0.15), then `save_raw_ocr()`
+5. `reprocess_candidates_from_raw()` (always — re-applies current cleaning)
+6. Returns a `PdfWorkerResult` dataclass (pickled across process boundaries)
 
 ### Worker Count
-`OCR_WORKERS = cpu_count()` (defined in `app/core/constants.py`). Uses all available cores since OCR is CPU-bound and workers spend time in C++ tesserocr calls.
+`OCR_WORKERS = cpu_count()` (defined in `app/core/constants.py`). Pool is capped at `min(num_cards, OCR_WORKERS)` to avoid idle worker startup latency when processing fewer cards than CPUs.
 
 ### Image Serialization
-PIL Images can't be pickled across processes. The worker serializes them:
+PIL Images can't be pickled across processes. The worker serializes them as PNG bytes in `PdfWorkerResult`:
 ```python
-# Worker side: PIL → PNG bytes
+# Worker side: PIL → PNG bytes (in PdfWorkerResult)
 preview_buf = io.BytesIO()
 images[0].save(preview_buf, format='PNG')
-result['preview_image_bytes'] = preview_buf.getvalue()
+result.preview_image_bytes = preview_buf.getvalue()
 
-# Main side: PNG bytes → PIL
-card.preview_image = Image.open(io.BytesIO(result_dict['preview_image_bytes']))
+# Main side: PNG bytes → PIL (in _worker_result_to_card)
+card.preview_image = Image.open(io.BytesIO(wr.preview_image_bytes))
 ```
 
 ### Deduplication During Processing
 In `_process_cards()` (background thread, receiving results):
 - Hash already in `_cards_by_hash` → add path to existing card
-- New hash → `_dict_to_card()` creates CardResult with next monotonic ID
+- New hash → `_worker_result_to_card()` creates CardResult with next monotonic ID
 
 ## AI Analysis
 

@@ -45,6 +45,29 @@ Confidence._TOOLTIP_MAP = {
 
 
 @dataclass
+class PdfWorkerResult:
+    """Result from PDF processing worker (subprocess → main process).
+
+    This dataclass is pickled across process boundaries by ProcessPoolExecutor.
+    If pickling overhead becomes a bottleneck, consider using a shared memory
+    approach or a more compact serialization format.
+    """
+    pdf_path: str
+    file_hash: str | None = None
+    family_name: str = ""
+    confidence: str = "none"
+    method: str = "missing"
+    alternates: list[str] = field(default_factory=list)
+    candidates: list[CandidateInfo] = field(default_factory=list)
+    remove_family: bool = False
+    selected_candidate_id: int | None = None
+    ocr_text: str = ""
+    error: str | None = None
+    preview_image_bytes: bytes | None = None
+    page_images_bytes: list[bytes] = field(default_factory=list)
+
+
+@dataclass
 class CandidateInfo:
     """Represents a candidate family name from database."""
     id: int
