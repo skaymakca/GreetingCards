@@ -24,7 +24,7 @@ setup-dev: ## Install all dependencies including dev/testing tools
 	@echo "✓ Development setup complete!"
 	@echo "  Run 'make test' to run tests."
 
-TESSDATA_DIR := _runtime_content/tessdata
+TESSDATA_DIR := _runtime_content/tessdata/fast
 TESSDATA_ENG := $(TESSDATA_DIR)/eng.traineddata
 TESSDATA_URL := https://github.com/tesseract-ocr/tessdata_fast/raw/main/eng.traineddata
 

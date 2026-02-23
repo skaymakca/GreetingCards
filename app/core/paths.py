@@ -26,7 +26,7 @@ def get_runtime_content_path(rel_path: str = "") -> Path:
     """Return path under _runtime_content/ (works in both dev and bundled mode).
 
     Args:
-        rel_path: Relative path within _runtime_content (e.g. "tessdata", "html/help")
+        rel_path: Relative path within _runtime_content (e.g. "tessdata/fast", "html/help")
     """
     if is_bundled():
         base = Path(sys._MEIPASS) / "_runtime_content"  # type: ignore[attr-defined]

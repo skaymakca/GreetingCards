@@ -140,7 +140,7 @@ class TestTessdataPath:
             delattr(sys, '_MEIPASS')
         importlib.reload(ocr_module)
         path = ocr_module._tessdata_path
-        assert path.endswith("_runtime_content/tessdata")
+        assert path.endswith("_runtime_content/tessdata/fast")
         assert "_MEIPASS" not in path
 
     def test_bundled_path_uses_meipass(self):
@@ -151,7 +151,7 @@ class TestTessdataPath:
         sys._MEIPASS = "/tmp/fake_meipass"  # type: ignore[attr-defined]
         try:
             importlib.reload(ocr_module)
-            assert ocr_module._tessdata_path == "/tmp/fake_meipass/_runtime_content/tessdata"
+            assert ocr_module._tessdata_path == "/tmp/fake_meipass/_runtime_content/tessdata/fast"
         finally:
             del sys._MEIPASS  # type: ignore[attr-defined]
             importlib.reload(ocr_module)

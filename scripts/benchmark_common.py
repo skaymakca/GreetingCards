@@ -99,7 +99,7 @@ class Config:
 TESSDATA_BEST_URL = (
     "https://github.com/tesseract-ocr/tessdata_best/raw/main/eng.traineddata"
 )
-TESSDATA_BEST_DIR = Path(__file__).resolve().parent.parent / "_script_content" / "tessdata_best"
+TESSDATA_BEST_DIR = Path(__file__).resolve().parent.parent / "_script_content" / "tessdata" / "best"
 
 
 def _detect_system_tessdata() -> str | None:

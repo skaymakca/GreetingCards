@@ -3,7 +3,7 @@ from PIL import Image, ImageFilter, ImageOps
 
 from app.core.paths import get_runtime_content_path
 
-_tessdata_path = str(get_runtime_content_path("tessdata"))
+_tessdata_path = str(get_runtime_content_path("tessdata/fast"))
 
 _OCR_CONTRAST_CUTOFF = 2
 _OCR_DICT_PENALTY = "0.15"
