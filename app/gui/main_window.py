@@ -201,6 +201,11 @@ class MainWindow:
         self._setup_drop_target()
         self._setup_keyboard_shortcuts()
 
+        # Dark mode detection (Phase 1 — debug window, will be removed in Phase 4)
+        from app.gui import appearance
+        self._debug_frame = self._build_appearance_debug_window()
+        appearance.start_observer(self._on_appearance_changed)
+
         # Center and bind close event
         self._frame.Centre()
         self._frame.Bind(wx.EVT_CLOSE, self._on_close)
@@ -1460,11 +1465,53 @@ class MainWindow:
         """
         self._sidebar.show_notification(message, icon, duration_ms)
 
+    # --- Dark mode (Phase 1 — temporary, will be removed in Phase 4) ---
+
+    def _build_appearance_debug_window(self) -> wx.Frame:
+        """Build a small debug window that shows the current appearance mode."""
+        from app.gui.appearance import is_dark_mode
+
+        frame = wx.Frame(self._frame, title="Appearance Debug", size=(250, 80))
+        frame.SetMinSize((250, 80))
+
+        panel = wx.Panel(frame)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        mode = "Dark" if is_dark_mode() else "Light"
+        label = wx.StaticText(panel, label=f"Mode: {mode}")
+        label.SetFont(wx.Font(wx.FontInfo(18).Bold()))
+        sizer.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 15)
+
+        panel.SetSizer(sizer)
+        frame.Show()
+        return frame
+
+    def _on_appearance_changed(self) -> None:
+        """Handle macOS dark/light mode switch (Phase 1 — updates debug window)."""
+        from app.gui.appearance import is_dark_mode
+
+        mode = "Dark" if is_dark_mode() else "Light"
+        logger.info("Appearance changed to %s mode", mode)
+
+        # Update debug window label
+        if self._debug_frame:
+            panel = self._debug_frame.GetChildren()[0]
+            label = panel.GetChildren()[0]
+            label.SetLabel(f"Mode: {mode}")
+            panel.Layout()
+
+    # --- End dark mode ---
+
     def _on_close(self, event: wx.CloseEvent) -> None:
         """Handle window close event."""
+        from app.gui import appearance
+        appearance.stop_observer()
+
         self._edit_debounce_timer.Stop()
         if self._prefs_editor is not None:
             self._prefs_editor.Dismiss()
+        if self._debug_frame:
+            self._debug_frame.Destroy()
         self._frame.Destroy()
 
     def run(self) -> None:
