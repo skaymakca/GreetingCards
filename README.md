@@ -209,7 +209,7 @@ The app stores OCR results, AI results, and manual name edits in a SQLite databa
 
 Benchmark and analysis scripts live in `scripts/`. They take a corpus directory (folder of PDF files) as a positional argument.
 
-> **Note:** Some scripts require packages beyond the standard runtime/dev dependencies (e.g. `pytesseract`, `tesserocr`, `opencv-python-headless`). Install any missing ones with `uv add --dev <package>`. Unavailable features are skipped gracefully.
+All script dependencies are included in the dev group — run `make setup-dev` first. The OCR benchmark scripts also require the [Tesseract CLI](https://github.com/tesseract-ocr/tesseract) to be installed on your system (e.g. `brew install tesseract` on macOS).
 
 | Script | Description |
 |--------|-------------|

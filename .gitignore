@@ -31,5 +31,5 @@ htmlcov/
 *.log
 
 # Benchmark scripts
-scripts/tessdata_best/
+_script_content/
 _script_output/

@@ -2,7 +2,7 @@
 
 When asked to audit the codebase, check for these categories across all files in `app/` and `tests/`.
 
-**Exclude** the `scripts/benchmark_*.py` files — these are standalone analysis tools, not part of the app.
+**Include** the `scripts/benchmark_*.py` files in type checking (`pyright scripts/`, `mypy scripts/`). They are standalone analysis tools, so they are excluded from app test-coverage analysis but should still pass static checks.
 
 ## What to Look For
 1. **Missing tests** — public methods/functions without tests, untested error paths, shallow happy-path-only coverage

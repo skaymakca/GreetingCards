@@ -27,6 +27,7 @@ dev = [
     "tomli-w>=1.2.0",
     "opencv-python-headless>=4.13.0.92",
     "mypy>=1.19.1",
+    "pytesseract>=0.3.13",
 ]
 
 [tool.pytest.ini_options]
