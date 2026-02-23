@@ -885,7 +885,7 @@ class MainWindow:
         pdf_paths_str = [str(p) for p in self._processing_files]
         completed = 0
 
-        with ProcessPoolExecutor(max_workers=OCR_WORKERS) as executor:
+        with ProcessPoolExecutor(max_workers=min(total, OCR_WORKERS)) as executor:
             futures = {
                 executor.submit(process_pdf_worker, path_str): path_str
                 for path_str in pdf_paths_str
