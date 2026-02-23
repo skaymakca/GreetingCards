@@ -35,6 +35,14 @@ from app.core.database import (
     set_manual_name, reprocess_candidates_from_raw, clear_ai_results
 )
 
+# Messages indicating a rename result is resolved (path moved or already correct)
+_RESOLVED_MESSAGES = {"Renamed", "Already named correctly"}
+
+
+def _plural(count: int, word: str) -> str:
+    """Return e.g. '3 cards' or '1 card'."""
+    return f"{count} {word}{'s' if count != 1 else ''}"
+
 
 def _load_drop_background() -> wx.Bitmap | None:
     """Load and process the drop target background image.
@@ -61,13 +69,14 @@ def _load_drop_background() -> wx.Bitmap | None:
         wx_img.SetAlpha(img.getchannel("A").tobytes())
         return wx_img.ConvertToBitmap()
     except Exception:
+        logger.debug("Failed to load drop background image")
         return None
 
 
 class _DropOverlay(wx.Panel):
     """Full content-area drop overlay with background image and drop zone hint."""
 
-    def __init__(self, parent):
+    def __init__(self, parent: wx.Window) -> None:
         super().__init__(parent)
         self._bg_source = _load_drop_background()
         self._bg_scaled: wx.Bitmap | None = None
@@ -166,7 +175,7 @@ class _DropOverlay(wx.Panel):
 class MainWindow:
     """Main application window with toolbar and content panels."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Create frame
         self._frame = wx.Frame(
             None,
@@ -188,7 +197,7 @@ class MainWindow:
         self._state_lock = threading.Lock()  # Protects _cards_by_hash, _hash_by_path, _next_card_id
 
         # Preferences editor (lazy-init)
-        self._prefs_editor = None
+        self._prefs_editor: wx.PreferencesEditor | None = None
         self._progress: ProgressDialog | None = None
 
         # Debounce timer for name edits (fires _refresh_display after user stops typing)
@@ -201,9 +210,9 @@ class MainWindow:
         self._setup_drop_target()
         self._setup_keyboard_shortcuts()
 
-        # Dark mode detection (Phase 1 — debug window, will be removed in Phase 4)
+        # Dark mode detection + initial color refresh
         from app.gui import appearance
-        self._debug_frame = self._build_appearance_debug_window()
+        Color.refresh()
         appearance.start_observer(self._on_appearance_changed)
 
         # Center and bind close event
@@ -759,7 +768,7 @@ class MainWindow:
 
         # 4. Show feedback
         if new_pdfs or skipped_pdfs:
-            msg = f"Found {len(new_pdfs)} new PDF{'s' if len(new_pdfs) != 1 else ''}"
+            msg = f"Found {_plural(len(new_pdfs), 'new PDF')}"
             if skipped_pdfs:
                 msg += f"\nSkipped {len(skipped_pdfs)} already loaded"
             self._show_info_message(msg, wx.ICON_INFORMATION)
@@ -991,7 +1000,7 @@ class MainWindow:
         # Show success message
         count = len(self._cards_by_hash)
         self._show_info_message(
-            f"Processing complete\n{count} card{'s' if count != 1 else ''} loaded",
+            f"Processing complete\n{_plural(count, 'card')} loaded",
             wx.ICON_INFORMATION,
         )
 
@@ -1149,8 +1158,7 @@ class MainWindow:
         """
         selected_ids = self._review_panel.selected_card_ids
         if len(selected_ids) >= 2:
-            cards = [self._review_panel._cards_by_id[cid] for cid in selected_ids
-                     if cid in self._review_panel._cards_by_id]
+            cards = self._review_panel.get_cards_by_ids(selected_ids)
             return cards, "selected"
         return self._review_panel.get_cards(), "visible"
 
@@ -1375,7 +1383,7 @@ class MainWindow:
             # Show success message with auto-dismiss
             count = len(self._ai_target_cards) or len(self._cards_by_hash)
             self._show_info_message(
-                f"Analysis complete\n{count} card{'s' if count != 1 else ''} analyzed",
+                f"Analysis complete\n{_plural(count, 'card')} analyzed",
                 wx.ICON_INFORMATION
             )
 
@@ -1399,7 +1407,7 @@ class MainWindow:
 
             # Update _hash_by_path mapping for renamed files
             for result in results:
-                if result.success and result.message == "Renamed":
+                if result.success and result.message in _RESOLVED_MESSAGES:
                     if result.old_path in self._hash_by_path:
                         file_hash = self._hash_by_path.pop(result.old_path)
                         self._hash_by_path[result.new_path] = file_hash
@@ -1423,10 +1431,9 @@ class MainWindow:
         resolved. Paths that failed or had no name are kept for the user to address.
         """
         # Collect paths to remove (use new_path — that's where the file is now)
-        resolved_messages = {"Renamed", "Already named correctly"}
         paths_to_remove: set[Path] = set()
         for r in results:
-            if r.success and r.message in resolved_messages:
+            if r.success and r.message in _RESOLVED_MESSAGES:
                 paths_to_remove.add(r.new_path)
 
         if not paths_to_remove:
@@ -1465,40 +1472,45 @@ class MainWindow:
         """
         self._sidebar.show_notification(message, icon, duration_ms)
 
-    # --- Dark mode (Phase 1 — temporary, will be removed in Phase 4) ---
-
-    def _build_appearance_debug_window(self) -> wx.Frame:
-        """Build a small debug window that shows the current appearance mode."""
-        from app.gui.appearance import is_dark_mode
-
-        frame = wx.Frame(self._frame, title="Appearance Debug", size=(250, 80))
-        frame.SetMinSize((250, 80))
-
-        panel = wx.Panel(frame)
-        sizer = wx.BoxSizer(wx.VERTICAL)
-
-        mode = "Dark" if is_dark_mode() else "Light"
-        label = wx.StaticText(panel, label=f"Mode: {mode}")
-        label.SetFont(wx.Font(wx.FontInfo(18).Bold()))
-        sizer.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 15)
-
-        panel.SetSizer(sizer)
-        frame.Show()
-        return frame
-
     def _on_appearance_changed(self) -> None:
-        """Handle macOS dark/light mode switch (Phase 1 — updates debug window)."""
+        """Handle macOS dark/light mode switch."""
         from app.gui.appearance import is_dark_mode
+        from app.gui import icons
 
         mode = "Dark" if is_dark_mode() else "Light"
         logger.info("Appearance changed to %s mode", mode)
 
-        # Update debug window label
-        if self._debug_frame:
-            panel = self._debug_frame.GetChildren()[0]
-            label = panel.GetChildren()[0]
-            label.SetLabel(f"Mode: {mode}")
-            panel.Layout()
+        # Refresh color palette and icon cache
+        Color.refresh()
+        icons.clear_cache()
+
+        # Update toolbar icons in-place
+        self._refresh_toolbar_icons()
+
+        # Re-apply colors on long-lived panels
+        self._sidebar.refresh_colors()
+        self._preview_panel.refresh_colors()
+        self._review_panel.refresh_colors()
+
+        # Repaint all windows; call refresh_colors() on those that support it
+        for window in wx.GetTopLevelWindows():
+            if hasattr(window, "refresh_colors"):
+                window.refresh_colors()
+            window.Refresh()
+            window.Update()
+
+    def _refresh_toolbar_icons(self) -> None:
+        """Re-render toolbar icons for current appearance."""
+        icon_map = {
+            self._browse_id: "folder.badge.plus",
+            self._ai_all_id: "sparkles",
+            self._rename_id: "pencil",
+            self._clear_id: "xmark.circle",
+        }
+        for tool_id, symbol in icon_map.items():
+            bmp = load_sf_symbol(symbol, point_size=Layout.TOOLBAR_ICON_POINTS) or wx.NullBitmap
+            self._toolbar.SetToolNormalBitmap(tool_id, wx.BitmapBundle(bmp))
+        self._toolbar.Realize()
 
     # --- End dark mode ---
 
@@ -1510,8 +1522,6 @@ class MainWindow:
         self._edit_debounce_timer.Stop()
         if self._prefs_editor is not None:
             self._prefs_editor.Dismiss()
-        if self._debug_frame:
-            self._debug_frame.Destroy()
         self._frame.Destroy()
 
     def run(self) -> None:

@@ -73,6 +73,47 @@ Greeting Cards - macOS app for organizing and renaming greeting card PDFs using 
 - Python 3.14: exception variables cleared after except block
 - Always test both source version and app bundle when making UI changes
 
+### High-Level Layout
+
+```
+app/
+  core/         # Business logic (OCR, AI, rename, database, PDF, config)
+  gui/          # wxPython UI (main window, panels, dialogs, styles, icons)
+  models/       # Data models (CardResult, RenamePlanItem, etc.)
+content/        # Static assets (HTML templates, CSS, JS, help markdown, licenses)
+scripts/        # Standalone scripts (benchmarks, visual test harness)
+tests/          # Pytest suite (mirrors app/ structure)
+main.py         # Entry point
+```
+
+Key entry points:
+- `main.py` → `app.gui.main_window.MainWindow` — the app
+- `scripts/visual_test.py` — visual test harness for all dialogs/panels
+- `Greeting Cards.spec` — PyInstaller bundle config
+
+---
+
+## LSP (Language Server Protocol)
+
+**Always use the LSP tool** for code navigation instead of guessing or grepping. It provides accurate, type-aware results.
+
+### When to use LSP
+- **`goToDefinition`** — jump to where a symbol is defined (class, function, variable)
+- **`findReferences`** — find all usages of a symbol across the codebase
+- **`hover`** — get type info and docstrings for a symbol
+- **`documentSymbol`** — list all symbols in a file (overview of a module)
+- **`goToImplementation`** — find concrete implementations of abstract methods
+- **`incomingCalls` / `outgoingCalls`** — trace call chains
+
+### When LSP is better than Grep
+- Finding all callers of a method (Grep misses aliased/dynamic calls)
+- Navigating to the actual definition (not just string matches)
+- Understanding type signatures and overloads
+- Getting a quick overview of a module's public API (`documentSymbol`)
+
+### If LSP fails
+If the LSP tool returns an error or "no server available", **tell the user immediately** so they can check their LSP configuration. Example: "LSP server is not responding for Python files — you may need to restart it. Falling back to Grep for now."
+
 ---
 
 ## Architecture Docs
@@ -140,10 +181,10 @@ Before committing, run these checks and fix any issues:
 
 | Command | Purpose | Expected |
 |---------|---------|----------|
-| `uv run pyright app/ scripts/` | Static type checking (strict structural types) | 0 errors, 0 warnings |
-| `uv run mypy app/ scripts/` | Static type checking (nominal types, plugin-based) | 0 new errors (baseline has import-untyped warnings) |
+| `make pyright` | Static type checking (strict structural types) | 0 errors, 0 warnings |
+| `make mypy` | Static type checking (nominal types, plugin-based) | 0 errors |
 | `uv run pytest tests/ -x` | Run all tests | All pass |
 
 **pyright** (`pyrightconfig.json`): Catches structural type errors, unused imports, unreachable code. Zero-warning baseline.
 
-**mypy** (`[tool.mypy]` in `pyproject.toml`): Catches nominal type mismatches, SQLAlchemy plugin issues. Has existing `import-untyped` warnings for wx/tesserocr/fitz/AppKit/Foundation — don't increase the count.
+**mypy** (`[tool.mypy]` in `pyproject.toml`): Catches nominal type mismatches, SQLAlchemy plugin issues. `import-untyped` errors are suppressed globally for stubless third-party libs (wx, AppKit, Foundation, tesserocr, fitz).

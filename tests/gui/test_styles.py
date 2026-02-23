@@ -1,7 +1,9 @@
 """Tests for app.gui.styles module."""
 import wx
 import pytest
+from unittest.mock import patch
 
+from app.gui import appearance
 from app.gui.styles import Color, Font, Layout
 
 
@@ -100,3 +102,56 @@ class TestLayout:
 
     def test_row_height(self, wx_app):
         assert Layout.ROW_HEIGHT == 36
+
+
+class TestColorRefresh:
+    """Tests for Color.refresh() dark/light mode switching."""
+
+    @pytest.fixture(autouse=True)
+    def _restore_light(self):
+        """Restore light-mode colors after each test."""
+        yield
+        with patch.object(appearance, "is_dark_mode", return_value=False):
+            Color.refresh()
+
+    @pytest.mark.unit
+    def test_refresh_dark_mode(self, wx_app):
+        """Should set dark-mode colors when in dark mode."""
+        with patch.object(appearance, "is_dark_mode", return_value=True):
+            Color.refresh()
+        assert Color.BG_PRIMARY == wx.Colour(30, 30, 30)
+        assert Color.TEXT_PRIMARY == wx.Colour(230, 230, 230)
+        assert Color.BORDER == wx.Colour(56, 56, 58)
+
+    @pytest.mark.unit
+    def test_refresh_light_mode(self, wx_app):
+        """Should set light-mode colors when in light mode."""
+        # First go dark, then back to light
+        with patch.object(appearance, "is_dark_mode", return_value=True):
+            Color.refresh()
+        with patch.object(appearance, "is_dark_mode", return_value=False):
+            Color.refresh()
+        assert Color.BG_PRIMARY == wx.Colour(255, 255, 255)
+        assert Color.TEXT_PRIMARY == wx.Colour(29, 29, 31)
+
+    @pytest.mark.unit
+    def test_semantic_colors_unchanged(self, wx_app):
+        """Semantic colors should not change across modes."""
+        accent_before = Color.ACCENT
+        with patch.object(appearance, "is_dark_mode", return_value=True):
+            Color.refresh()
+        assert Color.ACCENT == accent_before
+        assert Color.SUCCESS == wx.Colour(52, 199, 89)
+        assert Color.ERROR == wx.Colour(255, 59, 48)
+
+    @pytest.mark.unit
+    def test_icon_hex_dark(self):
+        """Should return light hex for dark mode."""
+        with patch.object(appearance, "is_dark_mode", return_value=True):
+            assert Color.icon_hex() == "#E6E6E6"
+
+    @pytest.mark.unit
+    def test_icon_hex_light(self):
+        """Should return dark hex for light mode."""
+        with patch.object(appearance, "is_dark_mode", return_value=False):
+            assert Color.icon_hex() == "#1D1D1F"

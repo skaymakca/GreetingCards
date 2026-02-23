@@ -759,6 +759,27 @@ class TestUpdateMethods:
         cards = panel.get_cards()
         assert cards[0].family_name == "Edited"
 
+    def test_get_cards_by_ids(self, parent_frame, mock_cards):
+        """get_cards_by_ids returns only requested cards, skipping missing."""
+        on_select = Mock()
+        on_ai = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
+        panel.load_cards(mock_cards)
+
+        cards = panel.get_cards_by_ids([1, 3, 999])
+        assert len(cards) == 2
+        assert cards[0].id == 1
+        assert cards[1].id == 3
+
+    def test_get_cards_by_ids_empty(self, parent_frame, mock_cards):
+        """get_cards_by_ids with empty list returns empty."""
+        on_select = Mock()
+        on_ai = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
+        panel.load_cards(mock_cards)
+
+        assert panel.get_cards_by_ids([]) == []
+
 
 # ============================================================================
 # Input Validation Tests

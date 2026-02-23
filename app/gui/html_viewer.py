@@ -171,6 +171,16 @@ class HTMLViewerWindow:
         toolbar.Realize()
         sizer.Add(toolbar, 0, wx.EXPAND)
 
+        # Store toolbar references for refresh_colors()
+        self._toolbar = toolbar
+        self._tool_icons: list[tuple[int, str]] = [
+            (home_id, "house"),
+            (prev_id, "chevron.left"),
+            (next_id, "chevron.right"),
+            (prev_match_id, "chevron.up"),
+            (next_match_id, "chevron.down"),
+        ]
+
         # Dynamically resize search ctrl to fill available toolbar space
         def _resize_search_ctrl(evt: wx.SizeEvent | None = None) -> None:
             if evt:
@@ -188,6 +198,7 @@ class HTMLViewerWindow:
         tb_line = wx.Panel(frame, size=(-1, 1))
         tb_line.SetBackgroundColour(Color.BORDER)
         sizer.Add(tb_line, 0, wx.EXPAND | wx.TOP, -1)
+        self._tb_line = tb_line
 
         # WebView — HTML pages have built-in CSS sidebar
         url = (base_path / page_order[0]).as_uri()
@@ -417,6 +428,9 @@ class HTMLViewerWindow:
             wx.AcceleratorTable([(wx.ACCEL_CMD, ord("F"), accel_id)])
         )
 
+        # Expose refresh_colors on the frame so appearance observers can find it
+        frame.refresh_colors = self.refresh_colors  # type: ignore[attr-defined]
+
         # Stop debounce timer on close/destroy to prevent RunScript on a dead
         # WebView.  EVT_CLOSE covers user close; EVT_WINDOW_DESTROY covers
         # programmatic Destroy() calls (e.g. test teardown).
@@ -431,6 +445,17 @@ class HTMLViewerWindow:
 
         # Initial search ctrl sizing
         wx.CallAfter(_resize_search_ctrl)
+
+    def refresh_colors(self) -> None:
+        """Update toolbar icons and border for current appearance mode."""
+        from app.gui.icons import clear_cache
+        clear_cache()
+        for tool_id, symbol_name in self._tool_icons:
+            bmp = _toolbar_icon(symbol_name)
+            self._toolbar.SetToolNormalBitmap(tool_id, wx.BitmapBundle(bmp))
+        self._toolbar.Realize()
+        self._tb_line.SetBackgroundColour(Color.BORDER)
+        self._frame.Refresh()
 
     @property
     def frame(self) -> wx.Frame:

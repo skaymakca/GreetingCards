@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev run app build clean icon html-content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-unit test-gui test-watch tessdata
+.PHONY: help setup setup-dev run app build clean icon html-content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-unit test-gui test-watch tessdata pyright mypy
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -52,6 +52,12 @@ test-gui: ## Run GUI tests only
 
 test-watch: ## Run tests on file changes (requires pytest-watch)
 	uv run ptw -- -v
+
+pyright: ## Run pyright type checking on app/ and scripts/
+	uv run pyright app/ scripts/
+
+mypy: ## Run mypy type checking on app/ and scripts/
+	uv run mypy app/ scripts/
 
 build: app ## Build the macOS .app bundle (alias for 'app')
 
@@ -134,6 +140,12 @@ tag: ## Create git tag vX.Y.Z from current version
 
 tag-push: ## Push all tags to remote
 	@git push --tags && echo "Tags pushed"
+
+visual-test: html-content ## Run visual test harness from source
+	uv run python scripts/visual_test.py
+
+visual-test-app: icon html-content tessdata ## Build visual test harness as .app bundle
+	uv run pyinstaller -y "scripts/Visual Test.spec"
 
 clean: ## Remove build artifacts
 	@$(LSREGISTER) -u "dist/Greeting Cards.app" 2>/dev/null || true

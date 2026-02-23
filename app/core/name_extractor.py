@@ -129,7 +129,7 @@ def extract_family_names(text: str) -> list[NameMatch]:
     # Last line with capitalized words as fallback
     for line in reversed(lines):
         words = line.split()
-        caps = [w for w in words if w[0].isupper() and w.lower() not in GREETING_WORDS]
+        caps = [w for w in words if w and w[0].isupper() and w.lower() not in GREETING_WORDS]
         if caps and len(caps) <= 3:
             name = caps[-1]
             name = _clean_name(name)

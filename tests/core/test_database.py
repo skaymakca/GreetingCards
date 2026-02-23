@@ -18,6 +18,7 @@ from app.core.database import (
     compute_file_hash,
     _compute_schema_version,
     _ensure_schema,
+    _session_scope,
     _clean_and_filter_names,
     create_or_update_card,
     add_candidate,
@@ -879,3 +880,34 @@ class TestReprocessCandidatesEdgeCases:
         candidates = get_candidates("hash1")
         ai_candidates = [c for c in candidates if c.method == "ai"]
         assert ai_candidates == []
+
+
+class TestSessionScope:
+    """Tests for _session_scope context manager."""
+
+    def test_commits_on_success(self):
+        """Changes are committed when block exits normally."""
+        with _session_scope() as session:
+            session.add(Card(file_hash="scope_test"))
+        # Verify persisted
+        state = get_card_state("scope_test")
+        assert state is not None
+
+    def test_rollback_on_exception(self):
+        """Changes are rolled back on exception."""
+        with pytest.raises(ValueError):
+            with _session_scope() as session:
+                session.add(Card(file_hash="rollback_test"))
+                session.flush()
+                raise ValueError("test error")
+        # Verify NOT persisted
+        state = get_card_state("rollback_test")
+        assert state is None
+
+    def test_yields_session(self):
+        """Context manager yields a usable Session."""
+        with _session_scope() as session:
+            assert session is not None
+            # Should be able to query
+            result = session.query(Card).all()
+            assert isinstance(result, list)

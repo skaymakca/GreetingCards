@@ -335,26 +335,26 @@ class TestProgressDialog:
         dlg = ProgressDialog(wx_frame, "Test", 5)
         dlg.update_progress(3, "Working...")
         assert dlg._current == 3
-        assert dlg.progress.GetValue() == 3
-        assert dlg.label.GetLabel() == "Working..."
+        assert dlg._progress.GetValue() == 3
+        assert dlg._label.GetLabel() == "Working..."
         dlg.Destroy()
 
     def test_update_progress_no_message(self, wx_app, wx_frame):
         dlg = ProgressDialog(wx_frame, "Test", 5)
         dlg.update_progress(2)
         assert dlg._current == 2
-        assert dlg.label.GetLabel() == "Processing..."
+        assert dlg._label.GetLabel() == "Processing..."
         dlg.Destroy()
 
     def test_count_label_format(self, wx_app, wx_frame):
         dlg = ProgressDialog(wx_frame, "Test", 10)
         dlg.update_progress(7)
-        assert dlg.count_label.GetLabel() == "7 / 10"
+        assert dlg._count_label.GetLabel() == "7 / 10"
         dlg.Destroy()
 
     def test_initial_count_label(self, wx_app, wx_frame):
         dlg = ProgressDialog(wx_frame, "Test", 20)
-        assert dlg.count_label.GetLabel() == "0 / 20"
+        assert dlg._count_label.GetLabel() == "0 / 20"
         dlg.Destroy()
 
 

@@ -1992,3 +1992,19 @@ def test_load_sf_symbol_bad_image_caches_none(wx_app):
 
     # Clean up
     icons._cache.pop(test_key, None)
+
+
+class TestResolvedMessages:
+    """Tests for _RESOLVED_MESSAGES constant used in hash mapping."""
+
+    def test_resolved_messages_contains_renamed(self):
+        from app.gui.main_window import _RESOLVED_MESSAGES
+        assert "Renamed" in _RESOLVED_MESSAGES
+
+    def test_resolved_messages_contains_already_named(self):
+        from app.gui.main_window import _RESOLVED_MESSAGES
+        assert "Already named correctly" in _RESOLVED_MESSAGES
+
+    def test_resolved_messages_size(self):
+        from app.gui.main_window import _RESOLVED_MESSAGES
+        assert len(_RESOLVED_MESSAGES) == 2

@@ -20,7 +20,7 @@ class PreviewPanel(wx.Panel):
     MIN_ZOOM = 0.1
     MAX_ZOOM = 10.0
 
-    def __init__(self, parent, **kwargs):
+    def __init__(self, parent: wx.Window, **kwargs) -> None:
         super().__init__(parent, **kwargs)
 
         # State
@@ -31,9 +31,9 @@ class PreviewPanel(wx.Panel):
         self._is_fit = True
         self._pan_x = 0.0
         self._pan_y = 0.0
-        self._drag_start = None
+        self._drag_start: tuple[int, int] | None = None
         self._error_message = ""
-        self._bitmap_cache = None
+        self._bitmap_cache: wx.Bitmap | None = None
 
         # Timer for polling modifier keys (to update cursor without mouse movement)
         self._modifier_timer = wx.Timer(self)
@@ -76,9 +76,9 @@ class PreviewPanel(wx.Panel):
         )
         sizer.Add(self._title_label, 0, wx.ALL, styles.Layout.PAD)
 
-        # Canvas panel (custom painting)
+        # Canvas panel (custom painting) — no explicit bg color; inherits system
+        # appearance so it follows dark/light mode natively.
         self._canvas = wx.Panel(self, style=wx.BORDER_NONE)
-        self._canvas.SetBackgroundColour(styles.Color.BG_PRIMARY)
         self._canvas.Bind(wx.EVT_PAINT, self._on_paint)
         self._canvas.Bind(wx.EVT_SIZE, self._on_resize)
 
@@ -149,6 +149,13 @@ class PreviewPanel(wx.Panel):
         sizer.Add(controls, 0, wx.EXPAND | wx.ALL, styles.Layout.PAD)
 
         self.SetSizer(sizer)
+
+    def refresh_colors(self) -> None:
+        """Re-apply mode-dependent colors after an appearance change."""
+        self._title_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
+        self._page_label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        self._zoom_label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        self._canvas.Refresh()
 
     # --- Public API ---
 

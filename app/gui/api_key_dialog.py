@@ -5,7 +5,7 @@ import wx
 from app.core.config import save_api_key
 
 
-def show_api_key_dialog(parent) -> str | None:
+def show_api_key_dialog(parent: wx.Window) -> str | None:
     """Show native API key dialog, save if entered, and return the key.
 
     Uses wx.TextEntryDialog which creates a native macOS dialog with

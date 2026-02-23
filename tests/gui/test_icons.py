@@ -2,7 +2,7 @@
 
 import pytest
 import wx
-from app.gui.icons import load_sf_symbol, load_menu_icon, _hex_to_rgb
+from app.gui.icons import load_sf_symbol, load_menu_icon, _hex_to_rgb, clear_cache, _cache
 
 
 @pytest.mark.gui
@@ -124,6 +124,14 @@ class TestCaching:
 
         assert result1 is None
         assert result2 is None
+
+    def test_clear_cache_empties(self, wx_app):
+        """clear_cache() should empty the icon cache."""
+        # Load something to populate cache
+        load_sf_symbol("scissors", 12, "#000000")
+        assert len(_cache) > 0
+        clear_cache()
+        assert len(_cache) == 0
 
 
 @pytest.mark.gui

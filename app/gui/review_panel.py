@@ -83,7 +83,7 @@ class CardListModel(dv.PyDataViewModel):
     Columns: [Confidence Dot, Filename, Family Name]
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self._cards: list[CardResult] = []
         self._card_order: list[int] = []  # Card IDs in display order
@@ -374,6 +374,15 @@ class DetailPanel(wx.Panel):
         # Fit to minimum size needed
         sizer.Fit(self)
         self.SetMinSize(self.GetSize())
+
+    def refresh_colors(self) -> None:
+        """Re-apply mode-dependent colors after an appearance change."""
+        for child in self._edit_panel.GetChildren():
+            if isinstance(child, wx.StaticText):
+                child.SetForegroundColour(Color.TEXT_SECONDARY)
+        self._locations_header.SetForegroundColour(Color.TEXT_PRIMARY)
+        self._duplicate_info.SetForegroundColour(Color.TEXT_SECONDARY)
+        self.Refresh()
 
     def load_card(self, card: CardResult | None) -> None:
         """Load a card into the detail panel."""
@@ -885,6 +894,18 @@ class ReviewPanelMasterDetail(wx.Panel):
         if self._on_card_edited:
             self._on_card_edited(card_id)
 
+    def refresh_colors(self) -> None:
+        """Re-apply mode-dependent colors after an appearance change."""
+        # Header labels
+        for child in self.GetChildren():
+            if isinstance(child, wx.StaticText):
+                child.SetForegroundColour(Color.TEXT_SECONDARY)
+        # Detail panel
+        self._detail_panel.refresh_colors()
+        # List refreshes via GetAttr reading Color.* at paint time
+        self._list_ctrl.Refresh()
+        self.Refresh()
+
     # Public API (matches original ReviewPanel)
 
     def load_cards(self, cards: list[CardResult]) -> None:
@@ -903,6 +924,10 @@ class ReviewPanelMasterDetail(wx.Panel):
     def get_cards(self) -> list[CardResult]:
         """Return all cards with edits, in display order."""
         return [self._cards_by_id[cid] for cid in self._model.card_order if cid in self._cards_by_id]
+
+    def get_cards_by_ids(self, card_ids: list[int]) -> list[CardResult]:
+        """Get specific cards by their IDs, skipping missing ones."""
+        return [self._cards_by_id[cid] for cid in card_ids if cid in self._cards_by_id]
 
     def update_card(self, card_id: int, card: CardResult) -> None:
         """Update a single card after AI analysis."""

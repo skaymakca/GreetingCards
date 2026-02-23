@@ -407,6 +407,15 @@ class FilterSidebar(wx.Panel):
                 self._category_checkboxes[index].SetValue(True)
         self._selected_category_filters = filter_keys if filter_keys else ["all"]
 
+    def refresh_colors(self) -> None:
+        """Re-apply mode-dependent colors after an appearance change."""
+        # Section headers and info labels use TEXT_SECONDARY
+        for child in self.GetChildren():
+            if isinstance(child, wx.StaticText) and child is not self._notify_label:
+                child.SetForegroundColour(styles.Color.TEXT_SECONDARY)
+        # Notification label keeps its current color (may be ERROR)
+        self.Refresh()
+
     def set_folder_filters(self, filter_keys: list[str]) -> None:
         """Programmatically set active folder filters."""
         for cb in self._folder_checkboxes:

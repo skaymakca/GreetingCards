@@ -120,18 +120,26 @@ def _render_sf_symbol_to_png(
         return None
 
 
-def load_menu_icon(name: str, color_hex: str = "#1D1D1F") -> wx.Bitmap | None:
+def clear_cache() -> None:
+    """Clear the icon cache. Call after appearance change to re-render icons."""
+    _cache.clear()
+
+
+def load_menu_icon(name: str, color_hex: str | None = None) -> wx.Bitmap | None:
     """Load SF Symbol optimized for context/popup menus.
 
     Uses 6pt size with Small scale to match native macOS menu icons.
 
     Args:
         name: SF Symbol name (e.g., "scissors", "textformat.abc")
-        color_hex: Hex color string (defaults to near-black)
+        color_hex: Hex color string (None = auto for current appearance)
 
     Returns:
         wx.Bitmap with the rendered symbol, or None if unavailable
     """
+    if color_hex is None:
+        from app.gui.styles import Color
+        color_hex = Color.icon_hex()
     return load_sf_symbol(name, point_size=11, color_hex=color_hex, scale=1)
 
 
@@ -183,7 +191,7 @@ def load_cursor_from_symbol(
 
 
 def load_sf_symbol(
-    name: str, point_size: int = 14, color_hex: str = "#1D1D1F", scale: int = 2,
+    name: str, point_size: int = 14, color_hex: str | None = None, scale: int = 2,
     weight: float | int = _NS_FONT_WEIGHT_MEDIUM,
 ) -> wx.Bitmap | None:
     """Load an SF Symbol by name and return a wx.Bitmap.
@@ -194,13 +202,16 @@ def load_sf_symbol(
     Args:
         name: SF Symbol name (e.g., "scissors", "doc.on.doc")
         point_size: Icon size in points
-        color_hex: Hex color string (e.g., "#1D1D1F")
+        color_hex: Hex color string (None = auto for current appearance)
         scale: NSImageSymbolScale (1=Small, 2=Medium, 3=Large). Use 1 for crisp menu icons.
         weight: NSFontWeight value (e.g., 0.0 for Regular, 0.23 for Medium)
 
     Returns:
         wx.Bitmap with the rendered symbol, or None if unavailable
     """
+    if color_hex is None:
+        from app.gui.styles import Color
+        color_hex = Color.icon_hex()
     key = (name, point_size, color_hex, scale, weight)
     if key in _cache:
         return _cache[key]

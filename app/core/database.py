@@ -2,6 +2,8 @@ import hashlib
 import json
 import logging
 import threading
+from collections.abc import Generator
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -115,6 +117,29 @@ def get_session() -> Session:
     return _Session()
 
 
+@contextmanager
+def _session_scope() -> Generator[Session]:
+    """Provide a transactional scope around a series of operations."""
+    session = get_session()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def _parse_raw_ai_json(raw_response: str, file_hash: str) -> dict | None:
+    """Parse raw AI JSON, returning None on decode error."""
+    try:
+        return json.loads(raw_response)
+    except json.JSONDecodeError:
+        logger.warning("Corrupt JSON in raw_ai_results for %s", file_hash)
+        return None
+
+
 def _ensure_schema() -> None:
     """Check schema version; if mismatch, drop all tables and recreate."""
     engine = _get_engine()
@@ -203,8 +228,7 @@ def clear_ai_results(file_hashes: list[str]) -> int:
     if not file_hashes:
         return 0
 
-    session = get_session()
-    try:
+    with _session_scope() as session:
         # Delete raw AI results for these hashes
         session.query(RawAIResult).filter(RawAIResult.file_hash.in_(file_hashes)).delete(
             synchronize_session="fetch"
@@ -247,10 +271,7 @@ def clear_ai_results(file_hashes: list[str]) -> int:
                 card.selected_candidate_id = None
             changed += 1
 
-        session.commit()
         return changed
-    finally:
-        session.close()
 
 
 def compute_file_hash(path: Path) -> str:
@@ -313,15 +334,11 @@ def _sort_candidates(candidates: list) -> list[CandidateInfo]:
 
 def create_or_update_card(file_hash: str, remove_family: bool = False) -> None:
     """Create or update a card record. Call this when first processing a file."""
-    session = get_session()
-    try:
+    with _session_scope() as session:
         card = session.query(Card).filter_by(file_hash=file_hash).first()
         if not card:
             card = Card(file_hash=file_hash, remove_family=remove_family)
             session.add(card)
-            session.commit()
-    finally:
-        session.close()
 
 
 def add_candidate(file_hash: str, family_name: str, method: str, confidence: str) -> int:
@@ -341,8 +358,7 @@ def add_candidate(file_hash: str, family_name: str, method: str, confidence: str
     # Apply smart title case
     clean_name = smart_title_case(cleaned[0])
 
-    session = get_session()
-    try:
+    with _session_scope() as session:
         # Ensure card exists
         card = session.query(Card).filter_by(file_hash=file_hash).first()
         if not card:
@@ -365,10 +381,8 @@ def add_candidate(file_hash: str, family_name: str, method: str, confidence: str
             confidence=confidence
         )
         session.add(candidate)
-        session.commit()
+        session.flush()
         return candidate.id
-    finally:
-        session.close()
 
 
 def get_candidates(file_hash: str) -> list[CandidateInfo]:
@@ -376,20 +390,16 @@ def get_candidates(file_hash: str) -> list[CandidateInfo]:
 
     Priority: AI high > AI medium > AI low > OCR high > OCR medium > OCR low
     """
-    session = get_session()
-    try:
+    with _session_scope() as session:
         candidates = (session.query(Candidate)
                      .filter_by(file_hash=file_hash)
                      .all())
         return _sort_candidates(candidates)
-    finally:
-        session.close()
 
 
 def set_manual_name(file_hash: str, family_name: str, remove_family: bool = False) -> None:
     """Set a manual name entry. Clears selected_candidate_id."""
-    session = get_session()
-    try:
+    with _session_scope() as session:
         card = session.query(Card).filter_by(file_hash=file_hash).first()
         if card:
             card.selected_family_name = family_name
@@ -403,15 +413,11 @@ def set_manual_name(file_hash: str, family_name: str, remove_family: bool = Fals
                 remove_family=remove_family
             )
             session.add(card)
-        session.commit()
-    finally:
-        session.close()
 
 
 def select_candidate(file_hash: str, candidate_id: int, remove_family: bool = False) -> None:
     """Select a candidate from the dropdown. Clears selected_family_name."""
-    session = get_session()
-    try:
+    with _session_scope() as session:
         card = session.query(Card).filter_by(file_hash=file_hash).first()
         if card:
             card.selected_candidate_id = candidate_id
@@ -425,28 +431,20 @@ def select_candidate(file_hash: str, candidate_id: int, remove_family: bool = Fa
                 remove_family=remove_family
             )
             session.add(card)
-        session.commit()
-    finally:
-        session.close()
 
 
 def update_remove_family(file_hash: str, remove_family: bool) -> None:
     """Update just the remove_family flag for a card."""
-    session = get_session()
-    try:
+    with _session_scope() as session:
         card = session.query(Card).filter_by(file_hash=file_hash).first()
         if card:
             card.remove_family = remove_family
             card.updated_at = datetime.now(timezone.utc)
-            session.commit()
-    finally:
-        session.close()
 
 
 def get_card_state(file_hash: str) -> CardState | None:
     """Get complete card state for display."""
-    session = get_session()
-    try:
+    with _session_scope() as session:
         card = session.query(Card).filter_by(file_hash=file_hash).first()
         if not card:
             return None
@@ -489,14 +487,11 @@ def get_card_state(file_hash: str) -> CardState | None:
             remove_family=card.remove_family,
             selected_candidate_id=card.selected_candidate_id
         )
-    finally:
-        session.close()
 
 
 def save_raw_ocr(file_hash: str, ocr_text: str) -> None:
     """Save raw OCR text for potential re-processing."""
-    session = get_session()
-    try:
+    with _session_scope() as session:
         # Ensure card exists
         card = session.query(Card).filter_by(file_hash=file_hash).first()
         if not card:
@@ -511,25 +506,18 @@ def save_raw_ocr(file_hash: str, ocr_text: str) -> None:
         else:
             ocr_result = RawOCRResult(file_hash=file_hash, ocr_text=ocr_text)
             session.add(ocr_result)
-        session.commit()
-    finally:
-        session.close()
 
 
 def get_raw_ocr(file_hash: str) -> str | None:
     """Get raw OCR text for re-processing."""
-    session = get_session()
-    try:
+    with _session_scope() as session:
         ocr_result = session.query(RawOCRResult).filter_by(file_hash=file_hash).first()
         return ocr_result.ocr_text if ocr_result else None
-    finally:
-        session.close()
 
 
 def save_raw_ai(file_hash: str, best_name: str, alternates: list[str]) -> None:
     """Save raw AI result for debugging and potential re-processing."""
-    session = get_session()
-    try:
+    with _session_scope() as session:
         # Ensure card exists
         card = session.query(Card).filter_by(file_hash=file_hash).first()
         if not card:
@@ -545,9 +533,6 @@ def save_raw_ai(file_hash: str, best_name: str, alternates: list[str]) -> None:
         else:
             ai_result = RawAIResult(file_hash=file_hash, raw_response=raw_data)
             session.add(ai_result)
-        session.commit()
-    finally:
-        session.close()
 
 
 def get_raw_ai(file_hash: str) -> tuple[str, list[str]] | None:
@@ -555,19 +540,14 @@ def get_raw_ai(file_hash: str) -> tuple[str, list[str]] | None:
 
     Returns (best_name, alternates) or None.
     """
-    session = get_session()
-    try:
+    with _session_scope() as session:
         ai_result = session.query(RawAIResult).filter_by(file_hash=file_hash).first()
         if ai_result:
-            try:
-                data = json.loads(ai_result.raw_response)
-            except json.JSONDecodeError:
-                logger.warning("Corrupt JSON in raw_ai_results for %s", file_hash)
+            data = _parse_raw_ai_json(ai_result.raw_response, file_hash)
+            if data is None:
                 return None
             return data.get("best_name", ""), data.get("alternates", [])
         return None
-    finally:
-        session.close()
 
 
 def clear_unselected_candidates(file_hash: str, method: str) -> None:
@@ -576,8 +556,7 @@ def clear_unselected_candidates(file_hash: str, method: str) -> None:
     Used when re-processing to ensure new extraction logic is applied while
     preserving user's selection.
     """
-    session = get_session()
-    try:
+    with _session_scope() as session:
         card = session.query(Card).filter_by(file_hash=file_hash).first()
         if not card:
             return
@@ -601,22 +580,15 @@ def clear_unselected_candidates(file_hash: str, method: str) -> None:
             # No selection, safe to delete all
             query.delete(synchronize_session="fetch")
 
-        session.commit()
-    finally:
-        session.close()
-
 
 def should_reprocess(file_hash: str, method: str) -> bool:
     """Check if we should re-run OCR/AI for this file.
 
     Returns True if no candidates of this method exist.
     """
-    session = get_session()
-    try:
+    with _session_scope() as session:
         count = session.query(Candidate).filter_by(file_hash=file_hash, method=method).count()
         return not count
-    finally:
-        session.close()
 
 
 def reprocess_candidates_from_raw(file_hash: str) -> None:
@@ -629,8 +601,7 @@ def reprocess_candidates_from_raw(file_hash: str) -> None:
     """
     from app.core.name_extractor import extract_family_names
 
-    session = get_session()
-    try:
+    with _session_scope() as session:
         card = session.query(Card).filter_by(file_hash=file_hash).first()
         if not card:
             return
@@ -640,22 +611,21 @@ def reprocess_candidates_from_raw(file_hash: str) -> None:
 
         # Clear all existing candidates
         session.query(Candidate).filter_by(file_hash=file_hash).delete()
-        session.commit()
 
-        # Re-parse raw OCR if exists
+    # Re-parse raw OCR if exists — use separate sessions via public API
+    with _session_scope() as session:
         ocr_result = session.query(RawOCRResult).filter_by(file_hash=file_hash).first()
         if ocr_result:
             names = extract_family_names(ocr_result.ocr_text)
             for match in names:
                 add_candidate(file_hash, match.name, "ocr", match.confidence.value)
 
-        # Re-parse raw AI if exists
+    # Re-parse raw AI if exists
+    with _session_scope() as session:
         ai_result = session.query(RawAIResult).filter_by(file_hash=file_hash).first()
         if ai_result:
-            try:
-                data = json.loads(ai_result.raw_response)
-            except json.JSONDecodeError:
-                logger.warning("Corrupt JSON in raw_ai_results for %s, skipping AI re-parse", file_hash)
+            data = _parse_raw_ai_json(ai_result.raw_response, file_hash)
+            if data is None:
                 data = {}
             best_name = data.get("best_name", "")
             alternates = data.get("alternates", [])
@@ -665,13 +635,10 @@ def reprocess_candidates_from_raw(file_hash: str) -> None:
             for alt_name in alternates:
                 add_candidate(file_hash, alt_name, "ai", "medium")
 
-        # Auto-select best candidate if not manual entry
-        if not is_manual:
-            candidates = get_candidates(file_hash)
-            if candidates:
-                # First candidate is best (AI high priority due to sorting)
-                best_id = candidates[0].id
-                select_candidate(file_hash, best_id)
-
-    finally:
-        session.close()
+    # Auto-select best candidate if not manual entry
+    if not is_manual:
+        candidates = get_candidates(file_hash)
+        if candidates:
+            # First candidate is best (AI high priority due to sorting)
+            best_id = candidates[0].id
+            select_candidate(file_hash, best_id)

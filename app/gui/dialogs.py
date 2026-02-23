@@ -93,7 +93,7 @@ def _dismiss_on_key(dialog: wx.Dialog, event: wx.KeyEvent) -> None:
 class ProgressDialog(wx.Dialog):
     """Modal progress dialog for batch processing."""
 
-    def __init__(self, parent, title: str, total: int):
+    def __init__(self, parent: wx.Window, title: str, total: int):
         super().__init__(
             parent,
             title=title,
@@ -111,20 +111,20 @@ class ProgressDialog(wx.Dialog):
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         # Message label
-        self.label = wx.StaticText(panel, label="Processing...")
-        self.label.SetFont(styles.Font.BODY())
-        self.label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
-        sizer.Add(self.label, 0, wx.ALL, 20)
+        self._label = wx.StaticText(panel, label="Processing...")
+        self._label.SetFont(styles.Font.BODY())
+        self._label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        sizer.Add(self._label, 0, wx.ALL, 20)
 
         # Progress bar
-        self.progress = wx.Gauge(panel, range=total, size=(350, -1))
-        sizer.Add(self.progress, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 20)
+        self._progress = wx.Gauge(panel, range=total, size=(350, -1))
+        sizer.Add(self._progress, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 20)
 
         # Count label
-        self.count_label = wx.StaticText(panel, label=f"0 / {total}")
-        self.count_label.SetFont(styles.Font.SMALL())
-        self.count_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
-        sizer.Add(self.count_label, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        self._count_label = wx.StaticText(panel, label=f"0 / {total}")
+        self._count_label.SetFont(styles.Font.SMALL())
+        self._count_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
+        sizer.Add(self._count_label, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         # Set sizers
         panel.SetSizer(sizer)
@@ -141,6 +141,12 @@ class ProgressDialog(wx.Dialog):
         # Prevent closing (Veto the close event so the dialog stays open)
         self.Bind(wx.EVT_CLOSE, lambda evt: evt.Veto())
 
+    def refresh_colors(self) -> None:
+        """Re-apply mode-dependent colors after an appearance change."""
+        self._label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        self._count_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
+        self.Refresh()
+
     def update_progress(self, current: int, message: str = "") -> None:
         """Update progress bar and labels.
 
@@ -149,10 +155,10 @@ class ProgressDialog(wx.Dialog):
             message: Optional message to display
         """
         self._current = current
-        self.progress.SetValue(current)
-        self.count_label.SetLabel(f"{current} / {self._total}")
+        self._progress.SetValue(current)
+        self._count_label.SetLabel(f"{current} / {self._total}")
         if message:
-            self.label.SetLabel(message)
+            self._label.SetLabel(message)
 
         # Force UI update
         wx.SafeYield()
@@ -166,7 +172,7 @@ class ProgressDialog(wx.Dialog):
 class RenameConfirmDialog(wx.Dialog):
     """Dialog showing the rename plan and asking for confirmation."""
 
-    def __init__(self, parent, plan: list[RenamePlanItem]):
+    def __init__(self, parent: wx.Window, plan: list[RenamePlanItem]):
         super().__init__(
             parent,
             title="Confirm Rename",
@@ -182,10 +188,10 @@ class RenameConfirmDialog(wx.Dialog):
         sizer.AddSpacer(_DIALOG_PADDING)
 
         # Header
-        header = wx.StaticText(self, label="Rename Plan")
-        header.SetFont(styles.Font.TITLE())
-        header.SetForegroundColour(styles.Color.TEXT_PRIMARY)
-        sizer.Add(header, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
+        self._header = wx.StaticText(self, label="Rename Plan")
+        self._header.SetFont(styles.Font.TITLE())
+        self._header.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        sizer.Add(self._header, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
         sizer.AddSpacer(_HEADER_GAP)
 
@@ -208,10 +214,10 @@ class RenameConfirmDialog(wx.Dialog):
         if len(directories) > 1:
             summary += f" across {len(directories)} directories"
 
-        summary_label = wx.StaticText(self, label=summary)
-        summary_label.SetFont(styles.Font.BODY())
-        summary_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
-        sizer.Add(summary_label, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
+        self._summary_label = wx.StaticText(self, label=summary)
+        self._summary_label.SetFont(styles.Font.BODY())
+        self._summary_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
+        sizer.Add(self._summary_label, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
         sizer.AddSpacer(_SECTION_GAP)
 
@@ -285,6 +291,12 @@ class RenameConfirmDialog(wx.Dialog):
         # Keyboard shortcuts
         self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
 
+    def refresh_colors(self) -> None:
+        """Re-apply mode-dependent colors after an appearance change."""
+        self._header.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        self._summary_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
+        self.Refresh()
+
     def _on_confirm(self, event) -> None:
         """Handle Rename All button."""
         self.result = True
@@ -309,7 +321,7 @@ class RenameConfirmDialog(wx.Dialog):
 class ErrorListDialog(wx.Dialog):
     """Dialog showing AI analysis errors in a structured table."""
 
-    def __init__(self, parent, title: str, errors: list[tuple[str, str]], auth_aborted: bool = False):
+    def __init__(self, parent: wx.Window, title: str, errors: list[tuple[str, str]], auth_aborted: bool = False):
         super().__init__(
             parent,
             title=title,
@@ -335,10 +347,10 @@ class ErrorListDialog(wx.Dialog):
         summary = f"{len(errors)} error(s)"
         if auth_aborted:
             summary += " — batch aborted"
-        summary_label = wx.StaticText(self, label=summary)
-        summary_label.SetFont(styles.Font.HEADING())
-        summary_label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
-        header_sizer.Add(summary_label, 0, wx.ALIGN_CENTER_VERTICAL)
+        self._summary_label = wx.StaticText(self, label=summary)
+        self._summary_label.SetFont(styles.Font.HEADING())
+        self._summary_label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        header_sizer.Add(self._summary_label, 0, wx.ALIGN_CENTER_VERTICAL)
 
         sizer.Add(header_sizer, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
@@ -378,11 +390,16 @@ class ErrorListDialog(wx.Dialog):
         # Keyboard shortcuts
         self.Bind(wx.EVT_CHAR_HOOK, lambda e: _dismiss_on_key(self, e))
 
+    def refresh_colors(self) -> None:
+        """Re-apply mode-dependent colors after an appearance change."""
+        self._summary_label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        self.Refresh()
+
 
 class CompletionDialog(wx.Dialog):
     """Dialog showing rename results in a structured table."""
 
-    def __init__(self, parent, title: str, results: list[RenameResult]):
+    def __init__(self, parent: wx.Window, title: str, results: list[RenameResult]):
         super().__init__(
             parent,
             title=title,
@@ -401,10 +418,10 @@ class CompletionDialog(wx.Dialog):
         sizer.AddSpacer(_DIALOG_PADDING)
 
         # Header
-        header = wx.StaticText(self, label="Rename Complete")
-        header.SetFont(styles.Font.TITLE())
-        header.SetForegroundColour(styles.Color.TEXT_PRIMARY)
-        sizer.Add(header, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
+        self._header = wx.StaticText(self, label="Rename Complete")
+        self._header.SetFont(styles.Font.TITLE())
+        self._header.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        sizer.Add(self._header, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
         sizer.AddSpacer(_HEADER_GAP)
 
@@ -413,10 +430,10 @@ class CompletionDialog(wx.Dialog):
         if errors:
             summary += f", {errors} failed"
 
-        summary_label = wx.StaticText(self, label=summary)
-        summary_label.SetFont(styles.Font.BODY())
-        summary_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
-        sizer.Add(summary_label, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
+        self._summary_label = wx.StaticText(self, label=summary)
+        self._summary_label.SetFont(styles.Font.BODY())
+        self._summary_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
+        sizer.Add(self._summary_label, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
         sizer.AddSpacer(_SECTION_GAP)
 
@@ -470,3 +487,9 @@ class CompletionDialog(wx.Dialog):
 
         # Keyboard shortcuts
         self.Bind(wx.EVT_CHAR_HOOK, lambda e: _dismiss_on_key(self, e))
+
+    def refresh_colors(self) -> None:
+        """Re-apply mode-dependent colors after an appearance change."""
+        self._header.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        self._summary_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
+        self.Refresh()
