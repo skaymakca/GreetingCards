@@ -40,7 +40,11 @@ function shlMark(query) {
         var s = document.createElement('style');
         s.id = '_shl-css';
         s.textContent = 'mark._shl{background:#CCDEFF;border-radius:2px;padding:0 1px}'
-            + 'mark._shl._cur{background:#007AFF;color:#fff;border-radius:2px;padding:0 1px}';
+            + 'mark._shl._cur{background:#007AFF;color:#fff;border-radius:2px;padding:0 1px}'
+            + '@media(prefers-color-scheme:dark){'
+            + 'mark._shl{background:#1a3a5c}'
+            + 'mark._shl._cur{background:#4a9eff}'
+            + '}';
         document.head.appendChild(s);
     }
 
