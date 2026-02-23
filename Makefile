@@ -112,18 +112,21 @@ bump-patch: ## Bump patch version (0.5.0 → 0.5.1)
 	p='app/version.py'; v=open(p).read().split('\"')[1].split('.'); \
 	v=[int(x) for x in v]; v[2]+=1; nv='.'.join(map(str,v)); \
 	open(p,'w').write(f'__version__ = \"{nv}\"\n'); print(nv)"
+	@sed -i '' 's/^version = ".*"/version = "'$$(uv run python -c "from app.version import __version__; print(__version__)")'"/' pyproject.toml
 
 bump-minor: ## Bump minor version (0.5.1 → 0.6.0)
 	@uv run python -c "\
 	p='app/version.py'; v=open(p).read().split('\"')[1].split('.'); \
 	v=[int(x) for x in v]; v[1]+=1; v[2]=0; nv='.'.join(map(str,v)); \
 	open(p,'w').write(f'__version__ = \"{nv}\"\n'); print(nv)"
+	@sed -i '' 's/^version = ".*"/version = "'$$(uv run python -c "from app.version import __version__; print(__version__)")'"/' pyproject.toml
 
 bump-major: ## Bump major version (0.6.0 → 1.0.0)
 	@uv run python -c "\
 	p='app/version.py'; v=open(p).read().split('\"')[1].split('.'); \
 	v=[int(x) for x in v]; v[0]+=1; v[1]=0; v[2]=0; nv='.'.join(map(str,v)); \
 	open(p,'w').write(f'__version__ = \"{nv}\"\n'); print(nv)"
+	@sed -i '' 's/^version = ".*"/version = "'$$(uv run python -c "from app.version import __version__; print(__version__)")'"/' pyproject.toml
 
 tag: ## Create git tag vX.Y.Z from current version
 	@v=$$(uv run python -c "from app.version import __version__; print(__version__)"); \

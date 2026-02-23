@@ -863,7 +863,7 @@ class TestReprocessCandidatesEdgeCases:
     @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
     @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
     def test_corrupted_json(self, mock_title, mock_clean):
-        """Corrupted JSON in raw_ai_results raises during reprocessing."""
+        """Corrupted JSON in raw_ai_results is handled gracefully during reprocessing."""
         create_or_update_card("hash1")
         # Directly insert corrupted JSON into raw_ai_results
         session = db_mod._Session()
@@ -874,5 +874,8 @@ class TestReprocessCandidatesEdgeCases:
         session.commit()
         session.close()
 
-        with pytest.raises(Exception):
-            reprocess_candidates_from_raw("hash1")
+        # Should not raise — corrupted JSON is logged and skipped
+        reprocess_candidates_from_raw("hash1")
+        candidates = get_candidates("hash1")
+        ai_candidates = [c for c in candidates if c.method == "ai"]
+        assert ai_candidates == []

@@ -909,10 +909,12 @@ class MainWindow:
                         self._next_card_id += 1
 
                         card = self._worker_result_to_card(worker_result, card_id)
-                        self._cards_by_hash[file_hash] = card
+                        if file_hash is not None:
+                            self._cards_by_hash[file_hash] = card
 
                     # Always update path → hash mapping
-                    self._hash_by_path[pdf_path] = file_hash
+                    if file_hash is not None:
+                        self._hash_by_path[pdf_path] = file_hash
 
                 # Update UI (thread-safe with wx.CallAfter)
                 completed += 1
@@ -1392,7 +1394,7 @@ class MainWindow:
         plan = build_rename_plan(cards, year_str)
 
         # Show confirmation dialog
-        dialog = RenameConfirmDialog(self._frame, plan, year_str)
+        dialog = RenameConfirmDialog(self._frame, plan)
         if dialog.ShowModal() == wx.ID_OK:
             # Execute rename
             results = execute_rename_plan(plan)

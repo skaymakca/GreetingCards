@@ -52,7 +52,7 @@ class PreviewPanel(wx.Panel):
                 point_size=7,
                 color_hex="#000000"
             )
-        except Exception:
+        except (ImportError, AttributeError, OSError):
             self._zoom_in_cursor = None
             self._zoom_out_cursor = None
 

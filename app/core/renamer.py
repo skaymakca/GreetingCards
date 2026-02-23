@@ -20,7 +20,8 @@ def _read_directory_names(directory: Path) -> set[str]:
     """Read all filenames in a directory into a lowercase set."""
     try:
         return {f.name.lower() for f in directory.iterdir() if f.is_file()}
-    except OSError:
+    except OSError as e:
+        logger.warning("Cannot read directory %s: %s", directory, e)
         return set()
 
 

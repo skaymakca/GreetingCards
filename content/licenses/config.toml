@@ -84,5 +84,9 @@ name = "jiter"
 homepage = "https://github.com/pydantic/jiter"
 
 [[package]]
+name = "pathspec"
+homepage = "https://github.com/cpburnz/python-pathspec"
+
+[[package]]
 name = "pluggy"
 homepage = "https://github.com/pytest-dev/pluggy"

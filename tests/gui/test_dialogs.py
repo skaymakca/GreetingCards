@@ -376,20 +376,20 @@ class TestRenameConfirmDialog:
 
     def test_creation(self, wx_app, wx_frame):
         plan = self._make_plan([STATUS_OK, STATUS_SKIP_NO_NAME])
-        dlg = RenameConfirmDialog(wx_frame, plan, "2025")
+        dlg = RenameConfirmDialog(wx_frame, plan)
         assert dlg.GetTitle() == "Confirm Rename"
         assert dlg.result is False
         dlg.Destroy()
 
     def test_all_ok(self, wx_app, wx_frame):
         plan = self._make_plan([STATUS_OK, STATUS_OK, STATUS_OK])
-        dlg = RenameConfirmDialog(wx_frame, plan, "2025")
+        dlg = RenameConfirmDialog(wx_frame, plan)
         assert dlg is not None
         dlg.Destroy()
 
     def test_with_duplicates_and_errors(self, wx_app, wx_frame):
         plan = self._make_plan([STATUS_OK, STATUS_DUPLICATE, STATUS_SKIP_ERROR, STATUS_SKIP_SAME])
-        dlg = RenameConfirmDialog(wx_frame, plan, "2025")
+        dlg = RenameConfirmDialog(wx_frame, plan)
         assert dlg is not None
         dlg.Destroy()
 
@@ -399,7 +399,7 @@ class TestRenameConfirmDialog:
             RenamePlanItem(Path("/dir1/card1.pdf"), Path("/dir1/Smith.pdf"), STATUS_OK),
             RenamePlanItem(Path("/dir2/card2.pdf"), Path("/dir2/Jones.pdf"), STATUS_OK),
         ]
-        dlg = RenameConfirmDialog(wx_frame, plan, "2025")
+        dlg = RenameConfirmDialog(wx_frame, plan)
         assert dlg is not None
         dlg.Destroy()
 
@@ -409,7 +409,7 @@ class TestRenameConfirmDialog:
             RenamePlanItem(Path("/cards/a.pdf"), Path("/cards/b.pdf"), STATUS_OK),
             RenamePlanItem(Path("/cards/c.pdf"), Path("/cards/d.pdf"), STATUS_OK),
         ]
-        dlg = RenameConfirmDialog(wx_frame, plan, "2025")
+        dlg = RenameConfirmDialog(wx_frame, plan)
         assert dlg is not None
         dlg.Destroy()
 
@@ -565,7 +565,7 @@ class TestRenameConfirmDialogHandlers:
         ]
 
     def test_on_confirm_sets_result_true(self, wx_app, wx_frame):
-        dlg = RenameConfirmDialog(wx_frame, self._make_plan(), "2025")
+        dlg = RenameConfirmDialog(wx_frame, self._make_plan())
         assert dlg.result is False
         # _on_confirm sets result=True
         try:
@@ -576,7 +576,7 @@ class TestRenameConfirmDialogHandlers:
         dlg.Destroy()
 
     def test_on_cancel_sets_result_false(self, wx_app, wx_frame):
-        dlg = RenameConfirmDialog(wx_frame, self._make_plan(), "2025")
+        dlg = RenameConfirmDialog(wx_frame, self._make_plan())
         dlg.result = True  # Set it first
         try:
             dlg._on_cancel(None)
@@ -586,7 +586,7 @@ class TestRenameConfirmDialogHandlers:
         dlg.Destroy()
 
     def test_on_key_return_confirms(self, wx_app, wx_frame):
-        dlg = RenameConfirmDialog(wx_frame, self._make_plan(), "2025")
+        dlg = RenameConfirmDialog(wx_frame, self._make_plan())
         event = Mock(spec=wx.KeyEvent)
         event.GetKeyCode.return_value = wx.WXK_RETURN
         try:
@@ -597,7 +597,7 @@ class TestRenameConfirmDialogHandlers:
         dlg.Destroy()
 
     def test_on_key_escape_cancels(self, wx_app, wx_frame):
-        dlg = RenameConfirmDialog(wx_frame, self._make_plan(), "2025")
+        dlg = RenameConfirmDialog(wx_frame, self._make_plan())
         dlg.result = True
         event = Mock(spec=wx.KeyEvent)
         event.GetKeyCode.return_value = wx.WXK_ESCAPE
@@ -609,7 +609,7 @@ class TestRenameConfirmDialogHandlers:
         dlg.Destroy()
 
     def test_on_key_other_skips(self, wx_app, wx_frame):
-        dlg = RenameConfirmDialog(wx_frame, self._make_plan(), "2025")
+        dlg = RenameConfirmDialog(wx_frame, self._make_plan())
         event = Mock(spec=wx.KeyEvent)
         event.GetKeyCode.return_value = ord('X')
         dlg._on_key(event)

@@ -4,7 +4,7 @@ from PIL import Image, ImageChops, ImageFilter
 import io
 
 
-def _capped_zoom(page, dpi: int) -> fitz.Matrix:
+def _capped_zoom(page: fitz.Page, dpi: int) -> fitz.Matrix:
     """Compute a zoom matrix targeting the given DPI, capped at native image resolution."""
     target_zoom = dpi / 72
     image_infos = page.get_image_info()

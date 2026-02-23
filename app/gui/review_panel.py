@@ -26,12 +26,13 @@ Benefits:
 
 import logging
 import subprocess
+from typing import Callable
+from pathlib import Path
+
 import wx
 import wx.dataview as dv
 
 logger = logging.getLogger(__name__)
-from typing import Callable
-from pathlib import Path
 from app.models.card import CardResult, Confidence
 from app.gui.styles import Color, Font, Layout
 from app.gui.utils import create_static_text

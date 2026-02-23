@@ -166,7 +166,7 @@ class ProgressDialog(wx.Dialog):
 class RenameConfirmDialog(wx.Dialog):
     """Dialog showing the rename plan and asking for confirmation."""
 
-    def __init__(self, parent, plan: list[RenamePlanItem], year: str):
+    def __init__(self, parent, plan: list[RenamePlanItem]):
         super().__init__(
             parent,
             title="Confirm Rename",

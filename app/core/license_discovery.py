@@ -336,8 +336,9 @@ def sync_registry() -> LicenseRegistry:
     )
     dev_names: set[str] = set()
     for dep_str in pyproject.get("dependency-groups", {}).get("dev", []):
-        name = dep_str.split(">=")[0].split("==")[0].split("<")[0].strip().lower()
-        dev_names.add(name)
+        from packaging.requirements import Requirement
+        req = Requirement(dep_str)
+        dev_names.add(req.name.lower())
 
     # Categorize
     categories = _categorize_packages(packages, dev_names, config, runtime_deps)

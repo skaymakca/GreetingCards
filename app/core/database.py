@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -9,6 +10,8 @@ from sqlalchemy.orm import Session, declarative_base, sessionmaker, Mapped, mapp
 
 from app.core.paths import get_db_path
 from app.models.card import CandidateInfo, CardState
+
+logger = logging.getLogger(__name__)
 
 # Names that should not be treated as family names
 _FILTER_OUT = {
@@ -555,7 +558,11 @@ def get_raw_ai(file_hash: str) -> tuple[str, list[str]] | None:
     try:
         ai_result = session.query(RawAIResult).filter_by(file_hash=file_hash).first()
         if ai_result:
-            data = json.loads(ai_result.raw_response)
+            try:
+                data = json.loads(ai_result.raw_response)
+            except json.JSONDecodeError:
+                logger.warning("Corrupt JSON in raw_ai_results for %s", file_hash)
+                return None
             return data.get("best_name", ""), data.get("alternates", [])
         return None
     finally:
@@ -644,7 +651,11 @@ def reprocess_candidates_from_raw(file_hash: str) -> None:
         # Re-parse raw AI if exists
         ai_result = session.query(RawAIResult).filter_by(file_hash=file_hash).first()
         if ai_result:
-            data = json.loads(ai_result.raw_response)
+            try:
+                data = json.loads(ai_result.raw_response)
+            except json.JSONDecodeError:
+                logger.warning("Corrupt JSON in raw_ai_results for %s, skipping AI re-parse", file_hash)
+                data = {}
             best_name = data.get("best_name", "")
             alternates = data.get("alternates", [])
 

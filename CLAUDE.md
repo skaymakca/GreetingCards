@@ -131,3 +131,19 @@ After adding or updating packages with `uv add`, run `make licenses-sync` to upd
 ## Code Quality Audit
 
 When asked to audit the codebase, follow the checklist in [`docs/code-quality-audit.md`](docs/code-quality-audit.md).
+
+---
+
+## Pre-Commit Checks
+
+Before committing, run these checks and fix any issues:
+
+| Command | Purpose | Expected |
+|---------|---------|----------|
+| `uv run pyright app/` | Static type checking (strict structural types) | 0 errors, 0 warnings |
+| `uv run mypy app/` | Static type checking (nominal types, plugin-based) | 0 new errors (baseline has import-untyped warnings) |
+| `uv run pytest tests/ -x` | Run all tests | All pass |
+
+**pyright** (`pyrightconfig.json`): Catches structural type errors, unused imports, unreachable code. Zero-warning baseline.
+
+**mypy** (no config file yet): Catches nominal type mismatches, SQLAlchemy plugin issues. Has existing `import-untyped` warnings for wx/tesserocr/fitz — don't increase the count.

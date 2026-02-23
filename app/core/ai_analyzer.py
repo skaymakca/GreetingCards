@@ -3,6 +3,7 @@ import io
 import logging
 import re
 from dataclasses import dataclass, field
+from typing import Any
 
 from PIL import Image
 
@@ -149,9 +150,9 @@ def _parse_response(response_text: str) -> AIResult:
     )
 
 
-def _build_content_blocks(images: list[Image.Image]) -> list[dict]:
+def _build_content_blocks(images: list[Image.Image]) -> list[dict[str, Any]]:
     """Build the content blocks for the Claude API request."""
-    content: list[dict] = []
+    content: list[dict[str, Any]] = []
     for image in images:
         img_b64 = _image_to_b64(image)
         content.append({
