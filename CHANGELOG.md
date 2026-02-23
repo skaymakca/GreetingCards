@@ -2,8 +2,9 @@
 
 ## 0.9.1 (in progress)
 
-Polish and fixes to the changelog viewer and build pipeline.
+Polish, dark mode support, and fixes to the changelog viewer and build pipeline.
 
+- Full dark mode support — the app automatically follows macOS appearance settings, including native UI elements, toolbar icons, and HTML viewers (Help, Changelog, Licenses)
 - Fixed changelog sidebar navigation — clicking versions now works correctly
 - Dates displayed as subheadings below version titles
 - Simplified changelog build: pre-generated at build time, no runtime generation

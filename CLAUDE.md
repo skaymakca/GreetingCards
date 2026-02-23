@@ -142,6 +142,10 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `CHANGELOG.md` | `CLAUDE.md` (changelog conventions below) |
 | `app/core/config.py`, `app/core/paths.py` | `docs/architecture/config-and-preferences.md` |
 | `app/gui/settings_dialog.py` | `docs/architecture/config-and-preferences.md` |
+| `app/gui/appearance.py`, `app/gui/styles.py` (Color.refresh) | `docs/architecture/dark-mode.md` |
+| `app/gui/icons.py` (clear_cache, icon tint) | `docs/architecture/dark-mode.md` |
+| `app/gui/main_window.py` (appearance observer, refresh) | `docs/architecture/dark-mode.md` |
+| `content/html/common/css/viewer.css` (color variables) | `docs/architecture/dark-mode.md` |
 
 ### Test Count
 When adding or removing tests, update the test count in `README.md` (search for "tests** covering") to match the actual number from `pytest` output.
