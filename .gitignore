@@ -16,6 +16,12 @@ _runtime_content/
 content/licenses/texts/
 content/licenses/registry.toml
 
+# Type checkers
+.mypy_cache/
+
+# Claude Code
+.claude/
+
 # Testing
 .pytest_cache/
 .coverage
