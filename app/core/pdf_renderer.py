@@ -22,6 +22,11 @@ def autocrop_whitespace(image: Image.Image, threshold: int = 245, padding: int =
 
     Applies a Gaussian blur before thresholding to ignore scanner speckle
     noise that would otherwise prevent effective cropping.
+
+    Args:
+        threshold: Grayscale value (0-255) above which pixels are considered white.
+            245 catches near-white scanner backgrounds without clipping cream paper.
+        padding: Pixels to keep around the detected content to avoid clipping edges.
     """
     gray = image.convert("L")
     blurred = gray.filter(ImageFilter.GaussianBlur(radius=5))

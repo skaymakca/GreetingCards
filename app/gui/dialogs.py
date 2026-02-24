@@ -46,7 +46,7 @@ class TableModel(dv.PyDataViewModel):
         """Return number of columns."""
         return len(self.data[0]) if self.data else 0
 
-    def GetChildren(self, item, children) -> int:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def GetChildren(self, item: dv.DataViewItem, children: list[dv.DataViewItem]) -> int:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Return list of children for parent item."""
         # For a flat list, root has all items as children
         if not item:
@@ -55,22 +55,22 @@ class TableModel(dv.PyDataViewModel):
             return len(self.data)
         return 0
 
-    def IsContainer(self, item) -> bool:
+    def IsContainer(self, item: dv.DataViewItem) -> bool:
         """Check if item is a container (has children)."""
         # Only root is a container
         return not item
 
-    def GetParent(self, item) -> dv.DataViewItem:
+    def GetParent(self, item: dv.DataViewItem) -> dv.DataViewItem:
         """Return parent of item."""
         # All items have root as parent
         return dv.NullDataViewItem
 
-    def GetValue(self, item, col) -> str:
+    def GetValue(self, item: dv.DataViewItem, col: int) -> str:
         """Return value for item and column."""
         row = self.ItemToObject(item)
         return self.data[row][col]
 
-    def GetAttr(self, item, col, attr) -> bool:
+    def GetAttr(self, item: dv.DataViewItem, col: int, attr: dv.DataViewItemAttr) -> bool:
         """Set display attributes for item."""
         row = self.ItemToObject(item)
         if row < len(self.colors):
@@ -199,7 +199,7 @@ class RenameConfirmDialog(wx.Dialog):
         ok_count = sum(1 for item in plan if item.status == STATUS_OK)
         dup_count = sum(1 for item in plan if item.status == STATUS_DUPLICATE)
         error_count = sum(1 for item in plan if item.status == STATUS_SKIP_ERROR)
-        skip_count = sum(1 for item in plan if item.status.startswith("skip") and item.status != STATUS_SKIP_ERROR)
+        skip_count = sum(1 for item in plan if item.status in {STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME})
 
         # Count unique directories
         directories = {item.old_path.parent for item in plan}

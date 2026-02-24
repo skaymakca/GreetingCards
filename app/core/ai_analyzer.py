@@ -11,7 +11,9 @@ from app.core.config import get_api_key, get_ai_model
 
 logger = logging.getLogger(__name__)
 
+# Generous for up to 5 name lines in the response
 _MAX_TOKENS = 256
+# Lines longer than this are likely OCR garbage, not family names
 _MAX_LINE_LENGTH = 50
 
 

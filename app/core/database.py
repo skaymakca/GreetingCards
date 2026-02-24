@@ -125,6 +125,7 @@ def _session_scope() -> Generator[Session]:
         yield session
         session.commit()
     except Exception:
+        logger.exception("Database operation failed, rolling back")
         session.rollback()
         raise
     finally:
@@ -332,6 +333,16 @@ def _sort_candidates(candidates: list) -> list[CandidateInfo]:
     ]
 
 
+def _ensure_card_exists(session: Session, file_hash: str) -> Card:
+    """Return the Card for file_hash, creating it if missing. Caller must flush/commit."""
+    card = session.query(Card).filter_by(file_hash=file_hash).first()
+    if not card:
+        card = Card(file_hash=file_hash)
+        session.add(card)
+        session.flush()
+    return card
+
+
 def create_or_update_card(file_hash: str, remove_family: bool = False) -> None:
     """Create or update a card record. Call this when first processing a file."""
     with _session_scope() as session:
@@ -359,12 +370,7 @@ def add_candidate(file_hash: str, family_name: str, method: str, confidence: str
     clean_name = smart_title_case(cleaned[0])
 
     with _session_scope() as session:
-        # Ensure card exists
-        card = session.query(Card).filter_by(file_hash=file_hash).first()
-        if not card:
-            card = Card(file_hash=file_hash)
-            session.add(card)
-            session.flush()
+        _ensure_card_exists(session, file_hash)
 
         # Check if candidate already exists
         existing = (session.query(Candidate)
@@ -492,12 +498,7 @@ def get_card_state(file_hash: str) -> CardState | None:
 def save_raw_ocr(file_hash: str, ocr_text: str) -> None:
     """Save raw OCR text for potential re-processing."""
     with _session_scope() as session:
-        # Ensure card exists
-        card = session.query(Card).filter_by(file_hash=file_hash).first()
-        if not card:
-            card = Card(file_hash=file_hash)
-            session.add(card)
-            session.flush()
+        _ensure_card_exists(session, file_hash)
 
         # Save or update OCR result
         ocr_result = session.query(RawOCRResult).filter_by(file_hash=file_hash).first()
@@ -518,12 +519,7 @@ def get_raw_ocr(file_hash: str) -> str | None:
 def save_raw_ai(file_hash: str, best_name: str, alternates: list[str]) -> None:
     """Save raw AI result for debugging and potential re-processing."""
     with _session_scope() as session:
-        # Ensure card exists
-        card = session.query(Card).filter_by(file_hash=file_hash).first()
-        if not card:
-            card = Card(file_hash=file_hash)
-            session.add(card)
-            session.flush()
+        _ensure_card_exists(session, file_hash)
 
         # Save raw AI response as JSON
         raw_data = json.dumps({"best_name": best_name, "alternates": alternates})

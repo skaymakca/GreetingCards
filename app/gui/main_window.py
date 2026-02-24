@@ -629,7 +629,7 @@ class MainWindow:
 
     def _apply_content_sash_position(self) -> None:
         """Set the content splitter sash to split review/preview equally."""
-        def _apply():
+        def _apply() -> None:
             w = self._inner_splitter.GetSize().GetWidth()
             if w > 0:
                 self._inner_splitter.SetSashPosition(int(w * Layout.CONTENT_SASH_GRAVITY))
@@ -883,8 +883,9 @@ class MainWindow:
         # Set spawn method for PyInstaller
         try:
             multiprocessing.set_start_method('spawn', force=True)
-        except RuntimeError:
-            pass  # Already set
+        except RuntimeError as exc:
+            if "context has already been set" not in str(exc):
+                raise
 
         total = len(self._processing_files)
         pdf_paths_str = [str(p) for p in self._processing_files]
@@ -1290,7 +1291,7 @@ class MainWindow:
         auth_failed = asyncio.Event()
         errors: list[tuple[str, str]] = []
 
-        async def process_card(card_id: int, card: CardResult):
+        async def process_card(card_id: int, card: CardResult) -> None:
             nonlocal completed
 
             if card.error or (not card.page_images and not card.preview_image):
@@ -1537,7 +1538,7 @@ class FileDropTarget(wx.FileDropTarget):
         on_drop: Callable[[list[Path]], None],
         on_drag_over: Callable[[], None] | None = None,
         on_drag_leave: Callable[[], None] | None = None,
-    ):
+    ) -> None:
         super().__init__()
         self._on_drop = on_drop
         self._on_drag_over = on_drag_over

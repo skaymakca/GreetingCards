@@ -6,6 +6,7 @@ and image serialization — all core logic with zero GUI dependencies.
 """
 
 import io
+import logging
 from pathlib import Path
 
 from app.core.constants import PDF_DPI
@@ -68,6 +69,7 @@ def process_pdf_worker(pdf_path_str: str) -> PdfWorkerResult:
             result.method = card_state.method
 
     except Exception as e:
+        logging.getLogger(__name__).exception("Error processing PDF %s", pdf_path)
         result.error = str(e)
 
     return result

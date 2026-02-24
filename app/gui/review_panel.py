@@ -508,7 +508,7 @@ class DetailPanel(wx.Panel):
             return  # Swallow the keystroke
         event.Skip()
 
-    def _on_name_edit(self, event) -> None:
+    def _on_name_edit(self, event: wx.CommandEvent) -> None:
         """Handle name text change."""
         if self._suppress_events or not self._current_card:
             return
@@ -519,7 +519,7 @@ class DetailPanel(wx.Panel):
         if self._on_name_change:
             self._on_name_change(self._current_card.id, new_name)
 
-    def _on_checkbox(self, event) -> None:
+    def _on_checkbox(self, event: wx.CommandEvent) -> None:
         """Handle checkbox toggle."""
         if self._suppress_events or not self._current_card:
             return
@@ -530,7 +530,7 @@ class DetailPanel(wx.Panel):
         if self._on_checkbox_toggle:
             self._on_checkbox_toggle(self._current_card.id, new_value)
 
-    def _on_candidate(self, event) -> None:
+    def _on_candidate(self, event: wx.CommandEvent) -> None:
         """Handle candidate selection."""
         if self._suppress_events or not self._current_card:
             return
@@ -545,7 +545,7 @@ class DetailPanel(wx.Panel):
         if candidate_id is not None and self._on_candidate_select:
             self._on_candidate_select(self._current_card.id, candidate_id)
 
-    def _on_ai(self, event) -> None:
+    def _on_ai(self, event: wx.CommandEvent) -> None:
         """Handle AI button click."""
         if not self._current_card:
             return
@@ -553,7 +553,7 @@ class DetailPanel(wx.Panel):
         if self._on_ai_request:
             self._on_ai_request(self._current_card.id)
 
-    def _on_remove_click(self, event) -> None:
+    def _on_remove_click(self, event: wx.CommandEvent) -> None:
         """Handle Remove button click."""
         if not self._current_card:
             return
@@ -670,7 +670,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         self.Bind(wx.EVT_SIZE, self._on_panel_size, id=wx.ID_ANY)
         self._initial_sash_set = False
 
-    def _on_legend_hover(self, event) -> None:
+    def _on_legend_hover(self, event: wx.MouseEvent) -> None:
         """Show confidence legend popup on hover."""
         if self._legend_popup is not None:
             return
@@ -681,13 +681,13 @@ class ReviewPanelMasterDetail(wx.Panel):
         popup.Show()
         self._legend_popup = popup
 
-    def _on_legend_leave(self, event) -> None:
+    def _on_legend_leave(self, event: wx.MouseEvent) -> None:
         """Hide confidence legend popup when mouse leaves."""
         if self._legend_popup is not None:
             self._legend_popup.Destroy()
             self._legend_popup = None
 
-    def _on_panel_size(self, event) -> None:
+    def _on_panel_size(self, event: wx.SizeEvent) -> None:
         """Set initial sash position to give detail panel minimum space."""
         if not self._initial_sash_set and self.GetSize().GetHeight() > 100:
             # Get the splitter (it's in our sizer)
@@ -703,7 +703,7 @@ class ReviewPanelMasterDetail(wx.Panel):
                     break
         event.Skip()
 
-    def _on_key(self, event) -> None:
+    def _on_key(self, event: wx.KeyEvent) -> None:
         """Handle keyboard events."""
         keycode = event.GetKeyCode()
 
@@ -730,7 +730,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         """Return list of currently selected card IDs."""
         return list(self._selected_card_ids)
 
-    def _on_selection_changed(self, event) -> None:
+    def _on_selection_changed(self, event: wx.Event) -> None:
         """Handle list selection change (supports multi-select)."""
         selections = self._list_ctrl.GetSelections()
         self._selected_card_ids = []

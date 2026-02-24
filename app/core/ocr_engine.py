@@ -5,7 +5,9 @@ from app.core.paths import get_runtime_content_path
 
 _tessdata_path = str(get_runtime_content_path("tessdata/fast"))
 
+# Percent of lightest/darkest pixels to clip during autocontrast
 _OCR_CONTRAST_CUTOFF = 2
+# Tesseract penalty for non-dictionary words (lower = more lenient on names)
 _OCR_DICT_PENALTY = "0.15"
 
 

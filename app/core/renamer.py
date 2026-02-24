@@ -25,6 +25,7 @@ def _read_directory_names(directory: Path) -> set[str]:
         return set()
 
 
+# Safety cap on numbered duplicates — prevents infinite loop if filesystem is full
 _MAX_DUPLICATE_NUMBER = 10000
 
 
