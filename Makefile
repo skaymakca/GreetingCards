@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev run app build clean icon html-content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-unit test-gui test-watch tessdata pyright mypy lint lint-fix format format-check security check show-scripts
+.PHONY: help setup setup-dev run app build clean icon html-content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-unit test-gui test-watch tessdata pyright mypy lint lint-fix format format-check security check pycharm-inspect show-scripts
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -75,6 +75,31 @@ security: ## Run bandit security scan
 	uv run bandit -r app/ scripts/ -c pyproject.toml
 
 check: pyright mypy lint format-check security ## Run all static checks
+
+INSPECT_OUT := /tmp/pycharm-inspect-out
+
+# Find PyCharm — Toolbox (~/Applications) first, then system (/Applications).
+# Override with PYCHARM_APP env var for non-standard locations.
+PYCHARM_APP ?= $(firstword $(wildcard $(HOME)/Applications/PyCharm.app $(HOME)/Applications/PyCharm\ CE.app /Applications/PyCharm.app /Applications/PyCharm\ CE.app))
+
+pycharm-inspect: ## Run PyCharm inspections (requires PyCharm; skipped if not installed)
+	@if [ -z "$(PYCHARM_APP)" ] || [ ! -x "$(PYCHARM_APP)/Contents/bin/inspect.sh" ]; then \
+		echo "PyCharm not found — skipping pycharm-inspect (set PYCHARM_APP to override)"; \
+	else \
+		echo "Using $(PYCHARM_APP)"; \
+		rm -rf "$(INSPECT_OUT)"; \
+		"$(PYCHARM_APP)/Contents/bin/inspect.sh" "$(CURDIR)" \
+			.idea/inspectionProfiles/Project_Default.xml \
+			"$(INSPECT_OUT)" -v2; \
+		echo ""; \
+		echo "Results written to $(INSPECT_OUT)/"; \
+		xml_count=$$(find "$(INSPECT_OUT)" -name "*.xml" 2>/dev/null | wc -l | tr -d ' '); \
+		if [ "$$xml_count" = "0" ]; then \
+			echo "No inspection findings."; \
+		else \
+			echo "$$xml_count inspection result file(s). Open in PyCharm: Code > Inspect Code > Load Results."; \
+		fi; \
+	fi
 
 build: app ## Build the macOS .app bundle (alias for 'app')
 

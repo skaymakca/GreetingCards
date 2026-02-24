@@ -8,9 +8,11 @@
       <w>avgjobq</w>
       <w>basenames</w>
       <w>confq</w>
+      <w>curdir</w>
       <w>efficiencyq</w>
       <w>endef</w>
       <w>entrancy</w>
+      <w>firstword</w>
       <w>fname</w>
       <w>frontmatter</w>
       <w>gitignored</w>

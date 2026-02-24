@@ -35,6 +35,14 @@ MarkdownUnresolvedFileReference cannot be fixed — all findings are in `content
 
 > **Tip:** If you're writing or editing Markdown with file paths that should resolve on disk (e.g., architecture docs linking to other files), temporarily re-enable MarkdownUnresolvedFileReference in Settings > Editor > Inspections to catch broken links. The scope suppression only exists because the help content files use paths resolved at build time.
 
+## CLI Inspections
+
+PyCharm inspections can be run from the command line via `make pycharm-inspect`. This uses PyCharm's `inspect.sh` to launch a headless IDE instance that runs all inspections from the shared `Project_Default` profile. Results are written as XML files to `/tmp/pycharm-inspect-out/`.
+
+The target auto-detects PyCharm (Professional or Community) in `~/Applications` (JetBrains Toolbox) first, then `/Applications`. It skips gracefully if neither is found. Override with `PYCHARM_APP` env var for non-standard locations.
+
+**Limitations:** The headless runner starts a full IDE instance, so it takes a minute or two. Some inspections (notably Grazie grammar) may not produce results in headless mode. The headless instance may also reset your IDE theme to the default on next launch. For the most complete picture, use Code > Inspect Code inside the IDE.
+
 ## Custom Dictionary
 
 Project-specific words are in `.idea/dictionaries/project.xml`. Add technical terms, proper names, and benchmark variable names here to suppress SpellChecking false positives.

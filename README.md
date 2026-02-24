@@ -49,37 +49,38 @@ make test
 
 Run `make help` to see all available commands.
 
-| Command             | Description                                                                              |
-|---------------------|------------------------------------------------------------------------------------------|
-| `make help`         | Show all available make commands                                                         |
-| `make setup`        | Install production dependencies (creates venv automatically)                             |
-| `make setup-dev`    | Install all dependencies including dev/testing tools                                     |
-| `make run`          | Run the app from source                                                                  |
-| `make test`         | Run all tests                                                                            |
-| `make test-cov`     | Run tests with coverage report (generates `htmlcov/index.html`)                          |
-| `make test-unit`    | Run unit tests only (fast, no GUI)                                                       |
-| `make test-gui`     | Run GUI tests only (requires wxPython)                                                   |
-| `make test-watch`   | Run tests on file changes (requires pytest-watch)                                        |
-| `make build`        | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`) — alias for `make app` |
-| `make app`          | Build the macOS `.app` bundle (same as `make build`)                                     |
-| `make icon`         | Generate `icon.icns` from `icon.png` (auto-run by build)                                 |
-| `make version`      | Print the current version                                                                |
-| `make bump-patch`   | Bump patch version (e.g. 0.5.0 → 0.5.1)                                                  |
-| `make bump-minor`   | Bump minor version (e.g. 0.5.1 → 0.6.0)                                                  |
-| `make bump-major`   | Bump major version (e.g. 0.6.0 → 1.0.0)                                                  |
-| `make tag`          | Create git tag `vX.Y.Z` from current version                                             |
-| `make tag-push`     | Push all tags to remote                                                                  |
-| `make check`        | Run all static checks (pyright + mypy + ruff lint + format + bandit)                     |
-| `make pyright`      | Run pyright type checking on app/ and scripts/                                           |
-| `make mypy`         | Run mypy type checking on app/ and scripts/                                              |
-| `make lint`         | Run ruff linter                                                                          |
-| `make lint-fix`     | Run ruff linter with auto-fix                                                            |
-| `make format`       | Format code with ruff                                                                    |
-| `make format-check` | Check formatting without making changes                                                  |
-| `make security`     | Run bandit security scan on app/ and scripts/                                            |
-| `make loc`          | Count lines of code in project files (excludes dependencies and build artifacts)         |
-| `make show-scripts` | Show available script invocations without running them                                   |
-| `make clean`        | Remove `build/` and `dist/` directories                                                  |
+| Command                | Description                                                                              |
+|------------------------|------------------------------------------------------------------------------------------|
+| `make help`            | Show all available make commands                                                         |
+| `make setup`           | Install production dependencies (creates venv automatically)                             |
+| `make setup-dev`       | Install all dependencies including dev/testing tools                                     |
+| `make run`             | Run the app from source                                                                  |
+| `make test`            | Run all tests                                                                            |
+| `make test-cov`        | Run tests with coverage report (generates `htmlcov/index.html`)                          |
+| `make test-unit`       | Run unit tests only (fast, no GUI)                                                       |
+| `make test-gui`        | Run GUI tests only (requires wxPython)                                                   |
+| `make test-watch`      | Run tests on file changes (requires pytest-watch)                                        |
+| `make build`           | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`) — alias for `make app` |
+| `make app`             | Build the macOS `.app` bundle (same as `make build`)                                     |
+| `make icon`            | Generate `icon.icns` from `icon.png` (auto-run by build)                                 |
+| `make version`         | Print the current version                                                                |
+| `make bump-patch`      | Bump patch version (e.g. 0.5.0 → 0.5.1)                                                  |
+| `make bump-minor`      | Bump minor version (e.g. 0.5.1 → 0.6.0)                                                  |
+| `make bump-major`      | Bump major version (e.g. 0.6.0 → 1.0.0)                                                  |
+| `make tag`             | Create git tag `vX.Y.Z` from current version                                             |
+| `make tag-push`        | Push all tags to remote                                                                  |
+| `make check`           | Run all static checks (pyright + mypy + ruff lint + format + bandit)                     |
+| `make pyright`         | Run pyright type checking on app/ and scripts/                                           |
+| `make mypy`            | Run mypy type checking on app/ and scripts/                                              |
+| `make lint`            | Run ruff linter                                                                          |
+| `make lint-fix`        | Run ruff linter with auto-fix                                                            |
+| `make format`          | Format code with ruff                                                                    |
+| `make format-check`    | Check formatting without making changes                                                  |
+| `make security`        | Run bandit security scan on app/ and scripts/                                            |
+| `make pycharm-inspect` | Run PyCharm CLI inspections (skipped if PyCharm is not installed)                        |
+| `make loc`             | Count lines of code in project files (excludes dependencies and build artifacts)         |
+| `make show-scripts`    | Show available script invocations without running them                                   |
+| `make clean`           | Remove `build/` and `dist/` directories                                                  |
 
 ## Manual setup and commands
 
@@ -281,6 +282,23 @@ The `.idea/` directory is committed with shared project settings:
 - **Custom dictionary** — project-specific words (technical terms, proper names) to suppress spell-check false positives
 
 User-specific files (`workspace.xml`, etc.) are excluded via `.idea/.gitignore`.
+
+### CLI Inspections
+
+You can run PyCharm inspections from the command line without opening the IDE:
+
+```bash
+make pycharm-inspect
+
+# Override PyCharm location if needed
+PYCHARM_APP="/custom/path/PyCharm.app" make pycharm-inspect
+```
+
+This launches PyCharm's headless inspection runner against the project using the shared `Project_Default` profile. Results are written to `/tmp/pycharm-inspect-out/` as XML files. The target auto-detects PyCharm (Professional or Community) in `~/Applications` (JetBrains Toolbox) first, then `/Applications`, and skips gracefully if neither is found.
+
+> **Note:** The CLI runner starts a full IDE instance in headless mode, so it takes a minute or two. Some inspections (e.g., Grazie grammar) may not produce results in headless mode. For the most complete results, use Code > Inspect Code inside the IDE.
+
+> **Caveat:** The headless instance may reset your IDE theme to the default when you next launch PyCharm. This is a known side effect of running `inspect.sh`.
 
 > **Tip:** If you're writing Markdown with file paths that should resolve on disk, temporarily re-enable `MarkdownUnresolvedFileReference` in Settings > Editor > Inspections to catch broken links. The scope only suppresses it for the help content files where paths are intentionally unresolvable.
 
