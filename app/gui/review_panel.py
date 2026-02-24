@@ -818,10 +818,10 @@ class ReviewPanelMasterDetail(wx.Panel):
         if remove_icon:
             remove_item.SetBitmap(remove_icon)
 
-        # Bind handlers
-        paths = [str(c.primary_path) for c in cards]
+        # Bind handlers — collect all file paths (cards may have multiple copies)
+        all_paths = [str(p) for c in cards for p in c.file_paths]
 
-        def _open_files(evt, _paths=paths):
+        def _open_files(evt, _paths=all_paths):
             for p in _paths:
                 try:
                     subprocess.Popen(["open", p])
@@ -831,15 +831,14 @@ class ReviewPanelMasterDetail(wx.Panel):
         menu.Bind(wx.EVT_MENU, _open_files, open_item)
 
         if not is_multi:
-            primary_path = paths[0]
+            def _reveal_files(evt, _paths=all_paths):
+                for p in _paths:
+                    try:
+                        subprocess.Popen(["open", "-R", p])
+                    except OSError:
+                        pass
 
-            def _reveal_file(evt, _path=primary_path):
-                try:
-                    subprocess.Popen(["open", "-R", _path])
-                except OSError:
-                    pass
-
-            menu.Bind(wx.EVT_MENU, _reveal_file, reveal_item)  # reveal_item defined in matching `if not is_multi` above
+            menu.Bind(wx.EVT_MENU, _reveal_files, reveal_item)  # reveal_item defined in matching `if not is_multi` above
 
         hashes = [c.file_hash for c in cards if c.file_hash]
         if self._on_remove and hashes:

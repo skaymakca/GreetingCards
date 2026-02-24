@@ -5,6 +5,7 @@ Scans holiday/greeting card PDFs, extracts family names via OCR and AI, and batc
 ## Features
 
 - **Multi-source loading** — add PDF files or folders from multiple locations without clearing previous loads; cards accumulate across sessions
+- **Auto-reload** — instantly detects external file changes (e.g., page rotation in Preview) when the app window is re-activated, using mtime comparison to skip unchanged files without reading their contents; also available via File > Reload (Cmd+Shift+R) or the toolbar Reload button; deleted files are removed, modified files are reprocessed
 - **Content-based deduplication** — identical files at different locations are automatically detected (by content hash) and displayed as a single card with multiple file paths
 - **PDF rendering** — renders all pages of each PDF using PyMuPDF for preview and analysis
 - **Offline OCR** — extracts text from card images with Tesseract, then pattern-matches family names (e.g. "The Smiths", "Love, John & Jane Smith") at high/medium/low confidence levels
@@ -17,7 +18,7 @@ Scans holiday/greeting card PDFs, extracts family names via OCR and AI, and batc
 - **Preview with zoom/pan** — scroll wheel zoom at cursor, Shift+Click zoom in, Option+Click zoom out, click-drag pan, +/− buttons, Fit button
 - **Card removal** — remove cards via the Remove button, Edit > Remove (Cmd+Delete), or right-click context menu (non-destructive; files remain on disk)
 - **Right-click context menu** — right-click a card row for Open, Reveal in Finder, and Remove; right-click name fields for Cut, Copy, Paste, Title Case, and Clear
-- **Keyboard navigation** — Up/Down to select cards, Shift+Up/Down to extend selection, Cmd+A to select all, Left/Right to page through previews, Cmd+Delete to remove selected cards, Cmd+F to search, Cmd+O to open files, Cmd+Shift+I to AI analyze, Cmd+R to rename, Cmd+, for Settings, Escape to defocus
+- **Keyboard navigation** — Up/Down to select cards, Shift+Up/Down to extend selection, Cmd+A to select all, Left/Right to page through previews, Cmd+Delete to remove selected cards, Cmd+F to search, Cmd+O to open files, Cmd+Shift+R to reload, Cmd+Shift+I to AI analyze, Cmd+R to rename, Cmd+, for Settings, Escape to defocus
 - **Help system** — built-in WebView help viewer with 8 pages, cross-page search with highlighted matches, and Previous/Next match navigation
 - **Native macOS UI** — native toolbar, preferences editor (Cmd+,), About dialog, and system colors throughout
 - **API key management** — prompts for the Anthropic API key on first AI use; key is saved to `preferences.plist`; source mode also reads `ANTHROPIC_API_KEY` env var (bundle ignores env var)
@@ -179,7 +180,7 @@ tests/
 
 ### Current Coverage
 
-- **1280 tests** covering core logic and GUI components
+- **1300 tests** covering core logic and GUI components
 - **Core** (17 test files): AI analysis, card model, changelog, config, database, filename sanitization, help builder, license discovery, name extraction, name formatting, OCR engine, paths, PDF rendering, PDF worker, renamer, template environment, version
 - **GUI** (14 test files): API key dialog, context menu, dialogs, filter sidebar, help system, icons, main window, preview cursor behavior, preview panel, review panel, settings, styles, utilities
 

@@ -7,6 +7,7 @@ title: Toolbar
 ## Buttons
 
 - **Add Files** — Add PDF files or folders from anywhere (<kbd>Cmd+O</kbd>). You can add from multiple sources; cards accumulate rather than replace.
+- **Reload** — Re-check all loaded files for changes or deletions (<kbd>Cmd+Shift+R</kbd>). Useful after editing a PDF in another app (e.g., rotating pages in Preview). Modified files are reprocessed automatically. Also triggers automatically when the app window is re-activated. Also available via File → Reload.
 - **AI Analyze** — Analyze cards with Claude AI to extract family names (<kbd>Cmd+Shift+I</kbd>). When 2 or more cards are selected, analyzes only the selected cards; otherwise analyzes all visible (filtered) cards. The menu label and tooltip update to show the count and scope. Requires an API key (set in **Settings**).
 - **Rename** — Rename files based on extracted names (<kbd>Cmd+R</kbd>). Shows a confirmation dialog before renaming. Also available via File → Rename Files.
 - **Clear** — Remove all loaded cards and start over. Also available via File → Clear All.

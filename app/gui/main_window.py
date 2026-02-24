@@ -4,6 +4,7 @@ import asyncio
 import io
 import logging
 import threading
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Callable
@@ -188,6 +189,7 @@ class MainWindow:
         self._next_card_id = 0  # Monotonically increasing ID counter
         self._cards_by_hash: dict[str, CardResult] = {}  # hash → Card (1:1)
         self._hash_by_path: dict[Path, str] = {}  # path → hash (many:1)
+        self._mtime_by_path: dict[Path, float] = {}  # path → st_mtime (for fast pre-filter)
         self._pdf_files: list[Path] = []
         self._year = datetime.now().year - 1
         self._current_category_filters = ["all"]  # Current sidebar category filters
@@ -199,6 +201,7 @@ class MainWindow:
         # Preferences editor (lazy-init)
         self._prefs_editor: wx.PreferencesEditor | None = None
         self._progress: ProgressDialog | None = None
+        self._last_reload_time: float = 0.0  # monotonic timestamp for reload cooldown
 
         # Debounce timer for name edits (fires _refresh_display after user stops typing)
         self._edit_debounce_timer = wx.Timer(self._frame)
@@ -215,9 +218,10 @@ class MainWindow:
         Color.refresh()
         appearance.start_observer(self._on_appearance_changed)
 
-        # Center and bind close event
+        # Center and bind close/activate events
         self._frame.Centre()
         self._frame.Bind(wx.EVT_CLOSE, self._on_close)
+        self._frame.Bind(wx.EVT_ACTIVATE, self._on_frame_activate)
 
     def _get_card_by_id(self, card_id: int) -> CardResult | None:
         """Get card by ID (searches through hash-based storage).
@@ -240,6 +244,13 @@ class MainWindow:
         # File menu
         file_menu = wx.Menu()
         file_menu.Append(wx.ID_OPEN, "Open...\tCtrl+O")
+
+        self._reload_menu_id = wx.NewIdRef()
+        reload_item = file_menu.Append(self._reload_menu_id, "Reload\tCtrl+Shift+R")
+        reload_icon = load_menu_icon("arrow.clockwise")
+        if reload_icon:
+            reload_item.SetBitmap(reload_icon)
+
         file_menu.AppendSeparator()
 
         self._ai_menu_id = wx.NewIdRef()
@@ -334,10 +345,12 @@ class MainWindow:
         self._frame.Bind(wx.EVT_MENU, lambda e: self._review_panel.select_none(), id=self._select_none_id)
         self._frame.Bind(wx.EVT_MENU, self._on_remove_menu, id=self._remove_menu_id)
         self._frame.Bind(wx.EVT_UPDATE_UI, self._on_update_remove_menu, id=self._remove_menu_id)
+        self._frame.Bind(wx.EVT_MENU, lambda e: self._reload_cards(), id=self._reload_menu_id)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._start_ai_all(), id=self._ai_menu_id)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._start_rename(), id=self._rename_menu_id)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._clear_all(), id=self._clear_menu_id)
         self._frame.Bind(wx.EVT_MENU, self._on_clear_ai_results, id=self._clear_ai_menu_id)
+        self._frame.Bind(wx.EVT_UPDATE_UI, self._on_update_action_menu, id=self._reload_menu_id)
         self._frame.Bind(wx.EVT_UPDATE_UI, self._on_update_action_menu, id=self._ai_menu_id)
         self._frame.Bind(wx.EVT_UPDATE_UI, self._on_update_action_menu, id=self._rename_menu_id)
         self._frame.Bind(wx.EVT_UPDATE_UI, self._on_update_action_menu, id=self._clear_menu_id)
@@ -408,6 +421,14 @@ class MainWindow:
             shortHelp="Add PDF files or folders to analyze (can add from multiple sources)"
         ).GetId()
 
+        # Reload tool
+        reload_bmp = load_sf_symbol("arrow.clockwise", point_size=Layout.TOOLBAR_ICON_POINTS) or wx.NullBitmap
+        self._reload_id = toolbar.AddTool(
+            wx.ID_ANY, "Reload", reload_bmp,
+            shortHelp="Re-check loaded files for changes or deletions (\u21e7\u2318R)"
+        ).GetId()
+        toolbar.EnableTool(self._reload_id, False)
+
         toolbar.AddSeparator()
 
         # AI Analyze tool
@@ -461,12 +482,15 @@ class MainWindow:
 
         # Bind tool events
         self._frame.Bind(wx.EVT_TOOL, lambda e: self._add_files_folders(), id=self._browse_id)
+        self._frame.Bind(wx.EVT_TOOL, lambda e: self._reload_cards(), id=self._reload_id)
         self._frame.Bind(wx.EVT_TOOL, lambda e: self._start_ai_all(), id=self._ai_all_id)
         self._frame.Bind(wx.EVT_TOOL, lambda e: self._start_rename(), id=self._rename_id)
         self._frame.Bind(wx.EVT_TOOL, lambda e: self._clear_all(), id=self._clear_id)
 
-    def _enable_action_tools(self, *, ai: bool | None = None, rename: bool | None = None, clear: bool | None = None) -> None:
+    def _enable_action_tools(self, *, reload: bool | None = None, ai: bool | None = None, rename: bool | None = None, clear: bool | None = None) -> None:
         """Enable or disable action toolbar tools. Pass None to leave unchanged."""
+        if reload is not None:
+            self._toolbar.EnableTool(self._reload_id, reload)
         if ai is not None:
             self._toolbar.EnableTool(self._ai_all_id, ai)
         if rename is not None:
@@ -785,6 +809,7 @@ class MainWindow:
         # Clear all state (multi-load architecture)
         self._cards_by_hash.clear()
         self._hash_by_path.clear()
+        self._mtime_by_path.clear()
         self._pdf_files = []
         self._next_card_id = 0
 
@@ -795,7 +820,7 @@ class MainWindow:
         self._set_empty_state(True)
 
         # Disable toolbar tools
-        self._enable_action_tools(ai=False, rename=False, clear=False)
+        self._enable_action_tools(reload=False, ai=False, rename=False, clear=False)
 
         # Clear search filter
         self._search_ctrl.SetValue("")
@@ -807,6 +832,102 @@ class MainWindow:
 
         # Show confirmation
         self._show_info_message("All cards cleared", wx.ICON_INFORMATION)
+
+    def _reload_cards(self, *, mtime_only: bool = False) -> None:
+        """Re-check all loaded paths for modifications and deletions.
+
+        Diff-based reload: iterates over currently loaded paths only.
+        Does not scan folders for new files.
+
+        Args:
+            mtime_only: When True (auto-reload path), use mtime as a fast
+                pre-filter — files whose mtime hasn't changed are skipped
+                entirely without computing a hash. Files with changed mtime
+                still fall through to hash comparison.
+                When False (manual reload), every file is hash-checked.
+        """
+        from app.core.database import compute_file_hash
+
+        if not self._hash_by_path:
+            return
+
+        # Update cooldown timestamp (prevents rapid re-triggers from EVT_ACTIVATE)
+        self._last_reload_time = time.monotonic()
+
+        # Snapshot current paths (dict may mutate during iteration)
+        loaded_paths = set(self._hash_by_path.keys())
+        deleted_paths: list[Path] = []
+        needs_processing: list[Path] = []
+
+        for path in loaded_paths:
+            if not path.exists():
+                # File was deleted externally
+                old_hash = self._hash_by_path.pop(path, None)
+                self._mtime_by_path.pop(path, None)
+                if path in self._pdf_files:
+                    self._pdf_files.remove(path)
+                if old_hash and old_hash in self._cards_by_hash:
+                    card = self._cards_by_hash[old_hash]
+                    if path in card.file_paths:
+                        card.file_paths.remove(path)
+                    if not card.file_paths:
+                        del self._cards_by_hash[old_hash]
+                deleted_paths.append(path)
+            else:
+                # mtime pre-filter: skip files whose mtime hasn't changed
+                if mtime_only:
+                    try:
+                        current_mtime = path.stat().st_mtime
+                    except OSError:
+                        continue
+                    if current_mtime == self._mtime_by_path.get(path):
+                        continue  # mtime unchanged → skip hash check
+
+                # File exists — check if content changed
+                old_hash = self._hash_by_path[path]
+                try:
+                    new_hash = compute_file_hash(path)
+                except OSError:
+                    continue  # Can't read file, skip
+                if new_hash != old_hash:
+                    # Content changed — remove from old card
+                    self._hash_by_path.pop(path, None)
+                    self._mtime_by_path.pop(path, None)
+                    if path in self._pdf_files:
+                        self._pdf_files.remove(path)
+                    if old_hash in self._cards_by_hash:
+                        card = self._cards_by_hash[old_hash]
+                        if path in card.file_paths:
+                            card.file_paths.remove(path)
+                        if not card.file_paths:
+                            del self._cards_by_hash[old_hash]
+                    needs_processing.append(path)
+
+        if needs_processing:
+            # Re-add to _pdf_files and process (dedup handled by _process_cards)
+            self._pdf_files.extend(needs_processing)
+            self._start_processing(needs_processing)
+            n_del = len(deleted_paths)
+            n_mod = len(needs_processing)
+            parts = []
+            if n_del:
+                parts.append(f"{_plural(n_del, 'file')} removed")
+            if n_mod:
+                parts.append(f"{_plural(n_mod, 'file')} reprocessing")
+            self._show_info_message("Reload: " + ", ".join(parts), wx.ICON_INFORMATION)
+        elif deleted_paths:
+            # Only deletions — update UI
+            self._sidebar.update_folders(self._derive_folders())
+            self._current_folder_filters = self._sidebar.get_selected_folder_filters()
+            self._refresh_display()
+            if not self._cards_by_hash:
+                self._enable_action_tools(reload=False, ai=False, rename=False, clear=False)
+            self._show_info_message(
+                f"Reload: {_plural(len(deleted_paths), 'file')} removed",
+                wx.ICON_INFORMATION,
+            )
+        else:
+            self._show_info_message("All files up to date", wx.ICON_INFORMATION)
 
     def _on_clear_ai_results(self, event: wx.CommandEvent) -> None:
         """Clear AI results for selected or visible cards."""
@@ -862,7 +983,7 @@ class MainWindow:
         wx.BeginBusyCursor()
 
         # Disable toolbar tools
-        self._enable_action_tools(ai=False, rename=False)
+        self._enable_action_tools(reload=False, ai=False, rename=False)
 
         # Don't clear existing cards (multi-load architecture - accumulate!)
         # Note: Card deduplication happens in _process_cards during processing
@@ -922,6 +1043,10 @@ class MainWindow:
                     # Always update path → hash mapping
                     if file_hash is not None:
                         self._hash_by_path[pdf_path] = file_hash
+                        try:
+                            self._mtime_by_path[pdf_path] = pdf_path.stat().st_mtime
+                        except OSError:
+                            pass
 
                 # Update UI (thread-safe with wx.CallAfter)
                 completed += 1
@@ -997,7 +1122,7 @@ class MainWindow:
         self._refresh_display()
 
         # Enable toolbar tools
-        self._enable_action_tools(ai=True, rename=True, clear=True)
+        self._enable_action_tools(reload=True, ai=True, rename=True, clear=True)
 
         # Show success message
         count = len(self._cards_by_hash)
@@ -1080,6 +1205,7 @@ class MainWindow:
         # Remove all path → hash mappings for this card
         for path in card.file_paths:
             self._hash_by_path.pop(path, None)
+            self._mtime_by_path.pop(path, None)
             if path in self._pdf_files:
                 self._pdf_files.remove(path)
 
@@ -1103,6 +1229,7 @@ class MainWindow:
     def _on_update_action_menu(self, event: wx.UpdateUIEvent) -> None:
         """Enable/disable AI, Rename, Clear, Clear AI menu items and update labels dynamically."""
         menu_to_tool = {
+            self._reload_menu_id: self._reload_id,
             self._ai_menu_id: self._ai_all_id,
             self._rename_menu_id: self._rename_id,
             self._clear_menu_id: self._clear_id,
@@ -1261,7 +1388,7 @@ class MainWindow:
         wx.BeginBusyCursor()
 
         # Disable toolbar tools
-        self._enable_action_tools(ai=False, rename=False)
+        self._enable_action_tools(reload=False, ai=False, rename=False)
 
         # Show progress
         total = len(cards)
@@ -1371,7 +1498,7 @@ class MainWindow:
             self._progress.finish()
 
         # Enable toolbar tools
-        self._enable_action_tools(ai=True, rename=True)
+        self._enable_action_tools(reload=True, ai=True, rename=True)
 
         # Update sidebar counts and cards table (confidence levels may have changed)
         self._refresh_display()
@@ -1407,12 +1534,14 @@ class MainWindow:
             # Execute rename
             results = execute_rename_plan(plan)
 
-            # Update _hash_by_path mapping for renamed files
+            # Update _hash_by_path and _mtime_by_path mappings for renamed files
             for result in results:
                 if result.success and result.message in _RESOLVED_MESSAGES:
                     if result.old_path in self._hash_by_path:
                         file_hash = self._hash_by_path.pop(result.old_path)
                         self._hash_by_path[result.new_path] = file_hash
+                    if result.old_path in self._mtime_by_path:
+                        self._mtime_by_path[result.new_path] = self._mtime_by_path.pop(result.old_path)
 
             # Show completion
             errors = sum(1 for r in results if not r.success)
@@ -1444,6 +1573,7 @@ class MainWindow:
         # Remove paths from cards and tracking dicts
         for path in paths_to_remove:
             file_hash = self._hash_by_path.pop(path, None)
+            self._mtime_by_path.pop(path, None)
             if path in self._pdf_files:
                 self._pdf_files.remove(path)
             if file_hash and file_hash in self._cards_by_hash:
@@ -1461,7 +1591,7 @@ class MainWindow:
 
         # Disable toolbar tools if no cards remain
         if not self._cards_by_hash:
-            self._enable_action_tools(ai=False, rename=False, clear=False)
+            self._enable_action_tools(reload=False, ai=False, rename=False, clear=False)
             self._search_ctrl.SetValue("")
 
     def _show_info_message(self, message: str, icon: int = wx.ICON_INFORMATION, duration_ms: int = Layout.INFO_DISMISS_MS) -> None:
@@ -1505,6 +1635,7 @@ class MainWindow:
         """Re-render toolbar icons for current appearance."""
         icon_map = {
             self._browse_id: "folder.badge.plus",
+            self._reload_id: "arrow.clockwise",
             self._ai_all_id: "sparkles",
             self._rename_id: "pencil",
             self._clear_id: "xmark.circle",
@@ -1515,6 +1646,24 @@ class MainWindow:
         self._toolbar.Realize()
 
     # --- End dark mode ---
+
+    _RELOAD_COOLDOWN = 2.0  # seconds between auto-reloads
+
+    def _on_frame_activate(self, event: wx.ActivateEvent) -> None:
+        """Auto-reload cards when the app window is re-activated."""
+        event.Skip()
+        if not event.GetActive():
+            return
+        if not self._hash_by_path:
+            return
+        # Skip if processing is in progress (reload tool is disabled)
+        if not self._toolbar.GetToolEnabled(self._reload_id):
+            return
+        now = time.monotonic()
+        if now - self._last_reload_time < self._RELOAD_COOLDOWN:
+            return
+        self._last_reload_time = now
+        self._reload_cards(mtime_only=True)
 
     def _on_close(self, event: wx.CloseEvent) -> None:
         """Handle window close event."""

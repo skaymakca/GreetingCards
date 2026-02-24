@@ -1442,6 +1442,65 @@ class TestContextMenu:
         on_ai_analyze.assert_called_once_with(cards)
         menu.Destroy()
 
+    def test_open_opens_all_file_paths(self, parent_frame, mock_cards):
+        """Open menu item opens all file paths, including duplicates."""
+        card = mock_cards[0]
+        card.file_paths = [Path("/a/card1.pdf"), Path("/b/card1.pdf")]
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock())
+        panel.load_cards(mock_cards)
+
+        menu = panel._build_context_menu([card])
+        # Open is after AI Analyze + separator
+        open_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Open"][0]
+
+        with patch("app.gui.review_panel.subprocess.Popen") as mock_popen:
+            event = wx.CommandEvent(wx.wxEVT_MENU, open_item.GetId())
+            menu.ProcessEvent(event)
+
+        assert mock_popen.call_count == 2
+        mock_popen.assert_any_call(["open", "/a/card1.pdf"])
+        mock_popen.assert_any_call(["open", "/b/card1.pdf"])
+        menu.Destroy()
+
+    def test_reveal_reveals_all_file_paths(self, parent_frame, mock_cards):
+        """Reveal in Finder reveals all file paths for a single card with duplicates."""
+        card = mock_cards[0]
+        card.file_paths = [Path("/a/card1.pdf"), Path("/b/card1.pdf")]
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock())
+        panel.load_cards(mock_cards)
+
+        menu = panel._build_context_menu([card])
+        reveal_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Reveal in Finder"][0]
+
+        with patch("app.gui.review_panel.subprocess.Popen") as mock_popen:
+            event = wx.CommandEvent(wx.wxEVT_MENU, reveal_item.GetId())
+            menu.ProcessEvent(event)
+
+        assert mock_popen.call_count == 2
+        mock_popen.assert_any_call(["open", "-R", "/a/card1.pdf"])
+        mock_popen.assert_any_call(["open", "-R", "/b/card1.pdf"])
+        menu.Destroy()
+
+    def test_open_multi_card_opens_all_paths(self, parent_frame, mock_cards):
+        """Open on multi-select opens all file paths across all selected cards."""
+        mock_cards[0].file_paths = [Path("/a/card1.pdf"), Path("/b/card1.pdf")]
+        mock_cards[1].file_paths = [Path("/c/card2.pdf")]
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock())
+        panel.load_cards(mock_cards)
+
+        menu = panel._build_context_menu([mock_cards[0], mock_cards[1]])
+        open_item = [it for it in menu.GetMenuItems() if "Open" in it.GetItemLabelText()][0]
+
+        with patch("app.gui.review_panel.subprocess.Popen") as mock_popen:
+            event = wx.CommandEvent(wx.wxEVT_MENU, open_item.GetId())
+            menu.ProcessEvent(event)
+
+        assert mock_popen.call_count == 3
+        mock_popen.assert_any_call(["open", "/a/card1.pdf"])
+        mock_popen.assert_any_call(["open", "/b/card1.pdf"])
+        mock_popen.assert_any_call(["open", "/c/card2.pdf"])
+        menu.Destroy()
+
 
 # ============================================================================
 # Drag Highlight Tests

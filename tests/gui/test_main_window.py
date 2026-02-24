@@ -73,6 +73,7 @@ def test_clear_all_resets_state(wx_app):
     window._next_card_id = 5
     window._cards_by_hash = {"hash1": None, "hash2": None}
     window._hash_by_path = {Path("/test1.pdf"): "hash1", Path("/test2.pdf"): "hash2"}
+    window._mtime_by_path = {Path("/test1.pdf"): 100.0, Path("/test2.pdf"): 200.0}
     window._pdf_files = [Path("test.pdf")]
 
     # Clear
@@ -82,6 +83,7 @@ def test_clear_all_resets_state(wx_app):
     assert window._next_card_id == 0
     assert len(window._cards_by_hash) == 0
     assert len(window._hash_by_path) == 0
+    assert len(window._mtime_by_path) == 0
     assert len(window._pdf_files) == 0
 
     window._frame.Destroy()
@@ -149,6 +151,7 @@ def test_toolbar_icons_applied(wx_app):
     # Verify all toolbar tools are registered
     tool_ids = [
         window._browse_id,
+        window._reload_id,
         window._ai_all_id,
         window._rename_id,
         window._clear_id,
@@ -308,6 +311,7 @@ def test_tooltips_applied(wx_app):
     # Check toolbar tools have shortHelp text
     tool_checks = [
         (window._browse_id, "Add PDF files"),
+        (window._reload_id, "Re-check"),
         (window._ai_all_id, "Analyze"),
         (window._rename_id, "Rename"),
         (window._clear_id, "Clear"),
@@ -493,7 +497,8 @@ def test_toolbar_tools_initial_state(wx_app):
     """Test toolbar tools start in correct state."""
     window = MainWindow()
 
-    # AI All, Rename, Clear should be disabled initially
+    # Reload, AI All, Rename, Clear should be disabled initially
+    assert not window._toolbar.GetToolEnabled(window._reload_id)
     assert not window._toolbar.GetToolEnabled(window._ai_all_id)
     assert not window._toolbar.GetToolEnabled(window._rename_id)
     assert not window._toolbar.GetToolEnabled(window._clear_id)
@@ -962,6 +967,7 @@ def test_remove_card_removes_from_state(wx_app):
     card.file_hash = "hash1"
     window._cards_by_hash = {"hash1": card}
     window._hash_by_path = {Path("/test/card.pdf"): "hash1"}
+    window._mtime_by_path = {Path("/test/card.pdf"): 100.0}
     window._pdf_files = [Path("/test/card.pdf")]
 
     # Remove card
@@ -970,6 +976,7 @@ def test_remove_card_removes_from_state(wx_app):
     # Verify all state is cleaned up
     assert "hash1" not in window._cards_by_hash
     assert Path("/test/card.pdf") not in window._hash_by_path
+    assert Path("/test/card.pdf") not in window._mtime_by_path
     assert Path("/test/card.pdf") not in window._pdf_files
     window._frame.Destroy()
 
@@ -994,6 +1001,10 @@ def test_remove_card_multi_path(wx_app):
         Path("/test/card1.pdf"): "hash1",
         Path("/test/card2.pdf"): "hash1",
     }
+    window._mtime_by_path = {
+        Path("/test/card1.pdf"): 100.0,
+        Path("/test/card2.pdf"): 200.0,
+    }
     window._pdf_files = [Path("/test/card1.pdf"), Path("/test/card2.pdf")]
 
     # Remove card
@@ -1002,6 +1013,7 @@ def test_remove_card_multi_path(wx_app):
     # Both paths should be removed
     assert len(window._cards_by_hash) == 0
     assert len(window._hash_by_path) == 0
+    assert len(window._mtime_by_path) == 0
     assert len(window._pdf_files) == 0
     window._frame.Destroy()
 
@@ -2008,3 +2020,476 @@ class TestResolvedMessages:
     def test_resolved_messages_size(self):
         from app.gui.main_window import _RESOLVED_MESSAGES
         assert len(_RESOLVED_MESSAGES) == 2
+
+
+# ============================================================================
+# Reload Cards Tests
+# ============================================================================
+
+
+def test_reload_menu_exists(wx_app):
+    """Test 'Reload' menu item exists in File menu."""
+    window = MainWindow()
+    menubar = window._frame.GetMenuBar()
+
+    file_menu_idx = menubar.FindMenu("File")
+    file_menu = menubar.GetMenu(file_menu_idx)
+    labels = [
+        it.GetItemLabelText() for it in file_menu.GetMenuItems()
+        if not it.IsSeparator()
+    ]
+    assert any("Reload" in label for label in labels)
+
+    window._frame.Destroy()
+
+
+def test_reload_toolbar_exists(wx_app):
+    """Test Reload toolbar button exists."""
+    window = MainWindow()
+    tool = window._toolbar.FindById(window._reload_id)
+    assert tool is not None
+    window._frame.Destroy()
+
+
+def test_reload_toolbar_initially_disabled(wx_app):
+    """Test Reload button is disabled when no cards are loaded."""
+    window = MainWindow()
+    assert not window._toolbar.GetToolEnabled(window._reload_id)
+    window._frame.Destroy()
+
+
+def test_reload_no_cards_is_noop(wx_app):
+    """_reload_cards with no loaded cards does nothing."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+    with patch.object(window, "_start_processing") as mock_proc:
+        window._reload_cards()
+        mock_proc.assert_not_called()
+    window._frame.Destroy()
+
+
+def test_reload_no_changes(wx_app, tmp_path):
+    """_reload_cards with unchanged files shows 'up to date' message."""
+    from unittest.mock import patch
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    pdf = tmp_path / "card.pdf"
+    pdf.write_bytes(b"fake pdf content")
+
+    card = CardResult(id=0, file_paths=[pdf], primary_path=pdf)
+    card.file_hash = "hash1"
+    card.confidence = Confidence.HIGH
+    window._cards_by_hash = {"hash1": card}
+    window._hash_by_path = {pdf: "hash1"}
+    window._pdf_files = [pdf]
+
+    # Mock compute_file_hash to return the same hash
+    with patch("app.core.database.compute_file_hash", return_value="hash1"), \
+         patch.object(window, "_show_info_message") as mock_msg:
+        window._reload_cards()
+        mock_msg.assert_called_once()
+        assert "up to date" in mock_msg.call_args[0][0]
+
+    window._frame.Destroy()
+
+
+def test_reload_deleted_file(wx_app, tmp_path):
+    """_reload_cards removes cards for deleted files."""
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    pdf = tmp_path / "card.pdf"
+    pdf.write_bytes(b"fake pdf")
+
+    card = CardResult(id=0, file_paths=[pdf], primary_path=pdf)
+    card.file_hash = "hash1"
+    card.confidence = Confidence.HIGH
+    window._cards_by_hash = {"hash1": card}
+    window._hash_by_path = {pdf: "hash1"}
+    window._mtime_by_path = {pdf: 100.0}
+    window._pdf_files = [pdf]
+
+    # Delete the file
+    pdf.unlink()
+
+    window._reload_cards()
+
+    assert len(window._cards_by_hash) == 0
+    assert len(window._hash_by_path) == 0
+    assert len(window._mtime_by_path) == 0
+    assert pdf not in window._pdf_files
+
+    window._frame.Destroy()
+
+
+def test_reload_modified_file(wx_app, tmp_path):
+    """_reload_cards reprocesses files with changed content hash."""
+    from unittest.mock import patch
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    pdf = tmp_path / "card.pdf"
+    pdf.write_bytes(b"original content")
+
+    card = CardResult(id=0, file_paths=[pdf], primary_path=pdf)
+    card.file_hash = "old_hash"
+    card.confidence = Confidence.HIGH
+    window._cards_by_hash = {"old_hash": card}
+    window._hash_by_path = {pdf: "old_hash"}
+    window._mtime_by_path = {pdf: 100.0}
+    window._pdf_files = [pdf]
+
+    # Mock compute_file_hash to return a new hash
+    with patch("app.core.database.compute_file_hash", return_value="new_hash"), \
+         patch.object(window, "_start_processing") as mock_proc:
+        window._reload_cards()
+        mock_proc.assert_called_once()
+        assert pdf in mock_proc.call_args[0][0]
+
+    # Old card should be removed
+    assert "old_hash" not in window._cards_by_hash
+    assert pdf not in window._hash_by_path
+    assert pdf not in window._mtime_by_path
+
+    window._frame.Destroy()
+
+
+def test_reload_deleted_multi_path_card(wx_app, tmp_path):
+    """Deleting one copy of a multi-path card keeps the card with remaining paths."""
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    pdf1 = tmp_path / "copy1.pdf"
+    pdf2 = tmp_path / "copy2.pdf"
+    pdf1.write_bytes(b"same content")
+    pdf2.write_bytes(b"same content")
+
+    card = CardResult(id=0, file_paths=[pdf1, pdf2], primary_path=pdf1)
+    card.file_hash = "hash1"
+    card.confidence = Confidence.HIGH
+    window._cards_by_hash = {"hash1": card}
+    window._hash_by_path = {pdf1: "hash1", pdf2: "hash1"}
+    window._pdf_files = [pdf1, pdf2]
+
+    # Delete one copy
+    pdf1.unlink()
+
+    # Mock compute_file_hash for the remaining file
+    from unittest.mock import patch
+    with patch("app.core.database.compute_file_hash", return_value="hash1"):
+        window._reload_cards()
+
+    # Card still exists with one path
+    assert "hash1" in window._cards_by_hash
+    assert card.file_paths == [pdf2]
+    assert pdf1 not in window._hash_by_path
+    assert pdf2 in window._hash_by_path
+
+    window._frame.Destroy()
+
+
+def test_reload_updates_cooldown_timestamp(wx_app, tmp_path):
+    """_reload_cards updates _last_reload_time."""
+    import time
+    from app.models.card import CardResult, Confidence
+    from unittest.mock import patch
+
+    window = MainWindow()
+
+    pdf = tmp_path / "card.pdf"
+    pdf.write_bytes(b"content")
+
+    card = CardResult(id=0, file_paths=[pdf], primary_path=pdf)
+    card.file_hash = "hash1"
+    card.confidence = Confidence.HIGH
+    window._cards_by_hash = {"hash1": card}
+    window._hash_by_path = {pdf: "hash1"}
+    window._pdf_files = [pdf]
+
+    before = time.monotonic()
+    with patch("app.core.database.compute_file_hash", return_value="hash1"):
+        window._reload_cards()
+    after = time.monotonic()
+
+    assert before <= window._last_reload_time <= after
+
+    window._frame.Destroy()
+
+
+def test_on_frame_activate_triggers_reload(wx_app, tmp_path):
+    """EVT_ACTIVATE triggers _reload_cards when conditions are met."""
+    from unittest.mock import patch, Mock
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    pdf = tmp_path / "card.pdf"
+    pdf.write_bytes(b"content")
+
+    card = CardResult(id=0, file_paths=[pdf], primary_path=pdf)
+    card.file_hash = "hash1"
+    card.confidence = Confidence.HIGH
+    window._cards_by_hash = {"hash1": card}
+    window._hash_by_path = {pdf: "hash1"}
+    window._toolbar.EnableTool(window._reload_id, True)
+    window._last_reload_time = 0.0  # Ensure cooldown expired
+
+    event = Mock(spec=wx.ActivateEvent)
+    event.GetActive.return_value = True
+
+    with patch.object(window, "_reload_cards") as mock_reload:
+        window._on_frame_activate(event)
+        mock_reload.assert_called_once()
+
+    window._frame.Destroy()
+
+
+def test_on_frame_activate_skips_deactivation(wx_app):
+    """EVT_ACTIVATE does not reload on deactivation."""
+    from unittest.mock import patch, Mock
+
+    window = MainWindow()
+    window._hash_by_path = {Path("/test.pdf"): "hash1"}
+
+    event = Mock(spec=wx.ActivateEvent)
+    event.GetActive.return_value = False
+
+    with patch.object(window, "_reload_cards") as mock_reload:
+        window._on_frame_activate(event)
+        mock_reload.assert_not_called()
+
+    window._frame.Destroy()
+
+
+def test_on_frame_activate_skips_no_cards(wx_app):
+    """EVT_ACTIVATE does not reload when no cards loaded."""
+    from unittest.mock import patch, Mock
+
+    window = MainWindow()
+
+    event = Mock(spec=wx.ActivateEvent)
+    event.GetActive.return_value = True
+
+    with patch.object(window, "_reload_cards") as mock_reload:
+        window._on_frame_activate(event)
+        mock_reload.assert_not_called()
+
+    window._frame.Destroy()
+
+
+def test_on_frame_activate_respects_cooldown(wx_app, tmp_path):
+    """EVT_ACTIVATE skips reload within cooldown period."""
+    import time
+    from unittest.mock import patch, Mock
+
+    window = MainWindow()
+    window._hash_by_path = {Path("/test.pdf"): "hash1"}
+    window._toolbar.EnableTool(window._reload_id, True)
+    window._last_reload_time = time.monotonic()  # Just now
+
+    event = Mock(spec=wx.ActivateEvent)
+    event.GetActive.return_value = True
+
+    with patch.object(window, "_reload_cards") as mock_reload:
+        window._on_frame_activate(event)
+        mock_reload.assert_not_called()
+
+    window._frame.Destroy()
+
+
+def test_on_frame_activate_skips_during_processing(wx_app):
+    """EVT_ACTIVATE skips reload when processing is in progress (reload tool disabled)."""
+    from unittest.mock import patch, Mock
+
+    window = MainWindow()
+    window._hash_by_path = {Path("/test.pdf"): "hash1"}
+    window._toolbar.EnableTool(window._reload_id, False)  # Processing in progress
+    window._last_reload_time = 0.0
+
+    event = Mock(spec=wx.ActivateEvent)
+    event.GetActive.return_value = True
+
+    with patch.object(window, "_reload_cards") as mock_reload:
+        window._on_frame_activate(event)
+        mock_reload.assert_not_called()
+
+    window._frame.Destroy()
+
+
+def test_enable_action_tools_reload(wx_app):
+    """_enable_action_tools controls reload tool state."""
+    window = MainWindow()
+
+    window._enable_action_tools(reload=True)
+    assert window._toolbar.GetToolEnabled(window._reload_id)
+
+    window._enable_action_tools(reload=False)
+    assert not window._toolbar.GetToolEnabled(window._reload_id)
+
+    window._frame.Destroy()
+
+
+def test_reload_hash_error_skips_file(wx_app, tmp_path):
+    """_reload_cards skips files that can't be hashed (OSError)."""
+    from unittest.mock import patch
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    pdf = tmp_path / "card.pdf"
+    pdf.write_bytes(b"content")
+
+    card = CardResult(id=0, file_paths=[pdf], primary_path=pdf)
+    card.file_hash = "hash1"
+    card.confidence = Confidence.HIGH
+    window._cards_by_hash = {"hash1": card}
+    window._hash_by_path = {pdf: "hash1"}
+    window._pdf_files = [pdf]
+
+    with patch("app.core.database.compute_file_hash", side_effect=OSError("disk error")), \
+         patch.object(window, "_show_info_message") as mock_msg:
+        window._reload_cards()
+        # Should show "up to date" since the error is skipped
+        assert "up to date" in mock_msg.call_args[0][0]
+
+    # Card should still exist
+    assert "hash1" in window._cards_by_hash
+
+    window._frame.Destroy()
+
+
+def test_reload_toolbar_in_icon_map(wx_app):
+    """Test reload icon is refreshed during appearance change."""
+    window = MainWindow()
+
+    # Verify _reload_id is in the icon map (tested via _refresh_toolbar_icons)
+    from unittest.mock import patch
+    with patch("app.gui.main_window.load_sf_symbol", return_value=None) as mock_load:
+        window._refresh_toolbar_icons()
+        # Check arrow.clockwise was requested
+        symbol_names = [call.args[0] for call in mock_load.call_args_list]
+        assert "arrow.clockwise" in symbol_names
+
+    window._frame.Destroy()
+
+
+# ============================================================================
+# mtime Pre-filter Tests
+# ============================================================================
+
+
+def test_reload_mtime_only_skips_unchanged(wx_app, tmp_path):
+    """mtime_only=True skips files with unchanged mtime (no hash call)."""
+    from unittest.mock import patch
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    pdf = tmp_path / "card.pdf"
+    pdf.write_bytes(b"content")
+    mtime = pdf.stat().st_mtime
+
+    card = CardResult(id=0, file_paths=[pdf], primary_path=pdf)
+    card.file_hash = "hash1"
+    card.confidence = Confidence.HIGH
+    window._cards_by_hash = {"hash1": card}
+    window._hash_by_path = {pdf: "hash1"}
+    window._mtime_by_path = {pdf: mtime}
+    window._pdf_files = [pdf]
+
+    with patch("app.core.database.compute_file_hash") as mock_hash, \
+         patch.object(window, "_show_info_message"):
+        window._reload_cards(mtime_only=True)
+        mock_hash.assert_not_called()
+
+    # Card should still exist
+    assert "hash1" in window._cards_by_hash
+
+    window._frame.Destroy()
+
+
+def test_reload_mtime_only_hashes_on_mtime_change(wx_app, tmp_path):
+    """mtime_only=True falls through to hash check when mtime differs."""
+    from unittest.mock import patch
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    pdf = tmp_path / "card.pdf"
+    pdf.write_bytes(b"content")
+
+    card = CardResult(id=0, file_paths=[pdf], primary_path=pdf)
+    card.file_hash = "hash1"
+    card.confidence = Confidence.HIGH
+    window._cards_by_hash = {"hash1": card}
+    window._hash_by_path = {pdf: "hash1"}
+    window._mtime_by_path = {pdf: 0.0}  # Stale mtime — will differ from stat
+    window._pdf_files = [pdf]
+
+    with patch("app.core.database.compute_file_hash", return_value="hash1") as mock_hash, \
+         patch.object(window, "_show_info_message"):
+        window._reload_cards(mtime_only=True)
+        mock_hash.assert_called_once_with(pdf)
+
+    window._frame.Destroy()
+
+
+def test_reload_manual_always_hashes(wx_app, tmp_path):
+    """mtime_only=False (manual reload) always hashes, even when mtime matches."""
+    from unittest.mock import patch
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    pdf = tmp_path / "card.pdf"
+    pdf.write_bytes(b"content")
+    mtime = pdf.stat().st_mtime
+
+    card = CardResult(id=0, file_paths=[pdf], primary_path=pdf)
+    card.file_hash = "hash1"
+    card.confidence = Confidence.HIGH
+    window._cards_by_hash = {"hash1": card}
+    window._hash_by_path = {pdf: "hash1"}
+    window._mtime_by_path = {pdf: mtime}
+    window._pdf_files = [pdf]
+
+    with patch("app.core.database.compute_file_hash", return_value="hash1") as mock_hash, \
+         patch.object(window, "_show_info_message"):
+        window._reload_cards(mtime_only=False)
+        mock_hash.assert_called_once_with(pdf)
+
+    window._frame.Destroy()
+
+
+def test_on_frame_activate_uses_mtime_only(wx_app, tmp_path):
+    """EVT_ACTIVATE passes mtime_only=True to _reload_cards."""
+    from unittest.mock import patch, Mock
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    pdf = tmp_path / "card.pdf"
+    pdf.write_bytes(b"content")
+
+    card = CardResult(id=0, file_paths=[pdf], primary_path=pdf)
+    card.file_hash = "hash1"
+    card.confidence = Confidence.HIGH
+    window._cards_by_hash = {"hash1": card}
+    window._hash_by_path = {pdf: "hash1"}
+    window._toolbar.EnableTool(window._reload_id, True)
+    window._last_reload_time = 0.0
+
+    event = Mock(spec=wx.ActivateEvent)
+    event.GetActive.return_value = True
+
+    with patch.object(window, "_reload_cards") as mock_reload:
+        window._on_frame_activate(event)
+        mock_reload.assert_called_once_with(mtime_only=True)
+
+    window._frame.Destroy()

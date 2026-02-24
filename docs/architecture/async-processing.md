@@ -62,6 +62,14 @@ In `_process_cards()` (background thread, receiving results):
 - Hash already in `_cards_by_hash` → add path to existing card
 - New hash → `_worker_result_to_card()` creates CardResult with next monotonic ID
 
+### Reload: `_reload_cards()`
+
+Reload re-checks loaded paths for modifications/deletions on the main thread (no background work for the diff phase). Modified files are handed to `_start_processing()` — the same ProcessPoolExecutor path used by initial loading. This means reload inherits all existing dedup, progress tracking, and state management.
+
+**mtime fast pre-filter:** `_reload_cards()` accepts a `mtime_only` keyword argument. When `mtime_only=True` (the auto-reload path), each file's `st_mtime` is compared against `_mtime_by_path` before any hash is computed. Files with unchanged mtime are skipped entirely — a `stat()` call is ~1000x faster than reading and hashing the full file. Files with changed mtime still fall through to hash comparison. Manual reload (menu/toolbar) uses `mtime_only=False` and always hash-checks every file.
+
+Auto-reload fires on `wx.EVT_ACTIVATE` (window re-activation) with a 2-second cooldown (`time.monotonic()`) to avoid rapid-fire reloads. Reload is also gated on the reload toolbar tool being enabled — processing disables it, which prevents concurrent reloads.
+
 ## AI Analysis
 
 ### Unified Path: `_start_ai_all()`
