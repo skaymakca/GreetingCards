@@ -9,13 +9,20 @@ Usage (bundled):
     open "dist/Visual Test.app"
 """
 
+from __future__ import annotations
+
 import sys
 from pathlib import Path
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from typing import TYPE_CHECKING
+
 import wx
+
+if TYPE_CHECKING:
+    from app.gui.filter_sidebar import FilterSidebar
 
 from app.gui import appearance  # type: ignore[attr-defined]
 from app.gui.icons import clear_cache
@@ -163,6 +170,9 @@ class VisualTestFrame(wx.Frame):
         from app.gui.main_window import MainWindow
 
         self._last_main_window: MainWindow | None = None
+
+        # Progress demo state (set by _open_progress before use)
+        self._progress_count: int = 0
 
         panel = wx.Panel(self)
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -449,7 +459,7 @@ class VisualTestFrame(wx.Frame):
 
     # -- Notification triggers (sent to last "with mock cards" main window) --
 
-    def _get_sidebar(self):  # type: ignore[no-untyped-def]
+    def _get_sidebar(self) -> FilterSidebar | None:
         """Get the sidebar from the last main window, or show error."""
         if self._last_main_window is None:
             wx.MessageBox(

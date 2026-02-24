@@ -74,7 +74,7 @@ def get_api_key() -> str | None:
     global _mismatch_warned
 
     prefs = _read_plist()
-    plist_key = prefs.get(_KEY_NAME) or None
+    plist_key = prefs.get(_KEY_NAME) or None  # converts empty string to None
 
     # Bundle mode: only use plist
     if is_bundled():

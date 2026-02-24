@@ -1,5 +1,6 @@
 """wxPython Filter Sidebar for three-column Mail.app style layout."""
 
+from collections.abc import Callable
 from pathlib import Path
 
 import wx
@@ -23,7 +24,12 @@ class FilterSidebar(wx.Panel):
       - All Folders, one checkbox per source folder
     """
 
-    def __init__(self, parent: wx.Window, on_category_filter, on_folder_filter=None) -> None:
+    def __init__(
+        self,
+        parent: wx.Window,
+        on_category_filter: Callable[[list[str]], None],
+        on_folder_filter: Callable[[list[str]], None] | None = None,
+    ) -> None:
         """Initialize filter sidebar.
 
         Args:

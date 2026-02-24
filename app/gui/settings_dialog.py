@@ -33,10 +33,10 @@ def get_commit_hash() -> str:
 class GeneralPreferencesPage(wx.StockPreferencesPage):
     """General preferences page with API key management."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(wx.StockPreferencesPage.Kind_General)
 
-    def CreateWindow(self, parent) -> wx.Panel:
+    def CreateWindow(self, parent: wx.Window) -> wx.Panel:
         """Create the preferences panel. May be called multiple times."""
         panel = wx.Panel(parent)
         panel.SetMaxSize(wx.Size(_PREFS_WIDTH, -1))
@@ -110,7 +110,7 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
         panel.SetSizer(sizer)
         return panel
 
-    def _on_model_changed(self, event) -> None:
+    def _on_model_changed(self, event: wx.CommandEvent) -> None:
         """Save model selection immediately."""
         if not self._model_choice:
             return
@@ -118,7 +118,7 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
         if idx != wx.NOT_FOUND:
             save_ai_model(AI_MODELS[idx].model_id)
 
-    def _save_api_key(self, event) -> None:
+    def _save_api_key(self, event: wx.CommandEvent) -> None:
         """Save API key and show status."""
         # Guard against stale widget reference after CreateWindow re-creation
         if not self._key_entry or not self._key_status:
@@ -167,7 +167,7 @@ class AdvancedPreferencesPage(wx.StockPreferencesPage):
         super().__init__(wx.StockPreferencesPage.Kind_Advanced)
         self._on_db_reset = on_db_reset
 
-    def CreateWindow(self, parent) -> wx.Panel:
+    def CreateWindow(self, parent: wx.Window) -> wx.Panel:
         """Create the preferences panel. May be called multiple times."""
         panel = wx.Panel(parent)
         panel.SetMaxSize(wx.Size(_PREFS_WIDTH, -1))
@@ -202,7 +202,7 @@ class AdvancedPreferencesPage(wx.StockPreferencesPage):
         panel.SetSizer(sizer)
         return panel
 
-    def _reset_card_data(self, event) -> None:
+    def _reset_card_data(self, event: wx.CommandEvent) -> None:
         """Reset all card data after confirmation."""
         result = wx.MessageBox(
             "This will reset all card data including manual name entries, "

@@ -37,7 +37,7 @@ def _display_path(path: Path) -> str:
 class TableModel(dv.PyDataViewModel):
     """DataViewModel for tables with colored rows."""
 
-    def __init__(self, data: list[list[str]], colors: list[wx.Colour]):
+    def __init__(self, data: list[list[str]], colors: list[wx.Colour]) -> None:
         """Initialize model.
 
         Args:
@@ -300,17 +300,17 @@ class RenameConfirmDialog(wx.Dialog):
         self._summary_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
         self.Refresh()
 
-    def _on_confirm(self, event) -> None:
+    def _on_confirm(self, event: wx.CommandEvent) -> None:
         """Handle Rename All button."""
         self.result = True
         self.EndModal(wx.ID_OK)
 
-    def _on_cancel(self, event) -> None:
+    def _on_cancel(self, event: wx.CommandEvent) -> None:
         """Handle Cancel button."""
         self.result = False
         self.EndModal(wx.ID_CANCEL)
 
-    def _on_key(self, event) -> None:
+    def _on_key(self, event: wx.KeyEvent) -> None:
         """Handle keyboard shortcuts."""
         key_code = event.GetKeyCode()
         if key_code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):

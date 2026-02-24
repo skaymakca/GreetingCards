@@ -43,7 +43,7 @@ from app.models.card import CardResult, Confidence
 class _ConfidenceLegendPopup(wx.PopupWindow):
     """Styled popup showing confidence legend with colored dots."""
 
-    def __init__(self, parent):
+    def __init__(self, parent: wx.Window) -> None:
         super().__init__(parent, wx.BORDER_SIMPLE)
         panel = wx.Panel(self)
         sizer = wx.BoxSizer(wx.VERTICAL)
