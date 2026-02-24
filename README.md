@@ -28,6 +28,8 @@ Scans holiday/greeting card PDFs, extracts family names via OCR and AI, and batc
 
 - Python 3.14
 - [uv](https://docs.astral.sh/uv/) (`brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`)
+- [pyright](https://github.com/microsoft/pyright) — type checking (`brew install pyright` or `npm i -g pyright`)
+- [Tesseract](https://github.com/tesseract-ocr/tesseract) — required only for benchmark scripts (`brew install tesseract`)
 
 ## Quick Start
 
@@ -62,6 +64,7 @@ Run `make help` to see all available commands.
 | `make test-watch`      | Run tests on file changes (requires pytest-watch)                                        |
 | `make build`           | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`) — alias for `make app` |
 | `make app`             | Build the macOS `.app` bundle (same as `make build`)                                     |
+| `make app-run`         | Build and run the `.app` bundle with logs visible in terminal                            |
 | `make icon`            | Generate `icon.icns` from `icon.png` (auto-run by build)                                 |
 | `make version`         | Print the current version                                                                |
 | `make bump-patch`      | Bump patch version (e.g. 0.5.0 → 0.5.1)                                                  |

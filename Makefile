@@ -54,7 +54,7 @@ test-watch: ## Run tests on file changes (requires pytest-watch)
 	uv run ptw -- -v
 
 pyright: ## Run pyright type checking on app/ and scripts/
-	uv run pyright app/ scripts/
+	pyright app/ scripts/
 
 mypy: ## Run mypy type checking on app/ and scripts/
 	uv run mypy app/ scripts/
@@ -120,6 +120,9 @@ licenses-sync: ## Sync license registry from uv.lock + .dist-info
 app: icon html-content tessdata ## Build the macOS .app bundle
 	@$(LSREGISTER) -u "dist/Greeting Cards.app" 2>/dev/null || true
 	uv run pyinstaller -y "Greeting Cards.spec"
+
+app-run: app ## Build and run the .app bundle (logs visible in terminal)
+	"dist/Greeting Cards.app/Contents/MacOS/Greeting Cards"
 
 icon: content/images/icon.png ## Generate icon.icns from icon.png
 	@mkdir -p _runtime_content icon.iconset

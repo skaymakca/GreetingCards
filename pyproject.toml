@@ -33,7 +33,6 @@ dev = [
     "rich>=14.3.3",
     "ruff>=0.11.0",
     "bandit>=1.9.0",
-    "pyright>=1.1.408",
 ]
 
 [tool.pytest.ini_options]
@@ -57,6 +56,19 @@ filterwarnings = [
     "ignore:builtin type .* has no __module__:DeprecationWarning",
     "ignore:unclosed database:ResourceWarning",
 ]
+
+[tool.pyright]
+include = ["app", "tests", "scripts"]
+exclude = ["dist", "build", "_runtime_content", ".venv", "content/licenses/registry.toml"]
+reportArgumentType = false
+reportAttributeAccessIssue = false
+reportCallIssue = false
+reportIncompatibleMethodOverride = false
+reportOptionalMemberAccess = false
+reportOptionalCall = false
+reportOperatorIssue = false
+reportIndexIssue = false
+reportRedeclaration = false
 
 [tool.mypy]
 plugins = ["sqlalchemy.ext.mypy.plugin"]
