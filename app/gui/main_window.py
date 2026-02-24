@@ -15,7 +15,7 @@ import wx.adv
 logger = logging.getLogger(__name__)
 
 from app.core.ai_analyzer import analyze_card_with_ai_async, format_ai_error
-from app.core.config import get_api_key
+from app.core.config import GITHUB_URL, get_api_key
 from app.core.constants import AI_CONCURRENCY, OCR_WORKERS
 from app.core.database import (
     clear_ai_results,
@@ -330,6 +330,8 @@ class MainWindow:
         help_menu.Append(wx.ID_HELP, "Greeting Cards Help")
         self._whats_new_id = wx.NewIdRef()
         help_menu.Append(self._whats_new_id, "What's New")
+        self._github_id = wx.NewIdRef()
+        help_menu.Append(self._github_id, "GitHub Repository")
         self._licenses_id = wx.NewIdRef()
         help_menu.Append(self._licenses_id, "Licenses")
         menubar.Append(help_menu, "&Help")
@@ -344,6 +346,7 @@ class MainWindow:
         self._frame.Bind(wx.EVT_MENU, lambda e: self._frame.Close(), id=wx.ID_EXIT)
         self._frame.Bind(wx.EVT_MENU, lambda e: show_changelog(self._frame), id=self._whats_new_id)
         self._frame.Bind(wx.EVT_MENU, lambda e: show_help(self._frame), id=wx.ID_HELP)
+        self._frame.Bind(wx.EVT_MENU, lambda e: wx.LaunchDefaultBrowser(GITHUB_URL), id=self._github_id)
         self._frame.Bind(wx.EVT_MENU, lambda e: show_licenses(self._frame), id=self._licenses_id)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._search_ctrl.SetFocus(), id=self._find_menu_id)
         self._frame.Bind(wx.EVT_MENU, self._on_select_all, id=wx.ID_SELECTALL)

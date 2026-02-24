@@ -20,6 +20,7 @@ from typing import Any
 import tomli_w
 from markupsafe import Markup, escape
 
+from app.core.config import GITHUB_URL
 from app.core.license_models import (
     DiscoveredPackage,
     LicenseConfig,
@@ -489,48 +490,6 @@ def _write_registry_toml(licenses_dir: Path, registry: LicenseRegistry) -> None:
     registry_path.write_bytes(tomli_w.dumps(data).encode("utf-8"))
 
 
-# noinspection DuplicatedCode
-def _read_registry_toml(licenses_dir: Path) -> LicenseRegistry:
-    """Deserialize registry.toml into a LicenseRegistry."""
-    registry_path = licenses_dir / "registry.toml"
-    data = tomllib.loads(registry_path.read_text(encoding="utf-8"))
-
-    system_deps = [
-        SystemDep(
-            slug=sd["slug"],
-            display=sd["display"],
-            version=sd.get("version", ""),
-            license_type=sd["license_type"],
-            notes=sd.get("notes", ""),
-            url=sd.get("url", ""),
-        )
-        for sd in data.get("system", [])
-    ]
-
-    packages = [
-        DiscoveredPackage(
-            name=pkg["name"],
-            slug=pkg["slug"],
-            display=pkg["display"],
-            version=pkg["version"],
-            license_type=pkg["license_type"],
-            category=PackageCategory(pkg["category"]),
-            required_by=pkg["required_by"],
-            text_file=pkg["text_file"],
-            homepage=pkg.get("homepage", ""),
-        )
-        for pkg in data.get("package", [])
-    ]
-
-    meta = data.get("meta", {})
-    return LicenseRegistry(
-        uv_lock_hash=meta.get("uv_lock_hash", ""),
-        generated_at=meta.get("generated_at", ""),
-        system_deps=system_deps,
-        packages=packages,
-    )
-
-
 # ---------------------------------------------------------------------------
 # HTML generation
 # ---------------------------------------------------------------------------
@@ -674,7 +633,7 @@ def _write_html(
                 "version": "",
                 "license_type": "BSD 3-Clause",
                 "license_text": app_license_text,
-                "homepage": "https://github.com/skaymakca/GreetingCards",
+                "homepage": GITHUB_URL,
                 "notes": "",
             }
         ],

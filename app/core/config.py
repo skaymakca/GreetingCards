@@ -6,6 +6,8 @@ from pathlib import Path
 
 from app.core.paths import get_data_dir, is_bundled
 
+GITHUB_URL = "https://github.com/skaymakca/GreetingCards"
+
 _PLIST_NAME = "preferences.plist"
 _KEY_NAME = "ANTHROPIC_API_KEY"
 _MODEL_KEY = "AI_MODEL"

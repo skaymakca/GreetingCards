@@ -6,6 +6,8 @@ title: Home
 
 Greeting Cards helps you organize and rename greeting card PDFs using OCR and AI-powered name extraction.
 
+Greeting Cards is open source. Visit the [GitHub repository](https://github.com/skaymakca/GreetingCards) for source code, issues, and documentation.
+
 ## Topics
 
 - [Getting Started](pages/getting-started.html) — Workflow overview
