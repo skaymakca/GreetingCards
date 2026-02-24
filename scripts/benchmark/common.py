@@ -25,7 +25,10 @@ from PIL import Image, ImageChops, ImageFilter, ImageOps
 
 # Optional imports — fail gracefully if not installed
 try:
+    # noinspection PyUnusedImports
     import cv2
+
+    # noinspection PyUnusedImports
     import numpy as np
 
     HAS_OPENCV = True
@@ -142,6 +145,7 @@ def get_tessdata_path(tessdata: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 
+# noinspection DuplicatedCode
 def _capped_zoom(page: fitz.Page, dpi: int) -> fitz.Matrix:
     target_zoom = dpi / 72
     image_infos = page.get_image_info()
@@ -166,6 +170,7 @@ def autocrop_whitespace(image: Image.Image, threshold: int = 245, padding: int =
     return image.crop((left, top, right, bottom))
 
 
+# noinspection DuplicatedCode
 def render_all_pages(pdf_path: Path, dpi: int = 200) -> list[Image.Image]:
     doc = fitz.open(str(pdf_path))
     images = []
@@ -214,7 +219,7 @@ def png_bytes_to_image(data: bytes) -> Image.Image:
 
 
 def preprocess_pillow(img: Image.Image) -> Image.Image:
-    """Current production pipeline: grayscale -> autocontrast -> sharpen."""
+    """Current production pipeline: grayscale -> auto contrast -> sharpen."""
     img = ImageOps.grayscale(img)
     img = ImageOps.autocontrast(img, cutoff=2)
     img = img.filter(ImageFilter.SHARPEN)
@@ -300,6 +305,7 @@ def ocr_pytesseract(img: Image.Image, cfg: Config) -> tuple[str, float]:
     Reconstructs text structure using block_num, par_num, line_num from TSV output.
     """
     config_str = build_tesseract_config(cfg)
+    # noinspection PyBroadException
     try:
         data = pytesseract.image_to_data(img, config=config_str, output_type=pytesseract.Output.DICT)  # pyright: ignore[reportPossiblyUnboundVariable]
         # Group words by (block_num, par_num, line_num) to preserve structure
@@ -339,6 +345,7 @@ def ocr_tesserocr(img: Image.Image, cfg: Config) -> tuple[str, float]:
         raise ValueError(f"Unknown PSM value: {cfg.psm}")
 
     with tesserocr.PyTessBaseAPI(**kwargs) as api:  # pyright: ignore[reportPossiblyUnboundVariable]
+        # noinspection PyTypeChecker
         api.SetPageSegMode(psm_enum)  # pyright: ignore[reportArgumentType]
         if cfg.preprocess == "sauvola":
             api.SetVariable("thresholding_method", "2")

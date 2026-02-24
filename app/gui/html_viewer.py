@@ -108,6 +108,7 @@ def _count_occurrences(text: str, query_lower: str) -> int:
     return count
 
 
+# noinspection PyUnusedLocal,PyTypeChecker
 class HTMLViewerWindow:
     """WebView-based HTML viewer with toolbar navigation and cross-page search."""
 
@@ -391,8 +392,10 @@ class HTMLViewerWindow:
                 next_pg = (page_cursor + 1) % len(search_pages)
                 _navigate_to_page(next_pg, 0)
 
+        # noinspection PyShadowingNames
         def on_navigating(evt) -> None:
             url = evt.GetURL()
+            # noinspection HttpUrlsUsage
             if url.startswith(("http://", "https://")):
                 evt.Veto()
                 wx.LaunchDefaultBrowser(url)

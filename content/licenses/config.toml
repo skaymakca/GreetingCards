@@ -90,3 +90,11 @@ homepage = "https://github.com/cpburnz/python-pathspec"
 [[package]]
 name = "pluggy"
 homepage = "https://github.com/pytest-dev/pluggy"
+
+[[package]]
+name = "pytest-watch"
+homepage = "https://github.com/joeyespo/pytest-watch"
+
+[[package]]
+name = "docopt"
+homepage = "https://docopt.org"

@@ -8,18 +8,18 @@ The app runs on macOS with wxPython, PyMuPDF, pytesseract, and the Anthropic API
 
 ### Portability Scorecard
 
-| Layer | Files | Status |
-|-------|-------|--------|
-| **Core logic** | ai_analyzer, database, name_extractor, name_formatting, pdf_renderer, renamer, constants | **Fully portable** — no changes needed |
-| **Data model** | card.py | **Fully portable** |
-| **Config storage** | config.py, paths.py | **macOS-only** — plist format + ~/Library paths |
-| **OCR engine** | ocr_engine.py | **Needs abstraction** — hardcoded Homebrew paths |
-| **GUI panels** | review_panel, preview_panel, filter_sidebar, dialogs | **Cross-platform** — standard wxPython widgets |
-| **GUI infrastructure** | main_window, utils, context_menu, api_key_dialog | **Cross-platform** (minor text adaptations) |
-| **Icons** | icons.py | **macOS-only** — SF Symbols via PyObjC |
-| **Settings** | settings_dialog.py | **macOS-only** — wx.PreferencesEditor |
-| **Help** | help_dialog.py | **Cross-platform** — WebView with icon fallbacks |
-| **Build** | Makefile, .spec | **macOS-only** — .icns, lsregister, sips |
+| Layer                  | Files                                                                                    | Status                                           |
+|------------------------|------------------------------------------------------------------------------------------|--------------------------------------------------|
+| **Core logic**         | ai_analyzer, database, name_extractor, name_formatting, pdf_renderer, renamer, constants | **Fully portable** — no changes needed           |
+| **Data model**         | card.py                                                                                  | **Fully portable**                               |
+| **Config storage**     | config.py, paths.py                                                                      | **macOS-only** — plist format + ~/Library paths  |
+| **OCR engine**         | ocr_engine.py                                                                            | **Needs abstraction** — hardcoded Homebrew paths |
+| **GUI panels**         | review_panel, preview_panel, filter_sidebar, dialogs                                     | **Cross-platform** — standard wxPython widgets   |
+| **GUI infrastructure** | main_window, utils, context_menu, api_key_dialog                                         | **Cross-platform** (minor text adaptations)      |
+| **Icons**              | icons.py                                                                                 | **macOS-only** — SF Symbols via PyObjC           |
+| **Settings**           | settings_dialog.py                                                                       | **macOS-only** — wx.PreferencesEditor            |
+| **Help**               | help_dialog.py                                                                           | **Cross-platform** — WebView with icon fallbacks |
+| **Build**              | Makefile, .spec                                                                          | **macOS-only** — .icns, lsregister, sips         |
 
 **Bottom line:** ~80% of the code works as-is on all platforms. The remaining ~20% is concentrated in 6 files that need platform abstraction.
 
@@ -194,13 +194,13 @@ def get_data_dir() -> Path:
 
 **`app/core/config.py`** — Replace plist with JSON (cross-platform):
 
-| | macOS (current) | Cross-platform (proposed) |
-|---|---|---|
-| Format | Binary plist | JSON |
-| Library | `plistlib` | `json` (stdlib) |
-| File | `preferences.plist` | `preferences.json` |
-| Read | `plistlib.load(f)` | `json.load(f)` |
-| Write | `plistlib.dump(data, f)` | `json.dump(data, f, indent=2)` |
+|         | macOS (current)          | Cross-platform (proposed)      |
+|---------|--------------------------|--------------------------------|
+| Format  | Binary plist             | JSON                           |
+| Library | `plistlib`               | `json` (stdlib)                |
+| File    | `preferences.plist`      | `preferences.json`             |
+| Read    | `plistlib.load(f)`       | `json.load(f)`                 |
+| Write   | `plistlib.dump(data, f)` | `json.dump(data, f, indent=2)` |
 
 JSON is human-readable, cross-platform, and supported everywhere. The config data is simple key-value pairs (API key, AI model) that map naturally to JSON.
 
@@ -264,17 +264,17 @@ This is the largest platform boundary. SF Symbols are macOS-only and deeply inte
 
 **Current SF Symbols used:**
 
-| Context | Symbol Name | Meaning |
-|---------|------------|---------|
-| Toolbar | `folder.badge.plus` | Add files |
-| Toolbar | `sparkles` | AI analyze |
-| Toolbar | `pencil` | Rename |
-| Toolbar | `xmark.circle` | Clear |
-| Menu | `doc.text`, `folder`, `magnifyingglass` | File operations |
-| Menu | `scissors`, `square.on.square` | Cut, copy |
-| Context | `textformat.abc` | Title case |
-| Preview | `plus.magnifyingglass`, `minus.magnifyingglass` | Zoom cursors |
-| Help | `chevron.left`, `chevron.right`, `house` | Navigation |
+| Context | Symbol Name                                     | Meaning         |
+|---------|-------------------------------------------------|-----------------|
+| Toolbar | `folder.badge.plus`                             | Add files       |
+| Toolbar | `sparkles`                                      | AI analyze      |
+| Toolbar | `pencil`                                        | Rename          |
+| Toolbar | `xmark.circle`                                  | Clear           |
+| Menu    | `doc.text`, `folder`, `magnifyingglass`         | File operations |
+| Menu    | `scissors`, `square.on.square`                  | Cut, copy       |
+| Context | `textformat.abc`                                | Title case      |
+| Preview | `plus.magnifyingglass`, `minus.magnifyingglass` | Zoom cursors    |
+| Help    | `chevron.left`, `chevron.right`, `house`        | Navigation      |
 
 **Windows/Linux approach:** Bundle PNG icons as resources. Use a consistent icon set (e.g., Feather Icons, Material Icons, or custom PNGs).
 
@@ -406,25 +406,25 @@ build-linux:
 
 These components work identically on all platforms with no modifications:
 
-| Component | Why It's Portable |
-|-----------|------------------|
-| AI analyzer | Pure Python + Anthropic API |
-| Database (SQLAlchemy/SQLite) | Paths abstracted via paths.py |
-| Name extractor (regex) | Pure text processing |
-| Name formatting | Pure text processing, already handles all OS invalid chars |
-| PDF renderer (PyMuPDF) | Cross-platform C library |
-| Renamer | Uses pathlib throughout |
-| Card data model | Pure Python dataclasses |
-| Review panel | Standard wx.DataViewCtrl |
-| Preview panel | Standard wx.Panel + wx.GraphicsContext (cursor icons have fallback) |
-| Filter sidebar | Standard wx.Panel + wx.CheckBox |
-| All dialogs | Standard wx.Dialog + wx.DataViewCtrl |
-| Help system (WebView) | wx.html2.WebView with platform-specific backend (API identical) |
-| API key dialog | Standard wx.TextEntryDialog |
-| Context menus | Standard wx.Menu (icons have fallback) |
-| Drag & drop | Standard wx.FileDropTarget |
-| All event handling | Standard wx.EVT_* bindings |
-| Keyboard shortcuts | wxPython auto-maps Ctrl↔Cmd on macOS |
+| Component                    | Why It's Portable                                                   |
+|------------------------------|---------------------------------------------------------------------|
+| AI analyzer                  | Pure Python + Anthropic API                                         |
+| Database (SQLAlchemy/SQLite) | Paths abstracted via paths.py                                       |
+| Name extractor (regex)       | Pure text processing                                                |
+| Name formatting              | Pure text processing, already handles all OS invalid chars          |
+| PDF renderer (PyMuPDF)       | Cross-platform C library                                            |
+| Renamer                      | Uses pathlib throughout                                             |
+| Card data model              | Pure Python dataclasses                                             |
+| Review panel                 | Standard wx.DataViewCtrl                                            |
+| Preview panel                | Standard wx.Panel + wx.GraphicsContext (cursor icons have fallback) |
+| Filter sidebar               | Standard wx.Panel + wx.CheckBox                                     |
+| All dialogs                  | Standard wx.Dialog + wx.DataViewCtrl                                |
+| Help system (WebView)        | wx.html2.WebView with platform-specific backend (API identical)     |
+| API key dialog               | Standard wx.TextEntryDialog                                         |
+| Context menus                | Standard wx.Menu (icons have fallback)                              |
+| Drag & drop                  | Standard wx.FileDropTarget                                          |
+| All event handling           | Standard wx.EVT_* bindings                                          |
+| Keyboard shortcuts           | wxPython auto-maps Ctrl↔Cmd on macOS                                |
 
 ---
 
@@ -432,28 +432,28 @@ These components work identically on all platforms with no modifications:
 
 ### High Risk (test thoroughly)
 
-| Area | Risk | Mitigation |
-|------|------|------------|
-| WebView on Windows | IE/Edge WebView2 may render help HTML differently | Test early; consider wx.html.HtmlWindow fallback |
-| Tesseract availability | Users may not have tesseract installed | Clear error message with install instructions per platform |
-| PyInstaller bundling | Platform-specific quirks with bundled dependencies | CI/CD testing on each OS |
+| Area                   | Risk                                               | Mitigation                                                 |
+|------------------------|----------------------------------------------------|------------------------------------------------------------|
+| WebView on Windows     | IE/Edge WebView2 may render help HTML differently  | Test early; consider wx.html.HtmlWindow fallback           |
+| Tesseract availability | Users may not have tesseract installed             | Clear error message with install instructions per platform |
+| PyInstaller bundling   | Platform-specific quirks with bundled dependencies | CI/CD testing on each OS                                   |
 
 ### Medium Risk (likely works, verify)
 
-| Area | Risk | Mitigation |
-|------|------|------------|
-| wxPython rendering | Toolbar, splitters, DataView may look different | Visual testing on each platform |
-| File case sensitivity | Linux is case-sensitive, macOS/Windows are not | Renamer already uses `.lower()` for dedup |
-| Path separators | Windows uses `\`, Unix uses `/` | Already using `pathlib.Path` everywhere |
+| Area                  | Risk                                            | Mitigation                                |
+|-----------------------|-------------------------------------------------|-------------------------------------------|
+| wxPython rendering    | Toolbar, splitters, DataView may look different | Visual testing on each platform           |
+| File case sensitivity | Linux is case-sensitive, macOS/Windows are not  | Renamer already uses `.lower()` for dedup |
+| Path separators       | Windows uses `\`, Unix uses `/`                 | Already using `pathlib.Path` everywhere   |
 
 ### Low Risk (safe assumptions)
 
-| Area | Notes |
-|------|-------|
-| SQLite | Works identically everywhere |
-| PIL/Pillow | Cross-platform image library |
-| Anthropic API | HTTP calls work everywhere |
-| asyncio | Cross-platform event loop |
+| Area          | Notes                        |
+|---------------|------------------------------|
+| SQLite        | Works identically everywhere |
+| PIL/Pillow    | Cross-platform image library |
+| Anthropic API | HTTP calls work everywhere   |
+| asyncio       | Cross-platform event loop    |
 
 ---
 
@@ -461,16 +461,16 @@ These components work identically on all platforms with no modifications:
 
 Suggested sequence that delivers working builds incrementally:
 
-| Phase | Work | Enables |
-|-------|------|---------|
-| 1. Platform detection | New `platform.py` module | Foundation for all other phases |
-| 2. Paths & config | JSON config, platform data dirs | App can store preferences on all platforms |
-| 3. OCR engine | Platform-specific tesseract discovery | OCR works on all platforms |
-| 4. File operations | Open/reveal abstractions | Context menu works on all platforms |
-| 5. Icons | PNG fallback icon set | Toolbar and menus render on all platforms |
-| 6. Settings dialog | Cross-platform preferences dialog | Settings accessible on all platforms |
-| 7. Fonts & text | Platform-adaptive fonts and key labels | Native look on each platform |
-| 8. Build system | Per-platform PyInstaller specs | Distributable builds |
+| Phase                 | Work                                   | Enables                                    |
+|-----------------------|----------------------------------------|--------------------------------------------|
+| 1. Platform detection | New `platform.py` module               | Foundation for all other phases            |
+| 2. Paths & config     | JSON config, platform data dirs        | App can store preferences on all platforms |
+| 3. OCR engine         | Platform-specific tesseract discovery  | OCR works on all platforms                 |
+| 4. File operations    | Open/reveal abstractions               | Context menu works on all platforms        |
+| 5. Icons              | PNG fallback icon set                  | Toolbar and menus render on all platforms  |
+| 6. Settings dialog    | Cross-platform preferences dialog      | Settings accessible on all platforms       |
+| 7. Fonts & text       | Platform-adaptive fonts and key labels | Native look on each platform               |
+| 8. Build system       | Per-platform PyInstaller specs         | Distributable builds                       |
 
 After Phase 4, the app is **functional** on all platforms (with blank toolbar icons).
 After Phase 5, the app is **visually complete**.
@@ -480,17 +480,17 @@ After Phase 8, the app is **distributable**.
 
 ## Dependency Changes
 
-| Dependency | macOS | Windows | Linux |
-|------------|-------|---------|-------|
-| wxPython | ✅ | ✅ (pip install) | ✅ (pip install, may need GTK3 dev libs) |
-| PyMuPDF | ✅ | ✅ | ✅ |
-| pytesseract | ✅ | ✅ | ✅ |
-| Tesseract binary | Homebrew | Installer from GitHub | `apt install tesseract-ocr` |
-| anthropic | ✅ | ✅ | ✅ |
-| Pillow | ✅ | ✅ | ✅ |
-| SQLAlchemy | ✅ | ✅ | ✅ |
-| PyObjC (AppKit) | ✅ (SF Symbols) | N/A | N/A |
-| python-dotenv | ✅ | ✅ | ✅ |
+| Dependency       | macOS          | Windows               | Linux                                   |
+|------------------|----------------|-----------------------|-----------------------------------------|
+| wxPython         | ✅              | ✅ (pip install)       | ✅ (pip install, may need GTK3 dev libs) |
+| PyMuPDF          | ✅              | ✅                     | ✅                                       |
+| pytesseract      | ✅              | ✅                     | ✅                                       |
+| Tesseract binary | Homebrew       | Installer from GitHub | `apt install tesseract-ocr`             |
+| anthropic        | ✅              | ✅                     | ✅                                       |
+| Pillow           | ✅              | ✅                     | ✅                                       |
+| SQLAlchemy       | ✅              | ✅                     | ✅                                       |
+| PyObjC (AppKit)  | ✅ (SF Symbols) | N/A                   | N/A                                     |
+| python-dotenv    | ✅              | ✅                     | ✅                                       |
 
 **New dependency for Windows/Linux:** None required. The `platformdirs` package is optional (can inline the logic).
 

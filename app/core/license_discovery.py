@@ -13,7 +13,7 @@ import shutil
 import sys
 import sysconfig
 import tomllib
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -67,6 +67,7 @@ def _get_licenses_dir() -> Path:
 # ---------------------------------------------------------------------------
 
 
+# noinspection DuplicatedCode
 def load_config(licenses_dir: Path) -> LicenseConfig:
     """Parse config.toml into a LicenseConfig."""
     config_path = licenses_dir / "config.toml"
@@ -233,6 +234,7 @@ def _display_name(name: str, overrides: dict[str, PackageOverride]) -> str:
     return name
 
 
+# noinspection GrazieInspection
 def _categorize_packages(
     packages: list[dict],
     dev_deps: set[str],
@@ -312,6 +314,7 @@ def _get_site_packages() -> Path:
     return site_packages
 
 
+# noinspection PyUnusedLocal,GrazieInspection
 def sync_registry() -> LicenseRegistry:
     """Full discovery pipeline: config + uv.lock + .dist-info -> registry.toml + texts/.
 
@@ -486,6 +489,7 @@ def _write_registry_toml(licenses_dir: Path, registry: LicenseRegistry) -> None:
     registry_path.write_bytes(tomli_w.dumps(data).encode("utf-8"))
 
 
+# noinspection DuplicatedCode
 def _read_registry_toml(licenses_dir: Path) -> LicenseRegistry:
     """Deserialize registry.toml into a LicenseRegistry."""
     registry_path = licenses_dir / "registry.toml"

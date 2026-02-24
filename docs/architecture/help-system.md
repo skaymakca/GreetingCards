@@ -1,20 +1,20 @@
 # Help System
 
-Help pages generated from markdown and displayed in the shared WebView viewer.
+Help pages generated from Markdown and displayed in the shared WebView viewer.
 
-**Key files:** `app/gui/help_dialog.py` (thin wrapper), `app/core/help_builder.py` (markdown → HTML generation), `app/gui/html_viewer.py` (shared viewer — see `docs/architecture/html-viewer.md`)
+**Key files:** `app/gui/help_dialog.py` (thin wrapper), `app/core/help_builder.py` (Markdown → HTML generation), `app/gui/html_viewer.py` (shared viewer — see `docs/architecture/html-viewer.md`)
 
 ## How It Works
 
 `help_dialog.py` is a thin wrapper that calls `show_viewer()` with path resolution. `_HELP_REL_PATH = Path("_runtime_content") / "html" / "help"`.
 
-`help_builder.py` generates HTML from markdown source files using the `markdown` library and Jinja2 templates.
+`help_builder.py` generates HTML from Markdown source files using the `markdown` library and Jinja2 templates.
 
 ## Content Structure
 
 ### Source (committed)
 
-Help markdown files use a filename-based ordering convention:
+Help Markdown files use a filename-based ordering convention:
 
 ```
 content/html/
@@ -61,7 +61,7 @@ _runtime_content/html/
 
 ### Markdown Frontmatter
 
-Each markdown file has YAML frontmatter defining the page title:
+Each Markdown file has YAML frontmatter defining the page title:
 
 ```markdown
 ---
@@ -79,10 +79,10 @@ If `title` is omitted, it defaults to the slug converted to title case.
 
 `help_builder.py` generates HTML via `make html-content`:
 
-1. Reads markdown files from `content/html/help/`, parses numeric order from filenames
+1. Reads Markdown files from `content/html/help/`, parses numeric order from filenames
 2. Validates numbering (contiguous 1..N, no gaps, no duplicates)
 3. Parses YAML frontmatter for title
-4. Converts markdown to HTML using the `markdown` library
+4. Converts Markdown to HTML using the `markdown` library
 5. Renders through `content/html/templates/help_page.html.j2` with Jinja2
 6. Writes output to `_runtime_content/html/help/`
 7. Writes `page_order.txt` manifest for runtime toolbar navigation

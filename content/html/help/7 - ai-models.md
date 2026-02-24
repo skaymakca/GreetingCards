@@ -5,14 +5,14 @@ title: AI Models
 # AI Models
 
 Greeting Cards uses Claude AI to analyze card images and extract family names. You can choose which model to use based on your needs for speed, quality, and cost.
-
+7
 ## Available Models
 
-| Model | Speed | Quality | Est. Cost per Card |
-|---|---|---|---|
-| Claude Haiku 4.5 | Fastest | Good | ~0.4&cent; |
-| **Claude Sonnet 4.6** | Fast | Excellent | ~1.3&cent; |
-| Claude Opus 4.6 | Moderate | Best | ~2.1&cent; |
+| Model                 | Speed    | Quality   | Est. Cost per Card |
+|-----------------------|----------|-----------|--------------------|
+| Claude Haiku 4.5      | Fastest  | Good      | ~0.4&cent;         |
+| **Claude Sonnet 4.6** | Fast     | Excellent | ~1.3&cent;         |
+| Claude Opus 4.6       | Moderate | Best      | ~2.1&cent;         |
 
 <p class="note">*Estimates based on a typical 2-page greeting card. Actual costs depend on image size and content.</p>
 
@@ -28,4 +28,4 @@ Greeting Cards uses Claude AI to analyze card images and extract family names. Y
 2. In the **General** tab, find the **AI Model** dropdown
 3. Select your preferred model
 
-The change takes effect immediately for new AI analyses. Cards that have already been analyzed are not re-processed automatically.
+The change takes effect immediately. Cards that have already been analyzed are not reprocessed automatically.

@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 
 
+# noinspection PyProtectedMember
 def is_bundled() -> bool:
     """True when running inside a PyInstaller .app bundle."""
     return getattr(sys, "_MEIPASS", None) is not None
@@ -22,6 +23,7 @@ def get_data_dir() -> Path:
     return data_dir
 
 
+# noinspection PyProtectedMember
 def get_runtime_content_path(rel_path: str = "") -> Path:
     """Return path under _runtime_content/ (works in both dev and bundled mode).
 

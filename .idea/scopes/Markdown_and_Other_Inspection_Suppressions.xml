@@ -1,0 +1,4 @@
+<component name="NamedScopeManager">
+  <scope name="Markdown and Other Inspection Suppressions"
+         pattern="file:*.md" />
+</component>

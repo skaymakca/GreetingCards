@@ -5,6 +5,7 @@ import wx
 from app.gui.icons import load_menu_icon
 
 
+# noinspection PyUnusedLocal,PyTypeChecker
 def add_entry_context_menu(text_ctrl: wx.TextCtrl) -> None:
     """Add a native-style context menu to a TextCtrl widget with Cut, Copy, Paste, Title Case, Clear.
 
@@ -21,6 +22,7 @@ def add_entry_context_menu(text_ctrl: wx.TextCtrl) -> None:
     }
     icons = {key: icon for key, symbol in icon_specs.items() if (icon := load_menu_icon(symbol))}
 
+    # noinspection PyUnusedLocal,PyTypeChecker
     def on_context_menu(event: wx.Event) -> None:
         """Show context menu on right-click."""
         menu = wx.Menu()

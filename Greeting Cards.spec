@@ -1,4 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
+# noinspection PyAll
 from PyInstaller.utils.hooks import collect_all
 import re, subprocess
 __version__ = re.search(r'"(.+?)"', open('app/version.py').read()).group(1)

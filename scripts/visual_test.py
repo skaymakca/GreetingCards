@@ -149,6 +149,7 @@ def _mock_errors() -> list[tuple[str, str]]:
 # ---------------------------------------------------------------------------
 
 
+# noinspection PyProtectedMember,PyMethodMayBeStatic
 class VisualTestFrame(wx.Frame):
     """Main launcher window with buttons to open each dialog/panel."""
 
@@ -282,6 +283,7 @@ class VisualTestFrame(wx.Frame):
         self._mode_label.SetLabel(f"Current Mode: {mode}")
         self.SetTitle(f"Visual Test Harness — {mode} Mode")
         # Repaint all top-level windows and refresh colors on dialogs
+        # noinspection PyArgumentList
         for window in wx.GetTopLevelWindows():
             if hasattr(window, "refresh_colors"):
                 window.refresh_colors()

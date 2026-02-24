@@ -66,6 +66,7 @@ def _parse_retry_after(exc: openai.RateLimitError | anthropic.RateLimitError) ->
     return 10.0
 
 
+# noinspection PyTypeChecker
 async def generate_image_openai_async(
     client: openai.AsyncOpenAI,
     semaphore: asyncio.Semaphore,

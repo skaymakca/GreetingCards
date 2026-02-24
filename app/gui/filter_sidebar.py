@@ -12,6 +12,7 @@ _SIDEBAR_PAD = 10
 _NOTIFY_PAD = 20
 
 
+# noinspection PyAttributeOutsideInit,PyMethodMayBeStatic,PyUnusedLocal,PyTypeChecker,GrazieInspection
 class FilterSidebar(wx.Panel):
     """Sidebar for filtering cards by confidence level, status, and source folder.
 

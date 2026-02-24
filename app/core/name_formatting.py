@@ -68,6 +68,7 @@ def _is_mac_exception(word: str) -> bool:
     return word.lower() in _MAC_EXCEPTIONS
 
 
+# noinspection GrazieInspection
 def _apply_mc_mac_rules(word: str) -> str:
     """Apply Mc/Mac capitalization rules.
 
@@ -121,6 +122,7 @@ def _format_particle(word: str, is_first_word: bool) -> str | None:
     return None
 
 
+# noinspection GrazieInspection
 def _format_word_part(part: str) -> str:
     """Apply capitalization rules to a single part (no apostrophes or hyphens).
 
@@ -140,6 +142,7 @@ def _format_word_part(part: str) -> str:
     return _apply_mc_mac_rules(part)
 
 
+# noinspection GrazieInspection
 def _format_word_with_structure(word: str) -> str:
     """Format a word by splitting hierarchically, formatting parts, and rejoining.
 
@@ -178,6 +181,7 @@ def _format_word_with_structure(word: str) -> str:
 # --- Main Function ---
 
 
+# noinspection GrazieInspection
 def smart_title_case(name: str) -> str:
     """Apply smart title case with special rules for names.
 

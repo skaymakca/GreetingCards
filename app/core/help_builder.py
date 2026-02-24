@@ -1,7 +1,7 @@
-"""Help page generation — converts markdown help pages to HTML.
+"""Help page generation — converts Markdown help pages to HTML.
 
 Reads .md files from content/html/help/, derives navigation order from the
-filename prefix (e.g. ``1 - index.md``), renders markdown to HTML, and
+filename prefix (e.g. ``1 - index.md``), renders Markdown to HTML, and
 writes to _runtime_content/html/help/ via Jinja2 templates.
 
 Filename convention::
@@ -40,7 +40,7 @@ class _HelpPage:
 
 
 def _parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
-    """Parse YAML frontmatter from a markdown file.
+    """Parse YAML frontmatter from a Markdown file.
 
     Simple parser: splits on --- delimiters, extracts key: value pairs.
     Returns (metadata_dict, remaining_body).
@@ -68,6 +68,7 @@ def _parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
     return metadata, body
 
 
+# noinspection GrazieInspection
 def _validate_numbering(numbers: list[int], filenames: list[str]) -> None:
     """Validate that file numbers form a contiguous 1..N sequence.
 
@@ -151,7 +152,7 @@ def _read_help_pages(content_dir: Path) -> list[_HelpPage]:
 
 
 def generate_help_html() -> None:
-    """Entry point for Makefile — generate help HTML from markdown pages."""
+    """Entry point for Makefile — generate help HTML from Markdown pages."""
     project_root = Path(__file__).resolve().parent.parent.parent
     content_dir = project_root / "content" / "html"
     output_dir = project_root / "_runtime_content" / "html" / "help"
@@ -227,5 +228,6 @@ def generate_help_html() -> None:
     logger.info("Generated %d help pages in %s", len(pages), output_dir)
 
 
+# noinspection PyUnusedImports
 # Re-export for consumers that import from here
 from app.core.template_env import get_page_order  # noqa: E402

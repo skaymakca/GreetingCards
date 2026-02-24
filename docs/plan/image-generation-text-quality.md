@@ -75,13 +75,13 @@ Could be a middle ground: generate the card *background/art* with AI, then compo
 
 ## Model Comparison
 
-| Model | Text Accuracy | API Access | Quality | Cost |
-|-------|--------------|------------|---------|------|
-| gpt-image-1 (current) | Poor | OpenAI API | Good photos | Low |
-| **gpt-image-1.5** | Good | OpenAI API (drop-in) | Best overall | Medium |
-| **Ideogram 3.0** | Best (~90%) | Together AI / Ideogram API | Great for text-heavy | Medium |
-| Google Imagen 4 | Good | Vertex AI (GCP) | Strong | Medium |
-| FLUX.2 | Good | Replicate, fal.ai | Best photorealism | Medium |
+| Model                 | Text Accuracy | API Access                 | Quality              | Cost   |
+|-----------------------|---------------|----------------------------|----------------------|--------|
+| gpt-image-1 (current) | Poor          | OpenAI API                 | Good photos          | Low    |
+| **gpt-image-1.5**     | Good          | OpenAI API (drop-in)       | Best overall         | Medium |
+| **Ideogram 3.0**      | Best (~90%)   | Together AI / Ideogram API | Great for text-heavy | Medium |
+| Google Imagen 4       | Good          | Vertex AI (GCP)            | Strong               | Medium |
+| FLUX.2                | Good          | Replicate, fal.ai          | Best photorealism    | Medium |
 
 ## Recommended Path
 

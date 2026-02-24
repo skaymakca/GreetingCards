@@ -15,7 +15,7 @@ def show_api_key_dialog(parent: wx.Window) -> str | None:
         parent: Parent window
 
     Returns:
-        API key string if entered and saved, None if cancelled or empty
+        API key string if entered and saved, None if canceled or empty
     """
     dlg = wx.TextEntryDialog(
         parent,

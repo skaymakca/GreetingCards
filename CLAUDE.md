@@ -91,7 +91,7 @@ Greeting Cards - macOS app for organizing and renaming greeting card PDFs using 
 - PyMuPDF for PDF rendering
 - Anthropic Claude API for AI analysis
 
-### Key Notes
+### Notes
 - macOS native widgets: use wx widgets without explicit bg colors
 - Python 3.14: exception variables cleared after except block
 - Always test both source version and app bundle when making UI changes
@@ -121,33 +121,34 @@ Key entry points:
 
 When editing files in these areas, **read the corresponding doc first**, then **update the doc** if your changes alter the documented behavior.
 
-| Files Being Edited | Read First |
-|---|---|
-| `app/gui/main_window.py` (filters, `_refresh_display`) | `docs/architecture/filter-pipeline.md` |
-| `app/gui/filter_sidebar.py` | `docs/architecture/filter-pipeline.md` |
-| `app/gui/main_window.py` (card loading, state, dedup) | `docs/architecture/card-data-model.md` |
-| `app/models/card.py` | `docs/architecture/card-data-model.md` |
-| `app/gui/review_panel.py` | `docs/architecture/review-panel.md` |
-| `app/gui/main_window.py` (processing, AI, threads) | `docs/architecture/async-processing.md` |
-| `app/core/ai_analyzer.py` | `docs/architecture/async-processing.md` |
-| `app/core/name_extractor.py`, `app/core/name_formatting.py` | `docs/architecture/name-pipeline.md` |
-| `app/core/database.py`, `app/core/renamer.py` | `docs/architecture/name-pipeline.md` |
-| `app/gui/help_dialog.py`, `app/core/help_builder.py` | `docs/architecture/help-system.md` |
-| `content/html/help/*.md` | `docs/architecture/help-system.md` |
-| `app/gui/html_viewer.py`, `content/html/common/js/search.js` | `docs/architecture/html-viewer.md` |
-| `app/core/changelog.py`, `app/core/changelog_models.py` | `docs/architecture/changelog-viewer.md` |
-| `app/gui/changelog_dialog.py`, `content/html/templates/changelog_page.html.j2` | `docs/architecture/changelog-viewer.md` |
-| `app/core/license_models.py`, `app/core/license_discovery.py` | `docs/architecture/licenses-viewer.md` |
-| `app/gui/licenses_dialog.py`, `content/html/templates/licenses_*.html.j2` | `docs/architecture/licenses-viewer.md` |
-| `content/licenses/config.toml`, `content/licenses/manual/*` | `docs/architecture/licenses-viewer.md` |
-| `CHANGELOG.md` | `CLAUDE.md` (changelog conventions below) |
-| `app/core/config.py`, `app/core/paths.py` | `docs/architecture/config-and-preferences.md` |
-| `app/gui/settings_dialog.py` | `docs/architecture/config-and-preferences.md` |
-| `app/gui/appearance.py`, `app/gui/styles.py` (Color.refresh) | `docs/architecture/dark-mode.md` |
-| `app/gui/icons.py` (clear_cache, icon tint) | `docs/architecture/dark-mode.md` |
-| `app/gui/main_window.py` (appearance observer, refresh) | `docs/architecture/dark-mode.md` |
-| `content/html/common/css/viewer.css` (color variables) | `docs/architecture/dark-mode.md` |
-| `scripts/*.py` (adding/removing/renaming scripts) | Update `Makefile` `show-scripts` target + `README.md` Scripts section |
+| Files Being Edited                                                             | Read First                                                            |
+|--------------------------------------------------------------------------------|-----------------------------------------------------------------------|
+| `app/gui/main_window.py` (filters, `_refresh_display`)                         | `docs/architecture/filter-pipeline.md`                                |
+| `app/gui/filter_sidebar.py`                                                    | `docs/architecture/filter-pipeline.md`                                |
+| `app/gui/main_window.py` (card loading, state, dedup)                          | `docs/architecture/card-data-model.md`                                |
+| `app/models/card.py`                                                           | `docs/architecture/card-data-model.md`                                |
+| `app/gui/review_panel.py`                                                      | `docs/architecture/review-panel.md`                                   |
+| `app/gui/main_window.py` (processing, AI, threads)                             | `docs/architecture/async-processing.md`                               |
+| `app/core/ai_analyzer.py`                                                      | `docs/architecture/async-processing.md`                               |
+| `app/core/name_extractor.py`, `app/core/name_formatting.py`                    | `docs/architecture/name-pipeline.md`                                  |
+| `app/core/database.py`, `app/core/renamer.py`                                  | `docs/architecture/name-pipeline.md`                                  |
+| `app/gui/help_dialog.py`, `app/core/help_builder.py`                           | `docs/architecture/help-system.md`                                    |
+| `content/html/help/*.md`                                                       | `docs/architecture/help-system.md`                                    |
+| `app/gui/html_viewer.py`, `content/html/common/js/search.js`                   | `docs/architecture/html-viewer.md`                                    |
+| `app/core/changelog.py`, `app/core/changelog_models.py`                        | `docs/architecture/changelog-viewer.md`                               |
+| `app/gui/changelog_dialog.py`, `content/html/templates/changelog_page.html.j2` | `docs/architecture/changelog-viewer.md`                               |
+| `app/core/license_models.py`, `app/core/license_discovery.py`                  | `docs/architecture/licenses-viewer.md`                                |
+| `app/gui/licenses_dialog.py`, `content/html/templates/licenses_*.html.j2`      | `docs/architecture/licenses-viewer.md`                                |
+| `content/licenses/config.toml`, `content/licenses/manual/*`                    | `docs/architecture/licenses-viewer.md`                                |
+| `CHANGELOG.md`                                                                 | `CLAUDE.md` (changelog conventions below)                             |
+| `app/core/config.py`, `app/core/paths.py`                                      | `docs/architecture/config-and-preferences.md`                         |
+| `app/gui/settings_dialog.py`                                                   | `docs/architecture/config-and-preferences.md`                         |
+| `app/gui/appearance.py`, `app/gui/styles.py` (Color.refresh)                   | `docs/architecture/dark-mode.md`                                      |
+| `app/gui/icons.py` (clear_cache, icon tint)                                    | `docs/architecture/dark-mode.md`                                      |
+| `app/gui/main_window.py` (appearance observer, refresh)                        | `docs/architecture/dark-mode.md`                                      |
+| `content/html/common/css/viewer.css` (color variables)                         | `docs/architecture/dark-mode.md`                                      |
+| `scripts/*.py` (adding/removing/renaming scripts)                              | Update `Makefile` `show-scripts` target + `README.md` Scripts section |
+| `# noinspection` comments in any `*.py` file                                   | `docs/architecture/pycharm-inspections.md`                            |
 
 ### Test Count
 When adding or removing tests, update the test count in `README.md` (search for "tests** covering") to match the actual number from `pytest` output.
@@ -167,7 +168,7 @@ When adding or removing tests, update the test count in `README.md` (search for 
 - **Language:** Plain language — describe *what changed*, not *how*
 - **Grouping:** Each `major.minor` version gets its own `## ` entry with date; patch versions fold into their parent
 - **When to update:** When making user-visible changes
-- **Build step:** `make html-content` regenerates HTML from the markdown; `make app` runs this automatically
+- **Build step:** `make html-content` regenerates HTML from the Markdown; `make app` runs this automatically
 
 ### License Sync
 
@@ -185,15 +186,15 @@ When asked to audit the codebase, follow the checklist in [`docs/code-quality-au
 
 Before committing, run these checks and fix any issues:
 
-| Command | Purpose | Expected |
-|---------|---------|----------|
-| `make check` | **All static checks** (type + lint + format + security) | 0 errors |
-| `make pyright` | Static type checking (strict structural types) | 0 errors, 0 warnings |
-| `make mypy` | Static type checking (nominal types, plugin-based) | 0 errors |
-| `make lint` | Ruff linting (code quality, bug patterns, imports) | 0 errors |
-| `make format-check` | Ruff formatting check | 0 reformatted |
-| `make security` | Bandit security scan (app + scripts) | 0 issues |
-| `uv run pytest tests/ -x` | Run all tests | All pass |
+| Command                   | Purpose                                                 | Expected             |
+|---------------------------|---------------------------------------------------------|----------------------|
+| `make check`              | **All static checks** (type + lint + format + security) | 0 errors             |
+| `make pyright`            | Static type checking (strict structural types)          | 0 errors, 0 warnings |
+| `make mypy`               | Static type checking (nominal types, plugin-based)      | 0 errors             |
+| `make lint`               | Ruff linting (code quality, bug patterns, imports)      | 0 errors             |
+| `make format-check`       | Ruff formatting check                                   | 0 reformatted        |
+| `make security`           | Bandit security scan (app + scripts)                    | 0 issues             |
+| `uv run pytest tests/ -x` | Run all tests                                           | All pass             |
 
 **Quick pre-commit:** `make check && uv run pytest tests/ -x`
 

@@ -36,13 +36,13 @@ CardResult
 
 ### Confidence Enum
 
-| Value | Color | Meaning |
-|-------|-------|---------|
-| `HIGH` | Green (#34C759) | Strong OCR pattern or AI match |
-| `MEDIUM` | Orange (#FF9500) | Partial pattern match |
-| `LOW` | Red (#FF3B30) | Weak/fallback match |
-| `MANUAL` | Blue (#1E90FF) | User manually entered name |
-| `NONE` | Gray (#6E6E73) | No name extracted yet |
+| Value    | Color            | Meaning                        |
+|----------|------------------|--------------------------------|
+| `HIGH`   | Green (#34C759)  | Strong OCR pattern or AI match |
+| `MEDIUM` | Orange (#FF9500) | Partial pattern match          |
+| `LOW`    | Red (#FF3B30)    | Weak/fallback match            |
+| `MANUAL` | Blue (#1E90FF)   | User manually entered name     |
+| `NONE`   | Gray (#6E6E73)   | No name extracted yet          |
 
 ### CandidateInfo (from DB)
 

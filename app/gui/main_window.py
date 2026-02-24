@@ -53,6 +53,7 @@ def _load_drop_background() -> wx.Bitmap | None:
 
     Applies Brightness(0.75) and Color(0.5) via PIL, returns wx.Bitmap.
     """
+    # noinspection PyBroadException
     try:
         from PIL import Image, ImageEnhance
 
@@ -78,6 +79,7 @@ def _load_drop_background() -> wx.Bitmap | None:
         return None
 
 
+# noinspection PyUnusedLocal
 class _DropOverlay(wx.Panel):
     """Full content-area drop overlay with background image and drop zone hint."""
 
@@ -177,6 +179,7 @@ class _DropOverlay(wx.Panel):
         gc.DrawText(secondary, tx2, ty2)
 
 
+# noinspection PyMethodMayBeStatic,PyUnusedLocal,PyTypeChecker
 class MainWindow:
     """Main application window with toolbar and content panels."""
 
@@ -238,6 +241,7 @@ class MainWindow:
                 return card
         return None
 
+    # noinspection DuplicatedCode
     def _setup_menu_bar(self) -> None:
         """Create native macOS menu bar with File, Edit, and Help menus."""
         menubar = wx.MenuBar()
@@ -410,6 +414,7 @@ class MainWindow:
 
         self._panel.SetSizer(main_sizer)
 
+    # noinspection DuplicatedCode
     def _build_toolbar(self) -> None:
         """Build toolbar with SF Symbol icons."""
         toolbar = wx.ToolBar(self._panel, style=wx.TB_HORIZONTAL | wx.TB_NODIVIDER)
@@ -832,6 +837,7 @@ class MainWindow:
         # Show confirmation
         self._show_info_message("All cards cleared", wx.ICON_INFORMATION)
 
+    # noinspection DuplicatedCode
     def _reload_cards(self, *, mtime_only: bool = False) -> None:
         """Re-check all loaded paths for modifications and deletions.
 
@@ -1275,7 +1281,7 @@ class MainWindow:
         """Return (cards, scope) based on selection state.
 
         If 2+ cards are selected, returns those cards with scope "selected".
-        Otherwise returns all visible (filtered) cards with scope "visible".
+        Otherwise, returns all visible (filtered) cards with scope "visible".
         """
         selected_ids = self._review_panel.selected_card_ids
         if len(selected_ids) >= 2:
@@ -1543,6 +1549,7 @@ class MainWindow:
 
         dialog.Destroy()
 
+    # noinspection DuplicatedCode
     def _remove_completed_results(self, results: list[RenameResult]) -> None:
         """Remove successfully renamed/skip_same paths from cards; drop empty cards.
 
@@ -1615,6 +1622,7 @@ class MainWindow:
         self._review_panel.refresh_colors()
 
         # Repaint all windows; call refresh_colors() on those that support it
+        # noinspection PyArgumentList
         for window in wx.GetTopLevelWindows():
             if hasattr(window, "refresh_colors"):
                 window.refresh_colors()
@@ -1694,6 +1702,7 @@ class FileDropTarget(wx.FileDropTarget):
         wx.CallAfter(self._on_drop, paths)
         return True
 
+    # noinspection PyPep8Naming
     def OnDragOver(self, x: int, y: int, defResult: int) -> int:
         """Show drag highlight when files are dragged over."""
         if self._on_drag_over:

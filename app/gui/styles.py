@@ -80,10 +80,12 @@ class Color:
         return wx.Colour(r, g, b)
 
 
+# noinspection PyPep8Naming
 class Font:
     """Font definitions for the application (factory methods).
 
     Use class methods to create fonts on demand (avoids needing wx.App at import time).
+    Uppercase method names (TITLE, HEADING, etc.) are used by convention for style factories.
     """
 
     FAMILY = "Helvetica Neue"

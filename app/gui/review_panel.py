@@ -77,6 +77,7 @@ class _ConfidenceLegendPopup(wx.PopupWindow):
         self.SetSizerAndFit(outer)
 
 
+# noinspection PyMethodMayBeStatic,PyUnusedLocal
 class CardListModel(dv.PyDataViewModel):
     """Data model for the card list (master view).
 
@@ -129,11 +130,12 @@ class CardListModel(dv.PyDataViewModel):
         """Return card IDs in display order."""
         return list(self._card_order)
 
-    # PyDataViewModel interface
+    # noinspection PyPep8Naming
     def GetColumnCount(self) -> int:
         """3 columns: dot, filename, family name."""
         return 3
 
+    # noinspection PyPep8Naming
     def GetColumnType(self, col: int) -> str:  # pyright: ignore[reportIncompatibleMethodOverride]
         """All columns return strings (we'll use custom renderer for dot)."""
         return "string"
@@ -218,6 +220,7 @@ class CardListModel(dv.PyDataViewModel):
         return False
 
 
+# noinspection PyAttributeOutsideInit,PyMethodMayBeStatic,PyUnusedLocal,PyTypeChecker
 class DetailPanel(wx.Panel):
     """Detail panel for editing the selected card.
 
@@ -550,6 +553,7 @@ class DetailPanel(wx.Panel):
             self._on_remove(self._current_card.file_hash)
 
 
+# noinspection PyAttributeOutsideInit,PyMethodMayBeStatic,PyUnusedLocal,PyTypeChecker
 class ReviewPanelMasterDetail(wx.Panel):
     """Master-Detail Review Panel - Mac-native pattern.
 
@@ -795,7 +799,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         # Bind handlers — collect all file paths (cards may have multiple copies)
         all_paths = [str(p) for c in cards for p in c.file_paths]
 
-        def _open_files(evt, _paths=all_paths):
+        def _open_files(evt, _paths=tuple(all_paths)):
             for p in _paths:
                 try:
                     subprocess.Popen(["open", p])
@@ -806,7 +810,7 @@ class ReviewPanelMasterDetail(wx.Panel):
 
         if not is_multi:
 
-            def _reveal_files(evt, _paths=all_paths):
+            def _reveal_files(evt, _paths=tuple(all_paths)):
                 for p in _paths:
                     try:
                         subprocess.Popen(["open", "-R", p])
@@ -821,7 +825,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         if self._on_remove and hashes:
             on_remove = self._on_remove
 
-            def _remove_cards(evt, _hashes=hashes):
+            def _remove_cards(evt, _hashes=tuple(hashes)):
                 for h in _hashes:
                     on_remove(h)
 
@@ -831,7 +835,8 @@ class ReviewPanelMasterDetail(wx.Panel):
 
         if self._on_ai_analyze:
             on_ai_analyze = self._on_ai_analyze
-            menu.Bind(wx.EVT_MENU, lambda evt, _cards=cards: on_ai_analyze(_cards), ai_item)
+            _captured = list(cards)
+            menu.Bind(wx.EVT_MENU, lambda evt: on_ai_analyze(_captured), ai_item)
         else:
             ai_item.Enable(False)
 
@@ -942,6 +947,7 @@ class ReviewPanelMasterDetail(wx.Panel):
             card.confidence = confidence
             self._model.update_card(card_id, card)
 
+    # noinspection DuplicatedCode
     def select_next_card(self) -> None:
         """Select next card in list (collapses multi-selection to single)."""
         selections = self._list_ctrl.GetSelections()
@@ -968,6 +974,7 @@ class ReviewPanelMasterDetail(wx.Panel):
             self._list_ctrl.Select(last_item)
             self._list_ctrl.EnsureVisible(last_item)
 
+    # noinspection DuplicatedCode
     def select_prev_card(self) -> None:
         """Select previous card in list (collapses multi-selection to single)."""
         selections = self._list_ctrl.GetSelections()

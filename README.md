@@ -49,37 +49,37 @@ make test
 
 Run `make help` to see all available commands.
 
-| Command | Description |
-|---------|-------------|
-| `make help` | Show all available make commands |
-| `make setup` | Install production dependencies (creates venv automatically) |
-| `make setup-dev` | Install all dependencies including dev/testing tools |
-| `make run` | Run the app from source |
-| `make test` | Run all tests |
-| `make test-cov` | Run tests with coverage report (generates `htmlcov/index.html`) |
-| `make test-unit` | Run unit tests only (fast, no GUI) |
-| `make test-gui` | Run GUI tests only (requires wxPython) |
-| `make test-watch` | Run tests on file changes (requires pytest-watch) |
-| `make build` | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`) — alias for `make app` |
-| `make app` | Build the macOS `.app` bundle (same as `make build`) |
-| `make icon` | Generate `icon.icns` from `icon.png` (auto-run by build) |
-| `make version` | Print the current version |
-| `make bump-patch` | Bump patch version (e.g. 0.5.0 → 0.5.1) |
-| `make bump-minor` | Bump minor version (e.g. 0.5.1 → 0.6.0) |
-| `make bump-major` | Bump major version (e.g. 0.6.0 → 1.0.0) |
-| `make tag` | Create git tag `vX.Y.Z` from current version |
-| `make tag-push` | Push all tags to remote |
-| `make check` | Run all static checks (pyright + mypy + ruff lint + format + bandit) |
-| `make pyright` | Run pyright type checking on app/ and scripts/ |
-| `make mypy` | Run mypy type checking on app/ and scripts/ |
-| `make lint` | Run ruff linter |
-| `make lint-fix` | Run ruff linter with auto-fix |
-| `make format` | Format code with ruff |
-| `make format-check` | Check formatting without making changes |
-| `make security` | Run bandit security scan on app/ and scripts/ |
-| `make loc` | Count lines of code in project files (excludes dependencies and build artifacts) |
-| `make show-scripts` | Show available script invocations without running them |
-| `make clean` | Remove `build/` and `dist/` directories |
+| Command             | Description                                                                              |
+|---------------------|------------------------------------------------------------------------------------------|
+| `make help`         | Show all available make commands                                                         |
+| `make setup`        | Install production dependencies (creates venv automatically)                             |
+| `make setup-dev`    | Install all dependencies including dev/testing tools                                     |
+| `make run`          | Run the app from source                                                                  |
+| `make test`         | Run all tests                                                                            |
+| `make test-cov`     | Run tests with coverage report (generates `htmlcov/index.html`)                          |
+| `make test-unit`    | Run unit tests only (fast, no GUI)                                                       |
+| `make test-gui`     | Run GUI tests only (requires wxPython)                                                   |
+| `make test-watch`   | Run tests on file changes (requires pytest-watch)                                        |
+| `make build`        | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`) — alias for `make app` |
+| `make app`          | Build the macOS `.app` bundle (same as `make build`)                                     |
+| `make icon`         | Generate `icon.icns` from `icon.png` (auto-run by build)                                 |
+| `make version`      | Print the current version                                                                |
+| `make bump-patch`   | Bump patch version (e.g. 0.5.0 → 0.5.1)                                                  |
+| `make bump-minor`   | Bump minor version (e.g. 0.5.1 → 0.6.0)                                                  |
+| `make bump-major`   | Bump major version (e.g. 0.6.0 → 1.0.0)                                                  |
+| `make tag`          | Create git tag `vX.Y.Z` from current version                                             |
+| `make tag-push`     | Push all tags to remote                                                                  |
+| `make check`        | Run all static checks (pyright + mypy + ruff lint + format + bandit)                     |
+| `make pyright`      | Run pyright type checking on app/ and scripts/                                           |
+| `make mypy`         | Run mypy type checking on app/ and scripts/                                              |
+| `make lint`         | Run ruff linter                                                                          |
+| `make lint-fix`     | Run ruff linter with auto-fix                                                            |
+| `make format`       | Format code with ruff                                                                    |
+| `make format-check` | Check formatting without making changes                                                  |
+| `make security`     | Run bandit security scan on app/ and scripts/                                            |
+| `make loc`          | Count lines of code in project files (excludes dependencies and build artifacts)         |
+| `make show-scripts` | Show available script invocations without running them                                   |
+| `make clean`        | Remove `build/` and `dist/` directories                                                  |
 
 ## Manual setup and commands
 
@@ -177,14 +177,14 @@ tests/
 
 ### Running Tests
 
-| Command | What it does |
-|---------|--------------|
-| `make test` | Run all tests with verbose output |
-| `make test-cov` | Generate HTML coverage report |
-| `make test-unit` | Run only unit tests (fast, no GUI) |
-| `make test-gui` | Run only GUI tests |
-| `uv run pytest -k "mac_names"` | Run tests matching pattern |
-| `uv run pytest tests/core/test_name_formatting.py -v` | Run specific test file |
+| Command                                               | What it does                       |
+|-------------------------------------------------------|------------------------------------|
+| `make test`                                           | Run all tests with verbose output  |
+| `make test-cov`                                       | Generate HTML coverage report      |
+| `make test-unit`                                      | Run only unit tests (fast, no GUI) |
+| `make test-gui`                                       | Run only GUI tests                 |
+| `uv run pytest -k "mac_names"`                        | Run tests matching pattern         |
+| `uv run pytest tests/core/test_name_formatting.py -v` | Run specific test file             |
 
 ### Current Coverage
 
@@ -208,10 +208,10 @@ The app stores OCR results, AI results, and manual name edits in a SQLite databa
 
 **Location by mode:**
 
-| Mode | Path |
-|------|------|
-| Dev (running `python main.py`) | `.local/` subdirectory of project root |
-| Bundled (`.app`) | `~/Library/Application Support/GreetingCards/` |
+| Mode                           | Path                                           |
+|--------------------------------|------------------------------------------------|
+| Dev (running `python main.py`) | `.local/` subdirectory of project root         |
+| Bundled (`.app`)               | `~/Library/Application Support/GreetingCards/` |
 
 **Automatic schema management:** The schema version is a hash computed from all model column definitions at startup. If the models change (columns added, removed, or altered), the hash changes and the database is automatically dropped and recreated. There is no manual migration step — the cache simply rebuilds on next use. This is safe because the database only contains derived/cached data, never source data.
 
@@ -236,14 +236,14 @@ uv run python -m scripts.generate_sample_cards --count=10
 uv run python -m scripts.generate_sample_cards --count=5 --image-quality=low
 ```
 
-| Flag | Description |
-|------|-------------|
-| `--count N` | Number of cards to generate (default: 3) |
-| `--ai-model MODEL` | Claude model for metadata generation (default: `claude-sonnet-4-6`) |
-| `--image-model MODEL` | OpenAI image model (default: `gpt-image-1.5`) |
-| `--image-quality LEVEL` | `low`, `medium`, or `high` (default: `high`) |
-| `--seed N` | Seed for soft reproducibility via prompt |
-| `--no-open` | Don't open output folder when done |
+| Flag                    | Description                                                         |
+|-------------------------|---------------------------------------------------------------------|
+| `--count N`             | Number of cards to generate (default: 3)                            |
+| `--ai-model MODEL`      | Claude model for metadata generation (default: `claude-sonnet-4-6`) |
+| `--image-model MODEL`   | OpenAI image model (default: `gpt-image-1.5`)                       |
+| `--image-quality LEVEL` | `low`, `medium`, or `high` (default: `high`)                        |
+| `--seed N`              | Seed for soft reproducibility via prompt                            |
+| `--no-open`             | Don't open output folder when done                                  |
 
 **Required API keys:** `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`.
 
@@ -251,11 +251,11 @@ uv run python -m scripts.generate_sample_cards --count=5 --image-quality=low
 
 The benchmark scripts take a corpus directory (folder of PDF files) as a positional argument. The OCR benchmarks also require the [Tesseract CLI](https://github.com/tesseract-ocr/tesseract) (`brew install tesseract` on macOS).
 
-| Script | Description |
-|--------|-------------|
-| `benchmark.ocr_configuration_quality` | Exhaustive search of the Tesseract configuration space (192 configs) with optional AI scoring. Produces per-card and per-config HTML detail pages, a ranked summary, and CSV exports. |
+| Script                                 | Description                                                                                                                                                                                                       |
+|----------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `benchmark.ocr_configuration_quality`  | Exhaustive search of the Tesseract configuration space (192 configs) with optional AI scoring. Produces per-card and per-config HTML detail pages, a ranked summary, and CSV exports.                             |
 | `benchmark.pre_processing_concurrency` | Measures how 6 Python concurrency models (sequential, threads, futures processes, asyncio threads/processes, mp.Queue) scale for the CPU-bound image preprocessing step across 3 pipelines (pillow, clahe, otsu). |
-| `benchmark.ocr_concurrency` | Measures how sequential, threads, and futures processes scale for the OCR step using a single configuration. Confirms that processes achieve near-linear scaling while threads are GIL-limited. |
+| `benchmark.ocr_concurrency`            | Measures how sequential, threads, and futures processes scale for the OCR step using a single configuration. Confirms that processes achieve near-linear scaling while threads are GIL-limited.                   |
 
 ```bash
 # OCR configuration quality (AI scoring enabled by default)
@@ -271,3 +271,17 @@ uv run python -m scripts.benchmark.ocr_concurrency ~/Desktop/Cards
 ```
 
 Each benchmark generates a self-contained HTML report (with sorting, filtering, and heatmap coloring) and a CSV export in `_script_output/`.
+
+## IDE Setup (PyCharm)
+
+The `.idea/` directory is committed with shared project settings:
+
+- **Inspection profile** — custom dictionary, inline `# noinspection` suppressions for wxPython/SQLAlchemy false positives, and scope-based suppression for Markdown file reference warnings
+- **Inspection scope** — "Markdown and Other Inspection Suppressions" disables `MarkdownUnresolvedFileReference` for `*.md` files, since help page links (`pages/*.html`) are resolved at build time, not on disk
+- **Custom dictionary** — project-specific words (technical terms, proper names) to suppress spell-check false positives
+
+User-specific files (`workspace.xml`, etc.) are excluded via `.idea/.gitignore`.
+
+> **Tip:** If you're writing Markdown with file paths that should resolve on disk, temporarily re-enable `MarkdownUnresolvedFileReference` in Settings > Editor > Inspections to catch broken links. The scope only suppresses it for the help content files where paths are intentionally unresolvable.
+
+See [`docs/architecture/pycharm-inspections.md`](docs/architecture/pycharm-inspections.md) for the full suppression inventory.

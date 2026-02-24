@@ -4,7 +4,7 @@ import logging
 import threading
 from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import Boolean, DateTime, Engine, ForeignKey, String, Text, UniqueConstraint, create_engine, inspect
@@ -82,6 +82,7 @@ class RawAIResult(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
 
+# noinspection PyTypeChecker
 def _compute_schema_version() -> str:
     """Compute a hash representing the current model schema."""
     schema_parts = []
@@ -147,6 +148,7 @@ def _parse_raw_ai_json(raw_response: str, file_hash: str) -> dict | None:
         return None
 
 
+# noinspection PyTypeChecker,GrazieInspection
 def _ensure_schema() -> None:
     """Check schema version; if mismatch, drop all tables and recreate."""
     engine = _get_engine()
@@ -192,6 +194,7 @@ def _ensure_schema() -> None:
         session.close()
 
 
+# noinspection PyTypeChecker
 def reset_database() -> None:
     """Drop all tables and recreate from scratch."""
     global _engine, _Session
@@ -349,6 +352,7 @@ def create_or_update_card(file_hash: str, remove_family: bool = False) -> None:
             session.add(card)
 
 
+# noinspection PyTypeChecker
 def add_candidate(file_hash: str, family_name: str, method: str, confidence: str) -> int:
     """Add a name candidate (OCR or AI result). Returns candidate ID.
 
@@ -393,6 +397,7 @@ def get_candidates(file_hash: str) -> list[CandidateInfo]:
         return _sort_candidates(candidates)
 
 
+# noinspection DuplicatedCode
 def set_manual_name(file_hash: str, family_name: str, remove_family: bool = False) -> None:
     """Set a manual name entry. Clears selected_candidate_id."""
     with _session_scope() as session:
@@ -407,6 +412,7 @@ def set_manual_name(file_hash: str, family_name: str, remove_family: bool = Fals
             session.add(card)
 
 
+# noinspection DuplicatedCode
 def select_candidate(file_hash: str, candidate_id: int, remove_family: bool = False) -> None:
     """Select a candidate from the dropdown. Clears selected_family_name."""
     with _session_scope() as session:
@@ -430,6 +436,7 @@ def update_remove_family(file_hash: str, remove_family: bool) -> None:
             card.updated_at = datetime.now(UTC)
 
 
+# noinspection PyTypeChecker
 def get_card_state(file_hash: str) -> CardState | None:
     """Get complete card state for display."""
     with _session_scope() as session:
@@ -511,6 +518,7 @@ def save_raw_ai(file_hash: str, best_name: str, alternates: list[str]) -> None:
             session.add(ai_result)
 
 
+# noinspection PyTypeChecker
 def get_raw_ai(file_hash: str) -> tuple[str, list[str]] | None:
     """Get raw AI result for re-processing.
 
@@ -527,7 +535,7 @@ def get_raw_ai(file_hash: str) -> tuple[str, list[str]] | None:
 
 
 def clear_unselected_candidates(file_hash: str, method: str) -> None:
-    """Clear candidates of a specific method (ocr/ai) except the selected one.
+    """Clear candidates of a specific method (ocr/AI) except the selected one.
 
     Used when re-processing to ensure new extraction logic is applied while
     preserving user's selection.
@@ -567,6 +575,7 @@ def should_reprocess(file_hash: str, method: str) -> bool:
         return not count
 
 
+# noinspection PyTypeChecker,GrazieInspection
 def reprocess_candidates_from_raw(file_hash: str) -> None:
     """Reprocess candidates from raw OCR and AI data.
 

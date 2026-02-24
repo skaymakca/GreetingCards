@@ -7,22 +7,22 @@ ProcessPoolExecutor for PDF rendering + OCR, asyncio for AI batch, and thread-sa
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   Main Thread (wx)                   │
-│  UI events, wx.CallAfter callbacks, timer events     │
-└──────────┬──────────────────────────┬───────────────┘
-           │                          │
-     ┌─────▼──────┐            ┌──────▼──────┐
-     │  Thread 1   │            │  Thread 2   │
-     │ _process_   │            │ _run_ai_all │
-     │   cards()   │            │  asyncio    │
-     └─────┬──────┘            └──────┬──────┘
-           │                          │
-  ┌────────▼─────────┐      ┌────────▼─────────┐
-  │ ProcessPool      │      │ asyncio.Semaphore │
-  │   Executor       │      │   (3 concurrent)  │
-  │ OCR_WORKERS      │      │                   │
-  └──────────────────┘      └───────────────────┘
+┌───────────────────────────────────────────────────┐
+│                 Main Thread (wx)                   │
+│  UI events, wx.CallAfter callbacks, timer events  │
+└─────────┬─────────────────────────┬───────────────┘
+          │                         │
+    ┌─────▼───────┐          ┌──────▼───────┐
+    │  Thread 1   │          │  Thread 2    │
+    │ _process_   │          │ _run_ai_all  │
+    │   cards()   │          │  asyncio     │
+    └─────┬───────┘          └──────┬───────┘
+          │                         │
+  ┌───────▼──────────┐    ┌────────▼──────────┐
+  │ ProcessPool      │    │ asyncio.Semaphore  │
+  │   Executor       │    │   (3 concurrent)   │
+  │ OCR_WORKERS      │    │                    │
+  └──────────────────┘    └────────────────────┘
 ```
 
 ## PDF Processing: ProcessPoolExecutor

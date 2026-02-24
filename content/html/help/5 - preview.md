@@ -7,7 +7,7 @@ title: Preview Panel
 ## Viewing Cards
 
 - Select a card in the list to view it in the preview panel
-- Multi-page cards show navigation arrows and a page indicator
+- Multipage cards show navigation arrows and a page indicator
 - Use <kbd>Left</kbd> / <kbd>Right</kbd> arrow keys to navigate pages
 
 ## Pan and Zoom

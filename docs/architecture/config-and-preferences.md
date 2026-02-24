@@ -8,10 +8,10 @@ User configuration: API key, AI model selection, and how persistence differs bet
 
 The app uses two persistence mechanisms for different purposes:
 
-| What | Storage | Why |
-|---|---|---|
-| API key, AI model choice | `preferences.plist` (binary plist) | User preferences — small, simple key-value pairs |
-| OCR results, AI results, manual edits | `GreetingCards.sqlite` (SQLite) | Cached/derived data — structured, queryable, rebuildable |
+| What                                  | Storage                            | Why                                                      |
+|---------------------------------------|------------------------------------|----------------------------------------------------------|
+| API key, AI model choice              | `preferences.plist` (binary plist) | User preferences — small, simple key-value pairs         |
+| OCR results, AI results, manual edits | `GreetingCards.sqlite` (SQLite)    | Cached/derived data — structured, queryable, rebuildable |
 
 Both files live in the same data directory (see below). The plist is read/written via `plistlib`; the database via SQLAlchemy.
 
@@ -19,10 +19,10 @@ Both files live in the same data directory (see below). The plist is read/writte
 
 Determined by `get_data_dir()` in `app/core/paths.py`:
 
-| Mode | Detection | Data Directory |
-|---|---|---|
-| Dev (`python main.py`) | `sys._MEIPASS` not set | `project_root/.local/` (auto-created) |
-| Bundled (`.app`) | `sys._MEIPASS` exists | `~/Library/Application Support/GreetingCards/` |
+| Mode                   | Detection              | Data Directory                                 |
+|------------------------|------------------------|------------------------------------------------|
+| Dev (`python main.py`) | `sys._MEIPASS` not set | `project_root/.local/` (auto-created)          |
+| Bundled (`.app`)       | `sys._MEIPASS` exists  | `~/Library/Application Support/GreetingCards/` |
 
 Both directories are auto-created on first access.
 
@@ -45,11 +45,11 @@ The placeholder value `"your-api-key-here"` is treated as unset.
 
 Defined in `AI_MODELS` tuple of `ModelInfo` dataclasses:
 
-| Model ID | Label | Default? |
-|---|---|---|
-| `claude-haiku-4-5` | Claude Haiku 4.5 | |
-| `claude-sonnet-4-6` | Claude Sonnet 4.6 | Yes |
-| `claude-opus-4-6` | Claude Opus 4.6 | |
+| Model ID            | Label             | Default? |
+|---------------------|-------------------|----------|
+| `claude-haiku-4-5`  | Claude Haiku 4.5  |          |
+| `claude-sonnet-4-6` | Claude Sonnet 4.6 | Yes      |
+| `claude-opus-4-6`   | Claude Opus 4.6   |          |
 
 ### Stale Model Migration
 
@@ -58,7 +58,7 @@ Defined in `AI_MODELS` tuple of `ModelInfo` dataclasses:
 1. The default model (`claude-sonnet-4-6`) is written back to the plist
 2. The default is returned
 
-This auto-corrects on first read (typically at app startup when the Settings dialog or AI analyzer reads the preference), so no explicit migration step is needed.
+This autocorrects on first read (typically at app startup when the Settings dialog or AI analyzer reads the preference), so no explicit migration step is needed.
 
 ### Usage in AI Analyzer
 

@@ -1,4 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
+# noinspection PyAll
 """PyInstaller spec for the Visual Test harness app bundle."""
 import os
 from PyInstaller.utils.hooks import collect_all

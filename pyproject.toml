@@ -127,5 +127,5 @@ skips = [
     "B603",   # subprocess without shell=True — hardcoded commands only
     "B607",   # partial path in subprocess — "open" is a system binary
     "B608",   # SQL injection — false positive on f-string UI placeholders
-    "B704",   # markupsafe Markup — content comes from controlled markdown files
+    "B704",   # markupsafe Markup — content comes from controlled Markdown files
 ]

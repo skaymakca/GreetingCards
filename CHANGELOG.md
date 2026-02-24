@@ -44,7 +44,7 @@ First release of Greeting Cards — a macOS app for organizing and renaming gree
 - PDF loading with drag-and-drop support
 - OCR text extraction via Tesseract for offline name detection
 - AI-powered name analysis using Claude's vision API
-- Multi-page PDF preview with zoom and pan controls
+- Multipage PDF preview with zoom and pan controls
 - Keyboard navigation for card selection and preview paging
 - SQLite caching of OCR results, AI analysis, and manual edits
 - Settings dialog with API key management

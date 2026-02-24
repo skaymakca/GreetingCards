@@ -29,6 +29,7 @@ def get_commit_hash() -> str:
         return ""
 
 
+# noinspection PyAttributeOutsideInit,PyUnusedLocal
 class GeneralPreferencesPage(wx.StockPreferencesPage):
     """General preferences page with API key management."""
 
@@ -158,6 +159,7 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
             self._key_status.GetParent().Layout()
 
 
+# noinspection PyAttributeOutsideInit,PyUnusedLocal
 class AdvancedPreferencesPage(wx.StockPreferencesPage):
     """Advanced preferences page with database controls."""
 

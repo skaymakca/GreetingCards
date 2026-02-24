@@ -58,6 +58,7 @@ some with pets
 Return ONLY the JSON array, no other text."""
 
 
+# noinspection PyTypeChecker
 def generate_card_specs(
     count: int,
     seed: int | None,
@@ -91,7 +92,7 @@ def generate_card_specs(
 
         text = response.content[0].text  # type: ignore[union-attr]
 
-        # Extract JSON from response (handle markdown code blocks)
+        # Extract JSON from response (handle Markdown code blocks)
         text = text.strip()
         if text.startswith("```"):
             first_newline = text.index("\n")

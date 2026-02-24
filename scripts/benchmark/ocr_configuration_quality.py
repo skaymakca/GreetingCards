@@ -42,7 +42,7 @@ Scoring uses a two-pass design:
   excluded from pass 2.
 
   Pass 2 — Refined:  Non-dud cards are re-scored with a detailed prompt that
-  emphasises names (most important), readability, structure, completeness, and
+  emphasizes names (most important), readability, structure, completeness, and
   noise.  Pass 2 scores replace pass 1 scores for these cards.
 
 Each chunk is retried up to 4 times.  Scores are accumulated across retries:
@@ -163,7 +163,6 @@ from scripts.benchmark.common import (
     ensure_tessdata_best,
     find_pdfs,
     fmt_mean_std,
-    get_tessdata_path,
     html_escape,
     image_to_base64,
     image_to_png_bytes,
@@ -279,6 +278,7 @@ def _cfg_to_dict(cfg: Config) -> dict:
     }
 
 
+# noinspection DuplicatedCode
 def _worker(job_queue: mp.Queue, result_queue: mp.Queue) -> None:
     """Worker process: pull jobs from queue, run OCR, push results.
 
@@ -407,6 +407,7 @@ def _validate_configs(
     return valid
 
 
+# noinspection PyUnusedLocal,DuplicatedCode
 def run_benchmark(corpus_path: Path, configs: list[Config], output_dir: Path, num_workers: int = 1) -> list[CardResult]:
     pdfs = find_pdfs(corpus_path)
     if not pdfs:
@@ -487,6 +488,7 @@ def run_benchmark(corpus_path: Path, configs: list[Config], output_dir: Path, nu
     max_label_len = max(len(f"{card_id} / {Config(**cfg_dict).short_name}") for card_id, cfg_dict, _ in jobs)
     max_desc_len = min(max_label_len, _MAX_LINE - _BAR_OVERHEAD - len("Running OCR — "))
 
+    # noinspection PyShadowingNames
     def _ocr_desc(card_id: str, cfg: Config) -> str:
         label = f"{card_id} / {cfg.short_name}"
         if len(label) > max_desc_len:
@@ -723,6 +725,7 @@ _MAX_SCORING_RETRIES = 4
 _SCORING_BATCH_SIZE = 48
 
 
+# noinspection PyTypeChecker
 async def _score_chunk(
     client: anthropic.AsyncAnthropic,  # pyright: ignore[reportUndefinedVariable]
     card_id: str,
@@ -762,7 +765,7 @@ async def _score_chunk(
                 )
                 raw_text = response.content[0].text if response.content and response.content[0].type == "text" else ""
 
-                # Strip markdown fences the model sometimes wraps around JSON
+                # Strip Markdown fences the model sometimes wraps around JSON
                 stripped = raw_text.strip()
                 if stripped.startswith("```"):
                     # Remove opening ```json or ``` and closing ```
@@ -999,6 +1002,7 @@ def _has_ai_scores(card_results: list[CardResult]) -> bool:
     return any(r.ai_score >= 0 for card in card_results for r in card.results)
 
 
+# noinspection DuplicatedCode
 def generate_summary_html(
     card_results: list[CardResult],
     configs: list[Config],
@@ -1194,6 +1198,7 @@ def generate_summary_html(
     return "\n".join(lines)
 
 
+# noinspection DuplicatedCode
 def generate_card_html(
     card: CardResult,
     card_idx: int,
@@ -1306,6 +1311,7 @@ def generate_card_html(
     return "\n".join(lines)
 
 
+# noinspection DuplicatedCode
 def generate_config_html(
     cfg: Config,
     card_results: list[CardResult],
@@ -1436,6 +1442,7 @@ def generate_config_html(
 # ---------------------------------------------------------------------------
 
 
+# noinspection PyShadowingNames
 def write_summary_csv(
     path: Path,
     config_stats: dict[str, dict],

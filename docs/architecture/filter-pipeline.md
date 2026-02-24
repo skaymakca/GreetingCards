@@ -91,11 +91,11 @@ This prevents the user from getting stuck with an empty list when the combinatio
 
 Both category and folder sections share the same click logic (`_handle_check`):
 
-| Action | Behavior |
-|--------|----------|
-| Regular click | Exclusive select (uncheck all others) |
-| Option+click | Toggle multi-select (add/remove from selection) |
-| Uncheck last item | Falls back to "All" automatically |
+| Action            | Behavior                                        |
+|-------------------|-------------------------------------------------|
+| Regular click     | Exclusive select (uncheck all others)           |
+| Option+click      | Toggle multi-select (add/remove from selection) |
+| Uncheck last item | Falls back to "All" automatically               |
 
 ## Debounce Timer
 

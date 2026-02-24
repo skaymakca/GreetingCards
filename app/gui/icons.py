@@ -51,6 +51,7 @@ def _render_sf_symbol_to_png(
         Tuple of (PNG bytes, render_scale) or None if rendering fails
     """
     try:
+        # noinspection PyUnresolvedReferences
         from AppKit import (
             NSBitmapImageRep,
             NSColor,
@@ -61,6 +62,8 @@ def _render_sf_symbol_to_png(
             NSPNGFileType,
             NSScreen,
         )
+
+        # noinspection PyUnresolvedReferences
         from Foundation import NSPoint, NSRect, NSSize
 
         # Load the SF Symbol
@@ -143,6 +146,7 @@ def load_menu_icon(name: str, color_hex: str | None = None) -> wx.Bitmap | None:
     return load_sf_symbol(name, point_size=11, color_hex=color_hex, scale=1)
 
 
+# noinspection PyTypeChecker
 def load_cursor_from_symbol(
     name: str,
     point_size: int = 20,
@@ -190,6 +194,7 @@ def load_cursor_from_symbol(
         return None
 
 
+# noinspection PyTypeChecker
 def load_sf_symbol(
     name: str,
     point_size: int = 14,

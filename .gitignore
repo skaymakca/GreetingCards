@@ -9,9 +9,6 @@ __pycache__/
 # macOS
 .DS_Store
 
-# IDEs
-.idea/
-
 # Build artifacts
 build/
 dist/

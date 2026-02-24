@@ -22,7 +22,7 @@ def open_files_and_folders(message: str, file_types: list[str]) -> list[Path]:
         file_types: List of allowed file extensions (e.g. ["pdf"])
 
     Returns:
-        List of selected paths (empty if cancelled)
+        List of selected paths (empty if canceled)
     """
     panel = NSOpenPanel.openPanel()
     panel.setCanChooseFiles_(True)

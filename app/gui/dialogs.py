@@ -48,6 +48,7 @@ class TableModel(dv.PyDataViewModel):
         self.data = data
         self.colors = colors
 
+    # noinspection PyPep8Naming
     def GetColumnCount(self) -> int:
         """Return number of columns."""
         return len(self.data[0]) if self.data else 0
@@ -96,6 +97,7 @@ def _dismiss_on_key(dialog: wx.Dialog, event: wx.KeyEvent) -> None:
         event.Skip()
 
 
+# noinspection PyTypeChecker
 class ProgressDialog(wx.Dialog):
     """Modal progress dialog for batch processing."""
 
@@ -175,6 +177,7 @@ class ProgressDialog(wx.Dialog):
         self.Destroy()
 
 
+# noinspection PyUnusedLocal,PyTypeChecker
 class RenameConfirmDialog(wx.Dialog):
     """Dialog showing the rename plan and asking for confirmation."""
 
@@ -318,6 +321,7 @@ class RenameConfirmDialog(wx.Dialog):
             event.Skip()
 
 
+# noinspection PyTypeChecker
 class ErrorListDialog(wx.Dialog):
     """Dialog showing AI analysis errors in a structured table."""
 
@@ -388,6 +392,7 @@ class ErrorListDialog(wx.Dialog):
         self.Refresh()
 
 
+# noinspection PyTypeChecker
 class CompletionDialog(wx.Dialog):
     """Dialog showing rename results in a structured table."""
 

@@ -176,6 +176,7 @@ def _ocr_job(pdf_path_str: str, config_short_name: str, dpi: int) -> tuple[str, 
     return "\n\n".join(texts), (sum(confs) / len(confs) if confs else -1.0)
 
 
+# noinspection PyRedundantParentheses,GrazieInspection
 def _ocr_job_wrapper(
     args: tuple[int, str, str, int],
 ) -> tuple[int, str, float, float, str | None]:
@@ -196,6 +197,7 @@ def _ocr_job_wrapper(
         return (job_id, "", -1.0, elapsed, str(err))
 
 
+# noinspection PyRedundantParentheses
 def _timed_ocr_job(
     pdf_path_str: str,
     config_short_name: str,
@@ -300,6 +302,7 @@ def _validate_config(cfg: Config) -> None:
         sys.exit(1)
 
 
+# noinspection DuplicatedCode
 def run_benchmark(
     corpus_path: Path,
     cfg: Config,
@@ -387,6 +390,7 @@ def run_benchmark(
     )
     max_desc_len = min(max_label_len, _MAX_LINE - _BAR_OVERHEAD)
 
+    # noinspection PyShadowingNames,DuplicatedCode
     def _bench_desc(model: str, level: int) -> str:
         label = f"{model} @ {level}w"
         if len(label) > max_desc_len:
@@ -396,6 +400,7 @@ def run_benchmark(
     # Table overhead: header(1) + header separator(1) + top/bottom border(2) + progress bar(1) + blank(1)
     _TABLE_OVERHEAD = 6
 
+    # noinspection PyShadowingNames,DuplicatedCode
     def _build_results_table(
         scenarios: list[ScenarioResult],
         *,
@@ -613,6 +618,7 @@ MODEL_COLORS = {
 }
 
 
+# noinspection PyListCreation,DuplicatedCode
 def _generate_report(result: BenchmarkResult) -> str:
     """Generate the full HTML report."""
     lines: list[str] = []
@@ -868,6 +874,7 @@ from scripts.helpers import make_output_dir
 _FOLDER_NAME = "benchmark_ocr_concurrency"
 
 
+# noinspection DuplicatedCode
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="OCR Concurrency Benchmark — test concurrency models for OCR processing"

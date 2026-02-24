@@ -10,12 +10,12 @@ Last updated: 2026-02-23
 
 Limits are per-model, per-organization. Cached input tokens do NOT count towards ITPM (big advantage for prompt caching).
 
-| Tier | Deposit | Sonnet 4.x RPM | Sonnet 4.x ITPM | Sonnet 4.x OTPM | Haiku 4.5 RPM | Haiku 4.5 ITPM | Haiku 4.5 OTPM |
-|------|---------|----------------|------------------|------------------|----------------|-----------------|-----------------|
-| Tier 1 | $5 | 50 | 30,000 | 8,000 | 50 | 50,000 | 10,000 |
-| Tier 2 | $40 | 1,000 | 450,000 | 90,000 | 1,000 | 450,000 | 90,000 |
-| Tier 3 | $200 | 2,000 | 800,000 | 160,000 | 2,000 | 1,000,000 | 200,000 |
-| Tier 4 | $400 | 4,000 | 2,000,000 | 400,000 | 4,000 | 4,000,000 | 800,000 |
+| Tier   | Deposit | Sonnet 4.x RPM | Sonnet 4.x ITPM | Sonnet 4.x OTPM | Haiku 4.5 RPM | Haiku 4.5 ITPM | Haiku 4.5 OTPM |
+|--------|---------|----------------|-----------------|-----------------|---------------|----------------|----------------|
+| Tier 1 | $5      | 50             | 30,000          | 8,000           | 50            | 50,000         | 10,000         |
+| Tier 2 | $40     | 1,000          | 450,000         | 90,000          | 1,000         | 450,000        | 90,000         |
+| Tier 3 | $200    | 2,000          | 800,000         | 160,000         | 2,000         | 1,000,000      | 200,000        |
+| Tier 4 | $400    | 4,000          | 2,000,000       | 400,000         | 4,000         | 4,000,000      | 800,000        |
 
 Opus 4.x limits match Sonnet 4.x. Tiers advance automatically based on cumulative credit purchases.
 
@@ -28,12 +28,12 @@ Opus 4.x limits match Sonnet 4.x. Tiers advance automatically based on cumulativ
 
 [Official docs](https://platform.openai.com/docs/guides/rate-limits)
 
-| Tier | Spend Required | RPM | TPM |
-|------|---------------|-----|-----|
-| Tier 1 | $5+ | 6 | 250,000 |
-| Tier 2 | $50+ | 15 | 500,000 |
-| Tier 3 | $500+ | 25 | 1,000,000 |
-| Enterprise | Custom | 60+ | Custom |
+| Tier       | Spend Required | RPM | TPM       |
+|------------|----------------|-----|-----------|
+| Tier 1     | $5+            | 6   | 250,000   |
+| Tier 2     | $50+           | 15  | 500,000   |
+| Tier 3     | $500+          | 25  | 1,000,000 |
+| Enterprise | Custom         | 60+ | Custom    |
 
 RPM is the practical bottleneck — you'll hit request caps before token limits.
 
@@ -45,10 +45,10 @@ RPM is the practical bottleneck — you'll hit request caps before token limits.
 
 ## Tier Advancement
 
-| Provider | How to advance |
-|----------|---------------|
-| Anthropic | Cumulative credit purchases ($5 → $40 → $200 → $400) |
-| OpenAI | Cumulative spend ($5 → $50 → $500), account age matters too |
+| Provider  | How to advance                                              |
+|-----------|-------------------------------------------------------------|
+| Anthropic | Cumulative credit purchases ($5 → $40 → $200 → $400)        |
+| OpenAI    | Cumulative spend ($5 → $50 → $500), account age matters too |
 
 Check your current limits:
 - Anthropic: [Console limits page](https://console.anthropic.com/settings/limits)

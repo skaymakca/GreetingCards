@@ -1,3 +1,4 @@
+# noinspection GrazieInspection
 """wxPython preview panel for displaying multi-page, zoomable, pannable PDF previews."""
 
 import wx
@@ -6,6 +7,7 @@ from PIL import Image
 from app.gui import styles, utils
 
 
+# noinspection PyMethodMayBeStatic,PyUnusedLocal,PyTypeChecker,GrazieInspection
 class PreviewPanel(wx.Panel):
     """Panel that displays a multi-page, zoomable, pannable PDF preview.
 

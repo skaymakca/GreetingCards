@@ -30,6 +30,7 @@ _observer: _AppearanceObserver | None = None
 
 def is_dark_mode() -> bool:
     """Return True if macOS is currently in dark mode."""
+    # noinspection PyBroadException
     try:
         app = NSApplication.sharedApplication()
         name = app.effectiveAppearance().name()
@@ -41,8 +42,10 @@ def is_dark_mode() -> bool:
 class _AppearanceObserver(NSObject):
     """KVO observer for NSApplication.effectiveAppearance changes."""
 
+    # noinspection PyUnresolvedReferences
     _callback = objc.ivar()
 
+    # noinspection PyPep8Naming,PyUnusedLocal
     def observeValueForKeyPath_ofObject_change_context_(self, path: str, obj: object, change: object, ctx: int) -> None:
         if callable(self._callback):
             wx.CallAfter(self._callback)
@@ -77,6 +80,7 @@ def stop_observer() -> None:
     if _observer is None:
         return
 
+    # noinspection PyBroadException
     try:
         NSApplication.sharedApplication().removeObserver_forKeyPath_(_observer, _KEY_PATH)
     except Exception:

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# noinspection GrazieInspection
 """Preprocessing Concurrency Benchmark.
 
 Measures how well different Python concurrency models scale for the CPU-bound
@@ -179,6 +180,7 @@ def _process_job(pdf_path_str: str, preprocess_name: str, dpi: int) -> list[byte
     return [image_to_png_bytes(preprocess_fn(page)) for page in pages]
 
 
+# noinspection PyRedundantParentheses
 def _process_job_wrapper(
     args: tuple[int, str, str, int],
 ) -> tuple[int, bytes | None, float, str | None]:
@@ -266,6 +268,7 @@ def _dispatch_threads(
     return results
 
 
+# noinspection PyRedundantParentheses
 def _timed_job(pdf_path_str: str, preprocess_name: str, dpi: int) -> tuple[float, str | None]:
     """Run a single job and return (elapsed_s, error_or_None)."""
     t0 = time.monotonic()
@@ -289,6 +292,7 @@ def _dispatch_futures_processes(
     return [(job_id, elapsed, error) for job_id, _, elapsed, error in raw]
 
 
+# noinspection PyRedundantParentheses
 def _dispatch_asyncio_threads(
     jobs: list[tuple[int, Path]],
     preprocess_name: str,
@@ -299,6 +303,7 @@ def _dispatch_asyncio_threads(
         loop = asyncio.get_event_loop()
         executor = ThreadPoolExecutor(max_workers=worker_count)
 
+        # noinspection PyRedundantParentheses
         async def run_one(job_id: int, pdf_path: Path) -> tuple[int, float, str | None]:
             elapsed, error = await loop.run_in_executor(
                 executor,
@@ -317,6 +322,7 @@ def _dispatch_asyncio_threads(
     return asyncio.run(_run())
 
 
+# noinspection PyRedundantParentheses
 def _dispatch_asyncio_processes(
     jobs: list[tuple[int, Path]],
     preprocess_name: str,
@@ -327,6 +333,7 @@ def _dispatch_asyncio_processes(
         loop = asyncio.get_event_loop()
         executor = ProcessPoolExecutor(max_workers=worker_count)
 
+        # noinspection PyRedundantParentheses
         async def run_one(job_id: int, pdf_path: Path) -> tuple[int, float, str | None]:
             try:
                 _, _, elapsed, error = await loop.run_in_executor(
@@ -400,6 +407,7 @@ DEFAULT_LEVELS = [1, 2, 4, 8, 12, 14, 16]
 # ---------------------------------------------------------------------------
 
 
+# noinspection DuplicatedCode
 def run_benchmark(
     corpus_path: Path,
     dpi: int,
@@ -492,6 +500,7 @@ def run_benchmark(
     )
     max_desc_len = min(max_label_len, _MAX_LINE - _BAR_OVERHEAD)
 
+    # noinspection PyShadowingNames,DuplicatedCode
     def _bench_desc(pipeline: str, model: str, level: int) -> str:
         label = f"{pipeline} — {model} @ {level}w"
         if len(label) > max_desc_len:
@@ -501,6 +510,7 @@ def run_benchmark(
     # Table overhead: header(1) + header separator(1) + top/bottom border(2) + progress bar(1) + blank(1)
     _TABLE_OVERHEAD = 6
 
+    # noinspection PyShadowingNames,DuplicatedCode
     def _build_results_table(
         scenarios: list[ScenarioResult],
         *,
@@ -705,6 +715,7 @@ MODEL_COLORS = {
 }
 
 
+# noinspection PyListCreation,DuplicatedCode
 def _generate_report(result: BenchmarkResult) -> str:
     """Generate the full HTML report."""
     lines: list[str] = []
@@ -980,6 +991,7 @@ from scripts.helpers import make_output_dir
 _FOLDER_NAME = "benchmark_pre_processing_concurrency"
 
 
+# noinspection DuplicatedCode
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Preprocessing Concurrency Benchmark — test concurrency models for PDF preprocessing"
