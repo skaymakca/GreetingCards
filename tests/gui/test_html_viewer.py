@@ -334,6 +334,43 @@ class TestSingleton:
         _viewer_refs.pop(key1, None)
         _viewer_refs.pop(key2, None)
 
+    def test_reopen_after_close_with_dead_weakref(self, wx_app, wx_frame, sample_html_dir, sample_page_order):
+        """Reopening after close should create a new window even if weakref lingers."""
+        import unittest.mock
+
+        key = "test-reopen"
+        _viewer_refs.pop(key, None)
+
+        v1 = show_viewer(
+            wx_frame,
+            title="First",
+            size=(600, 400),
+            base_path=sample_html_dir,
+            page_order=sample_page_order,
+            singleton_key=key,
+        )
+        assert v1 is not None
+
+        # Simulate the scenario where C++ frame is deleted but weakref survives.
+        # Patch the weakref to return a mock that raises RuntimeError on IsBeingDeleted.
+        dead_frame = unittest.mock.MagicMock()
+        dead_frame.IsBeingDeleted.side_effect = RuntimeError("wrapped C/C++ object has been deleted")
+        _viewer_refs[key] = lambda: dead_frame  # type: ignore[assignment]
+
+        v2 = show_viewer(
+            wx_frame,
+            title="Second",
+            size=(600, 400),
+            base_path=sample_html_dir,
+            page_order=sample_page_order,
+            singleton_key=key,
+        )
+        assert v2 is not None  # Should create a new viewer, not crash
+
+        v1.frame.Destroy()
+        v2.frame.Destroy()
+        _viewer_refs.pop(key, None)
+
 
 # --- External link handling tests ---
 

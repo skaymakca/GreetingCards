@@ -59,6 +59,39 @@ def test_menu_bar_exists(wx_app):
     window._frame.Destroy()
 
 
+def test_help_menu_structure(wx_app):
+    """Test Help menu has correct items in expected order."""
+    window = MainWindow()
+    menubar = window._frame.GetMenuBar()
+    help_idx = menubar.FindMenu("Help")
+    assert help_idx != wx.NOT_FOUND
+    help_menu = menubar.GetMenu(help_idx)
+
+    # Collect non-separator item labels
+    items = []
+    separator_positions = []
+    for i, item in enumerate(help_menu.GetMenuItems()):
+        if item.IsSeparator():
+            separator_positions.append(i)
+        else:
+            items.append(item.GetItemLabelText())
+
+    # Verify item order: About, Help, What's New, Licenses, GitHub
+    assert "About Greeting Cards" in items
+    assert "Greeting Cards Help" in items
+    assert "What's New" in items
+    assert "Licenses" in items
+    assert "GitHub Repository" in items
+
+    # GitHub should be the last item
+    assert items[-1] == "GitHub Repository"
+
+    # There should be at least 2 separators (after About, before GitHub)
+    assert len(separator_positions) >= 2
+
+    window._frame.Destroy()
+
+
 def test_panels_exist(wx_app):
     """Test review and preview panels are created."""
     window = MainWindow()

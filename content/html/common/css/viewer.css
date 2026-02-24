@@ -1,5 +1,6 @@
 /* Color custom properties */
 :root {
+    color-scheme: light dark;
     --bg: #fff;
     --fg: #333;
     --bg-alt: #f5f5f5;

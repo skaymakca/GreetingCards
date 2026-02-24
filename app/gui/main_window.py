@@ -327,13 +327,32 @@ class MainWindow:
         help_menu = wx.Menu()
         help_menu.Append(wx.ID_ABOUT, "About Greeting Cards")
         help_menu.AppendSeparator()
-        help_menu.Append(wx.ID_HELP, "Greeting Cards Help")
+
+        help_item = help_menu.Append(wx.ID_HELP, "Greeting Cards Help")
+        help_icon = load_menu_icon("book")
+        if help_icon:
+            help_item.SetBitmap(help_icon)
+
         self._whats_new_id = wx.NewIdRef()
-        help_menu.Append(self._whats_new_id, "What's New")
-        self._github_id = wx.NewIdRef()
-        help_menu.Append(self._github_id, "GitHub Repository")
+        whats_new_item = help_menu.Append(self._whats_new_id, "What's New")
+        whats_new_icon = load_menu_icon("newspaper")
+        if whats_new_icon:
+            whats_new_item.SetBitmap(whats_new_icon)
+
         self._licenses_id = wx.NewIdRef()
-        help_menu.Append(self._licenses_id, "Licenses")
+        licenses_item = help_menu.Append(self._licenses_id, "Licenses")
+        licenses_icon = load_menu_icon("doc.text")
+        if licenses_icon:
+            licenses_item.SetBitmap(licenses_icon)
+
+        help_menu.AppendSeparator()
+
+        self._github_id = wx.NewIdRef()
+        github_item = help_menu.Append(self._github_id, "GitHub Repository")
+        github_icon = load_menu_icon("arrow.up.forward.square")
+        if github_icon:
+            github_item.SetBitmap(github_icon)
+
         menubar.Append(help_menu, "&Help")
 
         self._frame.SetMenuBar(menubar)

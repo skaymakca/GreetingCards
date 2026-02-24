@@ -480,9 +480,12 @@ def show_viewer(
     ref = _viewer_refs.get(singleton_key)
     if ref is not None:
         frame = ref()
-        if frame is not None and not frame.IsBeingDeleted():
-            frame.Raise()
-            return None
+        try:
+            if frame is not None and not frame.IsBeingDeleted():
+                frame.Raise()
+                return None
+        except RuntimeError:
+            pass  # C++ object already deleted; create a new one
 
     viewer = HTMLViewerWindow(
         parent, title=title, size=size, base_path=base_path, page_order=page_order, search_hint=search_hint
