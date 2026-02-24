@@ -39,6 +39,12 @@ For each diagnostic, determine whether to:
 
 Wait for user approval before adding suppressions. The user may decide to fix the code, file an upstream bug, or handle it differently.
 
+## PyCharm Inspections (Optional)
+
+If the JetBrains MCP server is available (requires PyCharm to be running with the MCP plugin), run PyCharm inspections on all Python files in `main.py`, `app/**/*.py`, and `scripts/*.py`. See the "PyCharm Inspections (MCP)" section in `CLAUDE.md` for details.
+
+**Skip this step** if PyCharm is not installed, the MCP server is not configured, or the tool calls fail — it is a supplementary check, not a blocker.
+
 ## How to Run
 Launch parallel Explore agents for each area:
 - `app/core/` — all core modules

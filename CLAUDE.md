@@ -205,3 +205,20 @@ Before committing, run these checks and fix any issues:
 **ruff** (`[tool.ruff]` in `pyproject.toml`): Linting (pyflakes, pycodestyle, isort, bugbear, simplify, etc.) and formatting. Use `make lint-fix` for auto-fixes, `make format` to reformat.
 
 **bandit** (`[tool.bandit]` in `pyproject.toml`): Security scanning for app/ and scripts/. Subprocess and known false positives are pre-configured as skips.
+
+---
+
+## PyCharm Inspections (MCP)
+
+When the JetBrains MCP server is available, use PyCharm inspections for deeper semantic analysis beyond what CLI tools catch.
+
+**"Check with PyCharm"** — When asked to check files with PyCharm, inspect all Python files in these directories:
+- `main.py`
+- `app/**/*.py`
+- `scripts/*.py`
+
+Use `mcp__jetbrains__get_file_problems` on each file. **Batch all files in a single parallel call** — PyCharm handles them quickly.
+
+**Expected:** 0 errors, 0 warnings (excluding intentional `# noinspection` suppressions).
+
+**When to use:** As a supplementary check alongside `make check`. PyCharm catches things CLI tools miss (e.g., framework-specific issues, unresolved references in dynamic code, wxPython API misuse).
