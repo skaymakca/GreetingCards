@@ -51,6 +51,20 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from rich.console import Console, Group
+from rich.live import Live
+from rich.markup import escape as rich_escape
+from rich.panel import Panel
+from rich.progress import (
+    BarColumn,
+    Progress,
+    TaskProgressColumn,
+    TextColumn,
+    TimeRemainingColumn,
+)
+from rich.table import Table
+from rich.text import Text
+
 from scripts.benchmark.common import (
     Config,
     HAS_OPENCV,
@@ -68,6 +82,8 @@ from scripts.benchmark.common import (
     render_all_pages,
     sortable_th,
 )
+
+console = Console(stderr=True, highlight=False)
 
 
 # ---------------------------------------------------------------------------
@@ -273,12 +289,12 @@ def _validate_config(cfg: Config) -> None:
     if HAS_TESSEROCR:
         available_libs.add("tesserocr")
     if cfg.library not in available_libs:
-        print(f"Error: OCR library '{cfg.library}' is not installed")
-        print(f"  Available: {available_libs or 'none'}")
+        console.print(f"[red]Error: OCR library '{rich_escape(cfg.library)}' is not installed[/]")
+        console.print(f"  Available: {available_libs or 'none'}")
         sys.exit(1)
 
     if cfg.preprocess in ("clahe", "otsu") and not HAS_OPENCV:
-        print(f"Error: preprocessing '{cfg.preprocess}' requires OpenCV (not installed)")
+        console.print(f"[red]Error: preprocessing '{rich_escape(cfg.preprocess)}' requires OpenCV (not installed)[/]")
         sys.exit(1)
 
 
@@ -290,7 +306,7 @@ def run_benchmark(
 ) -> BenchmarkResult:
     pdf_paths = find_pdfs(corpus_path)
     if not pdf_paths:
-        print(f"No PDF files found in {corpus_path}")
+        console.print(f"[red]No PDF files found in {corpus_path}[/]")
         sys.exit(1)
 
     _validate_config(cfg)
@@ -306,26 +322,38 @@ def run_benchmark(
 
     config_short_name = cfg.short_name
 
-    print(f"OCR Concurrency Benchmark")
-    print(f"  Corpus: {corpus_path} ({len(pdf_paths)} files)")
-    print(f"  Config: {cfg.name}")
-    print(f"  Models: {', '.join(concurrency_models)}")
-    print(f"  Levels: {', '.join(map(str, concurrency_levels))}")
-    print()
+    console.print(Panel(
+        f"  Corpus:  {corpus_path} ({len(pdf_paths)} files)\n"
+        f"  Config:  {rich_escape(cfg.name)}\n"
+        f"  Models:  {', '.join(concurrency_models)}\n"
+        f"  Levels:  {', '.join(map(str, concurrency_levels))}",
+        title="OCR Concurrency Benchmark",
+        title_align="left",
+        expand=False,
+    ))
 
     total_t0 = time.monotonic()
 
     # Warmup: one OCR pass per file
-    print("Warmup...")
     warmup_t0 = time.monotonic()
-    for pdf_path in pdf_paths:
-        try:
-            _ocr_job(str(pdf_path), config_short_name, cfg.dpi)
-        except Exception as exc:
-            err = exc
-            print(f"  Warning: warmup failed for {pdf_path.name}: {err}")
+    with Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeRemainingColumn(),
+        console=console,
+        transient=True,
+    ) as progress:
+        warmup_task = progress.add_task("Warmup", total=len(pdf_paths))
+        for pdf_path in pdf_paths:
+            try:
+                _ocr_job(str(pdf_path), config_short_name, cfg.dpi)
+            except Exception as exc:
+                err = exc
+                console.print(f"[yellow]Warning: warmup failed for {pdf_path.name}: {err}[/]")
+            progress.advance(warmup_task)
     warmup_time = time.monotonic() - warmup_t0
-    print(f"  Warmup complete: {warmup_time:.1f}s\n")
+    console.print(f"  Warmup complete: {warmup_time:.1f}s\n")
 
     result = BenchmarkResult(
         corpus_path=corpus_path,
@@ -336,44 +364,153 @@ def run_benchmark(
         warmup_time_s=warmup_time,
     )
 
+    # Count total scenarios for progress bar
+    total_scenarios = 0
     for model in concurrency_models:
         for level in concurrency_levels:
-            # Sequential only runs at level=1
             if model == "sequential" and level != 1:
                 continue
+            total_scenarios += 1
 
-            jobs = build_jobs(pdf_paths, level)
-            label = f"  {model:20s} @ {level:2d} workers: {len(jobs):3d} jobs"
-            print(f"{label} ... ", end="", flush=True)
+    # Compute fixed-width description for stable progress bar
+    _MAX_LINE = 200
+    _BAR_OVERHEAD = 40
+    max_label_len = max(
+        len(f"{model} @ {level}w")
+        for model in concurrency_models
+        for level in concurrency_levels
+        if not (model == "sequential" and level != 1)
+    )
+    max_desc_len = min(max_label_len, _MAX_LINE - _BAR_OVERHEAD)
 
-            dispatch_fn = DISPATCHERS[model]
-            wall_t0 = time.monotonic()
-            raw_results = dispatch_fn(jobs, config_short_name, cfg.dpi, level)
-            wall_time = time.monotonic() - wall_t0
+    def _bench_desc(model: str, level: int) -> str:
+        label = f"{model} @ {level}w"
+        if len(label) > max_desc_len:
+            label = label[: max_desc_len - 3] + "..."
+        return f"{label:<{max_desc_len}}"
 
-            job_times = [elapsed for _, _, _, elapsed, _ in raw_results]
-            ocr_texts = [text for _, text, _, _, _ in raw_results]
-            confidences = [conf for _, _, conf, _, _ in raw_results if conf >= 0]
-            errors = sum(1 for _, _, _, _, err in raw_results if err is not None)
+    # Table overhead: header(1) + header separator(1) + top/bottom border(2) + progress bar(1) + blank(1)
+    _TABLE_OVERHEAD = 6
 
-            scenario = ScenarioResult(
-                concurrency_model=model,
-                worker_count=level,
-                num_jobs=len(jobs),
-                wall_time_s=wall_time,
-                job_times=job_times,
-                ocr_texts=ocr_texts,
-                confidences=confidences,
-                errors=errors,
+    def _build_results_table(
+        scenarios: list[ScenarioResult], *, max_rows: int | None = None,
+    ) -> Table:
+        """Build the results table.
+
+        When *max_rows* is set (live display), only the last *max_rows* data rows
+        are shown and a caption indicates how many earlier rows were elided.  When
+        None (final print), all rows are included.
+        """
+        display = scenarios
+        elided = 0
+        if max_rows is not None and len(scenarios) > max_rows:
+            elided = len(scenarios) - max_rows
+            display = scenarios[elided:]
+
+        table = Table(show_header=True, header_style="bold", pad_edge=False)
+        table.add_column("#", style="dim", width=4, justify="right")
+        table.add_column("Model", no_wrap=True)
+        table.add_column("Workers", justify="right")
+        table.add_column("Jobs", justify="right")
+        table.add_column("Wall Time", justify="right")
+        table.add_column("Speedup", justify="right")
+        table.add_column("Efficiency", justify="right")
+        table.add_column("Throughput", justify="right")
+        table.add_column("Errors", justify="right")
+
+        if elided:
+            table.caption = f"  ({elided} earlier rows hidden)"
+            table.caption_style = "dim"
+
+        for s in display:
+            idx = scenarios.index(s) + 1
+            sp = result.speedup(s)
+            eff = result.efficiency(s)
+            err_style = "red" if s.errors else "dim"
+            table.add_row(
+                str(idx),
+                s.concurrency_model,
+                str(s.worker_count),
+                str(s.num_jobs),
+                f"{s.wall_time_s:.2f}s",
+                f"{sp:.2f}x",
+                f"{eff:.1f}%",
+                f"{s.throughput:.1f}/s",
+                f"[{err_style}]{s.errors}[/]",
             )
-            result.scenarios.append(scenario)
+        return table
 
-            speedup = result.speedup(scenario)
-            eff = result.efficiency(scenario)
-            err_str = f", {errors} errors" if errors else ""
-            print(f"{wall_time:6.2f}s  (speedup: {speedup:5.2f}x, efficiency: {eff:5.1f}%{err_str})")
+    progress = Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeRemainingColumn(),
+        console=console,
+    )
+    bench_task = progress.add_task("Benchmarking", total=total_scenarios)
 
-    print()
+    with Live(progress, console=console, refresh_per_second=10, screen=True) as live:
+        for model in concurrency_models:
+            for level in concurrency_levels:
+                # Sequential only runs at level=1
+                if model == "sequential" and level != 1:
+                    continue
+
+                progress.update(
+                    bench_task,
+                    description=_bench_desc(model, level),
+                )
+
+                jobs = build_jobs(pdf_paths, level)
+                dispatch_fn = DISPATCHERS[model]
+                wall_t0 = time.monotonic()
+                raw_results = dispatch_fn(jobs, config_short_name, cfg.dpi, level)
+                wall_time = time.monotonic() - wall_t0
+
+                job_times = [elapsed for _, _, _, elapsed, _ in raw_results]
+                ocr_texts = [text for _, text, _, _, _ in raw_results]
+                confidences = [conf for _, _, conf, _, _ in raw_results if conf >= 0]
+                errors = sum(1 for _, _, _, _, err in raw_results if err is not None)
+
+                scenario = ScenarioResult(
+                    concurrency_model=model,
+                    worker_count=level,
+                    num_jobs=len(jobs),
+                    wall_time_s=wall_time,
+                    job_times=job_times,
+                    ocr_texts=ocr_texts,
+                    confidences=confidences,
+                    errors=errors,
+                )
+                result.scenarios.append(scenario)
+                progress.advance(bench_task)
+
+                # Cap visible rows to terminal height (re-read on each update for resize)
+                term_h = console.size.height
+                progress_h = 1
+                max_rows = term_h - _TABLE_OVERHEAD - progress_h
+                table = _build_results_table(result.scenarios, max_rows=max_rows)
+
+                # Measure actual rendered table height, pad to pin progress at bottom
+                measure_console = Console(
+                    stderr=True, width=console.size.width, force_terminal=True,
+                )
+                with measure_console.capture() as capture:
+                    measure_console.print(table, end="")
+                table_h = capture.get().count("\n")
+                pad_lines = max(0, term_h - table_h - progress_h)
+                if pad_lines > 0:
+                    padding = Text("\n" * (pad_lines - 1))
+                    live.update(Group(table, padding, progress))
+                else:
+                    live.update(Group(table, progress))
+
+        # Clear live display before exiting alternate screen
+        live.update(progress)
+
+    console.print(_build_results_table(result.scenarios))
+    console.print()
+
     result.total_time_s = time.monotonic() - total_t0
     return result
 
@@ -739,14 +876,14 @@ def main() -> None:
 
     corpus_path = args.corpus.expanduser().resolve()
     if not corpus_path.is_dir():
-        print(f"Error: {corpus_path} is not a directory")
+        console.print(f"[red]Error: {corpus_path} is not a directory[/]")
         sys.exit(1)
 
     try:
         cfg = Config.from_short_name(args.config)
     except ValueError as exc:
         err = exc
-        print(f"Error: {err}")
+        console.print(f"[red]Error: {err}[/]")
         sys.exit(1)
 
     levels = sorted(set(int(x) for x in args.levels.split(",")))
@@ -755,7 +892,7 @@ def main() -> None:
     # Validate model names
     for m in models:
         if m not in DISPATCHERS:
-            print(f"Error: unknown model '{m}'. Available: {', '.join(ALL_MODELS)}")
+            console.print(f"[red]Error: unknown model '{m}'. Available: {', '.join(ALL_MODELS)}[/]")
             sys.exit(1)
 
     if args.output:
@@ -767,17 +904,18 @@ def main() -> None:
     result = run_benchmark(corpus_path, cfg, levels, models)
 
     # Generate outputs
-    report_html = _generate_report(result)
-    (output_dir / "index.html").write_text(report_html)
+    with console.status("Generating reports..."):
+        report_html = _generate_report(result)
+        (output_dir / "index.html").write_text(report_html)
+        _write_csv(output_dir / "timing.csv", result)
 
-    _write_csv(output_dir / "timing.csv", result)
-
-    print(f"Reports written to {output_dir}/")
-    print(f"  index.html   — HTML report")
-    print(f"  timing.csv   — timing data")
-    print(f"  Total time: {result.total_time_s:.1f}s")
     index_path = output_dir / "index.html"
-    print(f"\nOpen {index_path} in a browser to view results.")
+    console.print(
+        f"  index.html — HTML report\n"
+        f"  timing.csv — timing data\n"
+        f"  Total time: {result.total_time_s:.1f}s\n"
+        f"\nOpen {index_path} in a browser to view results.",
+    )
 
     if not args.no_open:
         subprocess.Popen(["open", str(index_path)])

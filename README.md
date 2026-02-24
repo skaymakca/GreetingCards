@@ -214,44 +214,29 @@ Output goes to `_script_output/` with timestamped directories (e.g., `20260223_2
 
 ### Sample Card Generator
 
-`generate_sample_cards` creates a corpus of realistic greeting card PDFs for testing and demos. It uses Claude to generate card metadata (family names, greetings, backstories) and OpenAI's gpt-image-1.5 for photorealistic images, then assembles rasterized PDFs with PyMuPDF. Generated images are temporary and cleaned up after PDF creation.
-
-Two generation modes:
-
-- **Layout cards** (default) — AI generates a family photo, then PyMuPDF composites it into one of 11 layout styles (photo card, collage, typography, minimalist, ornate, playful, vintage, modern grid, full bleed, polaroid, border frame) with text overlays and decorative elements
-- **Full-image cards** — AI generates the entire card as a single image in the style of commercial greeting cards (Shutterfly, Snapfish, Minted), with typography baked into the artwork
-
-All pages are rasterized to images so the app must use OCR to extract names — matching real-world conditions.
+`generate_sample_cards` creates a corpus of realistic greeting card PDFs for testing and demos. It uses Claude to generate card metadata (family names, greetings, backstories) and OpenAI's gpt-image-1.5 to generate entire card images in the style of commercial greeting cards (Shutterfly, Snapfish, Minted), with typography baked into the artwork. Generated images are temporary and cleaned up after PDF creation.
 
 ```bash
-# Default: 3 layout cards
+# Default: 3 cards
 uv run python -m scripts.generate_sample_cards
 
-# 10 layout cards
-uv run python -m scripts.generate_sample_cards --layout-cards=10
+# 10 cards
+uv run python -m scripts.generate_sample_cards --count=10
 
-# 5 full-image cards (Shutterfly/Minted style)
-uv run python -m scripts.generate_sample_cards --full-image-cards=5
-
-# Both modes combined
-uv run python -m scripts.generate_sample_cards --layout-cards=10 --full-image-cards=10
-
-# Placeholder images (no OpenAI cost, still needs ANTHROPIC_API_KEY)
-uv run python -m scripts.generate_sample_cards --no-images --layout-cards=5
+# Low-quality images (faster, cheaper)
+uv run python -m scripts.generate_sample_cards --count=5 --image-quality=low
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--layout-cards=N` | Number of layout-based cards (default: 3 if neither flag passed) |
-| `--full-image-cards=N` | Number of full-image cards (Shutterfly/Minted style) |
-| `--no-images` | Skip OpenAI; use colored placeholders |
+| `--count N` | Number of cards to generate (default: 3) |
 | `--ai-model MODEL` | Claude model for metadata generation (default: `claude-sonnet-4-6`) |
 | `--image-model MODEL` | OpenAI image model (default: `gpt-image-1.5`) |
 | `--image-quality LEVEL` | `low`, `medium`, or `high` (default: `high`) |
 | `--seed N` | Seed for soft reproducibility via prompt |
 | `--no-open` | Don't open output folder when done |
 
-**Required API keys:** `ANTHROPIC_API_KEY` (always), `OPENAI_API_KEY` (unless `--no-images`).
+**Required API keys:** `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`.
 
 ### Benchmarks
 

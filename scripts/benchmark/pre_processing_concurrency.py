@@ -63,6 +63,19 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from rich.console import Console, Group
+from rich.live import Live
+from rich.panel import Panel
+from rich.progress import (
+    BarColumn,
+    Progress,
+    TaskProgressColumn,
+    TextColumn,
+    TimeRemainingColumn,
+)
+from rich.table import Table
+from rich.text import Text
+
 from scripts.benchmark.common import (
     HAS_OPENCV,
     PREPROCESS_FNS,
@@ -75,6 +88,9 @@ from scripts.benchmark.common import (
     render_all_pages,
     sortable_th,
 )
+
+
+console = Console(stderr=True, highlight=False)
 
 
 # ---------------------------------------------------------------------------
@@ -394,7 +410,7 @@ def run_benchmark(
 ) -> BenchmarkResult:
     pdf_paths = find_pdfs(corpus_path)
     if not pdf_paths:
-        print(f"No PDF files found in {corpus_path}")
+        console.print(f"[red]No PDF files found in {corpus_path}[/]")
         sys.exit(1)
 
     # Filter pipelines based on OpenCV availability
@@ -402,34 +418,47 @@ def run_benchmark(
         available = [p for p in preprocess_names if p == "pillow"]
         skipped = [p for p in preprocess_names if p != "pillow"]
         if skipped:
-            print(f"Warning: skipping {skipped} pipelines (OpenCV not installed)")
+            console.print(f"[yellow]Warning: skipping {skipped} pipelines (OpenCV not installed)[/]")
         preprocess_names = available
         if not preprocess_names:
-            print("No preprocessing pipelines available!")
+            console.print("[red]No preprocessing pipelines available![/]")
             sys.exit(1)
 
-    print(f"Preprocessing Concurrency Benchmark")
-    print(f"  Corpus: {corpus_path} ({len(pdf_paths)} files)")
-    print(f"  DPI: {dpi}")
-    print(f"  Pipelines: {', '.join(preprocess_names)}")
-    print(f"  Models: {', '.join(concurrency_models)}")
-    print(f"  Levels: {', '.join(map(str, concurrency_levels))}")
-    print()
+    console.print(Panel(
+        f"  Corpus:    {corpus_path} ({len(pdf_paths)} files)\n"
+        f"  DPI:       {dpi}\n"
+        f"  Pipelines: {', '.join(preprocess_names)}\n"
+        f"  Models:    {', '.join(concurrency_models)}\n"
+        f"  Levels:    {', '.join(map(str, concurrency_levels))}",
+        title="Preprocessing Concurrency Benchmark",
+        title_align="left",
+        expand=False,
+    ))
 
     total_t0 = time.monotonic()
 
     # Warmup: one pass through all files x all pipelines
-    print("Warmup...")
+    warmup_total = len(preprocess_names) * len(pdf_paths)
     warmup_t0 = time.monotonic()
-    for pipeline in preprocess_names:
-        for pdf_path in pdf_paths:
-            try:
-                _process_job(str(pdf_path), pipeline, dpi)
-            except Exception as exc:
-                err = exc
-                print(f"  Warning: warmup failed for {pdf_path.name}/{pipeline}: {err}")
+    with Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeRemainingColumn(),
+        console=console,
+        transient=True,
+    ) as progress:
+        warmup_task = progress.add_task("Warmup", total=warmup_total)
+        for pipeline in preprocess_names:
+            for pdf_path in pdf_paths:
+                try:
+                    _process_job(str(pdf_path), pipeline, dpi)
+                except Exception as exc:
+                    err = exc
+                    console.print(f"[yellow]Warning: warmup failed for {pdf_path.name}/{pipeline}: {err}[/]")
+                progress.advance(warmup_task)
     warmup_time = time.monotonic() - warmup_t0
-    print(f"  Warmup complete: {warmup_time:.1f}s\n")
+    console.print(f"  Warmup complete: {warmup_time:.1f}s\n")
 
     result = BenchmarkResult(
         corpus_path=corpus_path,
@@ -441,46 +470,155 @@ def run_benchmark(
         warmup_time_s=warmup_time,
     )
 
-    for pipeline in preprocess_names:
-        print(f"{'=' * 60}")
-        print(f"Pipeline: {pipeline}")
-        print(f"{'=' * 60}")
+    # Count total scenarios for progress bar
+    total_scenarios = 0
+    for model in concurrency_models:
+        for level in concurrency_levels:
+            if model == "sequential" and level != 1:
+                continue
+            total_scenarios += 1
+    total_scenarios *= len(preprocess_names)
 
-        for model in concurrency_models:
-            for level in concurrency_levels:
-                # Sequential only runs at level=1
-                if model == "sequential" and level != 1:
-                    continue
+    # Compute fixed-width description for stable progress bar
+    _MAX_LINE = 200
+    _BAR_OVERHEAD = 40
+    max_label_len = max(
+        len(f"{pipeline} — {model} @ {level}w")
+        for pipeline in preprocess_names
+        for model in concurrency_models
+        for level in concurrency_levels
+        if not (model == "sequential" and level != 1)
+    )
+    max_desc_len = min(max_label_len, _MAX_LINE - _BAR_OVERHEAD)
 
-                jobs = build_jobs(pdf_paths, level)
-                label = f"  {model:20s} @ {level:2d} workers: {len(jobs):3d} jobs"
-                print(f"{label} ... ", end="", flush=True)
+    def _bench_desc(pipeline: str, model: str, level: int) -> str:
+        label = f"{pipeline} — {model} @ {level}w"
+        if len(label) > max_desc_len:
+            label = label[: max_desc_len - 3] + "..."
+        return f"{label:<{max_desc_len}}"
 
-                dispatch_fn = DISPATCHERS[model]
-                wall_t0 = time.monotonic()
-                raw_results = dispatch_fn(jobs, pipeline, dpi, level)
-                wall_time = time.monotonic() - wall_t0
+    # Table overhead: header(1) + header separator(1) + top/bottom border(2) + progress bar(1) + blank(1)
+    _TABLE_OVERHEAD = 6
 
-                job_times = [elapsed for _, elapsed, _ in raw_results]
-                errors = sum(1 for _, _, err in raw_results if err is not None)
+    def _build_results_table(
+        scenarios: list[ScenarioResult], *, max_rows: int | None = None,
+    ) -> Table:
+        """Build the master results table.
 
-                scenario = ScenarioResult(
-                    preprocess_name=pipeline,
-                    concurrency_model=model,
-                    worker_count=level,
-                    num_jobs=len(jobs),
-                    wall_time_s=wall_time,
-                    job_times=job_times,
-                    errors=errors,
-                )
-                result.scenarios.append(scenario)
+        When *max_rows* is set (live display), only the last *max_rows* data rows
+        are shown and a caption indicates how many earlier rows were elided.  When
+        None (final print), all rows are included.
+        """
+        display = scenarios
+        elided = 0
+        if max_rows is not None and len(scenarios) > max_rows:
+            elided = len(scenarios) - max_rows
+            display = scenarios[elided:]
 
-                speedup = result.speedup(scenario)
-                eff = result.efficiency(scenario)
-                err_str = f", {errors} errors" if errors else ""
-                print(f"{wall_time:6.2f}s  (speedup: {speedup:5.2f}x, efficiency: {eff:5.1f}%{err_str})")
+        table = Table(show_header=True, header_style="bold", pad_edge=False)
+        table.add_column("#", style="dim", width=4, justify="right")
+        table.add_column("Pipeline", no_wrap=True)
+        table.add_column("Model", no_wrap=True)
+        table.add_column("Workers", justify="right")
+        table.add_column("Jobs", justify="right")
+        table.add_column("Wall Time", justify="right")
+        table.add_column("Speedup", justify="right")
+        table.add_column("Efficiency", justify="right")
+        table.add_column("Throughput", justify="right")
+        table.add_column("Errors", justify="right")
 
-        print()
+        if elided:
+            table.caption = f"  ({elided} earlier rows hidden)"
+            table.caption_style = "dim"
+
+        for s in display:
+            # Row number is the 1-based index in the full list
+            idx = scenarios.index(s) + 1
+            sp = result.speedup(s)
+            eff = result.efficiency(s)
+            err_style = "red" if s.errors else "dim"
+            table.add_row(
+                str(idx),
+                s.preprocess_name,
+                s.concurrency_model,
+                str(s.worker_count),
+                str(s.num_jobs),
+                f"{s.wall_time_s:.2f}s",
+                f"{sp:.2f}x",
+                f"{eff:.1f}%",
+                f"{s.throughput:.1f}/s",
+                f"[{err_style}]{s.errors}[/]",
+            )
+        return table
+
+    progress = Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeRemainingColumn(),
+        console=console,
+    )
+    bench_task = progress.add_task("Benchmarking", total=total_scenarios)
+
+    with Live(progress, console=console, refresh_per_second=10, screen=True) as live:
+        for pipeline in preprocess_names:
+            for model in concurrency_models:
+                for level in concurrency_levels:
+                    # Sequential only runs at level=1
+                    if model == "sequential" and level != 1:
+                        continue
+
+                    progress.update(
+                        bench_task,
+                        description=_bench_desc(pipeline, model, level),
+                    )
+
+                    jobs = build_jobs(pdf_paths, level)
+                    dispatch_fn = DISPATCHERS[model]
+                    wall_t0 = time.monotonic()
+                    raw_results = dispatch_fn(jobs, pipeline, dpi, level)
+                    wall_time = time.monotonic() - wall_t0
+
+                    job_times = [elapsed for _, elapsed, _ in raw_results]
+                    errors = sum(1 for _, _, err in raw_results if err is not None)
+
+                    scenario = ScenarioResult(
+                        preprocess_name=pipeline,
+                        concurrency_model=model,
+                        worker_count=level,
+                        num_jobs=len(jobs),
+                        wall_time_s=wall_time,
+                        job_times=job_times,
+                        errors=errors,
+                    )
+                    result.scenarios.append(scenario)
+                    progress.advance(bench_task)
+
+                    # Cap visible rows to terminal height (re-read on each update for resize)
+                    term_h = console.size.height
+                    progress_h = 1
+                    max_rows = term_h - _TABLE_OVERHEAD - progress_h
+                    table = _build_results_table(result.scenarios, max_rows=max_rows)
+
+                    # Measure actual rendered table height, pad to pin progress at bottom
+                    measure_console = Console(
+                        stderr=True, width=console.size.width, force_terminal=True,
+                    )
+                    with measure_console.capture() as capture:
+                        measure_console.print(table, end="")
+                    table_h = capture.get().count("\n")
+                    pad_lines = max(0, term_h - table_h - progress_h)
+                    # Text("") = 1 rendered line, Text("\n") = 2, etc.
+                    # So for N blank lines of padding, use Text("\n" * (N-1)).
+                    # For 0 padding, omit it entirely.
+                    if pad_lines > 0:
+                        padding = Text("\n" * (pad_lines - 1))
+                        live.update(Group(table, padding, progress))
+                    else:
+                        live.update(Group(table, progress))
+
+    console.print(_build_results_table(result.scenarios))
+    console.print()
 
     result.total_time_s = time.monotonic() - total_t0
     return result
@@ -853,7 +991,7 @@ def main() -> None:
 
     corpus_path = args.corpus.expanduser().resolve()
     if not corpus_path.is_dir():
-        print(f"Error: {corpus_path} is not a directory")
+        console.print(f"[red]Error: {corpus_path} is not a directory[/]")
         sys.exit(1)
 
     levels = sorted(set(int(x) for x in args.levels.split(",")))
@@ -863,7 +1001,7 @@ def main() -> None:
     # Validate model names
     for m in models:
         if m not in DISPATCHERS:
-            print(f"Error: unknown model '{m}'. Available: {', '.join(ALL_MODELS)}")
+            console.print(f"[red]Error: unknown model '{m}'. Available: {', '.join(ALL_MODELS)}[/]")
             sys.exit(1)
 
     if args.output:
@@ -875,17 +1013,18 @@ def main() -> None:
     result = run_benchmark(corpus_path, args.dpi, levels, models, pipelines)
 
     # Generate outputs
-    report_html = _generate_report(result)
-    (output_dir / "index.html").write_text(report_html)
+    with console.status("Generating reports..."):
+        report_html = _generate_report(result)
+        (output_dir / "index.html").write_text(report_html)
+        _write_csv(output_dir / "timing.csv", result)
 
-    _write_csv(output_dir / "timing.csv", result)
-
-    print(f"Reports written to {output_dir}/")
-    print(f"  index.html   — HTML report")
-    print(f"  timing.csv   — timing data")
-    print(f"  Total time: {result.total_time_s:.1f}s")
     index_path = output_dir / "index.html"
-    print(f"\nOpen {index_path} in a browser to view results.")
+    console.print(
+        f"  index.html — HTML report\n"
+        f"  timing.csv — timing data\n"
+        f"  Total time: {result.total_time_s:.1f}s\n"
+        f"\nOpen {index_path} in a browser to view results.",
+    )
 
     if not args.no_open:
         subprocess.Popen(["open", str(index_path)])

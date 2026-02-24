@@ -133,13 +133,23 @@ import multiprocessing as mp
 import os
 import sys
 import time
-from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import anthropic
+
+from rich.console import Console
+from rich.markup import escape as rich_escape
+from rich.panel import Panel
+from rich.progress import (
+    BarColumn,
+    Progress,
+    TaskProgressColumn,
+    TextColumn,
+    TimeRemainingColumn,
+)
 
 from scripts.benchmark.common import (
     CSS,
@@ -166,6 +176,8 @@ from scripts.benchmark.common import (
     render_all_pages,
     sortable_th,
 )
+
+console = Console(stderr=True, highlight=False)
 
 _HAS_PYTESSERACT = HAS_PYTESSERACT
 _HAS_TESSEROCR = HAS_TESSEROCR
@@ -321,14 +333,14 @@ def _filter_configs(configs: list[Config]) -> list[Config]:
     needed_libs = {c.library for c in configs}
     missing = needed_libs - available_libs
     if missing:
-        print(f"Warning: skipping configs for unavailable libraries: {missing}")
+        console.print(f"[yellow]Warning: skipping configs for unavailable libraries: {missing}[/]")
         configs = [c for c in configs if c.library in available_libs]
 
     if not _HAS_OPENCV:
         opencv_preprocs = {"clahe", "otsu"}
         needed_opencv = {c.preprocess for c in configs} & opencv_preprocs
         if needed_opencv:
-            print(f"Warning: skipping configs with {needed_opencv} preprocessing (OpenCV not installed)")
+            console.print(f"[yellow]Warning: skipping configs with {needed_opencv} preprocessing (OpenCV not installed)[/]")
             configs = [c for c in configs if c.preprocess not in opencv_preprocs]
 
     return configs
@@ -340,35 +352,46 @@ def _validate_configs(
     page_cache: dict[tuple[str, int], list[bytes]],
 ) -> list[Config]:
     """Run all configs on the first card and exclude any that fail."""
-    print(f"Validating {len(configs)} configs on {first_pdf.stem}...")
     valid = []
     failed = []
-    for cfg in configs:
-        page_data = page_cache[(str(first_pdf), cfg.dpi)]
-        preprocess_fn = PREPROCESS_FNS[cfg.preprocess]
-        ocr_fn = OCR_FNS[cfg.library]
-        try:
-            any_conf = False
-            for png_bytes in page_data:
-                page_img = _png_bytes_to_image(png_bytes)
-                processed = preprocess_fn(page_img)
-                text, conf = ocr_fn(processed, cfg)
-                if text.startswith("[ERROR:"):
-                    raise RuntimeError(text)
-                if conf >= 0:
-                    any_conf = True
-            if not any_conf:
-                raise RuntimeError("all pages returned confidence -1 (OCR likely failed silently)")
-            valid.append(cfg)
-        except Exception as exc:
-            err = exc
-            failed.append((cfg, str(err)))
+    with Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeRemainingColumn(),
+        console=console,
+        transient=True,
+    ) as progress:
+        task = progress.add_task(
+            f"Validating configs on {first_pdf.stem}", total=len(configs),
+        )
+        for cfg in configs:
+            page_data = page_cache[(str(first_pdf), cfg.dpi)]
+            preprocess_fn = PREPROCESS_FNS[cfg.preprocess]
+            ocr_fn = OCR_FNS[cfg.library]
+            try:
+                any_conf = False
+                for png_bytes in page_data:
+                    page_img = _png_bytes_to_image(png_bytes)
+                    processed = preprocess_fn(page_img)
+                    text, conf = ocr_fn(processed, cfg)
+                    if text.startswith("[ERROR:"):
+                        raise RuntimeError(text)
+                    if conf >= 0:
+                        any_conf = True
+                if not any_conf:
+                    raise RuntimeError("all pages returned confidence -1 (OCR likely failed silently)")
+                valid.append(cfg)
+            except Exception as exc:
+                err = exc
+                failed.append((cfg, str(err)))
+            progress.advance(task)
 
     if failed:
-        print(f"  {len(failed)} configs failed validation:")
+        console.print(f"  [yellow]{len(failed)} configs failed validation:[/]")
         for cfg, err_msg in failed:
-            print(f"    {cfg.name}: {err_msg}")
-    print(f"  {len(valid)} configs passed validation")
+            console.print(f"    {cfg.name}: {err_msg}")
+    console.print(f"  {len(valid)} configs passed validation")
     return valid
 
 
@@ -377,12 +400,12 @@ def run_benchmark(
 ) -> list[CardResult]:
     pdfs = find_pdfs(corpus_path)
     if not pdfs:
-        print(f"No PDF files found in {corpus_path}")
+        console.print(f"[red]No PDF files found in {corpus_path}[/]")
         sys.exit(1)
 
     configs = _filter_configs(configs)
     if not configs:
-        print("No valid configs to run!")
+        console.print("[red]No valid configs to run![/]")
         sys.exit(1)
 
     # Set TESSDATA_PREFIX for worker processes
@@ -391,8 +414,8 @@ def run_benchmark(
         os.environ["TESSDATA_PREFIX"] = system_tessdata
 
     total_runs = len(pdfs) * len(configs)
-    print(f"Found {len(pdfs)} PDFs, {len(configs)} configs = {total_runs} OCR runs")
-    print(f"Workers: {num_workers}")
+    console.print(f"Found {len(pdfs)} PDFs, {len(configs)} configs = {total_runs} OCR runs")
+    console.print(f"Workers: {num_workers}")
 
     # Pre-download tessdata_best if needed
     if any(c.tessdata == "tessdata_best" for c in configs):
@@ -401,35 +424,42 @@ def run_benchmark(
     dpi_levels = sorted({c.dpi for c in configs})
 
     # --- Pre-render all pages (main process) ---
-    print("Rendering pages...")
     # page_cache: (pdf_path_str, dpi) -> list[png_bytes]
     page_cache: dict[tuple[str, int], list[bytes]] = {}
     # thumbnails: pdf_path_str -> list[base64_str]
     thumbnails: dict[str, list[str]] = {}
 
-    for pdf_path in pdfs:
-        for dpi in dpi_levels:
-            key = (str(pdf_path), dpi)
-            images = render_all_pages(pdf_path, dpi)
-            page_cache[key] = [_image_to_png_bytes(img) for img in images]
-        # Thumbnails from highest DPI
-        best_dpi = max(dpi_levels)
-        best_images = [_png_bytes_to_image(b) for b in page_cache[(str(pdf_path), best_dpi)]]
-        thumbnails[str(pdf_path)] = [image_to_base64(img) for img in best_images]
+    render_total = len(pdfs) * len(dpi_levels)
+    with Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeRemainingColumn(),
+        console=console,
+        transient=True,
+    ) as progress:
+        render_task = progress.add_task("Rendering pages", total=render_total)
+        for pdf_path in pdfs:
+            for dpi in dpi_levels:
+                key = (str(pdf_path), dpi)
+                images = render_all_pages(pdf_path, dpi)
+                page_cache[key] = [_image_to_png_bytes(img) for img in images]
+                progress.advance(render_task)
+            # Thumbnails from highest DPI
+            best_dpi = max(dpi_levels)
+            best_images = [_png_bytes_to_image(b) for b in page_cache[(str(pdf_path), best_dpi)]]
+            thumbnails[str(pdf_path)] = [image_to_base64(img) for img in best_images]
 
-    print(f"  Rendered {len(pdfs)} cards at {len(dpi_levels)} DPI levels")
+    console.print(f"  Rendered {len(pdfs)} cards at {len(dpi_levels)} DPI levels")
 
     # --- Validation pass ---
     configs = _validate_configs(configs, pdfs[0], page_cache)
     if not configs:
-        print("No configs passed validation!")
+        console.print("[red]No configs passed validation![/]")
         sys.exit(1)
 
     # Recalculate total after validation may have excluded configs
     total_runs = len(pdfs) * len(configs)
-    print(f"Running {total_runs} OCR jobs ({len(configs)} configs x {len(pdfs)} cards)...")
-
-    is_tty = sys.stderr.isatty()
 
     # --- Build jobs ---
     jobs: list[tuple[str, dict, list[bytes]]] = []
@@ -439,94 +469,83 @@ def run_benchmark(
             page_data = page_cache[(str(pdf_path), cfg.dpi)]
             jobs.append((card_id, _cfg_to_dict(cfg), page_data))
 
+    # Compute fixed-width description label so the progress bar doesn't jump.
+    # The progress line looks like: "{label}  ━━━━━━━━━━  123/456  0:12"
+    # We cap the total line at 200 chars; the bar/counter/time take ~40 chars.
+    _MAX_LINE = 200
+    _BAR_OVERHEAD = 40
+    max_label_len = max(
+        len(f"{card_id} / {Config(**cfg_dict).short_name}")
+        for card_id, cfg_dict, _ in jobs
+    )
+    max_desc_len = min(max_label_len, _MAX_LINE - _BAR_OVERHEAD - len("Running OCR — "))
+
+    def _ocr_desc(card_id: str, cfg: Config) -> str:
+        label = f"{card_id} / {cfg.short_name}"
+        if len(label) > max_desc_len:
+            label = label[: max_desc_len - 3] + "..."
+        return f"Running OCR — {label:<{max_desc_len}}"
+
     if num_workers <= 1:
         # --- Sequential mode ---
         card_map: dict[str, CardResult] = {}
-        current_card: str | None = None
-        card_start_time = 0.0
-        cards_done = 0
 
-        for i, (card_id, cfg_dict, page_png_list) in enumerate(jobs, 1):
-            cfg = Config(**cfg_dict)
+        with Progress(
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeRemainingColumn(),
+            console=console,
+            transient=True,
+        ) as progress:
+            ocr_task = progress.add_task("Running OCR", total=total_runs)
+            for card_id, cfg_dict, page_png_list in jobs:
+                cfg = Config(**cfg_dict)
+                progress.update(ocr_task, description=_ocr_desc(card_id, cfg))
 
-            # Track card transitions for non-TTY progress
-            if card_id != current_card:
-                if current_card is not None:
-                    cards_done += 1
-                    if not is_tty:
-                        card_elapsed = time.monotonic() - card_start_time
-                        print(
-                            f"  [{cards_done}/{len(pdfs)}] {current_card} "
-                            f"({len(configs)} configs, {card_elapsed:.1f}s)",
-                            file=sys.stderr,
-                        )
-                current_card = card_id
-                card_start_time = time.monotonic()
+                preprocess_fn = PREPROCESS_FNS[cfg.preprocess]
+                ocr_fn = OCR_FNS[cfg.library]
+                all_text_parts = []
+                all_confidences = []
+                t0 = time.monotonic()
 
-            if is_tty:
-                pct = i / total_runs * 100
-                print(
-                    f"\r  [{i}/{total_runs}] ({pct:.0f}%) {card_id} — {cfg.short_name}",
-                    end="",
-                    flush=True,
-                    file=sys.stderr,
-                )
+                for png_bytes in page_png_list:
+                    page_img = _png_bytes_to_image(png_bytes)
+                    processed = preprocess_fn(page_img)
+                    try:
+                        text, conf = ocr_fn(processed, cfg)
+                    except Exception as exc:
+                        err = exc
+                        text, conf = f"[ERROR: {err}]", -1.0
+                    all_text_parts.append(text)
+                    if conf >= 0:
+                        all_confidences.append(conf)
 
-            preprocess_fn = PREPROCESS_FNS[cfg.preprocess]
-            ocr_fn = OCR_FNS[cfg.library]
-            all_text_parts = []
-            all_confidences = []
-            t0 = time.monotonic()
+                elapsed = time.monotonic() - t0
+                combined_text = "\n\n".join(all_text_parts)
+                words = combined_text.split()
 
-            for png_bytes in page_png_list:
-                page_img = _png_bytes_to_image(png_bytes)
-                processed = preprocess_fn(page_img)
-                try:
-                    text, conf = ocr_fn(processed, cfg)
-                except Exception as exc:
-                    err = exc
-                    text, conf = f"[ERROR: {err}]", -1.0
-                all_text_parts.append(text)
-                if conf >= 0:
-                    all_confidences.append(conf)
+                if card_id not in card_map:
+                    pdf_path = next(p for p in pdfs if p.stem == card_id)
+                    card_map[card_id] = CardResult(
+                        card_id=card_id,
+                        pdf_path=pdf_path,
+                        page_images_b64=thumbnails[str(pdf_path)],
+                    )
+                card_map[card_id].results.append(OCRResult(
+                    config=cfg,
+                    text=combined_text,
+                    word_count=len(words),
+                    unique_words=len(set(w.lower() for w in words)),
+                    confidence=sum(all_confidences) / len(all_confidences) if all_confidences else -1.0,
+                    elapsed_s=elapsed,
+                ))
+                progress.advance(ocr_task)
 
-            elapsed = time.monotonic() - t0
-            combined_text = "\n\n".join(all_text_parts)
-            words = combined_text.split()
-
-            if card_id not in card_map:
-                pdf_path = next(p for p in pdfs if p.stem == card_id)
-                card_map[card_id] = CardResult(
-                    card_id=card_id,
-                    pdf_path=pdf_path,
-                    page_images_b64=thumbnails[str(pdf_path)],
-                )
-            card_map[card_id].results.append(OCRResult(
-                config=cfg,
-                text=combined_text,
-                word_count=len(words),
-                unique_words=len(set(w.lower() for w in words)),
-                confidence=sum(all_confidences) / len(all_confidences) if all_confidences else -1.0,
-                elapsed_s=elapsed,
-            ))
-
-        # Final card summary
-        if current_card is not None:
-            cards_done += 1
-            if not is_tty:
-                card_elapsed = time.monotonic() - card_start_time
-                print(
-                    f"  [{cards_done}/{len(pdfs)}] {current_card} "
-                    f"({len(configs)} configs, {card_elapsed:.1f}s)",
-                    file=sys.stderr,
-                )
-
-        if is_tty:
-            print(file=sys.stderr)
         return [card_map[p.stem] for p in pdfs]
 
     # --- Parallel mode ---
-    print(f"Queuing {total_runs} jobs across {num_workers} workers...")
+    console.print(f"Queuing {total_runs} jobs across {num_workers} workers...")
     job_queue: mp.Queue = mp.Queue()
     result_queue: mp.Queue = mp.Queue()
 
@@ -547,61 +566,43 @@ def run_benchmark(
 
     # Collect results with progress
     card_map = {}  # type: ignore[no-redef]  # sequential branch returns early
-    card_done_count: dict[str, int] = defaultdict(int)
-    card_first_seen: dict[str, float] = {}
-    cards_completed = 0
 
-    for i in range(total_runs):
-        card_id, cfg_dict, text, word_count, unique_words, confidence, elapsed = result_queue.get()
-        cfg = Config(**cfg_dict)
+    with Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeRemainingColumn(),
+        console=console,
+        transient=True,
+    ) as progress:
+        ocr_task = progress.add_task("Running OCR", total=total_runs)
+        for i in range(total_runs):
+            card_id, cfg_dict, text, word_count, unique_words, confidence, elapsed = result_queue.get()
+            cfg = Config(**cfg_dict)
 
-        if card_id not in card_first_seen:
-            card_first_seen[card_id] = time.monotonic()
+            progress.update(ocr_task, description=_ocr_desc(card_id, cfg))
 
-        card_done_count[card_id] += 1
-
-        if is_tty:
-            pct = (i + 1) / total_runs * 100
-            print(
-                f"\r  [{i + 1}/{total_runs}] ({pct:.0f}%) {card_id} — {cfg.short_name}    ",
-                end="",
-                flush=True,
-                file=sys.stderr,
-            )
-
-        if card_done_count[card_id] == len(configs):
-            cards_completed += 1
-            if not is_tty:
-                card_elapsed = time.monotonic() - card_first_seen[card_id]
-                print(
-                    f"  [{cards_completed}/{len(pdfs)}] {card_id} "
-                    f"({len(configs)} configs, {card_elapsed:.1f}s)",
-                    file=sys.stderr,
+            if card_id not in card_map:
+                pdf_path = next(p for p in pdfs if p.stem == card_id)
+                card_map[card_id] = CardResult(
+                    card_id=card_id,
+                    pdf_path=pdf_path,
+                    page_images_b64=thumbnails[str(pdf_path)],
                 )
 
-        if card_id not in card_map:
-            pdf_path = next(p for p in pdfs if p.stem == card_id)
-            card_map[card_id] = CardResult(
-                card_id=card_id,
-                pdf_path=pdf_path,
-                page_images_b64=thumbnails[str(pdf_path)],
-            )
-
-        card_map[card_id].results.append(OCRResult(
-            config=cfg,
-            text=text,
-            word_count=word_count,
-            unique_words=unique_words,
-            confidence=confidence,
-            elapsed_s=elapsed,
-        ))
+            card_map[card_id].results.append(OCRResult(
+                config=cfg,
+                text=text,
+                word_count=word_count,
+                unique_words=unique_words,
+                confidence=confidence,
+                elapsed_s=elapsed,
+            ))
+            progress.advance(ocr_task)
 
     # Wait for workers to finish
     for p in workers:
         p.join()
-
-    if is_tty:
-        print(file=sys.stderr)
 
     # Return in original PDF order
     return [card_map[p.stem] for p in pdfs]
@@ -765,22 +766,20 @@ async def _score_chunk(
                     stripped = "\n".join(lines)
 
                 if response.stop_reason == "max_tokens":
-                    print(
-                        f"\n  Warning: {card_id} chunk {chunk_idx} "
+                    console.print(
+                        f"[yellow]Warning: {card_id} chunk {chunk_idx} "
                         f"(pass {pass_num}, attempt {attempt}/{_MAX_SCORING_RETRIES}): "
-                        f"response truncated (max_tokens), skipping",
-                        file=sys.stderr,
+                        f"response truncated (max_tokens), skipping[/]",
                     )
                     continue
 
                 raw_scores: dict[str, int] = json.loads(stripped)
 
                 if not isinstance(raw_scores, dict):
-                    print(
-                        f"\n  Warning: {card_id} chunk {chunk_idx} "
+                    console.print(
+                        f"[yellow]Warning: {card_id} chunk {chunk_idx} "
                         f"(pass {pass_num}, attempt {attempt}/{_MAX_SCORING_RETRIES}): "
-                        f"expected JSON object, got {type(raw_scores).__name__}: {raw_text[:200]!r}",
-                        file=sys.stderr,
+                        f"expected JSON object, got {type(raw_scores).__name__}: {raw_text[:200]!r}[/]",
                     )
                     continue
 
@@ -792,40 +791,36 @@ async def _score_chunk(
 
                 missing = expected_keys - set(accumulated.keys())
                 if missing:
-                    print(
-                        f"\n  Warning: {card_id} chunk {chunk_idx} "
+                    console.print(
+                        f"[yellow]Warning: {card_id} chunk {chunk_idx} "
                         f"(pass {pass_num}, attempt {attempt}/{_MAX_SCORING_RETRIES}): "
                         f"missing keys {sorted(missing, key=int)} "
-                        f"(got {len(raw_scores)}, accumulated {len(accumulated)}/{len(expected_keys)})",
-                        file=sys.stderr,
+                        f"(got {len(raw_scores)}, accumulated {len(accumulated)}/{len(expected_keys)})[/]",
                     )
 
             except json.JSONDecodeError as exc:
                 json_err = exc
                 # raw_text is always defined before json.loads can raise
                 raw_preview = raw_text[:300] if raw_text else "<empty>"  # pyright: ignore[reportPossiblyUnboundVariable]
-                print(
-                    f"\n  Warning: JSON parse error for {card_id} chunk {chunk_idx} "
+                console.print(
+                    f"[yellow]Warning: JSON parse error for {card_id} chunk {chunk_idx} "
                     f"(pass {pass_num}, attempt {attempt}/{_MAX_SCORING_RETRIES}): "
-                    f"{json_err}\n    Raw text: {raw_preview!r}",
-                    file=sys.stderr,
+                    f"{json_err}\n    Raw text: {raw_preview!r}[/]",
                 )
             except Exception as exc:
                 err = exc
-                print(
-                    f"\n  Warning: API error for {card_id} chunk {chunk_idx} "
+                console.print(
+                    f"[yellow]Warning: API error for {card_id} chunk {chunk_idx} "
                     f"(pass {pass_num}, attempt {attempt}/{_MAX_SCORING_RETRIES}): "
-                    f"{type(err).__name__}: {err}",
-                    file=sys.stderr,
+                    f"{type(err).__name__}: {err}[/]",
                 )
 
     # Fill missing keys with -1
     missing = expected_keys - set(accumulated.keys())
     if missing:
-        print(
-            f"\n  Warning: {card_id} chunk {chunk_idx} (pass {pass_num}): "
-            f"filling {len(missing)} missing configs with -1: {sorted(missing, key=int)}",
-            file=sys.stderr,
+        console.print(
+            f"[yellow]Warning: {card_id} chunk {chunk_idx} (pass {pass_num}): "
+            f"filling {len(missing)} missing configs with -1: {sorted(missing, key=int)}[/]",
         )
         for key in missing:
             accumulated[key] = -1
@@ -886,7 +881,6 @@ async def score_all_cards(
 
     client = anthropic.AsyncAnthropic()
     semaphore = asyncio.Semaphore(concurrency)
-    is_tty = sys.stderr.isatty()
 
     # Build ordered list of texts per card (preserving config order)
     # Each card has the same configs in the same order
@@ -897,7 +891,7 @@ async def score_all_cards(
     total_cards = len(card_results)
 
     # --- Pass 1: Triage ---
-    print(f"\nAI Scoring — Pass 1 (triage): {total_cards} cards, model={model}", file=sys.stderr)
+    console.print(f"\nAI Scoring — Pass 1 (triage): {total_cards} cards, model={rich_escape(model)}")
 
     tasks = [
         _score_card(client, card_id, texts, 1, model, semaphore)
@@ -905,25 +899,23 @@ async def score_all_cards(
     ]
 
     pass1_scores: dict[str, list[int]] = {}
-    completed = 0
-    for coro in asyncio.as_completed(tasks):
-        card_id, scores, elapsed = await coro
-        completed += 1
-        pass1_scores[card_id] = scores
-
-        if is_tty:
-            print(
-                f"\r  [{completed}/{total_cards}] Scored {card_id} (pass 1, {elapsed:.1f}s)   ",
-                end="", flush=True, file=sys.stderr,
+    with Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeRemainingColumn(),
+        console=console,
+        transient=True,
+    ) as progress:
+        p1_task = progress.add_task("AI Pass 1 (triage)", total=total_cards)
+        for coro in asyncio.as_completed(tasks):
+            card_id, scores, elapsed = await coro
+            pass1_scores[card_id] = scores
+            progress.update(
+                p1_task,
+                description=f"AI Pass 1 — {card_id} ({elapsed:.1f}s)",
             )
-        else:
-            print(
-                f"  [{completed}/{total_cards}] {card_id} scored (pass 1, {elapsed:.1f}s)",
-                file=sys.stderr,
-            )
-
-    if is_tty:
-        print(file=sys.stderr)
+            progress.advance(p1_task)
 
     # Identify dud cards (all valid scores <= dud_threshold)
     dud_cards = set()
@@ -933,13 +925,12 @@ async def score_all_cards(
             dud_cards.add(card_id)
 
     non_dud_cards = [c for c in card_results if c.card_id not in dud_cards and c.card_id in pass1_scores]
-    print(
+    console.print(
         f"  Pass 1 complete: {len(dud_cards)} dud cards excluded, "
         f"{len(non_dud_cards)} cards advancing to pass 2",
-        file=sys.stderr,
     )
     if dud_cards:
-        print(f"  Dud cards: {', '.join(sorted(dud_cards))}", file=sys.stderr)
+        console.print(f"  Dud cards: {', '.join(sorted(dud_cards))}")
 
     # Apply pass 1 scores to dud cards (they won't be re-scored)
     for card in card_results:
@@ -950,51 +941,49 @@ async def score_all_cards(
 
     # --- Pass 2: Refined scoring for non-dud cards ---
     if non_dud_cards:
-        print(f"\nAI Scoring — Pass 2 (refined): {len(non_dud_cards)} cards", file=sys.stderr)
+        console.print(f"\nAI Scoring — Pass 2 (refined): {len(non_dud_cards)} cards")
 
         tasks = [
             _score_card(client, card.card_id, card_texts[card.card_id], 2, model, semaphore)
             for card in non_dud_cards
         ]
 
-        completed = 0
-        for coro in asyncio.as_completed(tasks):
-            card_id, scores, elapsed = await coro
-            completed += 1
+        with Progress(
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeRemainingColumn(),
+            console=console,
+            transient=True,
+        ) as progress:
+            p2_task = progress.add_task("AI Pass 2 (refined)", total=len(non_dud_cards))
+            for coro in asyncio.as_completed(tasks):
+                card_id, scores, elapsed = await coro
 
-            # Apply pass 2 scores
-            for card in card_results:
-                if card.card_id == card_id:
-                    for r, score in zip(card.results, scores):
-                        r.ai_score = float(score)
-                    break
+                # Apply pass 2 scores
+                for card in card_results:
+                    if card.card_id == card_id:
+                        for r, score in zip(card.results, scores):
+                            r.ai_score = float(score)
+                        break
 
-            if is_tty:
-                print(
-                    f"\r  [{completed}/{len(non_dud_cards)}] Scored {card_id} (pass 2, {elapsed:.1f}s)   ",
-                    end="", flush=True, file=sys.stderr,
+                progress.update(
+                    p2_task,
+                    description=f"AI Pass 2 — {card_id} ({elapsed:.1f}s)",
                 )
-            else:
-                print(
-                    f"  [{completed}/{len(non_dud_cards)}] {card_id} scored (pass 2, {elapsed:.1f}s)",
-                    file=sys.stderr,
-                )
-
-        if is_tty:
-            print(file=sys.stderr)
+                progress.advance(p2_task)
 
     # Report scoring results
     scored = sum(1 for c in card_results if any(r.ai_score >= 0 for r in c.results))
-    print(f"  AI scoring complete: {scored}/{total_cards} cards scored", file=sys.stderr)
+    console.print(f"  AI scoring complete: {scored}/{total_cards} cards scored")
 
     # Count configs with -1 (unscored) across all cards
     total_neg1 = sum(1 for c in card_results for r in c.results if r.ai_score < 0)
     if total_neg1:
         total_scores = sum(len(c.results) for c in card_results)
-        print(
-            f"  Warning: {total_neg1}/{total_scores} config scores could not be resolved "
-            f"(marked as -1, excluded from stats)",
-            file=sys.stderr,
+        console.print(
+            f"  [yellow]Warning: {total_neg1}/{total_scores} config scores could not be resolved "
+            f"(marked as -1, excluded from stats)[/]",
         )
 
 
@@ -1582,24 +1571,29 @@ def main() -> None:
 
     corpus_path = args.corpus.expanduser().resolve()
     if not corpus_path.is_dir():
-        print(f"Error: {corpus_path} is not a directory")
+        console.print(f"[red]Error: {corpus_path} is not a directory[/]")
         sys.exit(1)
 
     configs = build_configs(args.configs)
     if not configs:
-        print("No configs match the filter!")
+        console.print("[red]No configs match the filter![/]")
         sys.exit(1)
 
     num_workers = max(1, args.workers)
-    print(f"OCR Configuration Quality Benchmark")
-    print(f"  Corpus: {corpus_path}")
-    print(f"  Configs: {len(configs)}")
-    print(f"  Workers: {num_workers}")
-    if not args.no_ai_score:
-        print(f"  AI Scoring: enabled (model={args.ai_model}, concurrency={args.ai_concurrency})")
-    else:
-        print(f"  AI Scoring: disabled")
-    print()
+    ai_line = (
+        f"  AI Scoring: [green]enabled[/] (model={rich_escape(args.ai_model)}, concurrency={args.ai_concurrency})"
+        if not args.no_ai_score
+        else "  AI Scoring: [dim]disabled[/]"
+    )
+    console.print(Panel(
+        f"  Corpus:  {corpus_path}\n"
+        f"  Configs: {len(configs)}\n"
+        f"  Workers: {num_workers}\n"
+        f"{ai_line}",
+        title="OCR Configuration Quality Benchmark",
+        title_align="left",
+        expand=False,
+    ))
 
     if args.output:
         output_dir = Path(args.output)
@@ -1625,9 +1619,9 @@ def main() -> None:
             dud_threshold=args.dud_threshold,
         ))
         ai_elapsed = time.monotonic() - ai_t0
-        print(f"  AI scoring time: {ai_elapsed:.1f}s", file=sys.stderr)
+        console.print(f"  AI scoring time: {ai_elapsed:.1f}s")
 
-    print(f"\nGenerating reports...")
+    console.print()
 
     # Filter configs to only those that actually ran (after availability checks)
     actual_configs = []
@@ -1641,50 +1635,53 @@ def main() -> None:
     all_card_ids = [c.card_id for c in card_results]
     has_ai = _has_ai_scores(card_results)
 
-    # Compute config stats (shared by summary + config pages)
-    config_stats = _compute_config_stats(card_results, actual_configs)
+    with console.status("Generating reports..."):
+        # Compute config stats (shared by summary + config pages)
+        config_stats = _compute_config_stats(card_results, actual_configs)
 
-    # Ranked configs for config page navigation
-    if has_ai:
-        ranked_configs = [
-            d["config"]
-            for d in sorted(config_stats.values(), key=lambda d: d["ai_score_mean"], reverse=True)
-        ]
-    else:
-        ranked_configs = [
-            d["config"]
-            for d in sorted(config_stats.values(), key=lambda d: d["conf_mean"], reverse=True)
-        ]
+        # Ranked configs for config page navigation
+        if has_ai:
+            ranked_configs = [
+                d["config"]
+                for d in sorted(config_stats.values(), key=lambda d: d["ai_score_mean"], reverse=True)
+            ]
+        else:
+            ranked_configs = [
+                d["config"]
+                for d in sorted(config_stats.values(), key=lambda d: d["conf_mean"], reverse=True)
+            ]
 
-    # Summary page
-    summary_html = generate_summary_html(
-        card_results, actual_configs, corpus_path, elapsed_total, config_stats,
-    )
-    (output_dir / "index.html").write_text(summary_html)
-
-    # Per-card pages
-    for idx, card in enumerate(card_results):
-        card_html = generate_card_html(card, idx, all_card_ids)
-        (cards_dir / f"{card.card_id}.html").write_text(card_html)
-
-    # Per-config pages
-    for idx, cfg in enumerate(ranked_configs):
-        config_html = generate_config_html(
-            cfg, card_results, idx, ranked_configs, config_stats,
+        # Summary page
+        summary_html = generate_summary_html(
+            card_results, actual_configs, corpus_path, elapsed_total, config_stats,
         )
-        (configs_dir / f"{cfg.slug}.html").write_text(config_html)
+        (output_dir / "index.html").write_text(summary_html)
 
-    # CSV exports
-    write_summary_csv(output_dir / "summary.csv", config_stats, has_ai)
-    write_detail_csv(output_dir / "detail.csv", card_results, has_ai)
+        # Per-card pages
+        for idx, card in enumerate(card_results):
+            card_html = generate_card_html(card, idx, all_card_ids)
+            (cards_dir / f"{card.card_id}.html").write_text(card_html)
 
-    print(f"  Summary:  {output_dir / 'index.html'}")
-    print(f"  Cards:    {len(card_results)} pages in {cards_dir}/")
-    print(f"  Configs:  {len(ranked_configs)} pages in {configs_dir}/")
-    print(f"  CSV:      summary.csv, detail.csv")
-    print(f"  Total time: {elapsed_total:.1f}s")
+        # Per-config pages
+        for idx, cfg in enumerate(ranked_configs):
+            config_html = generate_config_html(
+                cfg, card_results, idx, ranked_configs, config_stats,
+            )
+            (configs_dir / f"{cfg.slug}.html").write_text(config_html)
+
+        # CSV exports
+        write_summary_csv(output_dir / "summary.csv", config_stats, has_ai)
+        write_detail_csv(output_dir / "detail.csv", card_results, has_ai)
+
     index_path = output_dir / "index.html"
-    print(f"\nOpen {index_path} in a browser to view results.")
+    console.print(
+        f"  Summary:  {index_path}\n"
+        f"  Cards:    {len(card_results)} pages in {cards_dir}/\n"
+        f"  Configs:  {len(ranked_configs)} pages in {configs_dir}/\n"
+        f"  CSV:      summary.csv, detail.csv\n"
+        f"  Total time: {elapsed_total:.1f}s\n"
+        f"\nOpen {index_path} in a browser to view results.",
+    )
 
     if not args.no_open:
         subprocess.Popen(["open", str(index_path)])
