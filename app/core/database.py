@@ -474,8 +474,8 @@ def get_card_state(file_hash: str) -> CardState | None:
 
         return CardState(
             display_name=display_name,
-            method=method,
-            confidence=confidence,
+            method=method,  # type: ignore[arg-type]  # mypy can't narrow match/case branches
+            confidence=confidence,  # type: ignore[arg-type]
             candidates=candidates,
             remove_family=card.remove_family,
             selected_candidate_id=card.selected_candidate_id,

@@ -25,13 +25,12 @@ def show_api_key_dialog(parent: wx.Window) -> str | None:
         style=wx.OK | wx.CANCEL | wx.TE_PASSWORD,
     )
 
-    if dlg.ShowModal() == wx.ID_OK:
-        result = dlg.GetValue().strip()
-        dlg.Destroy()
-        if result:
-            save_api_key(result)
-            return result
+    try:
+        if dlg.ShowModal() == wx.ID_OK:
+            result = dlg.GetValue().strip()
+            if result:
+                save_api_key(result)
+                return result
         return None
-
-    dlg.Destroy()
-    return None
+    finally:
+        dlg.Destroy()

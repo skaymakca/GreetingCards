@@ -60,7 +60,7 @@ class PreviewPanel(wx.Panel):
         if not self._zoom_in_cursor:
             self._zoom_in_cursor = wx.Cursor(wx.CURSOR_MAGNIFIER)
         if not self._zoom_out_cursor:
-            self._zoom_out_cursor = wx.Cursor(wx.CURSOR_MAGNIFIER)
+            self._zoom_out_cursor = wx.Cursor(wx.CURSOR_SIZING)
 
         self._build_ui()
 
@@ -503,7 +503,7 @@ class PreviewPanel(wx.Panel):
         # Draw bitmap
         dc.DrawBitmap(self._bitmap_cache, x, y, useMask=False)
 
-    def _paint_placeholder(self, dc) -> None:
+    def _paint_placeholder(self, dc: wx.PaintDC) -> None:
         """Draw placeholder text when no images are loaded."""
         dc.SetTextForeground(styles.Color.TEXT_SECONDARY)
         dc.SetFont(styles.Font.BODY())

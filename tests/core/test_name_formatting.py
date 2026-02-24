@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.core.name_formatting import deparameterize_name, smart_title_case
+from app.core.name_formatting import deparameterize_name, sanitize_for_filename, smart_title_case
 
 
 class TestDeparameterizeName:
@@ -219,6 +219,126 @@ class TestSmartTitleCase:
     def test_smart_title_case_comprehensive(self, input_name, expected):
         """Comprehensive parameterized test for various name patterns."""
         assert smart_title_case(input_name) == expected
+
+
+class TestSanitizeForFilename:
+    """Tests for sanitizing filenames by replacing invalid characters."""
+
+    @pytest.mark.unit
+    def test_replaces_backslash(self):
+        """Should replace backslash with dash."""
+        assert sanitize_for_filename("test\\file") == "test-file"
+
+    @pytest.mark.unit
+    def test_replaces_forward_slash(self):
+        """Should replace forward slash with dash."""
+        assert sanitize_for_filename("test/file") == "test-file"
+
+    @pytest.mark.unit
+    def test_replaces_colon(self):
+        """Should replace colon with dash."""
+        assert sanitize_for_filename("test:file") == "test-file"
+
+    @pytest.mark.unit
+    def test_replaces_asterisk(self):
+        """Should replace asterisk with dash."""
+        assert sanitize_for_filename("test*file") == "test-file"
+
+    @pytest.mark.unit
+    def test_replaces_question_mark(self):
+        """Should replace question mark with dash."""
+        assert sanitize_for_filename("test?file") == "test-file"
+
+    @pytest.mark.unit
+    def test_replaces_double_quote(self):
+        """Should replace double quote with dash."""
+        assert sanitize_for_filename('test"file') == "test-file"
+
+    @pytest.mark.unit
+    def test_replaces_angle_brackets(self):
+        """Should replace angle brackets with dash."""
+        assert sanitize_for_filename("test<file") == "test-file"
+        assert sanitize_for_filename("test>file") == "test-file"
+        assert sanitize_for_filename("test<file>") == "test-file-"
+
+    @pytest.mark.unit
+    def test_replaces_pipe(self):
+        """Should replace pipe character with dash."""
+        assert sanitize_for_filename("test|file") == "test-file"
+
+    @pytest.mark.unit
+    def test_multiple_invalid_chars(self):
+        """Should replace multiple invalid characters."""
+        assert sanitize_for_filename("test*file<name>") == "test-file-name-"
+        assert sanitize_for_filename('test"file:name?') == "test-file-name-"
+
+    @pytest.mark.unit
+    def test_strips_leading_whitespace(self):
+        """Should strip leading whitespace."""
+        assert sanitize_for_filename("   test") == "test"
+        assert sanitize_for_filename("\ttest") == "test"
+        assert sanitize_for_filename("\ntest") == "test"
+
+    @pytest.mark.unit
+    def test_strips_trailing_whitespace(self):
+        """Should strip trailing whitespace."""
+        assert sanitize_for_filename("test   ") == "test"
+        assert sanitize_for_filename("test\t") == "test"
+        assert sanitize_for_filename("test\n") == "test"
+
+    @pytest.mark.unit
+    def test_strips_leading_and_trailing_whitespace(self):
+        """Should strip both leading and trailing whitespace."""
+        assert sanitize_for_filename("   test name   ") == "test name"
+        assert sanitize_for_filename("\t  test  \n") == "test"
+
+    @pytest.mark.unit
+    def test_clean_name_unchanged(self):
+        """Should leave clean names unchanged."""
+        assert sanitize_for_filename("test_file") == "test_file"
+        assert sanitize_for_filename("test-file") == "test-file"
+        assert sanitize_for_filename("test.file") == "test.file"
+        assert sanitize_for_filename("TestFile") == "TestFile"
+
+    @pytest.mark.unit
+    def test_clean_name_with_numbers(self):
+        """Should preserve numbers and alphanumeric names."""
+        assert sanitize_for_filename("test123") == "test123"
+        assert sanitize_for_filename("123test") == "123test"
+        assert sanitize_for_filename("test_file_123") == "test_file_123"
+
+    @pytest.mark.unit
+    def test_empty_string(self):
+        """Should handle empty strings."""
+        assert sanitize_for_filename("") == ""
+
+    @pytest.mark.unit
+    def test_whitespace_only_string(self):
+        """Should return empty string for whitespace-only input."""
+        assert sanitize_for_filename("   ") == ""
+        assert sanitize_for_filename("\t\n") == ""
+
+    @pytest.mark.unit
+    def test_only_invalid_chars(self):
+        """Should replace all invalid chars with dashes."""
+        assert sanitize_for_filename("*?<>") == "----"
+        assert sanitize_for_filename('\\/:*?"<>|') == "---------"
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize(
+        "input_str,expected",
+        [
+            ("My File*", "My File-"),
+            ("C:\\Users\\test", "C--Users-test"),
+            ("Report?Q1", "Report-Q1"),
+            ('Invoice "2024"', "Invoice -2024-"),
+            ("Important|Urgent", "Important-Urgent"),
+            ("  Trim  Me  ", "Trim  Me"),
+        ],
+    )
+    def test_sanitize_various_cases(self, input_str, expected):
+        """Parameterized test for various sanitization cases."""
+        assert sanitize_for_filename(input_str) == expected
 
 
 class TestNameFormattingIntegration:

@@ -803,8 +803,8 @@ class ReviewPanelMasterDetail(wx.Panel):
             for p in _paths:
                 try:
                     subprocess.Popen(["open", p])
-                except OSError:
-                    pass
+                except OSError as e:
+                    logger.warning("Failed to open %s: %s", p, e)
 
         menu.Bind(wx.EVT_MENU, _open_files, open_item)
 
@@ -814,8 +814,8 @@ class ReviewPanelMasterDetail(wx.Panel):
                 for p in _paths:
                     try:
                         subprocess.Popen(["open", "-R", p])
-                    except OSError:
-                        pass
+                    except OSError as e:
+                        logger.warning("Failed to reveal %s: %s", p, e)
 
             menu.Bind(
                 wx.EVT_MENU, _reveal_files, reveal_item

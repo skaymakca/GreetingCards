@@ -7,13 +7,19 @@ import pytest
 from app.core.license_discovery import (
     _build_reverse_deps,
     _categorize_packages,
+    _category_page_for,
     _display_name,
+    _linkify,
     _parse_uv_lock,
+    _required_by_text,
     _slug,
+    _write_registry_toml,
     load_config,
 )
 from app.core.license_models import (
+    DiscoveredPackage,
     LicenseConfig,
+    LicenseRegistry,
     PackageCategory,
     PackageOverride,
     SystemDep,
@@ -147,3 +153,86 @@ class TestBuildReverseDeps:
         reverse = _build_reverse_deps(packages)
         assert "a" in reverse["b"]
         assert "b" in reverse["a"]
+
+
+class TestLinkify:
+    """Tests for _linkify()."""
+
+    def test_plain_url(self):
+        result = _linkify("Visit https://example.com for more info")
+        assert '<a href="https://example.com">' in str(result)
+        assert "Visit" in str(result)
+
+    def test_no_url(self):
+        result = _linkify("No URLs here")
+        assert str(result) == "No URLs here"
+
+    def test_html_escaping(self):
+        result = _linkify("<script>alert('xss')</script>")
+        assert "<script>" not in str(result)
+        assert "&lt;script&gt;" in str(result)
+
+
+class TestRequiredByText:
+    """Tests for _required_by_text()."""
+
+    def test_runtime_returns_dash(self):
+        result = _required_by_text("foo", PackageCategory.RUNTIME, {}, {})
+        assert result == "\u2014"
+
+    def test_transitive_with_parents(self):
+        reverse = {"foo": {"bar", "baz"}}
+        result = _required_by_text("foo", PackageCategory.TRANSITIVE, reverse, {})
+        assert "bar" in result
+        assert "baz" in result
+
+    def test_transitive_no_parents(self):
+        result = _required_by_text("foo", PackageCategory.TRANSITIVE, {}, {})
+        assert result == "\u2014"
+
+
+class TestCategoryPageFor:
+    """Tests for _category_page_for()."""
+
+    def test_runtime(self):
+        assert _category_page_for(PackageCategory.RUNTIME) == "runtime.html"
+
+    def test_development(self):
+        assert _category_page_for(PackageCategory.DEVELOPMENT) == "development.html"
+
+    def test_transitive(self):
+        assert _category_page_for(PackageCategory.TRANSITIVE) == "transitive.html"
+
+
+class TestWriteRegistryToml:
+    """Tests for _write_registry_toml()."""
+
+    def test_writes_valid_toml(self, tmp_path):
+        import tomllib
+
+        registry = LicenseRegistry(
+            uv_lock_hash="sha256:abc123",
+            generated_at="2026-01-01T00:00:00+00:00",
+            system_deps=[SystemDep(slug="python", display="Python", version="3.14", license_type="PSF", notes="")],
+            packages=[
+                DiscoveredPackage(
+                    name="foo",
+                    slug="foo",
+                    display="Foo",
+                    version="1.0",
+                    license_type="MIT",
+                    category=PackageCategory.RUNTIME,
+                    required_by="\u2014",
+                    text_file="texts/foo.txt",
+                    homepage="https://foo.dev",
+                ),
+            ],
+        )
+        _write_registry_toml(tmp_path, registry)
+        registry_path = tmp_path / "registry.toml"
+        assert registry_path.exists()
+        data = tomllib.loads(registry_path.read_text(encoding="utf-8"))
+        assert data["meta"]["uv_lock_hash"] == "sha256:abc123"
+        assert len(data["package"]) == 1
+        assert data["package"][0]["name"] == "foo"
+        assert len(data["system"]) == 1

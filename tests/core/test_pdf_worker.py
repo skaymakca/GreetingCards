@@ -43,7 +43,7 @@ class TestProcessPdfWorkerSuccess:
 
         assert result.file_hash == "abc123"
         assert result.family_name == "Smith"
-        assert result.error is None
+        assert not result.error
         mock_ocr.assert_called_once()
         mock_save.assert_called_once_with("abc123", "OCR text here")
         assert mock_reprocess.call_count == 1

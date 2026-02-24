@@ -127,3 +127,192 @@ class TestGenerateHelpHtml:
         content_dir = tmp_path / "content" / "html"
         pages = _read_help_pages(content_dir)
         assert pages == []
+
+
+class TestGenerateHelpHtmlIntegration:
+    """Integration test for the full help generation pipeline."""
+
+    def test_full_pipeline(self, tmp_path):
+        """Generate HTML from Markdown help pages and verify output files."""
+        from app.core.template_env import jinja_env
+
+        # Create help pages directory and files
+        help_dir = tmp_path / "help"
+        help_dir.mkdir()
+        (help_dir / "1 - index.md").write_text("---\ntitle: Home\n---\n\nWelcome to help.", encoding="utf-8")
+        (help_dir / "2 - usage.md").write_text("---\ntitle: Usage Guide\n---\n\nHow to use the app.", encoding="utf-8")
+
+        # Read and parse pages
+        pages = _read_help_pages(tmp_path)
+        assert len(pages) == 2
+        assert pages[0].slug == "index"
+        assert pages[1].slug == "usage"
+
+        # Create output directory
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        pages_dir = output_dir / "pages"
+        pages_dir.mkdir()
+
+        # Build nav items (same logic as generate_help_html)
+        nav_items = []
+        for page in pages:
+            if page.slug == "index":
+                nav_items.append(
+                    {
+                        "slug": page.slug,
+                        "title": page.title,
+                        "href": "index.html",
+                        "href_from_pages": "../index.html",
+                    }
+                )
+            else:
+                nav_items.append(
+                    {
+                        "slug": page.slug,
+                        "title": page.title,
+                        "href": f"pages/{page.slug}.html",
+                        "href_from_pages": f"{page.slug}.html",
+                    }
+                )
+
+        # Render pages with real template
+        template = jinja_env.get_template("help_page.html.j2")
+        for page in pages:
+            if page.slug == "index":
+                nav = [{"slug": n["slug"], "title": n["title"], "href": n["href"]} for n in nav_items]
+                css_path = "../common/css/viewer.css"
+                js_path = "../common/js/search.js"
+                out_path = output_dir / "index.html"
+            else:
+                nav = [{"slug": n["slug"], "title": n["title"], "href": n["href_from_pages"]} for n in nav_items]
+                css_path = "../../common/css/viewer.css"
+                js_path = "../../common/js/search.js"
+                out_path = pages_dir / f"{page.slug}.html"
+
+            html = template.render(
+                title=page.title,
+                css_path=css_path,
+                js_path=js_path,
+                nav=nav,
+                active_slug=page.slug,
+                body_html=page.body_html,
+            )
+            out_path.write_text(html, encoding="utf-8")
+
+        # Write page_order.txt manifest
+        order: list[str] = []
+        for page in pages:
+            if page.slug == "index":
+                order.append("index.html")
+            else:
+                order.append(f"pages/{page.slug}.html")
+        (output_dir / "page_order.txt").write_text("\n".join(order), encoding="utf-8")
+
+        # Verify all output files exist
+        assert (output_dir / "index.html").exists()
+        assert (pages_dir / "usage.html").exists()
+        assert (output_dir / "page_order.txt").exists()
+
+        # Verify index.html content
+        index_html = (output_dir / "index.html").read_text(encoding="utf-8")
+        assert "Welcome to help" in index_html
+        assert "Home" in index_html
+        assert "Usage Guide" in index_html  # nav item should be present
+
+        # Verify usage.html content
+        usage_html = (pages_dir / "usage.html").read_text(encoding="utf-8")
+        assert "How to use the app" in usage_html
+        assert "Usage Guide" in usage_html
+        assert "Home" in usage_html  # nav item should be present
+
+        # Verify page_order.txt
+        order_text = (output_dir / "page_order.txt").read_text(encoding="utf-8")
+        assert order_text == "index.html\npages/usage.html"
+
+    def test_empty_help_directory(self, tmp_path):
+        """Empty help directory results in empty page list."""
+        help_dir = tmp_path / "help"
+        help_dir.mkdir()
+
+        pages = _read_help_pages(tmp_path)
+        assert pages == []
+        assert len(pages) == 0
+
+    def test_path_references_in_nav(self, tmp_path):
+        """Verify correct CSS/JS and nav href paths for index vs pages."""
+        from app.core.template_env import jinja_env
+
+        help_dir = tmp_path / "help"
+        help_dir.mkdir()
+        (help_dir / "1 - index.md").write_text("---\ntitle: Home\n---\n\nIndex body.", encoding="utf-8")
+        (help_dir / "2 - guide.md").write_text("---\ntitle: Guide\n---\n\nGuide body.", encoding="utf-8")
+
+        pages = _read_help_pages(tmp_path)
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        pages_dir = output_dir / "pages"
+        pages_dir.mkdir()
+
+        nav_items = []
+        for page in pages:
+            if page.slug == "index":
+                nav_items.append(
+                    {
+                        "slug": page.slug,
+                        "title": page.title,
+                        "href": "index.html",
+                        "href_from_pages": "../index.html",
+                    }
+                )
+            else:
+                nav_items.append(
+                    {
+                        "slug": page.slug,
+                        "title": page.title,
+                        "href": f"pages/{page.slug}.html",
+                        "href_from_pages": f"{page.slug}.html",
+                    }
+                )
+
+        template = jinja_env.get_template("help_page.html.j2")
+
+        # Render index page
+        index_nav = [{"slug": n["slug"], "title": n["title"], "href": n["href"]} for n in nav_items]
+        index_html = template.render(
+            title="Home",
+            css_path="../common/css/viewer.css",
+            js_path="../common/js/search.js",
+            nav=index_nav,
+            active_slug="index",
+            body_html="<p>Index body.</p>",
+        )
+        (output_dir / "index.html").write_text(index_html, encoding="utf-8")
+
+        # Render guide page
+        guide_nav = [{"slug": n["slug"], "title": n["title"], "href": n["href_from_pages"]} for n in nav_items]
+        guide_html = template.render(
+            title="Guide",
+            css_path="../../common/css/viewer.css",
+            js_path="../../common/js/search.js",
+            nav=guide_nav,
+            active_slug="guide",
+            body_html="<p>Guide body.</p>",
+        )
+        (pages_dir / "guide.html").write_text(guide_html, encoding="utf-8")
+
+        # Verify index.html has correct paths
+        index_content = (output_dir / "index.html").read_text(encoding="utf-8")
+        assert "../common/css/viewer.css" in index_content
+        assert "../common/js/search.js" in index_content
+
+        # Verify guide.html has correct paths
+        guide_content = (pages_dir / "guide.html").read_text(encoding="utf-8")
+        assert "../../common/css/viewer.css" in guide_content
+        assert "../../common/js/search.js" in guide_content
+
+        # Verify nav href paths
+        assert 'href="index.html"' in index_content  # index page nav link to index
+        assert 'href="pages/guide.html"' in index_content  # index page nav link to guide
+        assert 'href="../index.html"' in guide_content  # guide page nav link to index (sibling-relative)
+        assert 'href="guide.html"' in guide_content  # guide page nav link to guide (sibling-relative)

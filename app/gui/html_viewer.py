@@ -154,7 +154,7 @@ class HTMLViewerWindow:
         search_label = wx.StaticText(
             toolbar, label="", size=(_LABEL_WIDTH, -1), style=wx.ALIGN_RIGHT | wx.ST_NO_AUTORESIZE
         )
-        search_label.SetForegroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_GRAYTEXT))
+        search_label.SetForegroundColour(Color.TEXT_SECONDARY)
         toolbar.AddControl(search_label)
 
         search_ctrl = wx.SearchCtrl(toolbar, size=(_SEARCH_MIN_WIDTH, -1))

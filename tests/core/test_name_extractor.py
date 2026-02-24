@@ -189,3 +189,62 @@ class TestExtractFamilyNames:
         results = extract_family_names(text)
         names = {m.name for m in results}
         assert "Smith" in names
+
+
+class TestExtractFamilyNamesEdgeCases:
+    """Edge case tests for extract_family_names pattern matching."""
+
+    def test_hyphenated_family_name(self):
+        """Hyphenated names in standard pattern - documents current behavior."""
+        results = extract_family_names("The Smith-Jones Family")
+        # Current implementation doesn't preserve hyphens; this documents the limitation
+        assert isinstance(results, list)  # Verify it doesn't crash
+
+    def test_apostrophe_family_name(self):
+        """Names with apostrophes - documents current behavior."""
+        results = extract_family_names("The O'Brien Family")
+        # Current implementation strips apostrophes; this documents the limitation
+        assert isinstance(results, list)  # Verify it doesn't crash
+
+    def test_very_long_text(self):
+        """Long text with name at end should still find names."""
+        text = "Happy Holidays! " * 50 + "\nThe Johnson Family"
+        results = extract_family_names(text)
+        assert any(m.name == "Johnson" for m in results)
+
+    def test_all_caps_text(self):
+        """ALL CAPS text should not crash."""
+        results = extract_family_names("THE SMITH FAMILY")
+        # ALL CAPS fails the uppercase check; verify it does not crash
+        assert isinstance(results, list)
+
+    def test_mixed_patterns_multiple_families(self):
+        """Multiple different family names from different patterns."""
+        text = "The Johnson Family\nLove, John & Jane Smith"
+        results = extract_family_names(text)
+        names = {m.name for m in results}
+        assert "Johnson" in names
+        assert "Smith" in names
+
+    def test_numeric_text_no_crash(self):
+        """Text with only numbers should not crash."""
+        results = extract_family_names("12345 67890")
+        # May or may not find names, but should not crash
+        assert isinstance(results, list)
+
+    def test_special_characters_no_crash(self):
+        """Text with special characters should not crash."""
+        results = extract_family_names("★ ❤ Merry Christmas! ✿")
+        assert isinstance(results, list)
+
+    def test_single_word_last_line(self):
+        """Single capitalized word on last line → LOW confidence."""
+        results = extract_family_names("Happy Holidays\nWilson")
+        assert any(m.name == "Wilson" and m.confidence == Confidence.LOW for m in results)
+
+    def test_greeting_only_text(self):
+        """Text containing only greeting words returns no names."""
+        results = extract_family_names("Merry Christmas\nHappy New Year\nSeason's Greetings")
+        # Should not return greeting words as names
+        for m in results:
+            assert m.name.lower() not in {"merry", "christmas", "happy", "new", "year", "season"}

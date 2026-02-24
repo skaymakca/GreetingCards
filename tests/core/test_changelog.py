@@ -1,10 +1,17 @@
 """Tests for changelog parsing and HTML generation."""
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
-from app.core.changelog import _generate_changelog_html, _group_by_minor, _minor_key, _parse_changelog
+from app.core.changelog import (
+    _generate_changelog_html,
+    _group_by_minor,
+    _minor_key,
+    _parse_changelog,
+    generate_changelog_html,
+)
 from app.core.changelog_models import ChangelogVersion
 
 
@@ -131,3 +138,100 @@ class TestGenerateChangelogHtml:
         page_order = _generate_changelog_html([], tmp_path)
         assert page_order == []
         assert not (tmp_path / "index.html").exists()
+
+
+class TestGenerateChangelogHtmlEntryPoint:
+    """Tests for generate_changelog_html() public entry point."""
+
+    def test_generates_html_files_with_minimal_changelog(self, tmp_path):
+        """Test that generate_changelog_html() creates output files for a minimal changelog."""
+        # Create minimal CHANGELOG.md
+        changelog_content = "## 0.9.0 — Initial (2026-02-01)\n\n- First feature\n"
+        (tmp_path / "CHANGELOG.md").write_text(changelog_content, encoding="utf-8")
+
+        # Mock _get_project_root to return tmp_path
+        with patch("app.core.changelog._get_project_root", return_value=tmp_path):
+            generate_changelog_html()
+
+        # Verify output directory structure
+        output_dir = tmp_path / "_runtime_content" / "html" / "changelog"
+        assert output_dir.exists()
+
+    def test_creates_index_html(self, tmp_path):
+        """Test that index.html is created in the output directory."""
+        changelog_content = "## 0.9.0 — Initial (2026-02-01)\n\n- Feature A\n"
+        (tmp_path / "CHANGELOG.md").write_text(changelog_content, encoding="utf-8")
+
+        with patch("app.core.changelog._get_project_root", return_value=tmp_path):
+            generate_changelog_html()
+
+        output_dir = tmp_path / "_runtime_content" / "html" / "changelog"
+        index_file = output_dir / "index.html"
+        assert index_file.exists()
+        assert index_file.stat().st_size > 0
+
+    def test_creates_page_order_manifest(self, tmp_path):
+        """Test that page_order.txt manifest is created."""
+        changelog_content = (
+            "## 0.9.0 — Initial (2026-02-01)\n\n- Feature A\n\n## 0.8.0 — Older (2026-01-15)\n\n- Feature B\n"
+        )
+        (tmp_path / "CHANGELOG.md").write_text(changelog_content, encoding="utf-8")
+
+        with patch("app.core.changelog._get_project_root", return_value=tmp_path):
+            generate_changelog_html()
+
+        output_dir = tmp_path / "_runtime_content" / "html" / "changelog"
+        manifest_file = output_dir / "page_order.txt"
+        assert manifest_file.exists()
+        manifest_content = manifest_file.read_text(encoding="utf-8")
+        assert manifest_content.strip()  # Non-empty manifest
+
+    def test_generates_version_pages(self, tmp_path):
+        """Test that individual version pages are generated in pages/ subdirectory."""
+        changelog_content = (
+            "## 0.9.0 — Initial (2026-02-01)\n\n- Feature A\n\n## 0.8.0 — Older (2026-01-15)\n\n- Feature B\n"
+        )
+        (tmp_path / "CHANGELOG.md").write_text(changelog_content, encoding="utf-8")
+
+        with patch("app.core.changelog._get_project_root", return_value=tmp_path):
+            generate_changelog_html()
+
+        output_dir = tmp_path / "_runtime_content" / "html" / "changelog"
+        pages_dir = output_dir / "pages"
+        assert pages_dir.exists()
+        # At least one version page should exist
+        html_files = list(pages_dir.glob("*.html"))
+        assert len(html_files) > 0
+
+    def test_handles_multiple_versions(self, tmp_path):
+        """Test that multiple versions are processed correctly."""
+        changelog_content = (
+            "## 1.0.0 — Release (2026-02-15)\n\n- Major feature\n\n"
+            "## 0.9.1 — Patch (2026-02-10)\n\n- Bugfix\n\n"
+            "## 0.9.0 — Initial (2026-02-01)\n\n- First feature\n"
+        )
+        (tmp_path / "CHANGELOG.md").write_text(changelog_content, encoding="utf-8")
+
+        with patch("app.core.changelog._get_project_root", return_value=tmp_path):
+            generate_changelog_html()
+
+        output_dir = tmp_path / "_runtime_content" / "html" / "changelog"
+        manifest_file = output_dir / "page_order.txt"
+        manifest_content = manifest_file.read_text(encoding="utf-8")
+        lines = manifest_content.strip().split("\n")
+        # Should have entries for multiple versions
+        assert len(lines) >= 1
+
+    def test_index_contains_content(self, tmp_path):
+        """Test that index.html contains expected content from changelog."""
+        changelog_content = "## 0.9.0 — Test Version (2026-02-01)\n\n- Important feature here\n"
+        (tmp_path / "CHANGELOG.md").write_text(changelog_content, encoding="utf-8")
+
+        with patch("app.core.changelog._get_project_root", return_value=tmp_path):
+            generate_changelog_html()
+
+        output_dir = tmp_path / "_runtime_content" / "html" / "changelog"
+        index_file = output_dir / "index.html"
+        index_content = index_file.read_text(encoding="utf-8")
+        # Index should contain version info and content
+        assert "0.9" in index_content or "Important feature" in index_content

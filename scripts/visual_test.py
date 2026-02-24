@@ -68,11 +68,11 @@ def _mock_cards() -> list[CardResult]:
             primary_path=pdf_path,
             family_name=name,
             confidence=conf,
-            method=method,
+            method=method,  # type: ignore[arg-type]  # mypy can't narrow tuple unpacking
             ai_analyzed=analyzed,
             ocr_text=f"Sample OCR text for card {i}\nDear {name or 'Friend'} Family,\nHappy Holidays!",
             candidates=[
-                CandidateInfo(id=i * 10, family_name=name, method=method, confidence=conf.value),
+                CandidateInfo(id=i * 10, family_name=name, method=method, confidence=conf.value),  # type: ignore[arg-type]
                 CandidateInfo(
                     id=i * 10 + 1, family_name=name + "son" if name else "Unknown", method="ocr", confidence="low"
                 ),

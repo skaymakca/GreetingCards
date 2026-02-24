@@ -3,10 +3,17 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from typing import Final, Literal
 
 from PIL import Image
 
 from app.core.name_formatting import sanitize_for_filename
+
+# Constrained value types for database-layer fields
+MethodStr = Literal["ocr", "ai", "manual", "missing"]
+ConfidenceStr = Literal["high", "medium", "low", "manual", "none"]
+CandidateMethodStr = Literal["ocr", "ai"]
+CandidateConfidenceStr = Literal["high", "medium", "low"]
 
 
 class Confidence(Enum):
@@ -57,14 +64,14 @@ class PdfWorkerResult:
     pdf_path: str
     file_hash: str | None = None
     family_name: str = ""
-    confidence: str = "none"
-    method: str = "missing"
+    confidence: ConfidenceStr = "none"
+    method: MethodStr = "missing"
     alternates: list[str] = field(default_factory=list)
     candidates: list[CandidateInfo] = field(default_factory=list)
     remove_family: bool = False
     selected_candidate_id: int | None = None
     ocr_text: str = ""
-    error: str | None = None
+    error: str = ""
     preview_image_bytes: bytes | None = None
     page_images_bytes: list[bytes] = field(default_factory=list)
 
@@ -75,8 +82,8 @@ class CandidateInfo:
 
     id: int
     family_name: str
-    method: str  # 'ocr' | 'ai'
-    confidence: str  # 'high' | 'medium' | 'low'
+    method: CandidateMethodStr
+    confidence: CandidateConfidenceStr
 
 
 @dataclass
@@ -84,8 +91,8 @@ class CardState:
     """Complete card state from database for display."""
 
     display_name: str
-    method: str  # 'manual' | 'ocr' | 'ai' | 'missing'
-    confidence: str  # 'manual' | 'high' | 'medium' | 'low' | 'none'
+    method: MethodStr
+    confidence: ConfidenceStr
     candidates: list[CandidateInfo]
     remove_family: bool
     selected_candidate_id: int | None
@@ -100,11 +107,11 @@ class NameMatch:
 
 
 # Rename plan status constants
-STATUS_OK = "ok"
-STATUS_SKIP_NO_NAME = "skip_no_name"
-STATUS_SKIP_SAME = "skip_same"
-STATUS_SKIP_ERROR = "skip_error"
-STATUS_DUPLICATE = "duplicate"
+STATUS_OK: Final = "ok"
+STATUS_SKIP_NO_NAME: Final = "skip_no_name"
+STATUS_SKIP_SAME: Final = "skip_same"
+STATUS_SKIP_ERROR: Final = "skip_error"
+STATUS_DUPLICATE: Final = "duplicate"
 
 
 @dataclass
@@ -113,7 +120,7 @@ class RenamePlanItem:
 
     old_path: Path
     new_path: Path
-    status: str  # STATUS_OK | STATUS_SKIP_NO_NAME | STATUS_SKIP_SAME | STATUS_SKIP_ERROR | STATUS_DUPLICATE
+    status: Literal["ok", "skip_no_name", "skip_same", "skip_error", "duplicate"]
     card: CardResult | None = None  # Back-reference to source card
 
 
@@ -132,7 +139,7 @@ class RenameResult:
 class CardResult:
     id: int  # Unique, monotonically increasing identifier
     file_paths: list[Path] = field(default_factory=list)  # All paths with same content
-    primary_path: Path = field(default_factory=Path)  # First path found
+    primary_path: Path = field(default_factory=lambda: Path(""))  # First path found
     family_name: str = ""
     confidence: Confidence = Confidence.NONE
     alternates: list[str] = field(default_factory=list)  # Just names for backward compat
@@ -146,7 +153,7 @@ class CardResult:
     original_confidence: Confidence | None = None  # Confidence before manual override
     remove_family: bool = False  # If True, omit "Family" suffix from filename
     selected_candidate_id: int | None = None  # ID of selected candidate from DB (None if manual or missing)
-    method: str = "missing"  # 'ocr' | 'ai' | 'manual' | 'missing'
+    method: MethodStr = "missing"
     error: str = ""  # Non-empty when PDF processing failed (corrupt, encrypted, etc.)
 
     @property
@@ -165,6 +172,9 @@ class CardResult:
         return self.primary_path.name
 
     def target_filename(self, year: str) -> str:
+        year = year.strip()
+        if not year:
+            return ""
         name = self.display_name.strip() if self.display_name else ""
         if not name:
             return ""
