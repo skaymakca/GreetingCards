@@ -25,6 +25,19 @@
 
 ---
 
+## ⚠️ CRITICAL: ALWAYS USE ABSOLUTE PATHS ⚠️
+
+**NEVER use `cd` in commands. ALWAYS use absolute paths.**
+
+- ❌ `cd /some/dir && command` — triggers manual approval for path resolution
+- ❌ `cd /some/dir; command > file` — triggers manual approval
+- ✅ `command /absolute/path/to/target` — runs without approval friction
+- ✅ `gh issue create --repo owner/repo` — no cd needed
+- The working directory is `/Users/sukru/code/GreetingCards` — use absolute paths from there
+- You have full access to the codebase. Find files with Glob/Grep, reference them by absolute path.
+
+---
+
 ## ⚠️ CRITICAL: ALWAYS USE UV ⚠️
 
 **NEVER use system Python or pip. ONLY use `uv run` for all commands.**
