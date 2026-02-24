@@ -1338,10 +1338,11 @@ class TestContextMenu:
             panel._on_context_menu(event)
 
     def test_context_menu_has_correct_items(self, parent_frame, mock_cards):
-        """Context menu has Open, Reveal in Finder, separator, and Remove."""
+        """Context menu has AI Analyze, separator, Open, Reveal in Finder, separator, and Remove."""
         on_remove = Mock()
         panel = ReviewPanelMasterDetail(
-            parent_frame, Mock(), Mock(), on_remove=on_remove
+            parent_frame, Mock(), Mock(), on_remove=on_remove,
+            on_ai_analyze=Mock(),
         )
         mock_cards[0].file_hash = "test_hash"
         panel.load_cards(mock_cards)
@@ -1364,8 +1365,82 @@ class TestContextMenu:
         with patch.object(panel._list_ctrl, "PopupMenu", side_effect=capture_menu):
             panel._on_context_menu(event)
 
-        assert captured_menu["count"] == 4
-        assert captured_menu["labels"] == ["Open", "Reveal in Finder", "---", "Remove"]
+        assert captured_menu["count"] == 6
+        assert captured_menu["labels"] == ["AI Analyze", "---", "Open", "Reveal in Finder", "---", "Remove"]
+
+    def test_on_ai_analyze_callback_stored(self, parent_frame):
+        """ReviewPanelMasterDetail stores on_ai_analyze callback."""
+        on_ai_analyze = Mock()
+        panel = ReviewPanelMasterDetail(
+            parent_frame, Mock(), Mock(), on_ai_analyze=on_ai_analyze
+        )
+        assert panel._on_ai_analyze is on_ai_analyze
+
+    def test_ai_analyze_disabled_without_callback(self, parent_frame, mock_cards):
+        """AI Analyze menu item is disabled when no on_ai_analyze callback is provided."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock())
+        mock_cards[0].file_hash = "test_hash"
+        panel.load_cards(mock_cards)
+
+        menu = panel._build_context_menu([mock_cards[0]])
+        ai_item = list(menu.GetMenuItems())[0]  # First item is AI Analyze
+        assert ai_item.GetItemLabelText() == "AI Analyze"
+        assert not ai_item.IsEnabled()
+        menu.Destroy()
+
+    def test_ai_analyze_enabled_with_callback(self, parent_frame, mock_cards):
+        """AI Analyze menu item is enabled when on_ai_analyze callback is provided."""
+        panel = ReviewPanelMasterDetail(
+            parent_frame, Mock(), Mock(), on_remove=Mock(), on_ai_analyze=Mock()
+        )
+        mock_cards[0].file_hash = "test_hash"
+        panel.load_cards(mock_cards)
+
+        menu = panel._build_context_menu([mock_cards[0]])
+        ai_item = list(menu.GetMenuItems())[0]
+        assert ai_item.GetItemLabelText() == "AI Analyze"
+        assert ai_item.IsEnabled()
+        menu.Destroy()
+
+    def test_ai_analyze_invokes_callback_single(self, parent_frame, mock_cards):
+        """AI Analyze invokes callback with single card list."""
+        on_ai_analyze = Mock()
+        panel = ReviewPanelMasterDetail(
+            parent_frame, Mock(), Mock(), on_remove=Mock(), on_ai_analyze=on_ai_analyze
+        )
+        mock_cards[0].file_hash = "test_hash"
+        panel.load_cards(mock_cards)
+
+        menu = panel._build_context_menu([mock_cards[0]])
+        ai_item = list(menu.GetMenuItems())[0]
+
+        # Simulate clicking the menu item
+        event = wx.CommandEvent(wx.wxEVT_MENU, ai_item.GetId())
+        menu.ProcessEvent(event)
+
+        on_ai_analyze.assert_called_once_with([mock_cards[0]])
+        menu.Destroy()
+
+    def test_ai_analyze_invokes_callback_multi(self, parent_frame, mock_cards):
+        """AI Analyze invokes callback with multiple cards."""
+        on_ai_analyze = Mock()
+        panel = ReviewPanelMasterDetail(
+            parent_frame, Mock(), Mock(), on_remove=Mock(), on_ai_analyze=on_ai_analyze
+        )
+        mock_cards[0].file_hash = "hash1"
+        mock_cards[1].file_hash = "hash2"
+        panel.load_cards(mock_cards)
+
+        cards = [mock_cards[0], mock_cards[1]]
+        menu = panel._build_context_menu(cards)
+        ai_item = list(menu.GetMenuItems())[0]
+        assert ai_item.GetItemLabelText() == "AI Analyze 2 Cards"
+
+        event = wx.CommandEvent(wx.wxEVT_MENU, ai_item.GetId())
+        menu.ProcessEvent(event)
+
+        on_ai_analyze.assert_called_once_with(cards)
+        menu.Destroy()
 
 
 # ============================================================================
@@ -1795,8 +1870,8 @@ class TestMultiselect:
         on_select.assert_called_with(None)
 
     def test_context_menu_single_has_reveal(self, parent_frame, mock_cards):
-        """Single card context menu has Open, Reveal in Finder, Remove."""
-        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock())
+        """Single card context menu has AI Analyze, Open, Reveal in Finder, Remove."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock(), on_ai_analyze=Mock())
         mock_cards[0].file_hash = "test_hash"
         panel.load_cards(mock_cards)
 
@@ -1806,12 +1881,12 @@ class TestMultiselect:
             "---" if it.IsSeparator() else it.GetItemLabelText()
             for it in items
         ]
-        assert labels == ["Open", "Reveal in Finder", "---", "Remove"]
+        assert labels == ["AI Analyze", "---", "Open", "Reveal in Finder", "---", "Remove"]
         menu.Destroy()
 
     def test_context_menu_multi_no_reveal(self, parent_frame, mock_cards):
-        """Multi card context menu has Open N Cards, Remove N Cards (no Reveal)."""
-        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock())
+        """Multi card context menu has AI Analyze N Cards, Open N Cards, Remove N Cards (no Reveal)."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock(), on_ai_analyze=Mock())
         mock_cards[0].file_hash = "hash1"
         mock_cards[1].file_hash = "hash2"
         panel.load_cards(mock_cards)
@@ -1822,7 +1897,7 @@ class TestMultiselect:
             "---" if it.IsSeparator() else it.GetItemLabelText()
             for it in items
         ]
-        assert labels == ["Open 2 Cards", "---", "Remove 2 Cards"]
+        assert labels == ["AI Analyze 2 Cards", "---", "Open 2 Cards", "---", "Remove 2 Cards"]
         menu.Destroy()
 
     def test_right_click_unselected_selects_only_that(self, parent_frame, mock_cards):

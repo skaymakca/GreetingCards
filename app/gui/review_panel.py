@@ -576,6 +576,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         on_name_change: Callable[[int, str], None] | None = None,
         on_card_edited: Callable[[int], None] | None = None,
         on_remove: Callable[[str], None] | None = None,
+        on_ai_analyze: Callable[[list[CardResult]], None] | None = None,
     ):
         super().__init__(parent)
         self._on_select = on_select
@@ -583,6 +584,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         self._on_name_change = on_name_change
         self._on_card_edited = on_card_edited
         self._on_remove = on_remove
+        self._on_ai_analyze = on_ai_analyze
         self._selected_card_ids: list[int] = []
         self._cards_by_id: dict[int, CardResult] = {}
         self._drag_highlight = False
@@ -783,6 +785,15 @@ class ReviewPanelMasterDetail(wx.Panel):
         menu = wx.Menu()
         is_multi = len(cards) > 1
 
+        # AI Analyze item (top of menu)
+        ai_label = f"AI Analyze {len(cards)} Cards" if is_multi else "AI Analyze"
+        ai_item = menu.Append(wx.ID_ANY, ai_label)
+        ai_icon = load_menu_icon("sparkles")
+        if ai_icon:
+            ai_item.SetBitmap(ai_icon)
+
+        menu.AppendSeparator()
+
         # Open item
         open_label = f"Open {len(cards)} Cards" if is_multi else "Open"
         open_item = menu.Append(wx.ID_ANY, open_label)
@@ -841,6 +852,12 @@ class ReviewPanelMasterDetail(wx.Panel):
             menu.Bind(wx.EVT_MENU, _remove_cards, remove_item)
         else:
             remove_item.Enable(False)
+
+        if self._on_ai_analyze:
+            on_ai_analyze = self._on_ai_analyze
+            menu.Bind(wx.EVT_MENU, lambda evt, _cards=cards: on_ai_analyze(_cards), ai_item)
+        else:
+            ai_item.Enable(False)
 
         return menu
 

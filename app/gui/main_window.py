@@ -607,6 +607,7 @@ class MainWindow:
             on_name_change=self._on_name_change,
             on_card_edited=self._on_card_edited,
             on_remove=self._on_remove_card,
+            on_ai_analyze=lambda cards: self._start_ai_all(cards=cards),
         )
 
         # Preview panel
