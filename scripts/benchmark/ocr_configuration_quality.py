@@ -128,9 +128,9 @@ import asyncio
 import csv
 import itertools
 import json
-import subprocess
 import multiprocessing as mp
 import os
+import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
@@ -153,12 +153,12 @@ from rich.progress import (
 
 from scripts.benchmark.common import (
     CSS,
-    Config,
     HAS_OPENCV,
     HAS_PYTESSERACT,
     HAS_TESSEROCR,
     OCR_FNS,
     REPORT_JS,
+    Config,
     _detect_system_tessdata,
     ensure_tessdata_best,
     find_pdfs,
@@ -215,8 +215,12 @@ def build_configs(filter_str: str | None = None) -> list[Config]:
     all_configs = [
         Config(lib, td, dpi, psm, pp, dp)
         for lib, td, dpi, psm, pp, dp in itertools.product(
-            OCR_LIBRARIES, TESSDATA_OPTIONS, DPI_OPTIONS, PSM_OPTIONS,
-            PREPROCESS_OPTIONS, DICT_PENALTY_OPTIONS,
+            OCR_LIBRARIES,
+            TESSDATA_OPTIONS,
+            DPI_OPTIONS,
+            PSM_OPTIONS,
+            PREPROCESS_OPTIONS,
+            DICT_PENALTY_OPTIONS,
         )
     ]
     if not filter_str:
@@ -228,12 +232,15 @@ def build_configs(filter_str: str | None = None) -> list[Config]:
         parts = pattern.strip().split("/")
         for cfg in all_configs:
             cfg_parts = [
-                cfg.library, cfg.tessdata, str(cfg.dpi), str(cfg.psm),
-                cfg.preprocess, str(cfg.dict_penalty),
+                cfg.library,
+                cfg.tessdata,
+                str(cfg.dpi),
+                str(cfg.psm),
+                cfg.preprocess,
+                str(cfg.dict_penalty),
             ]
-            if all(p == c for p, c in zip(parts, cfg_parts)):
-                if cfg not in filtered:
-                    filtered.append(cfg)
+            if all(p == c for p, c in zip(parts, cfg_parts, strict=False)) and cfg not in filtered:
+                filtered.append(cfg)
     return filtered
 
 
@@ -311,15 +318,17 @@ def _worker(job_queue: mp.Queue, result_queue: mp.Queue) -> None:
         combined_text = "\n\n".join(all_text_parts)
         words = combined_text.split()
 
-        result_queue.put((
-            card_id,
-            cfg_dict,
-            combined_text,
-            len(words),
-            len(set(w.lower() for w in words)),
-            sum(all_confidences) / len(all_confidences) if all_confidences else -1.0,
-            elapsed,
-        ))
+        result_queue.put(
+            (
+                card_id,
+                cfg_dict,
+                combined_text,
+                len(words),
+                len({w.lower() for w in words}),
+                sum(all_confidences) / len(all_confidences) if all_confidences else -1.0,
+                elapsed,
+            )
+        )
 
 
 def _filter_configs(configs: list[Config]) -> list[Config]:
@@ -340,7 +349,9 @@ def _filter_configs(configs: list[Config]) -> list[Config]:
         opencv_preprocs = {"clahe", "otsu"}
         needed_opencv = {c.preprocess for c in configs} & opencv_preprocs
         if needed_opencv:
-            console.print(f"[yellow]Warning: skipping configs with {needed_opencv} preprocessing (OpenCV not installed)[/]")
+            console.print(
+                f"[yellow]Warning: skipping configs with {needed_opencv} preprocessing (OpenCV not installed)[/]"
+            )
             configs = [c for c in configs if c.preprocess not in opencv_preprocs]
 
     return configs
@@ -363,7 +374,8 @@ def _validate_configs(
         transient=True,
     ) as progress:
         task = progress.add_task(
-            f"Validating configs on {first_pdf.stem}", total=len(configs),
+            f"Validating configs on {first_pdf.stem}",
+            total=len(configs),
         )
         for cfg in configs:
             page_data = page_cache[(str(first_pdf), cfg.dpi)]
@@ -395,9 +407,7 @@ def _validate_configs(
     return valid
 
 
-def run_benchmark(
-    corpus_path: Path, configs: list[Config], output_dir: Path, num_workers: int = 1
-) -> list[CardResult]:
+def run_benchmark(corpus_path: Path, configs: list[Config], output_dir: Path, num_workers: int = 1) -> list[CardResult]:
     pdfs = find_pdfs(corpus_path)
     if not pdfs:
         console.print(f"[red]No PDF files found in {corpus_path}[/]")
@@ -474,10 +484,7 @@ def run_benchmark(
     # We cap the total line at 200 chars; the bar/counter/time take ~40 chars.
     _MAX_LINE = 200
     _BAR_OVERHEAD = 40
-    max_label_len = max(
-        len(f"{card_id} / {Config(**cfg_dict).short_name}")
-        for card_id, cfg_dict, _ in jobs
-    )
+    max_label_len = max(len(f"{card_id} / {Config(**cfg_dict).short_name}") for card_id, cfg_dict, _ in jobs)
     max_desc_len = min(max_label_len, _MAX_LINE - _BAR_OVERHEAD - len("Running OCR — "))
 
     def _ocr_desc(card_id: str, cfg: Config) -> str:
@@ -532,14 +539,16 @@ def run_benchmark(
                         pdf_path=pdf_path,
                         page_images_b64=thumbnails[str(pdf_path)],
                     )
-                card_map[card_id].results.append(OCRResult(
-                    config=cfg,
-                    text=combined_text,
-                    word_count=len(words),
-                    unique_words=len(set(w.lower() for w in words)),
-                    confidence=sum(all_confidences) / len(all_confidences) if all_confidences else -1.0,
-                    elapsed_s=elapsed,
-                ))
+                card_map[card_id].results.append(
+                    OCRResult(
+                        config=cfg,
+                        text=combined_text,
+                        word_count=len(words),
+                        unique_words=len({w.lower() for w in words}),
+                        confidence=sum(all_confidences) / len(all_confidences) if all_confidences else -1.0,
+                        elapsed_s=elapsed,
+                    )
+                )
                 progress.advance(ocr_task)
 
         return [card_map[p.stem] for p in pdfs]
@@ -576,7 +585,7 @@ def run_benchmark(
         transient=True,
     ) as progress:
         ocr_task = progress.add_task("Running OCR", total=total_runs)
-        for i in range(total_runs):
+        for _i in range(total_runs):
             card_id, cfg_dict, text, word_count, unique_words, confidence, elapsed = result_queue.get()
             cfg = Config(**cfg_dict)
 
@@ -590,14 +599,16 @@ def run_benchmark(
                     page_images_b64=thumbnails[str(pdf_path)],
                 )
 
-            card_map[card_id].results.append(OCRResult(
-                config=cfg,
-                text=text,
-                word_count=word_count,
-                unique_words=unique_words,
-                confidence=confidence,
-                elapsed_s=elapsed,
-            ))
+            card_map[card_id].results.append(
+                OCRResult(
+                    config=cfg,
+                    text=text,
+                    word_count=word_count,
+                    unique_words=unique_words,
+                    confidence=confidence,
+                    elapsed_s=elapsed,
+                )
+            )
             progress.advance(ocr_task)
 
     # Wait for workers to finish
@@ -617,9 +628,7 @@ _mean_std = mean_std
 _fmt_mean_std = fmt_mean_std
 
 
-def _compute_config_stats(
-    card_results: list[CardResult], configs: list[Config]
-) -> dict[str, dict]:
+def _compute_config_stats(card_results: list[CardResult], configs: list[Config]) -> dict[str, dict]:
     """Compute per-config aggregate statistics across all cards.
 
     Returns a dict keyed by config name with stats fields:
@@ -693,7 +702,7 @@ def _build_scoring_prompt(texts: list[str], pass_num: int) -> tuple[str, str]:
             f"Below are {n} text extractions from the same card using different OCR configurations.\n"
             "Score each text 0-100 based on overall quality as extracted greeting card text.\n\n"
             "Scoring criteria (most to least important):\n"
-            "1. Names: People's names, family names (\"The Smiths\", \"Love, Jason and Amanda\") — most valuable\n"
+            '1. Names: People\'s names, family names ("The Smiths", "Love, Jason and Amanda") — most valuable\n'
             "2. Readability: Coherent sentences about holidays, wishes, family updates\n"
             "3. Structure: Preserved line breaks and paragraphs vs flat wall of text\n"
             "4. Completeness: More captured content is better than less\n"
@@ -710,13 +719,12 @@ def _build_scoring_prompt(texts: list[str], pass_num: int) -> tuple[str, str]:
     return system, user + "\n".join(blocks)
 
 
-
 _MAX_SCORING_RETRIES = 4
 _SCORING_BATCH_SIZE = 48
 
 
 async def _score_chunk(
-    client: "anthropic.AsyncAnthropic",  # pyright: ignore[reportUndefinedVariable]
+    client: anthropic.AsyncAnthropic,  # pyright: ignore[reportUndefinedVariable]
     card_id: str,
     texts: list[str],
     chunk_idx: int,
@@ -785,9 +793,8 @@ async def _score_chunk(
 
                 # Merge new keys into accumulated (don't overwrite existing)
                 for key, value in raw_scores.items():
-                    if key in expected_keys and key not in accumulated:
-                        if isinstance(value, (int, float)):
-                            accumulated[key] = max(0, min(100, int(value)))
+                    if key in expected_keys and key not in accumulated and isinstance(value, (int, float)):
+                        accumulated[key] = max(0, min(100, int(value)))
 
                 missing = expected_keys - set(accumulated.keys())
                 if missing:
@@ -829,7 +836,7 @@ async def _score_chunk(
 
 
 async def _score_card(
-    client: "anthropic.AsyncAnthropic",  # pyright: ignore[reportUndefinedVariable]
+    client: anthropic.AsyncAnthropic,  # pyright: ignore[reportUndefinedVariable]
     card_id: str,
     texts: list[str],
     pass_num: int,
@@ -847,15 +854,11 @@ async def _score_card(
     t0 = time.monotonic()
 
     # Split into chunks
-    chunks = [
-        texts[i:i + _SCORING_BATCH_SIZE]
-        for i in range(0, len(texts), _SCORING_BATCH_SIZE)
-    ]
+    chunks = [texts[i : i + _SCORING_BATCH_SIZE] for i in range(0, len(texts), _SCORING_BATCH_SIZE)]
 
     # Score all chunks concurrently
     chunk_tasks = [
-        _score_chunk(client, card_id, chunk, idx, pass_num, model, semaphore)
-        for idx, chunk in enumerate(chunks)
+        _score_chunk(client, card_id, chunk, idx, pass_num, model, semaphore) for idx, chunk in enumerate(chunks)
     ]
     chunk_results = await asyncio.gather(*chunk_tasks)
 
@@ -893,10 +896,7 @@ async def score_all_cards(
     # --- Pass 1: Triage ---
     console.print(f"\nAI Scoring — Pass 1 (triage): {total_cards} cards, model={rich_escape(model)}")
 
-    tasks = [
-        _score_card(client, card_id, texts, 1, model, semaphore)
-        for card_id, texts in card_texts.items()
-    ]
+    tasks = [_score_card(client, card_id, texts, 1, model, semaphore) for card_id, texts in card_texts.items()]
 
     pass1_scores: dict[str, list[int]] = {}
     with Progress(
@@ -926,8 +926,7 @@ async def score_all_cards(
 
     non_dud_cards = [c for c in card_results if c.card_id not in dud_cards and c.card_id in pass1_scores]
     console.print(
-        f"  Pass 1 complete: {len(dud_cards)} dud cards excluded, "
-        f"{len(non_dud_cards)} cards advancing to pass 2",
+        f"  Pass 1 complete: {len(dud_cards)} dud cards excluded, {len(non_dud_cards)} cards advancing to pass 2",
     )
     if dud_cards:
         console.print(f"  Dud cards: {', '.join(sorted(dud_cards))}")
@@ -936,7 +935,7 @@ async def score_all_cards(
     for card in card_results:
         if card.card_id in dud_cards and card.card_id in pass1_scores:
             scores = pass1_scores[card.card_id]
-            for r, score in zip(card.results, scores):
+            for r, score in zip(card.results, scores, strict=False):
                 r.ai_score = float(score)
 
     # --- Pass 2: Refined scoring for non-dud cards ---
@@ -944,8 +943,7 @@ async def score_all_cards(
         console.print(f"\nAI Scoring — Pass 2 (refined): {len(non_dud_cards)} cards")
 
         tasks = [
-            _score_card(client, card.card_id, card_texts[card.card_id], 2, model, semaphore)
-            for card in non_dud_cards
+            _score_card(client, card.card_id, card_texts[card.card_id], 2, model, semaphore) for card in non_dud_cards
         ]
 
         with Progress(
@@ -963,7 +961,7 @@ async def score_all_cards(
                 # Apply pass 2 scores
                 for card in card_results:
                     if card.card_id == card_id:
-                        for r, score in zip(card.results, scores):
+                        for r, score in zip(card.results, scores, strict=False):
                             r.ai_score = float(score)
                         break
 
@@ -1119,12 +1117,16 @@ def generate_summary_html(
 
     # Map heatmap class to filter label
     _q_label = {
-        "heatmap-q4": "Q4 (best)", "heatmap-q3": "Q3",
-        "heatmap-q2": "Q2", "heatmap-q1": "Q1 (worst)",
+        "heatmap-q4": "Q4 (best)",
+        "heatmap-q3": "Q3",
+        "heatmap-q2": "Q2",
+        "heatmap-q1": "Q1 (worst)",
     }
     _qt_label = {
-        "heatmap-q4": "Q4 (fastest)", "heatmap-q3": "Q3",
-        "heatmap-q2": "Q2", "heatmap-q1": "Q1 (slowest)",
+        "heatmap-q4": "Q4 (fastest)",
+        "heatmap-q3": "Q3",
+        "heatmap-q2": "Q2",
+        "heatmap-q1": "Q1 (slowest)",
     }
 
     for rank, d in enumerate(ranked, 1):
@@ -1296,7 +1298,7 @@ def generate_card_html(
         lines.append(f"  <td class='num' data-value='{r.unique_words}'>{r.unique_words}</td>")
         lines.append(f"  <td class='num {time_hm}' data-value='{r.elapsed_s:.4f}'>{r.elapsed_s:.2f}s</td>")
         lines.append(f"  <td><div class='text-cell'>{text_escaped}</div>")
-        lines.append(f"    <button class='toggle-btn' onclick='toggleText(this)'>expand</button></td>")
+        lines.append("    <button class='toggle-btn' onclick='toggleText(this)'>expand</button></td>")
         lines.append("</tr>")
 
     lines.append("</tbody></table>")
@@ -1421,7 +1423,7 @@ def generate_config_html(
         lines.append(f"  <td class='num' data-value='{r.unique_words}'>{r.unique_words}</td>")
         lines.append(f"  <td class='num {time_hm}' data-value='{r.elapsed_s:.4f}'>{r.elapsed_s:.2f}s</td>")
         lines.append(f"  <td><div class='text-cell'>{text_escaped}</div>")
-        lines.append(f"    <button class='toggle-btn' onclick='toggleText(this)'>expand</button></td>")
+        lines.append("    <button class='toggle-btn' onclick='toggleText(this)'>expand</button></td>")
         lines.append("</tr>")
 
     lines.append("</tbody></table>")
@@ -1447,9 +1449,19 @@ def write_summary_csv(
         ranked = sorted(config_stats.values(), key=lambda d: d["conf_mean"], reverse=True)
 
     headers = [
-        "library", "tessdata", "dpi", "psm", "preprocess", "dict_penalty",
-        "conf_mean", "conf_std", "words_mean", "words_std",
-        "unique_mean", "unique_std", "total_time_s",
+        "library",
+        "tessdata",
+        "dpi",
+        "psm",
+        "preprocess",
+        "dict_penalty",
+        "conf_mean",
+        "conf_std",
+        "words_mean",
+        "words_std",
+        "unique_mean",
+        "unique_std",
+        "total_time_s",
     ]
     if has_ai:
         headers.extend(["ai_score_mean", "ai_score_std"])
@@ -1460,18 +1472,27 @@ def write_summary_csv(
         for d in ranked:
             cfg = d["config"]
             row = [
-                cfg.library, cfg.tessdata, cfg.dpi, cfg.psm, cfg.preprocess,
+                cfg.library,
+                cfg.tessdata,
+                cfg.dpi,
+                cfg.psm,
+                cfg.preprocess,
                 cfg.dict_penalty,
-                f"{d['conf_mean']:.2f}", f"{d['conf_std']:.2f}",
-                f"{d['words_mean']:.2f}", f"{d['words_std']:.2f}",
-                f"{d['unique_mean']:.2f}", f"{d['unique_std']:.2f}",
+                f"{d['conf_mean']:.2f}",
+                f"{d['conf_std']:.2f}",
+                f"{d['words_mean']:.2f}",
+                f"{d['words_std']:.2f}",
+                f"{d['unique_mean']:.2f}",
+                f"{d['unique_std']:.2f}",
                 f"{d['total_time']:.2f}",
             ]
             if has_ai:
-                row.extend([
-                    f"{d['ai_score_mean']:.2f}" if d["ai_scores"] else "",
-                    f"{d['ai_score_std']:.2f}" if d["ai_scores"] else "",
-                ])
+                row.extend(
+                    [
+                        f"{d['ai_score_mean']:.2f}" if d["ai_scores"] else "",
+                        f"{d['ai_score_std']:.2f}" if d["ai_scores"] else "",
+                    ]
+                )
             writer.writerow(row)
 
 
@@ -1482,8 +1503,17 @@ def write_detail_csv(
 ) -> None:
     """Write detail.csv — one row per (card x config) run."""
     headers = [
-        "card_id", "library", "tessdata", "dpi", "psm", "preprocess",
-        "dict_penalty", "word_count", "unique_words", "confidence", "elapsed_s",
+        "card_id",
+        "library",
+        "tessdata",
+        "dpi",
+        "psm",
+        "preprocess",
+        "dict_penalty",
+        "word_count",
+        "unique_words",
+        "confidence",
+        "elapsed_s",
     ]
     if has_ai:
         headers.append("ai_score")
@@ -1495,10 +1525,17 @@ def write_detail_csv(
             for r in card.results:
                 cfg = r.config
                 row = [
-                    card.card_id, cfg.library, cfg.tessdata, cfg.dpi, cfg.psm,
-                    cfg.preprocess, cfg.dict_penalty,
-                    r.word_count, r.unique_words,
-                    f"{r.confidence:.2f}", f"{r.elapsed_s:.4f}",
+                    card.card_id,
+                    cfg.library,
+                    cfg.tessdata,
+                    cfg.dpi,
+                    cfg.psm,
+                    cfg.preprocess,
+                    cfg.dict_penalty,
+                    r.word_count,
+                    r.unique_words,
+                    f"{r.confidence:.2f}",
+                    f"{r.elapsed_s:.4f}",
                 ]
                 if has_ai:
                     row.append(f"{r.ai_score:.0f}" if r.ai_score >= 0 else "-1")
@@ -1585,15 +1622,14 @@ def main() -> None:
         if not args.no_ai_score
         else "  AI Scoring: [dim]disabled[/]"
     )
-    console.print(Panel(
-        f"  Corpus:  {corpus_path}\n"
-        f"  Configs: {len(configs)}\n"
-        f"  Workers: {num_workers}\n"
-        f"{ai_line}",
-        title="OCR Configuration Quality Benchmark",
-        title_align="left",
-        expand=False,
-    ))
+    console.print(
+        Panel(
+            f"  Corpus:  {corpus_path}\n  Configs: {len(configs)}\n  Workers: {num_workers}\n{ai_line}",
+            title="OCR Configuration Quality Benchmark",
+            title_align="left",
+            expand=False,
+        )
+    )
 
     if args.output:
         output_dir = Path(args.output)
@@ -1612,12 +1648,14 @@ def main() -> None:
     # AI scoring (after benchmark, before report generation)
     if not args.no_ai_score:
         ai_t0 = time.monotonic()
-        asyncio.run(score_all_cards(
-            card_results,
-            model=args.ai_model,
-            concurrency=args.ai_concurrency,
-            dud_threshold=args.dud_threshold,
-        ))
+        asyncio.run(
+            score_all_cards(
+                card_results,
+                model=args.ai_model,
+                concurrency=args.ai_concurrency,
+                dud_threshold=args.dud_threshold,
+            )
+        )
         ai_elapsed = time.monotonic() - ai_t0
         console.print(f"  AI scoring time: {ai_elapsed:.1f}s")
 
@@ -1642,18 +1680,20 @@ def main() -> None:
         # Ranked configs for config page navigation
         if has_ai:
             ranked_configs = [
-                d["config"]
-                for d in sorted(config_stats.values(), key=lambda d: d["ai_score_mean"], reverse=True)
+                d["config"] for d in sorted(config_stats.values(), key=lambda d: d["ai_score_mean"], reverse=True)
             ]
         else:
             ranked_configs = [
-                d["config"]
-                for d in sorted(config_stats.values(), key=lambda d: d["conf_mean"], reverse=True)
+                d["config"] for d in sorted(config_stats.values(), key=lambda d: d["conf_mean"], reverse=True)
             ]
 
         # Summary page
         summary_html = generate_summary_html(
-            card_results, actual_configs, corpus_path, elapsed_total, config_stats,
+            card_results,
+            actual_configs,
+            corpus_path,
+            elapsed_total,
+            config_stats,
         )
         (output_dir / "index.html").write_text(summary_html)
 
@@ -1665,7 +1705,11 @@ def main() -> None:
         # Per-config pages
         for idx, cfg in enumerate(ranked_configs):
             config_html = generate_config_html(
-                cfg, card_results, idx, ranked_configs, config_stats,
+                cfg,
+                card_results,
+                idx,
+                ranked_configs,
+                config_stats,
             )
             (configs_dir / f"{cfg.slug}.html").write_text(config_html)
 

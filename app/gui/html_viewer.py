@@ -19,9 +19,11 @@ _LABEL_WIDTH = 80
 _SEARCH_MIN_WIDTH = 150
 
 
-def _toolbar_icon(name: str) -> "wx.Bitmap":
+def _toolbar_icon(name: str) -> wx.Bitmap:
     """Load an SF Symbol sized for the HTML viewer toolbar (regular weight)."""
     return load_sf_symbol(name, point_size=16, weight=0.0) or wx.NullBitmap
+
+
 _TOOL_WIDTH_EST = 36
 _TOOLBAR_MARGIN = 24
 _NUM_TOOLS = 5
@@ -32,6 +34,7 @@ _DEBOUNCE_MS = 200
 
 class _PageMatch(NamedTuple):
     """A page that matched a search query."""
+
     page: str
     match_count: int
 
@@ -46,8 +49,8 @@ class _TextExtractor(HTMLParser):
         super().__init__()
         self._pieces: list[str] = []
         self._in_content = False
-        self._content_depth = 0   # nested div depth inside .content
-        self._skip_depth = 0      # nested script/style depth
+        self._content_depth = 0  # nested div depth inside .content
+        self._skip_depth = 0  # nested script/style depth
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if self._in_content and tag in ("script", "style"):
@@ -105,22 +108,25 @@ def _count_occurrences(text: str, query_lower: str) -> int:
     return count
 
 
-
-
 class HTMLViewerWindow:
     """WebView-based HTML viewer with toolbar navigation and cross-page search."""
 
-    def __init__(self, parent: wx.Window, *, title: str,
-                 base_path: Path, page_order: list[str],
-                 size: tuple[int, int] = (800, 600),
-                 search_hint: str = "Search") -> None:
+    def __init__(
+        self,
+        parent: wx.Window,
+        *,
+        title: str,
+        base_path: Path,
+        page_order: list[str],
+        size: tuple[int, int] = (800, 600),
+        search_hint: str = "Search",
+    ) -> None:
         import wx.html2
 
         self._page_order = page_order
         self._base_path = base_path
 
-        frame = wx.Frame(parent, title=title, size=size,
-                         style=wx.DEFAULT_FRAME_STYLE)
+        frame = wx.Frame(parent, title=title, size=size, style=wx.DEFAULT_FRAME_STYLE)
         self._frame = frame
 
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -133,22 +139,20 @@ class HTMLViewerWindow:
         toolbar.SetToolBitmapSize(_TOOL_BITMAP_SIZE)
 
         home_bmp = _toolbar_icon("house")
-        home_id = toolbar.AddTool(wx.ID_ANY, "Home", home_bmp,
-                                  shortHelp="Home").GetId()
+        home_id = toolbar.AddTool(wx.ID_ANY, "Home", home_bmp, shortHelp="Home").GetId()
 
         prev_bmp = _toolbar_icon("chevron.left")
-        prev_id = toolbar.AddTool(wx.ID_ANY, "Previous", prev_bmp,
-                                  shortHelp="Previous page").GetId()
+        prev_id = toolbar.AddTool(wx.ID_ANY, "Previous", prev_bmp, shortHelp="Previous page").GetId()
 
         next_bmp = _toolbar_icon("chevron.right")
-        next_id = toolbar.AddTool(wx.ID_ANY, "Next", next_bmp,
-                                  shortHelp="Next page").GetId()
+        next_id = toolbar.AddTool(wx.ID_ANY, "Next", next_bmp, shortHelp="Next page").GetId()
 
         # Search controls (right side)
         toolbar.AddStretchableSpace()
 
-        search_label = wx.StaticText(toolbar, label="", size=(_LABEL_WIDTH, -1),
-                                     style=wx.ALIGN_RIGHT | wx.ST_NO_AUTORESIZE)
+        search_label = wx.StaticText(
+            toolbar, label="", size=(_LABEL_WIDTH, -1), style=wx.ALIGN_RIGHT | wx.ST_NO_AUTORESIZE
+        )
         search_label.SetForegroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_GRAYTEXT))
         toolbar.AddControl(search_label)
 
@@ -158,12 +162,10 @@ class HTMLViewerWindow:
         toolbar.AddControl(search_ctrl)
 
         prev_match_bmp = _toolbar_icon("chevron.up")
-        prev_match_id = toolbar.AddTool(wx.ID_ANY, "Prev Match", prev_match_bmp,
-                                        shortHelp="Previous match").GetId()
+        prev_match_id = toolbar.AddTool(wx.ID_ANY, "Prev Match", prev_match_bmp, shortHelp="Previous match").GetId()
 
         next_match_bmp = _toolbar_icon("chevron.down")
-        next_match_id = toolbar.AddTool(wx.ID_ANY, "Next Match", next_match_bmp,
-                                        shortHelp="Next match").GetId()
+        next_match_id = toolbar.AddTool(wx.ID_ANY, "Next Match", next_match_bmp, shortHelp="Next match").GetId()
 
         toolbar.EnableTool(prev_id, False)
         toolbar.EnableTool(prev_match_id, False)
@@ -214,10 +216,10 @@ class HTMLViewerWindow:
         search_pages: list[_PageMatch] = []
         page_cursor = 0
         match_cursor = 0
-        page_ready = False        # True after first EVT_WEBVIEW_LOADED
-        pending_mark = False      # Need full _mark_all after page load
-        pending_focus = False     # Need _focus_match after page load
-        last_query = ""           # Avoid redundant re-marking
+        page_ready = False  # True after first EVT_WEBVIEW_LOADED
+        pending_mark = False  # Need full _mark_all after page load
+        pending_focus = False  # Need _focus_match after page load
+        last_query = ""  # Avoid redundant re-marking
         debounce_timer = wx.Timer(frame)
 
         # --- Navigation helpers ---
@@ -424,9 +426,7 @@ class HTMLViewerWindow:
         # Cmd+F accelerator to focus search ctrl
         accel_id = wx.NewIdRef()
         frame.Bind(wx.EVT_MENU, lambda evt: search_ctrl.SetFocus(), id=accel_id)
-        frame.SetAcceleratorTable(
-            wx.AcceleratorTable([(wx.ACCEL_CMD, ord("F"), accel_id)])
-        )
+        frame.SetAcceleratorTable(wx.AcceleratorTable([(wx.ACCEL_CMD, ord("F"), accel_id)]))
 
         # Expose refresh_colors on the frame so appearance observers can find it
         frame.refresh_colors = self.refresh_colors  # type: ignore[attr-defined]
@@ -449,6 +449,7 @@ class HTMLViewerWindow:
     def refresh_colors(self) -> None:
         """Update toolbar icons and border for current appearance mode."""
         from app.gui.icons import clear_cache
+
         clear_cache()
         for tool_id, symbol_name in self._tool_icons:
             bmp = _toolbar_icon(symbol_name)
@@ -462,10 +463,16 @@ class HTMLViewerWindow:
         return self._frame
 
 
-def show_viewer(parent: wx.Window, *, title: str,
-                base_path: Path, page_order: list[str],
-                singleton_key: str, size: tuple[int, int] = (800, 600),
-                search_hint: str = "Search") -> HTMLViewerWindow | None:
+def show_viewer(
+    parent: wx.Window,
+    *,
+    title: str,
+    base_path: Path,
+    page_order: list[str],
+    singleton_key: str,
+    size: tuple[int, int] = (800, 600),
+    search_hint: str = "Search",
+) -> HTMLViewerWindow | None:
     """Show an HTML viewer window, reusing an existing one if still alive."""
     ref = _viewer_refs.get(singleton_key)
     if ref is not None:
@@ -474,8 +481,8 @@ def show_viewer(parent: wx.Window, *, title: str,
             frame.Raise()
             return None
 
-    viewer = HTMLViewerWindow(parent, title=title, size=size,
-                              base_path=base_path, page_order=page_order,
-                              search_hint=search_hint)
+    viewer = HTMLViewerWindow(
+        parent, title=title, size=size, base_path=base_path, page_order=page_order, search_hint=search_hint
+    )
     _viewer_refs[singleton_key] = weakref.ref(viewer.frame)
     return viewer

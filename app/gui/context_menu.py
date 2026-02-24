@@ -1,5 +1,7 @@
 """Context menu helper for wxPython text entry widgets."""
+
 import wx
+
 from app.gui.icons import load_menu_icon
 
 

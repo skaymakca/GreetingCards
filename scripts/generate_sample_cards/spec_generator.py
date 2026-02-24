@@ -97,7 +97,7 @@ def generate_card_specs(
             first_newline = text.index("\n")
             text = text[first_newline + 1 :]
             if text.endswith("```"):
-                text = text[: -3].strip()
+                text = text[:-3].strip()
 
         try:
             raw_specs = json.loads(text)
@@ -122,7 +122,7 @@ def generate_card_specs(
                 first_newline = fix_text.index("\n")
                 fix_text = fix_text[first_newline + 1 :]
                 if fix_text.endswith("```"):
-                    fix_text = fix_text[: -3].strip()
+                    fix_text = fix_text[:-3].strip()
             raw_specs = json.loads(fix_text)
 
     specs = [CardSpec.from_dict(d) for d in raw_specs]

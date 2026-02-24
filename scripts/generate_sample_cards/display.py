@@ -34,9 +34,7 @@ def build_status_table(jobs: list[CardJob], image_src: str) -> Table:
         # Active/rate-limited jobs get a spinner in the Status cell
         if job.status in ("gen_front", "gen_back", "composing", "rate_limited"):
             detail_text = f" ({job.detail})" if job.detail else ""
-            status_cell: Spinner | Text = Spinner(
-                "dots", text=Text(f" {label}{detail_text}", style=style)
-            )
+            status_cell: Spinner | Text = Spinner("dots", text=Text(f" {label}{detail_text}", style=style))
         else:
             status_cell = Text(label, style=style)
             if job.detail:

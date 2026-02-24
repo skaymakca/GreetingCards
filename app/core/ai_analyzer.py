@@ -7,7 +7,7 @@ from typing import Any
 
 from PIL import Image
 
-from app.core.config import get_api_key, get_ai_model
+from app.core.config import get_ai_model, get_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +20,7 @@ _MAX_LINE_LENGTH = 50
 @dataclass
 class AIResult:
     """Result from AI analysis of a greeting card."""
+
     best_name: str = ""
     alternates: list[str] = field(default_factory=list)
 
@@ -48,9 +49,13 @@ def _strip_plural(name: str) -> str:
         return name[:-2]  # "Foxes" -> "Fox"
 
     # Strip single 's' after specific consonant patterns (safe plurals)
-    if len(name) >= 4 and name.endswith("s") and not name.endswith("ss"):
-        if name[-3:-1] in {"th", "wn", "ck", "rd", "rt", "nd", "nt"}:
-            return name[:-1]
+    if (
+        len(name) >= 4
+        and name.endswith("s")
+        and not name.endswith("ss")
+        and name[-3:-1] in {"th", "wn", "ck", "rd", "rt", "nd", "nt"}
+    ):
+        return name[:-1]
 
     return name
 
@@ -72,7 +77,7 @@ def clean_family_name(name: str) -> str:
 
     # Remove ALL double quote variants (straight, curly, low-9, high-reversed-9)
     # Covers: " (U+0022), \u201c (U+201C), \u201d (U+201D), \u201e (U+201E), \u201f (U+201F)
-    name = re.sub(r'["""\"\u201C\u201D\u201E\u201F]', '', name).strip()
+    name = re.sub(r'["""\"\u201C\u201D\u201E\u201F]', "", name).strip()
 
     # Remove single quotes only at the start/end (not in middle like O'Brien)
     # Handles both straight and curly quotes: ' (U+0027), \u2018 (U+2018), \u2019 (U+2019)
@@ -141,9 +146,9 @@ def _parse_response(response_text: str) -> AIResult:
     # Basic filtering to catch obvious non-name responses
     # NOTE: Comprehensive cleaning is applied AFTER loading from DB, not here
     lines = [
-        line for line in (raw.strip() for raw in response_text.split("\n"))
-        if line and len(line) <= _MAX_LINE_LENGTH
-        and not any(w in line.lower() for w in _SKIP_WORDS)
+        line
+        for line in (raw.strip() for raw in response_text.split("\n"))
+        if line and len(line) <= _MAX_LINE_LENGTH and not any(w in line.lower() for w in _SKIP_WORDS)
     ]
 
     return AIResult(
@@ -157,20 +162,24 @@ def _build_content_blocks(images: list[Image.Image]) -> list[dict[str, Any]]:
     content: list[dict[str, Any]] = []
     for image in images:
         img_b64 = _image_to_b64(image)
-        content.append({
-            "type": "image",
-            "source": {
-                "type": "base64",
-                "media_type": "image/png",
-                "data": img_b64,
-            },
-        })
+        content.append(
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": "image/png",
+                    "data": img_b64,
+                },
+            }
+        )
 
     page_word = "page" if len(images) == 1 else "pages"
-    content.append({
-        "type": "text",
-        "text": _PROMPT_TEMPLATE.format(count=len(images), page_word=page_word),
-    })
+    content.append(
+        {
+            "type": "text",
+            "text": _PROMPT_TEMPLATE.format(count=len(images), page_word=page_word),
+        }
+    )
     return content
 
 
@@ -207,5 +216,3 @@ async def analyze_card_with_ai_async(images: list[Image.Image] | Image.Image) ->
     block = message.content[0]
     response_text = block.text.strip() if hasattr(block, "text") else ""  # pyright: ignore[reportAttributeAccessIssue]
     return _parse_response(response_text)
-
-

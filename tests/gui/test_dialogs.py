@@ -6,22 +6,28 @@ from unittest.mock import Mock, patch
 import pytest
 import wx
 import wx.dataview as dv
+
 from app.gui.dialogs import (
-    _display_path,
-    _dismiss_on_key,
-    TableModel,
+    CompletionDialog,
+    ErrorListDialog,
     ProgressDialog,
     RenameConfirmDialog,
-    ErrorListDialog,
-    CompletionDialog,
+    TableModel,
+    _dismiss_on_key,
+    _display_path,
 )
 from app.models.card import (
-    RenamePlanItem, RenameResult,
-    STATUS_OK, STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR, STATUS_DUPLICATE,
+    STATUS_DUPLICATE,
+    STATUS_OK,
+    STATUS_SKIP_ERROR,
+    STATUS_SKIP_NO_NAME,
+    STATUS_SKIP_SAME,
+    RenamePlanItem,
+    RenameResult,
 )
 
-
 # --- _display_path ---
+
 
 class TestDisplayPath:
     """Tests for _display_path() helper."""
@@ -40,6 +46,7 @@ class TestDisplayPath:
 
 
 # --- TableModel (pre-existing tests preserved) ---
+
 
 @pytest.mark.gui
 class TestTableModel:
@@ -185,17 +192,20 @@ class TestTableModel:
 
         assert value == "D"
 
-    @pytest.mark.parametrize("row_idx,col_idx,expected", [
-        (0, 0, "A"),
-        (0, 1, "B"),
-        (0, 2, "C"),
-        (1, 0, "D"),
-        (1, 1, "E"),
-        (1, 2, "F"),
-        (2, 0, "G"),
-        (2, 1, "H"),
-        (2, 2, "I"),
-    ])
+    @pytest.mark.parametrize(
+        "row_idx,col_idx,expected",
+        [
+            (0, 0, "A"),
+            (0, 1, "B"),
+            (0, 2, "C"),
+            (1, 0, "D"),
+            (1, 1, "E"),
+            (1, 2, "F"),
+            (2, 0, "G"),
+            (2, 1, "H"),
+            (2, 2, "I"),
+        ],
+    )
     def test_get_value_various_positions(self, wx_app, row_idx, col_idx, expected):
         """Test GetValue for various row/column combinations."""
         data = [
@@ -320,6 +330,7 @@ class TestTableModel:
 
 # --- ProgressDialog ---
 
+
 @pytest.mark.gui
 class TestProgressDialog:
     """Tests for ProgressDialog."""
@@ -360,6 +371,7 @@ class TestProgressDialog:
 
 # --- RenameConfirmDialog ---
 
+
 @pytest.mark.gui
 class TestRenameConfirmDialog:
     """Tests for RenameConfirmDialog."""
@@ -367,11 +379,13 @@ class TestRenameConfirmDialog:
     def _make_plan(self, statuses):
         items = []
         for i, status in enumerate(statuses):
-            items.append(RenamePlanItem(
-                old_path=Path(f"/cards/card{i}.pdf"),
-                new_path=Path(f"/cards/Smith Family {i}.pdf"),
-                status=status,
-            ))
+            items.append(
+                RenamePlanItem(
+                    old_path=Path(f"/cards/card{i}.pdf"),
+                    new_path=Path(f"/cards/Smith Family {i}.pdf"),
+                    status=status,
+                )
+            )
         return items
 
     def test_creation(self, wx_app, wx_frame):
@@ -416,6 +430,7 @@ class TestRenameConfirmDialog:
 
 # --- ErrorListDialog ---
 
+
 @pytest.mark.gui
 class TestErrorListDialog:
     """Tests for ErrorListDialog."""
@@ -446,6 +461,7 @@ class TestErrorListDialog:
 
 
 # --- CompletionDialog ---
+
 
 @pytest.mark.gui
 class TestCompletionDialog:
@@ -497,6 +513,7 @@ class TestCompletionDialog:
 
 # --- _dismiss_on_key ---
 
+
 @pytest.mark.gui
 class TestDismissOnKey:
     """Tests for _dismiss_on_key() helper (lines 82-88)."""
@@ -534,13 +551,14 @@ class TestDismissOnKey:
     def test_other_key_skips(self, wx_app, wx_frame):
         dlg = wx.Dialog(wx_frame)
         event = Mock(spec=wx.KeyEvent)
-        event.GetKeyCode.return_value = ord('A')
+        event.GetKeyCode.return_value = ord("A")
         _dismiss_on_key(dlg, event)
         event.Skip.assert_called_once()
         dlg.Destroy()
 
 
 # --- ProgressDialog.finish ---
+
 
 @pytest.mark.gui
 class TestProgressDialogFinish:
@@ -554,6 +572,7 @@ class TestProgressDialogFinish:
 
 
 # --- RenameConfirmDialog handlers ---
+
 
 @pytest.mark.gui
 class TestRenameConfirmDialogHandlers:
@@ -611,7 +630,7 @@ class TestRenameConfirmDialogHandlers:
     def test_on_key_other_skips(self, wx_app, wx_frame):
         dlg = RenameConfirmDialog(wx_frame, self._make_plan())
         event = Mock(spec=wx.KeyEvent)
-        event.GetKeyCode.return_value = ord('X')
+        event.GetKeyCode.return_value = ord("X")
         dlg._on_key(event)
         event.Skip.assert_called_once()
         dlg.Destroy()

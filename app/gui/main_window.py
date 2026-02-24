@@ -5,36 +5,39 @@ import io
 import logging
 import threading
 import time
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
 
 import wx
 import wx.adv
 
 logger = logging.getLogger(__name__)
 
-from app.core.constants import AI_CONCURRENCY, OCR_WORKERS
-from app.gui.styles import Color, Font, Layout
-from app.gui.preview_panel import PreviewPanel
-from app.gui.review_panel import ReviewPanelMasterDetail
-from app.gui.filter_sidebar import FilterSidebar
-from app.gui.dialogs import ProgressDialog, RenameConfirmDialog, CompletionDialog, ErrorListDialog
-from app.gui.settings_dialog import create_preferences_editor, get_commit_hash
-from app.gui.help_dialog import show_help
-from app.gui.changelog_dialog import show_changelog
-from app.gui.licenses_dialog import show_licenses
-from app.gui.icons import load_sf_symbol, load_menu_icon
-from app.gui.api_key_dialog import show_api_key_dialog
-from app.models.card import CardResult, Confidence, PdfWorkerResult, RenameResult
-from app.core.pdf_worker import process_pdf_worker
 from app.core.ai_analyzer import analyze_card_with_ai_async, format_ai_error
 from app.core.config import get_api_key
-from app.core.renamer import build_rename_plan, execute_rename_plan
+from app.core.constants import AI_CONCURRENCY, OCR_WORKERS
 from app.core.database import (
-    get_card_state, save_raw_ai,
-    set_manual_name, reprocess_candidates_from_raw, clear_ai_results
+    clear_ai_results,
+    get_card_state,
+    reprocess_candidates_from_raw,
+    save_raw_ai,
+    set_manual_name,
 )
+from app.core.pdf_worker import process_pdf_worker
+from app.core.renamer import build_rename_plan, execute_rename_plan
+from app.gui.api_key_dialog import show_api_key_dialog
+from app.gui.changelog_dialog import show_changelog
+from app.gui.dialogs import CompletionDialog, ErrorListDialog, ProgressDialog, RenameConfirmDialog
+from app.gui.filter_sidebar import FilterSidebar
+from app.gui.help_dialog import show_help
+from app.gui.icons import load_menu_icon, load_sf_symbol
+from app.gui.licenses_dialog import show_licenses
+from app.gui.preview_panel import PreviewPanel
+from app.gui.review_panel import ReviewPanelMasterDetail
+from app.gui.settings_dialog import create_preferences_editor, get_commit_hash
+from app.gui.styles import Color, Font, Layout
+from app.models.card import CardResult, Confidence, PdfWorkerResult, RenameResult
 
 # Messages indicating a rename result is resolved (path moved or already correct)
 _RESOLVED_MESSAGES = {"Renamed", "Already named correctly"}
@@ -54,6 +57,7 @@ def _load_drop_background() -> wx.Bitmap | None:
         from PIL import Image, ImageEnhance
 
         from app.core.paths import get_runtime_content_path
+
         img_path = get_runtime_content_path("images/drop-target-background.png")
 
         if not img_path.exists():
@@ -167,7 +171,7 @@ class _DropOverlay(wx.Panel):
         # Secondary text
         secondary = "or use File \u2192 Open (\u2318O)"
         gc.SetFont(Font.SMALL(), Color.TEXT_SECONDARY)
-        tw2, th2 = gc.GetTextExtent(secondary)[:2]
+        tw2, _th2 = gc.GetTextExtent(secondary)[:2]
         tx2 = (w - tw2) / 2
         ty2 = text_center_y + Layout.DROP_TEXT_GAP
         gc.DrawText(secondary, tx2, ty2)
@@ -178,11 +182,7 @@ class MainWindow:
 
     def __init__(self) -> None:
         # Create frame
-        self._frame = wx.Frame(
-            None,
-            title="Greeting Cards",
-            size=(Layout.WINDOW_WIDTH, Layout.WINDOW_HEIGHT)
-        )
+        self._frame = wx.Frame(None, title="Greeting Cards", size=(Layout.WINDOW_WIDTH, Layout.WINDOW_HEIGHT))
         self._frame.SetMinSize(Layout.MIN_FRAME_SIZE)
 
         # State - Content-based deduplication (multi-load architecture)
@@ -215,6 +215,7 @@ class MainWindow:
 
         # Dark mode detection + initial color refresh
         from app.gui import appearance
+
         Color.refresh()
         appearance.start_observer(self._on_appearance_changed)
 
@@ -417,15 +418,16 @@ class MainWindow:
         # Add Files tool
         browse_bmp = load_sf_symbol("folder.badge.plus", point_size=Layout.TOOLBAR_ICON_POINTS) or wx.NullBitmap
         self._browse_id = toolbar.AddTool(
-            wx.ID_ANY, "Add Files", browse_bmp,
-            shortHelp="Add PDF files or folders to analyze (can add from multiple sources)"
+            wx.ID_ANY,
+            "Add Files",
+            browse_bmp,
+            shortHelp="Add PDF files or folders to analyze (can add from multiple sources)",
         ).GetId()
 
         # Reload tool
         reload_bmp = load_sf_symbol("arrow.clockwise", point_size=Layout.TOOLBAR_ICON_POINTS) or wx.NullBitmap
         self._reload_id = toolbar.AddTool(
-            wx.ID_ANY, "Reload", reload_bmp,
-            shortHelp="Re-check loaded files for changes or deletions (\u21e7\u2318R)"
+            wx.ID_ANY, "Reload", reload_bmp, shortHelp="Re-check loaded files for changes or deletions (\u21e7\u2318R)"
         ).GetId()
         toolbar.EnableTool(self._reload_id, False)
 
@@ -434,24 +436,21 @@ class MainWindow:
         # AI Analyze tool
         ai_bmp = load_sf_symbol("sparkles", point_size=Layout.TOOLBAR_ICON_POINTS) or wx.NullBitmap
         self._ai_all_id = toolbar.AddTool(
-            wx.ID_ANY, "AI Analyze", ai_bmp,
-            shortHelp="Analyze cards with AI to extract family names (\u21e7\u2318I)"
+            wx.ID_ANY, "AI Analyze", ai_bmp, shortHelp="Analyze cards with AI to extract family names (\u21e7\u2318I)"
         ).GetId()
         toolbar.EnableTool(self._ai_all_id, False)
 
         # Rename tool
         rename_bmp = load_sf_symbol("pencil", point_size=Layout.TOOLBAR_ICON_POINTS) or wx.NullBitmap
         self._rename_id = toolbar.AddTool(
-            wx.ID_ANY, "Rename", rename_bmp,
-            shortHelp="Rename all files based on detected family names"
+            wx.ID_ANY, "Rename", rename_bmp, shortHelp="Rename all files based on detected family names"
         ).GetId()
         toolbar.EnableTool(self._rename_id, False)
 
         # Clear tool
         clear_bmp = load_sf_symbol("xmark.circle", point_size=Layout.TOOLBAR_ICON_POINTS) or wx.NullBitmap
         self._clear_id = toolbar.AddTool(
-            wx.ID_ANY, "Clear", clear_bmp,
-            shortHelp="Clear all loaded cards and reset the application"
+            wx.ID_ANY, "Clear", clear_bmp, shortHelp="Clear all loaded cards and reset the application"
         ).GetId()
         toolbar.EnableTool(self._clear_id, False)
 
@@ -487,7 +486,14 @@ class MainWindow:
         self._frame.Bind(wx.EVT_TOOL, lambda e: self._start_rename(), id=self._rename_id)
         self._frame.Bind(wx.EVT_TOOL, lambda e: self._clear_all(), id=self._clear_id)
 
-    def _enable_action_tools(self, *, reload: bool | None = None, ai: bool | None = None, rename: bool | None = None, clear: bool | None = None) -> None:
+    def _enable_action_tools(
+        self,
+        *,
+        reload: bool | None = None,
+        ai: bool | None = None,
+        rename: bool | None = None,
+        clear: bool | None = None,
+    ) -> None:
         """Enable or disable action toolbar tools. Pass None to leave unchanged."""
         if reload is not None:
             self._toolbar.EnableTool(self._reload_id, reload)
@@ -573,10 +579,7 @@ class MainWindow:
         cards = list(self._cards_by_hash.values())
         query = self._search_ctrl.GetValue().lower().strip()
         if query:
-            cards = [
-                c for c in cards
-                if query in c.filename.lower() or query in c.family_name.lower()
-            ]
+            cards = [c for c in cards if query in c.filename.lower() or query in c.family_name.lower()]
         return cards
 
     def _apply_folder_filters(self, cards: list[CardResult]) -> list[CardResult]:
@@ -605,10 +608,7 @@ class MainWindow:
     def _build_content_area(self) -> wx.SplitterWindow:
         """Build three-column Mail.app style layout: [sidebar | review | preview]."""
         # Main splitter: [sidebar | content]
-        main_splitter = wx.SplitterWindow(
-            self._panel,
-            style=wx.SP_LIVE_UPDATE | wx.SP_3DSASH
-        )
+        main_splitter = wx.SplitterWindow(self._panel, style=wx.SP_LIVE_UPDATE | wx.SP_3DSASH)
 
         # Left: Filter sidebar
         self._sidebar = FilterSidebar(
@@ -618,10 +618,7 @@ class MainWindow:
         )
 
         # Right: Nested splitter for [review | preview]
-        content_splitter = wx.SplitterWindow(
-            main_splitter,
-            style=wx.SP_LIVE_UPDATE | wx.SP_3DSASH
-        )
+        content_splitter = wx.SplitterWindow(main_splitter, style=wx.SP_LIVE_UPDATE | wx.SP_3DSASH)
 
         # Review panel with callbacks
         self._review_panel = ReviewPanelMasterDetail(
@@ -654,10 +651,12 @@ class MainWindow:
 
     def _apply_content_sash_position(self) -> None:
         """Set the content splitter sash to split review/preview equally."""
+
         def _apply() -> None:
             w = self._inner_splitter.GetSize().GetWidth()
             if w > 0:
                 self._inner_splitter.SetSashPosition(int(w * Layout.CONTENT_SASH_GRAVITY))
+
         wx.CallAfter(_apply)
 
     def _set_empty_state(self, is_empty: bool) -> None:
@@ -748,7 +747,7 @@ class MainWindow:
             List of PDF paths (absolute, resolved)
         """
         if path.is_file():
-            if path.suffix.lower() == '.pdf':
+            if path.suffix.lower() == ".pdf":
                 return [path.resolve()]
             return []
 
@@ -947,7 +946,7 @@ class MainWindow:
             "Continue?",
             "Clear AI Results",
             wx.YES_NO | wx.ICON_QUESTION,
-            self._frame
+            self._frame,
         )
         if result != wx.YES:
             return
@@ -962,8 +961,7 @@ class MainWindow:
 
         self._refresh_display()
         self._show_info_message(
-            f"AI results cleared for {n} card(s). {changed} reverted to OCR names.",
-            wx.ICON_INFORMATION
+            f"AI results cleared for {n} card(s). {changed} reverted to OCR names.", wx.ICON_INFORMATION
         )
 
     def _start_processing(self, files: list[Path] | None = None) -> None:
@@ -1004,7 +1002,7 @@ class MainWindow:
 
         # Set spawn method for PyInstaller
         try:
-            multiprocessing.set_start_method('spawn', force=True)
+            multiprocessing.set_start_method("spawn", force=True)
         except RuntimeError as exc:
             if "context has already been set" not in str(exc):
                 raise
@@ -1014,10 +1012,7 @@ class MainWindow:
         completed = 0
 
         with ProcessPoolExecutor(max_workers=min(total, OCR_WORKERS)) as executor:
-            futures = {
-                executor.submit(process_pdf_worker, path_str): path_str
-                for path_str in pdf_paths_str
-            }
+            futures = {executor.submit(process_pdf_worker, path_str): path_str for path_str in pdf_paths_str}
             for future in as_completed(futures):
                 worker_result = future.result()
                 pdf_path = Path(worker_result.pdf_path)
@@ -1083,10 +1078,7 @@ class MainWindow:
             card.preview_image = Image.open(io.BytesIO(wr.preview_image_bytes))
 
         if wr.page_images_bytes:
-            card.page_images = [
-                Image.open(io.BytesIO(img_bytes))
-                for img_bytes in wr.page_images_bytes
-            ]
+            card.page_images = [Image.open(io.BytesIO(img_bytes)) for img_bytes in wr.page_images_bytes]
 
         if wr.error:
             card.error = wr.error
@@ -1268,7 +1260,7 @@ class MainWindow:
         self._show_info_message(
             "API key not configured\nUse Settings to add your Anthropic API key",
             wx.ICON_WARNING,
-            duration_ms=0  # Don't auto-dismiss warnings
+            duration_ms=0,  # Don't auto-dismiss warnings
         )
 
         # Also show dialog for immediate action
@@ -1299,10 +1291,7 @@ class MainWindow:
 
         if not card.page_images and not card.preview_image:
             wx.MessageBox(
-                "No preview image available for AI analysis.",
-                "No Image",
-                wx.OK | wx.ICON_WARNING,
-                self._frame
+                "No preview image available for AI analysis.", "No Image", wx.OK | wx.ICON_WARNING, self._frame
             )
             return
 
@@ -1445,7 +1434,7 @@ class MainWindow:
                     card_state = get_card_state(card.file_hash) if card.file_hash else None
                     has_ai_candidates = False
                     if card_state:
-                        has_ai_candidates = any(c.method == 'ai' for c in card_state.candidates)
+                        has_ai_candidates = any(c.method == "ai" for c in card_state.candidates)
 
                     if not has_ai_candidates:
                         # Run AI analysis
@@ -1480,7 +1469,9 @@ class MainWindow:
         aborted = auth_failed.is_set()
         wx.CallAfter(self._ai_all_complete, errors, aborted)
 
-    def _update_ai_all_progress(self, completed: int, total: int, filename: str, card_id: int, card: CardResult | None) -> None:
+    def _update_ai_all_progress(
+        self, completed: int, total: int, filename: str, card_id: int, card: CardResult | None
+    ) -> None:
         """Update progress during batch AI processing."""
         if self._progress is not None and not self._progress.IsBeingDeleted():
             self._progress.update_progress(completed, f"AI analyzing: {filename}")
@@ -1511,10 +1502,7 @@ class MainWindow:
         else:
             # Show success message with auto-dismiss
             count = len(self._ai_target_cards) or len(self._cards_by_hash)
-            self._show_info_message(
-                f"Analysis complete\n{_plural(count, 'card')} analyzed",
-                wx.ICON_INFORMATION
-            )
+            self._show_info_message(f"Analysis complete\n{_plural(count, 'card')} analyzed", wx.ICON_INFORMATION)
 
     def _start_rename(self) -> None:
         """Start rename workflow."""
@@ -1594,7 +1582,9 @@ class MainWindow:
             self._enable_action_tools(reload=False, ai=False, rename=False, clear=False)
             self._search_ctrl.SetValue("")
 
-    def _show_info_message(self, message: str, icon: int = wx.ICON_INFORMATION, duration_ms: int = Layout.INFO_DISMISS_MS) -> None:
+    def _show_info_message(
+        self, message: str, icon: int = wx.ICON_INFORMATION, duration_ms: int = Layout.INFO_DISMISS_MS
+    ) -> None:
         """Show notification in sidebar bottom.
 
         Args:
@@ -1606,8 +1596,8 @@ class MainWindow:
 
     def _on_appearance_changed(self) -> None:
         """Handle macOS dark/light mode switch."""
-        from app.gui.appearance import is_dark_mode
         from app.gui import icons
+        from app.gui.appearance import is_dark_mode
 
         mode = "Dark" if is_dark_mode() else "Light"
         logger.info("Appearance changed to %s mode", mode)
@@ -1668,6 +1658,7 @@ class MainWindow:
     def _on_close(self, event: wx.CloseEvent) -> None:
         """Handle window close event."""
         from app.gui import appearance
+
         appearance.stop_observer()
 
         self._edit_debounce_timer.Stop()

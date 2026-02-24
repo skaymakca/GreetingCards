@@ -11,6 +11,4 @@ def show_help(parent: wx.Window) -> None:
     """Open help in a WebView window."""
     base_path = get_runtime_content_path("html/help")
     page_order = get_page_order(base_path)
-    show_viewer(parent, title="Greeting Cards Help",
-                base_path=base_path, page_order=page_order,
-                singleton_key="help")
+    show_viewer(parent, title="Greeting Cards Help", base_path=base_path, page_order=page_order, singleton_key="help")

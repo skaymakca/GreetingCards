@@ -22,7 +22,7 @@ def show_api_key_dialog(parent: wx.Window) -> str | None:
         message="Enter your Anthropic API key:",
         caption="API Key",
         value="",
-        style=wx.OK | wx.CANCEL | wx.TE_PASSWORD
+        style=wx.OK | wx.CANCEL | wx.TE_PASSWORD,
     )
 
     if dlg.ShowModal() == wx.ID_OK:

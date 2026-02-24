@@ -26,18 +26,18 @@ Benefits:
 
 import logging
 import subprocess
-from typing import Callable
+from collections.abc import Callable
 from pathlib import Path
 
 import wx
 import wx.dataview as dv
 
 logger = logging.getLogger(__name__)
-from app.models.card import CardResult, Confidence
+from app.gui.context_menu import add_entry_context_menu
+from app.gui.icons import load_menu_icon, load_sf_symbol
 from app.gui.styles import Color, Font, Layout
 from app.gui.utils import create_static_text
-from app.gui.icons import load_sf_symbol, load_menu_icon
-from app.gui.context_menu import add_entry_context_menu
+from app.models.card import CardResult, Confidence
 
 
 class _ConfidenceLegendPopup(wx.PopupWindow):
@@ -274,10 +274,7 @@ class DetailPanel(wx.Panel):
 
         # Family Name (editable)
         name_label = create_static_text(
-            self._edit_panel,
-            "Family Name:",
-            font=Font.SMALL(),
-            colour=Color.TEXT_SECONDARY
+            self._edit_panel, "Family Name:", font=Font.SMALL(), colour=Color.TEXT_SECONDARY
         )
         edit_sizer.Add(name_label, 0, wx.LEFT | wx.RIGHT, Layout.PAD)
 
@@ -291,10 +288,7 @@ class DetailPanel(wx.Panel):
 
         # Candidates dropdown (moved directly below Family Name)
         cand_label = create_static_text(
-            self._edit_panel,
-            "Alternative Candidates:",
-            font=Font.SMALL(),
-            colour=Color.TEXT_SECONDARY
+            self._edit_panel, "Alternative Candidates:", font=Font.SMALL(), colour=Color.TEXT_SECONDARY
         )
         edit_sizer.Add(cand_label, 0, wx.LEFT | wx.RIGHT, Layout.PAD)
 
@@ -335,17 +329,13 @@ class DetailPanel(wx.Panel):
 
         # Header
         self._locations_header = create_static_text(
-            self._locations_panel,
-            "File Locations:",
-            font=Font.BODY(),
-            colour=Color.TEXT_PRIMARY
+            self._locations_panel, "File Locations:", font=Font.BODY(), colour=Color.TEXT_PRIMARY
         )
         locations_sizer.Add(self._locations_header, 0, wx.ALL, Layout.PAD)
 
         # List of file paths
         self._locations_list = dv.DataViewListCtrl(
-            self._locations_panel,
-            style=dv.DV_NO_HEADER | dv.DV_SINGLE | dv.DV_ROW_LINES
+            self._locations_panel, style=dv.DV_NO_HEADER | dv.DV_SINGLE | dv.DV_ROW_LINES
         )
         self._locations_list.AppendTextColumn("", width=Layout.FILE_PATHS_COL_WIDTH)
         self._locations_list.SetMinSize((-1, 100))
@@ -356,7 +346,7 @@ class DetailPanel(wx.Panel):
             self._locations_panel,
             "ℹ️ These files have identical content (same hash).",
             font=Font.SMALL(),
-            colour=Color.TEXT_SECONDARY
+            colour=Color.TEXT_SECONDARY,
         )
         locations_sizer.Add(self._duplicate_info, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, Layout.PAD)
 
@@ -457,10 +447,7 @@ class DetailPanel(wx.Panel):
         # Add/update File Paths tab (always present now)
         if self._locations_tab_index is None:
             self._locations_panel.Show()
-            self._notebook.AddPage(
-                self._locations_panel,
-                f"File Paths ({num_paths})"
-            )
+            self._notebook.AddPage(self._locations_panel, f"File Paths ({num_paths})")
             self._locations_tab_index = self._notebook.GetPageCount() - 1
         else:
             # Update tab label
@@ -503,6 +490,7 @@ class DetailPanel(wx.Panel):
     def _on_name_char(self, event: wx.KeyEvent) -> None:
         """Block filesystem-invalid characters from being typed."""
         from app.core.name_formatting import INVALID_FILENAME_CHARS
+
         key = event.GetUnicodeKey()
         if key != wx.WXK_NONE and chr(key) in INVALID_FILENAME_CHARS:
             return  # Swallow the keystroke
@@ -599,21 +587,11 @@ class ReviewPanelMasterDetail(wx.Panel):
         # Header with count
         header_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        heading = create_static_text(
-            self,
-            "CARDS",
-            font=Font.SECTION_HEADER(),
-            colour=Color.TEXT_SECONDARY
-        )
+        heading = create_static_text(self, "CARDS", font=Font.SECTION_HEADER(), colour=Color.TEXT_SECONDARY)
         header_sizer.Add(heading, 0, wx.ALIGN_CENTER_VERTICAL)
         header_sizer.AddStretchSpacer()
 
-        self._count_label = create_static_text(
-            self,
-            "",
-            font=Font.SMALL(),
-            colour=Color.TEXT_SECONDARY
-        )
+        self._count_label = create_static_text(self, "", font=Font.SMALL(), colour=Color.TEXT_SECONDARY)
         header_sizer.Add(self._count_label, 0, wx.ALIGN_CENTER_VERTICAL)
         self._count_label.Bind(wx.EVT_ENTER_WINDOW, self._on_legend_hover)
         self._count_label.Bind(wx.EVT_LEAVE_WINDOW, self._on_legend_leave)
@@ -626,10 +604,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         self._splitter = splitter
 
         # Master: DataViewCtrl
-        self._list_ctrl = dv.DataViewCtrl(
-            splitter,
-            style=dv.DV_MULTIPLE | dv.DV_ROW_LINES | dv.DV_VERT_RULES
-        )
+        self._list_ctrl = dv.DataViewCtrl(splitter, style=dv.DV_MULTIPLE | dv.DV_ROW_LINES | dv.DV_VERT_RULES)
 
         # Create model
         self._model = CardListModel()
@@ -638,7 +613,9 @@ class ReviewPanelMasterDetail(wx.Panel):
         # Add columns
         self._list_ctrl.AppendTextColumn("", 0, width=Layout.DOT_COL_WIDTH, mode=dv.DATAVIEW_CELL_INERT)
         self._list_ctrl.AppendTextColumn("File Name", 1, width=Layout.FILENAME_COL_WIDTH, mode=dv.DATAVIEW_CELL_INERT)
-        self._list_ctrl.AppendTextColumn("Family Name", 2, width=Layout.FAMILY_NAME_COL_WIDTH, mode=dv.DATAVIEW_CELL_INERT)
+        self._list_ctrl.AppendTextColumn(
+            "Family Name", 2, width=Layout.FAMILY_NAME_COL_WIDTH, mode=dv.DATAVIEW_CELL_INERT
+        )
 
         # Bind selection event
         self._list_ctrl.Bind(dv.EVT_DATAVIEW_SELECTION_CHANGED, self._on_selection_changed)
@@ -771,10 +748,7 @@ class ReviewPanelMasterDetail(wx.Panel):
             self._on_select(clicked_card.id)
 
         # Gather all selected cards
-        selected_cards = [
-            self._cards_by_id[cid] for cid in self._selected_card_ids
-            if cid in self._cards_by_id
-        ]
+        selected_cards = [self._cards_by_id[cid] for cid in self._selected_card_ids if cid in self._cards_by_id]
 
         menu = self._build_context_menu(selected_cards)
         self._list_ctrl.PopupMenu(menu)
@@ -831,6 +805,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         menu.Bind(wx.EVT_MENU, _open_files, open_item)
 
         if not is_multi:
+
             def _reveal_files(evt, _paths=all_paths):
                 for p in _paths:
                     try:
@@ -838,7 +813,9 @@ class ReviewPanelMasterDetail(wx.Panel):
                     except OSError:
                         pass
 
-            menu.Bind(wx.EVT_MENU, _reveal_files, reveal_item)  # reveal_item defined in matching `if not is_multi` above
+            menu.Bind(
+                wx.EVT_MENU, _reveal_files, reveal_item
+            )  # reveal_item defined in matching `if not is_multi` above
 
         hashes = [c.file_hash for c in cards if c.file_hash]
         if self._on_remove and hashes:
@@ -870,6 +847,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         card = self._cards_by_id.get(card_id)
         if card and card.file_hash:
             from app.core.database import update_remove_family
+
             update_remove_family(card.file_hash, new_value)
 
     def _handle_candidate(self, card_id: int, candidate_id: int) -> None:
@@ -895,7 +873,9 @@ class ReviewPanelMasterDetail(wx.Panel):
                     try:
                         card.confidence = Confidence(cand.confidence)
                     except ValueError:
-                        logger.debug("Unknown confidence %r for candidate %d, defaulting to MEDIUM", cand.confidence, cand.id)
+                        logger.debug(
+                            "Unknown confidence %r for candidate %d, defaulting to MEDIUM", cand.confidence, cand.id
+                        )
                         card.confidence = Confidence.MEDIUM
 
                 break
@@ -929,7 +909,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         self._cards_by_id = {card.id: card for card in cards}
         self._model.load_cards(cards)
         n = len(cards)
-        self._count_label.SetLabel(f"{n} {'Card' if n == 1 else 'Cards'} \u24D8")
+        self._count_label.SetLabel(f"{n} {'Card' if n == 1 else 'Cards'} \u24d8")
 
         # Always reset selection — list content changes invalidate prior selection
         self._list_ctrl.UnselectAll()
@@ -1061,9 +1041,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         if not gc:
             return
         w, h = self.GetSize()
-        pen = gc.CreatePen(
-            wx.GraphicsPenInfo(Color.ACCENT).Width(Layout.HIGHLIGHT_WIDTH)
-        )
+        pen = gc.CreatePen(wx.GraphicsPenInfo(Color.ACCENT).Width(Layout.HIGHLIGHT_WIDTH))
         gc.SetPen(pen)
         gc.SetBrush(wx.NullBrush)
         path = gc.CreatePath()
@@ -1086,5 +1064,5 @@ class ReviewPanelMasterDetail(wx.Panel):
         """Set AI button state (enabled/disabled)."""
         # Only affects currently selected card in detail panel
         if self.selected_card_id == card_id:
-            enable = (state == "normal")
+            enable = state == "normal"
             self._detail_panel.enable_ai_button(enable)

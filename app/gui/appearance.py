@@ -43,9 +43,7 @@ class _AppearanceObserver(NSObject):
 
     _callback = objc.ivar()
 
-    def observeValueForKeyPath_ofObject_change_context_(
-        self, path: str, obj: object, change: object, ctx: int
-    ) -> None:
+    def observeValueForKeyPath_ofObject_change_context_(self, path: str, obj: object, change: object, ctx: int) -> None:
         if callable(self._callback):
             wx.CallAfter(self._callback)
 
@@ -80,9 +78,7 @@ def stop_observer() -> None:
         return
 
     try:
-        NSApplication.sharedApplication().removeObserver_forKeyPath_(
-            _observer, _KEY_PATH
-        )
+        NSApplication.sharedApplication().removeObserver_forKeyPath_(_observer, _KEY_PATH)
     except Exception:
         logger.debug("Failed to remove appearance observer", exc_info=True)
 

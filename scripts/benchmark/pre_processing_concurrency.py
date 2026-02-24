@@ -89,7 +89,6 @@ from scripts.benchmark.common import (
     sortable_th,
 )
 
-
 console = Console(stderr=True, highlight=False)
 
 
@@ -131,11 +130,7 @@ class BenchmarkResult:
 
     def baseline_time(self, preprocess_name: str) -> float:
         for s in self.scenarios:
-            if (
-                s.preprocess_name == preprocess_name
-                and s.concurrency_model == "sequential"
-                and s.worker_count == 1
-            ):
+            if s.preprocess_name == preprocess_name and s.concurrency_model == "sequential" and s.worker_count == 1:
                 return s.wall_time_s
         return 0.0
 
@@ -306,7 +301,11 @@ def _dispatch_asyncio_threads(
 
         async def run_one(job_id: int, pdf_path: Path) -> tuple[int, float, str | None]:
             elapsed, error = await loop.run_in_executor(
-                executor, _timed_job, str(pdf_path), preprocess_name, dpi,
+                executor,
+                _timed_job,
+                str(pdf_path),
+                preprocess_name,
+                dpi,
             )
             return (job_id, elapsed, error)
 
@@ -424,16 +423,18 @@ def run_benchmark(
             console.print("[red]No preprocessing pipelines available![/]")
             sys.exit(1)
 
-    console.print(Panel(
-        f"  Corpus:    {corpus_path} ({len(pdf_paths)} files)\n"
-        f"  DPI:       {dpi}\n"
-        f"  Pipelines: {', '.join(preprocess_names)}\n"
-        f"  Models:    {', '.join(concurrency_models)}\n"
-        f"  Levels:    {', '.join(map(str, concurrency_levels))}",
-        title="Preprocessing Concurrency Benchmark",
-        title_align="left",
-        expand=False,
-    ))
+    console.print(
+        Panel(
+            f"  Corpus:    {corpus_path} ({len(pdf_paths)} files)\n"
+            f"  DPI:       {dpi}\n"
+            f"  Pipelines: {', '.join(preprocess_names)}\n"
+            f"  Models:    {', '.join(concurrency_models)}\n"
+            f"  Levels:    {', '.join(map(str, concurrency_levels))}",
+            title="Preprocessing Concurrency Benchmark",
+            title_align="left",
+            expand=False,
+        )
+    )
 
     total_t0 = time.monotonic()
 
@@ -501,7 +502,9 @@ def run_benchmark(
     _TABLE_OVERHEAD = 6
 
     def _build_results_table(
-        scenarios: list[ScenarioResult], *, max_rows: int | None = None,
+        scenarios: list[ScenarioResult],
+        *,
+        max_rows: int | None = None,
     ) -> Table:
         """Build the master results table.
 
@@ -602,7 +605,9 @@ def run_benchmark(
 
                     # Measure actual rendered table height, pad to pin progress at bottom
                     measure_console = Console(
-                        stderr=True, width=console.size.width, force_terminal=True,
+                        stderr=True,
+                        width=console.size.width,
+                        force_terminal=True,
                     )
                     with measure_console.capture() as capture:
                         measure_console.print(table, end="")
@@ -731,12 +736,16 @@ def _generate_report(result: BenchmarkResult) -> str:
 
     # Quartile label maps
     _q_label_higher = {
-        "heatmap-q4": "Q4 (best)", "heatmap-q3": "Q3",
-        "heatmap-q2": "Q2", "heatmap-q1": "Q1 (worst)",
+        "heatmap-q4": "Q4 (best)",
+        "heatmap-q3": "Q3",
+        "heatmap-q2": "Q2",
+        "heatmap-q1": "Q1 (worst)",
     }
     _q_label_lower = {
-        "heatmap-q4": "Q4 (fastest)", "heatmap-q3": "Q3",
-        "heatmap-q2": "Q2", "heatmap-q1": "Q1 (slowest)",
+        "heatmap-q4": "Q4 (fastest)",
+        "heatmap-q3": "Q3",
+        "heatmap-q2": "Q2",
+        "heatmap-q1": "Q1 (slowest)",
     }
 
     # Filter toolbar (single toolbar for all pipeline tables)
@@ -926,9 +935,17 @@ def _generate_report(result: BenchmarkResult) -> str:
 
 def _write_csv(path: Path, result: BenchmarkResult) -> None:
     headers = [
-        "preprocess", "concurrency_model", "workers", "num_jobs", "wall_time_s",
-        "speedup", "efficiency_pct", "throughput_per_s", "avg_job_time_s",
-        "amdahl_max", "errors",
+        "preprocess",
+        "concurrency_model",
+        "workers",
+        "num_jobs",
+        "wall_time_s",
+        "speedup",
+        "efficiency_pct",
+        "throughput_per_s",
+        "avg_job_time_s",
+        "amdahl_max",
+        "errors",
     ]
     with open(path, "w", newline="") as f:
         writer = csv.writer(f)
@@ -937,19 +954,21 @@ def _write_csv(path: Path, result: BenchmarkResult) -> None:
             sp = result.speedup(s)
             eff = result.efficiency(s)
             amdahl = result.amdahl_max(s.preprocess_name, s.worker_count)
-            writer.writerow([
-                s.preprocess_name,
-                s.concurrency_model,
-                s.worker_count,
-                s.num_jobs,
-                f"{s.wall_time_s:.4f}",
-                f"{sp:.4f}",
-                f"{eff:.2f}",
-                f"{s.throughput:.2f}",
-                f"{s.avg_job_time:.4f}",
-                f"{amdahl:.4f}",
-                s.errors,
-            ])
+            writer.writerow(
+                [
+                    s.preprocess_name,
+                    s.concurrency_model,
+                    s.worker_count,
+                    s.num_jobs,
+                    f"{s.wall_time_s:.4f}",
+                    f"{sp:.4f}",
+                    f"{eff:.2f}",
+                    f"{s.throughput:.2f}",
+                    f"{s.avg_job_time:.4f}",
+                    f"{amdahl:.4f}",
+                    s.errors,
+                ]
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -967,24 +986,34 @@ def main() -> None:
     )
     parser.add_argument("corpus", type=Path, help="Path to directory containing PDF files")
     parser.add_argument(
-        "-o", "--output", type=Path, default=None,
+        "-o",
+        "--output",
+        type=Path,
+        default=None,
         help="Output directory for reports (default: timestamped)",
     )
     parser.add_argument("--dpi", type=int, default=200, help="DPI for rendering (default: 200)")
     parser.add_argument(
-        "--levels", type=str, default=",".join(map(str, DEFAULT_LEVELS)),
+        "--levels",
+        type=str,
+        default=",".join(map(str, DEFAULT_LEVELS)),
         help=f"Comma-separated concurrency levels (default: {','.join(map(str, DEFAULT_LEVELS))})",
     )
     parser.add_argument(
-        "--models", type=str, default=None,
+        "--models",
+        type=str,
+        default=None,
         help=f"Comma-separated models to test (default: all — {','.join(ALL_MODELS)})",
     )
     parser.add_argument(
-        "--pipelines", type=str, default=None,
+        "--pipelines",
+        type=str,
+        default=None,
         help=f"Comma-separated pipelines (default: {','.join(ALL_PIPELINES)})",
     )
     parser.add_argument(
-        "--no-open", action="store_true",
+        "--no-open",
+        action="store_true",
         help="Don't open the report in a browser when done",
     )
     args = parser.parse_args()
@@ -994,7 +1023,7 @@ def main() -> None:
         console.print(f"[red]Error: {corpus_path} is not a directory[/]")
         sys.exit(1)
 
-    levels = sorted(set(int(x) for x in args.levels.split(",")))
+    levels = sorted({int(x) for x in args.levels.split(",")})
     models = [x.strip() for x in args.models.split(",")] if args.models else list(ALL_MODELS)
     pipelines = [x.strip() for x in args.pipelines.split(",")] if args.pipelines else list(ALL_PIPELINES)
 

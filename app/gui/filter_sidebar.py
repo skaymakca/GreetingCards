@@ -1,7 +1,9 @@
 """wxPython Filter Sidebar for three-column Mail.app style layout."""
 
-import wx
 from pathlib import Path
+
+import wx
+
 from app.gui import styles
 from app.models.card import CardResult, Confidence
 
@@ -93,10 +95,7 @@ class FilterSidebar(wx.Panel):
         self._folder_checkboxes: list[wx.CheckBox] = []
 
         # --- Footer ---
-        self.SetToolTip(
-            "Click to select a filter.\n"
-            "Option-click to select multiple filters."
-        )
+        self.SetToolTip("Click to select a filter.\nOption-click to select multiple filters.")
 
         sizer.AddSpacer(_SIDEBAR_PAD)
 
@@ -176,11 +175,7 @@ class FilterSidebar(wx.Panel):
             if checkboxes[idx].GetValue():
                 checkboxes[0].SetValue(False)
 
-            new_selected = [
-                keys[i]
-                for i in range(1, len(keys))
-                if checkboxes[i].GetValue()
-            ]
+            new_selected = [keys[i] for i in range(1, len(keys)) if checkboxes[i].GetValue()]
 
             if not new_selected:
                 checkboxes[0].SetValue(True)
@@ -205,8 +200,10 @@ class FilterSidebar(wx.Panel):
         # Update internal state BEFORE firing callback, so _refresh_display
         # sees the correct selection when it syncs from sidebar.
         self._selected_category_filters = self._compute_new_selection(
-            filter_key, "all",
-            self._category_checkboxes, self._category_keys,
+            filter_key,
+            "all",
+            self._category_checkboxes,
+            self._category_keys,
             option_held,
         )
         self._on_category_filter(self._selected_category_filters)
@@ -221,8 +218,10 @@ class FilterSidebar(wx.Panel):
         # Update internal state BEFORE firing callback, so _refresh_display
         # sees the correct selection when it syncs from sidebar.
         self._selected_folder_filters = self._compute_new_selection(
-            filter_key, "all_folders",
-            self._folder_checkboxes, self._folder_keys,
+            filter_key,
+            "all_folders",
+            self._folder_checkboxes,
+            self._folder_keys,
             option_held,
         )
         self._on_folder_filter(self._selected_folder_filters)
@@ -258,7 +257,7 @@ class FilterSidebar(wx.Panel):
         # Build labels with disambiguation for colliding basenames
         basenames = [p.name for p in folder_paths]
         labels = []
-        for i, p in enumerate(folder_paths):
+        for _i, p in enumerate(folder_paths):
             if basenames.count(p.name) > 1:
                 labels.append(f"{p.parent.name}/{p.name}")
             else:
@@ -266,7 +265,7 @@ class FilterSidebar(wx.Panel):
 
         # Build filter list: "All Folders" + one per folder
         self._folder_filters = [("all_folders", "All Folders")]
-        for path, label in zip(folder_paths, labels):
+        for path, label in zip(folder_paths, labels, strict=False):
             self._folder_filters.append((str(path), label))
         self._folder_keys = [f[0] for f in self._folder_filters]
 
@@ -345,9 +344,11 @@ class FilterSidebar(wx.Panel):
                 self._category_checkboxes[i].Enable(True)
 
         self._selected_category_filters = self._apply_count_fallback(
-            "all", self._selected_category_filters,
+            "all",
+            self._selected_category_filters,
             self._category_disabled_keys,
-            self._category_checkboxes, self._category_keys,
+            self._category_checkboxes,
+            self._category_keys,
         )
 
     def update_folder_counts(self, cards: list[CardResult]) -> None:
@@ -363,10 +364,7 @@ class FilterSidebar(wx.Panel):
         counts: dict[str, int] = {"all_folders": len(cards)}
         for key in self._folder_keys[1:]:  # skip "all_folders"
             folder_path = Path(key)
-            counts[key] = sum(
-                1 for c in cards
-                if any(p.parent == folder_path for p in c.file_paths)
-            )
+            counts[key] = sum(1 for c in cards if any(p.parent == folder_path for p in c.file_paths))
 
         self._folder_disabled_keys.clear()
 
@@ -382,9 +380,11 @@ class FilterSidebar(wx.Panel):
                 self._folder_checkboxes[i].Enable(True)
 
         self._selected_folder_filters = self._apply_count_fallback(
-            "all_folders", self._selected_folder_filters,
+            "all_folders",
+            self._selected_folder_filters,
             self._folder_disabled_keys,
-            self._folder_checkboxes, self._folder_keys,
+            self._folder_checkboxes,
+            self._folder_keys,
         )
 
     # --- Public API ---

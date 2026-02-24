@@ -1,29 +1,36 @@
 """Tests for app.gui.help_dialog module (help system wrapper)."""
 
-import wx
-from unittest.mock import patch
 from pathlib import Path
+from unittest.mock import patch
 
-from app.gui.help_dialog import show_help
-from app.gui.html_viewer import (
-    _PageMatch, _build_page_index, _count_occurrences,
-    _TextExtractor, _viewer_refs,
-)
+import wx
+
 from app.core.help_builder import (
-    get_page_order, _parse_frontmatter, _read_help_pages,
+    _parse_frontmatter,
+    _read_help_pages,
     _validate_numbering,
+    get_page_order,
 )
 from app.core.paths import get_runtime_content_path
+from app.gui.help_dialog import show_help
+from app.gui.html_viewer import (
+    _build_page_index,
+    _count_occurrences,
+    _PageMatch,
+    _TextExtractor,
+    _viewer_refs,
+)
 
 
 def _get_help_base_path() -> Path:
     """Helper to get the help base path for tests."""
     return get_runtime_content_path("html/help")
 
+
 import pytest
 
-
 # --- Shared fixtures ---
+
 
 @pytest.fixture
 def help_window(wx_app, wx_frame):
@@ -44,6 +51,7 @@ def _get_toolbar(window: wx.Frame) -> wx.ToolBar:
 
 
 # --- Path tests ---
+
 
 class TestHelpBasePath:
     """Tests for help base path resolution."""
@@ -66,6 +74,7 @@ class TestHelpBasePath:
 
 
 # --- Content file tests ---
+
 
 class TestHelpContentFiles:
     """Tests that all help content pages exist."""
@@ -92,8 +101,9 @@ class TestHelpContentFiles:
         page_order = get_page_order(_get_help_base_path())
         for rel_path in page_order:
             content = (base / rel_path).read_text()
-            assert content.count('class="active"') == 1, \
-                f"Expected 1 active link in {rel_path}, found {content.count('class=\"active\"')}"
+            assert content.count('class="active"') == 1, (
+                f"Expected 1 active link in {rel_path}, found {content.count('class="active"')}"
+            )
 
     def test_pages_reference_shared_css(self):
         """All pages should reference the shared viewer.css."""
@@ -113,6 +123,7 @@ class TestHelpContentFiles:
 
 
 # --- Page order tests ---
+
 
 class TestGetPageOrder:
     """Tests for get_page_order() — reads page_order.txt manifest."""
@@ -146,6 +157,7 @@ class TestGetPageOrder:
 
 
 # --- Page index tests (using real help files) ---
+
 
 class TestBuildPageIndex:
     """Tests for _build_page_index() against real help content."""
@@ -185,8 +197,7 @@ class TestBuildPageIndex:
         page_order = get_page_order(_get_help_base_path())
         index = _build_page_index(base, page_order)
         for page, text in index.items():
-            assert "contents" not in text, \
-                f"Sidebar heading 'contents' found in {page} index"
+            assert "contents" not in text, f"Sidebar heading 'contents' found in {page} index"
 
     def test_missing_file_returns_empty_string(self, tmp_path):
         """Gracefully handle missing files."""
@@ -197,6 +208,7 @@ class TestBuildPageIndex:
 
 
 # --- Count occurrences tests ---
+
 
 class TestCountOccurrences:
     """Tests for _count_occurrences()."""
@@ -232,6 +244,7 @@ class TestCountOccurrences:
 
 # --- PageMatch NamedTuple tests ---
 
+
 class TestPageMatch:
     """Tests for _PageMatch NamedTuple."""
 
@@ -249,6 +262,7 @@ class TestPageMatch:
 
 # --- WebView window tests ---
 
+
 class TestHelpWebViewWindow:
     """Tests for the WebView help window."""
 
@@ -258,8 +272,10 @@ class TestHelpWebViewWindow:
 
     def test_singleton_reuse(self, help_window):
         """Second call should raise existing window, not create new one."""
-        with patch.object(help_window, "Raise") as mock_raise, \
-             patch.object(help_window, "IsBeingDeleted", return_value=False):
+        with (
+            patch.object(help_window, "Raise") as mock_raise,
+            patch.object(help_window, "IsBeingDeleted", return_value=False),
+        ):
             show_help(help_window.GetParent())
             mock_raise.assert_called_once()
 
@@ -281,6 +297,7 @@ class TestHelpWebViewWindow:
 
 
 # --- Toolbar tests ---
+
 
 class TestHelpToolbar:
     """Tests for the help window navigation toolbar."""
@@ -318,21 +335,20 @@ class TestHelpToolbar:
 
 # --- Search control tests ---
 
+
 class TestHelpSearchCtrl:
     """Tests for the help search control."""
 
     def test_search_ctrl_exists(self, help_window):
         """Toolbar should contain a SearchCtrl."""
         toolbar = _get_toolbar(help_window)
-        search_ctrls = [c for c in toolbar.GetChildren()
-                        if isinstance(c, wx.SearchCtrl)]
+        search_ctrls = [c for c in toolbar.GetChildren() if isinstance(c, wx.SearchCtrl)]
         assert len(search_ctrls) == 1
 
     def test_search_ctrl_descriptive_text(self, help_window):
         """SearchCtrl should have 'Search' placeholder."""
         toolbar = _get_toolbar(help_window)
-        search_ctrl = [c for c in toolbar.GetChildren()
-                       if isinstance(c, wx.SearchCtrl)][0]
+        search_ctrl = [c for c in toolbar.GetChildren() if isinstance(c, wx.SearchCtrl)][0]
         assert search_ctrl.GetDescriptiveText() == "Search"
 
     def test_match_buttons_disabled_initially(self, help_window):
@@ -351,19 +367,18 @@ class TestHelpSearchCtrl:
     def test_search_label_exists(self, help_window):
         """Toolbar should contain a StaticText label for search results."""
         toolbar = _get_toolbar(help_window)
-        labels = [c for c in toolbar.GetChildren()
-                  if isinstance(c, wx.StaticText)]
+        labels = [c for c in toolbar.GetChildren() if isinstance(c, wx.StaticText)]
         assert len(labels) == 1
 
     def test_search_label_empty_initially(self, help_window):
         """Search label should be empty when no search is active."""
         toolbar = _get_toolbar(help_window)
-        label = [c for c in toolbar.GetChildren()
-                 if isinstance(c, wx.StaticText)][0]
+        label = [c for c in toolbar.GetChildren() if isinstance(c, wx.StaticText)][0]
         assert label.GetLabel() == ""
 
 
 # --- Help builder: frontmatter parsing tests ---
+
 
 class TestParseFrontmatter:
     """Tests for _parse_frontmatter()."""
@@ -394,11 +409,12 @@ class TestParseFrontmatter:
 
     def test_multiple_keys(self):
         text = "---\ntitle: Test\nauthor: Me\n---\nBody"
-        meta, body = _parse_frontmatter(text)
+        meta, _body = _parse_frontmatter(text)
         assert meta == {"title": "Test", "author": "Me"}
 
 
 # --- Help builder: filename numbering validation tests ---
+
 
 class TestValidateNumbering:
     """Tests for _validate_numbering()."""
@@ -413,13 +429,11 @@ class TestValidateNumbering:
         _validate_numbering([], [])
 
     def test_duplicate_numbers(self):
-        with pytest.raises(ValueError, match="Duplicate.*2"):
-            _validate_numbering(
-                [1, 2, 2], ["1 - a.md", "2 - b.md", "2 - c.md"]
-            )
+        with pytest.raises(ValueError, match=r"Duplicate.*2"):
+            _validate_numbering([1, 2, 2], ["1 - a.md", "2 - b.md", "2 - c.md"])
 
     def test_gap_in_sequence(self):
-        with pytest.raises(ValueError, match="Gap.*expected 2"):
+        with pytest.raises(ValueError, match=r"Gap.*expected 2"):
             _validate_numbering([1, 3], ["1 - a.md", "3 - c.md"])
 
     def test_not_starting_at_one(self):
@@ -432,6 +446,7 @@ class TestValidateNumbering:
 
 
 # --- Help builder: read_help_pages tests ---
+
 
 class TestReadHelpPages:
     """Tests for _read_help_pages() with real content."""

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+
 from PIL import Image
 
 from app.core.name_formatting import sanitize_for_filename
@@ -29,11 +30,11 @@ class Confidence(Enum):
 
 # Class-level lookup tables (avoid dict recreation on every call)
 Confidence._COLOR_MAP = {
-    Confidence.HIGH: "#34C759",      # SUCCESS green
-    Confidence.MEDIUM: "#FF9500",    # WARNING orange
-    Confidence.LOW: "#FF3B30",       # ERROR red
-    Confidence.MANUAL: "#1E90FF",    # MANUAL_BLUE
-    Confidence.NONE: "#6E6E73",      # TEXT_SECONDARY gray
+    Confidence.HIGH: "#34C759",  # SUCCESS green
+    Confidence.MEDIUM: "#FF9500",  # WARNING orange
+    Confidence.LOW: "#FF3B30",  # ERROR red
+    Confidence.MANUAL: "#1E90FF",  # MANUAL_BLUE
+    Confidence.NONE: "#6E6E73",  # TEXT_SECONDARY gray
 }
 Confidence._TOOLTIP_MAP = {
     Confidence.HIGH: "High confidence — strong pattern match or AI result",
@@ -52,6 +53,7 @@ class PdfWorkerResult:
     If pickling overhead becomes a bottleneck, consider using a shared memory
     approach or a more compact serialization format.
     """
+
     pdf_path: str
     file_hash: str | None = None
     family_name: str = ""
@@ -70,6 +72,7 @@ class PdfWorkerResult:
 @dataclass
 class CandidateInfo:
     """Represents a candidate family name from database."""
+
     id: int
     family_name: str
     method: str  # 'ocr' | 'ai'
@@ -79,6 +82,7 @@ class CandidateInfo:
 @dataclass
 class CardState:
     """Complete card state from database for display."""
+
     display_name: str
     method: str  # 'manual' | 'ocr' | 'ai' | 'missing'
     confidence: str  # 'manual' | 'high' | 'medium' | 'low' | 'none'
@@ -90,6 +94,7 @@ class CardState:
 @dataclass
 class NameMatch:
     """Represents a family name extracted from OCR."""
+
     name: str
     confidence: Confidence
 
@@ -105,6 +110,7 @@ STATUS_DUPLICATE = "duplicate"
 @dataclass
 class RenamePlanItem:
     """Item in a rename plan."""
+
     old_path: Path
     new_path: Path
     status: str  # STATUS_OK | STATUS_SKIP_NO_NAME | STATUS_SKIP_SAME | STATUS_SKIP_ERROR | STATUS_DUPLICATE
@@ -114,6 +120,7 @@ class RenamePlanItem:
 @dataclass
 class RenameResult:
     """Result of executing a rename operation."""
+
     old_path: Path
     new_path: Path
     success: bool

@@ -1,11 +1,12 @@
 """Tests for app.core.pdf_worker module."""
+
 from dataclasses import fields
 from unittest.mock import patch
 
 from PIL import Image
 
 from app.core.pdf_worker import process_pdf_worker
-from app.models.card import CardState, CandidateInfo, PdfWorkerResult
+from app.models.card import CandidateInfo, CardState, PdfWorkerResult
 
 
 def _make_test_image(width=10, height=10, color="red"):
@@ -22,17 +23,19 @@ class TestProcessPdfWorkerSuccess:
     @patch("app.core.pdf_worker.render_all_pages")
     @patch("app.core.pdf_worker.get_card_state")
     @patch("app.core.pdf_worker.compute_file_hash", return_value="abc123")
-    def test_new_pdf_runs_ocr_and_saves(
-        self, mock_hash, mock_state, mock_render, mock_ocr, mock_save, mock_reprocess
-    ):
+    def test_new_pdf_runs_ocr_and_saves(self, mock_hash, mock_state, mock_render, mock_ocr, mock_save, mock_reprocess):
         """New PDF (no cached state) runs OCR, saves raw, and reprocesses."""
         mock_render.return_value = [_make_test_image()]
         # First call: no cached state; second call: after processing
         mock_state.side_effect = [
             None,
             CardState(
-                display_name="Smith", method="ocr", confidence="high",
-                candidates=[], remove_family=False, selected_candidate_id=None,
+                display_name="Smith",
+                method="ocr",
+                confidence="high",
+                candidates=[],
+                remove_family=False,
+                selected_candidate_id=None,
             ),
         ]
 
@@ -51,14 +54,16 @@ class TestProcessPdfWorkerSuccess:
     @patch("app.core.pdf_worker.render_all_pages")
     @patch("app.core.pdf_worker.get_card_state")
     @patch("app.core.pdf_worker.compute_file_hash", return_value="abc123")
-    def test_cached_pdf_skips_ocr(
-        self, mock_hash, mock_state, mock_render, mock_ocr, mock_save, mock_reprocess
-    ):
+    def test_cached_pdf_skips_ocr(self, mock_hash, mock_state, mock_render, mock_ocr, mock_save, mock_reprocess):
         """Cached PDF (existing state) skips OCR, only reprocesses candidates."""
         mock_render.return_value = [_make_test_image()]
         cached_state = CardState(
-            display_name="Jones", method="ocr", confidence="high",
-            candidates=[], remove_family=False, selected_candidate_id=None,
+            display_name="Jones",
+            method="ocr",
+            confidence="high",
+            candidates=[],
+            remove_family=False,
+            selected_candidate_id=None,
         )
         mock_state.return_value = cached_state
 
@@ -99,9 +104,7 @@ class TestProcessPdfWorkerImageHandling:
     @patch("app.core.pdf_worker.render_all_pages", return_value=[])
     @patch("app.core.pdf_worker.get_card_state", return_value=None)
     @patch("app.core.pdf_worker.compute_file_hash", return_value="abc123")
-    def test_empty_images_no_preview(
-        self, mock_hash, mock_state, mock_render, mock_ocr, mock_save, mock_reprocess
-    ):
+    def test_empty_images_no_preview(self, mock_hash, mock_state, mock_render, mock_ocr, mock_save, mock_reprocess):
         """When render returns empty list, preview and page bytes are None/empty."""
         result = process_pdf_worker("/fake/card.pdf")
 
@@ -116,9 +119,7 @@ class TestProcessPdfWorkerImageHandling:
     @patch("app.core.pdf_worker.render_all_pages")
     @patch("app.core.pdf_worker.get_card_state")
     @patch("app.core.pdf_worker.compute_file_hash", return_value="abc123")
-    def test_single_image_as_png_bytes(
-        self, mock_hash, mock_state, mock_render, mock_ocr, mock_save, mock_reprocess
-    ):
+    def test_single_image_as_png_bytes(self, mock_hash, mock_state, mock_render, mock_ocr, mock_save, mock_reprocess):
         """Single image is serialized as PNG bytes."""
         mock_render.return_value = [_make_test_image()]
         mock_state.side_effect = [None, None]
@@ -192,8 +193,12 @@ class TestProcessPdfWorkerErrors:
         """Reprocess error for cached card is captured in result."""
         mock_render.return_value = [_make_test_image()]
         cached_state = CardState(
-            display_name="Smith", method="ocr", confidence="high",
-            candidates=[], remove_family=False, selected_candidate_id=None,
+            display_name="Smith",
+            method="ocr",
+            confidence="high",
+            candidates=[],
+            remove_family=False,
+            selected_candidate_id=None,
         )
         mock_state.return_value = cached_state
 
@@ -211,15 +216,17 @@ class TestProcessPdfWorkerCardState:
     @patch("app.core.pdf_worker.render_all_pages")
     @patch("app.core.pdf_worker.get_card_state")
     @patch("app.core.pdf_worker.compute_file_hash", return_value="abc123")
-    def test_card_state_maps_to_result(
-        self, mock_hash, mock_state, mock_render, mock_ocr, mock_save, mock_reprocess
-    ):
+    def test_card_state_maps_to_result(self, mock_hash, mock_state, mock_render, mock_ocr, mock_save, mock_reprocess):
         """CardState fields are correctly mapped to result."""
         mock_render.return_value = [_make_test_image()]
         candidate = CandidateInfo(id=42, family_name="Smith", method="ai", confidence="high")
         state = CardState(
-            display_name="Smith", method="ai", confidence="high",
-            candidates=[candidate], remove_family=True, selected_candidate_id=42,
+            display_name="Smith",
+            method="ai",
+            confidence="high",
+            candidates=[candidate],
+            remove_family=True,
+            selected_candidate_id=42,
         )
         mock_state.side_effect = [None, state]
 
@@ -239,9 +246,7 @@ class TestProcessPdfWorkerCardState:
     @patch("app.core.pdf_worker.render_all_pages")
     @patch("app.core.pdf_worker.get_card_state")
     @patch("app.core.pdf_worker.compute_file_hash", return_value="abc123")
-    def test_none_state_gives_defaults(
-        self, mock_hash, mock_state, mock_render, mock_ocr, mock_save, mock_reprocess
-    ):
+    def test_none_state_gives_defaults(self, mock_hash, mock_state, mock_render, mock_ocr, mock_save, mock_reprocess):
         """When get_card_state returns None after processing, defaults are kept."""
         mock_render.return_value = [_make_test_image()]
         mock_state.return_value = None

@@ -2,7 +2,8 @@
 
 import pytest
 import wx
-from app.gui.context_menu import add_entry_context_menu, _title_case, _clear
+
+from app.gui.context_menu import _clear, _title_case, add_entry_context_menu
 
 
 @pytest.mark.gui
@@ -36,7 +37,7 @@ class TestContextMenuSetup:
 
         # Icons dict should have the expected keys if any icons loaded
         if icons:
-            for key in icons.keys():
+            for key in icons:
                 assert key in expected_keys
                 assert isinstance(icons[key], wx.Bitmap)
                 assert icons[key].IsOk()

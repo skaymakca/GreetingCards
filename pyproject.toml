@@ -31,6 +31,8 @@ dev = [
     "pytesseract>=0.3.13",
     "types-markdown>=3.10.2.20260211",
     "rich>=14.3.3",
+    "ruff>=0.11.0",
+    "bandit>=1.9.0",
 ]
 
 [tool.pytest.ini_options]
@@ -58,3 +60,72 @@ filterwarnings = [
 [tool.mypy]
 plugins = ["sqlalchemy.ext.mypy.plugin"]
 disable_error_code = ["import-untyped"]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 120
+src = ["app", "scripts", "tests"]
+extend-exclude = ["dist", "build", "_runtime_content", ".venv"]
+
+[tool.ruff.lint]
+select = [
+    "F",      # pyflakes
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "I",      # isort
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "SIM",    # flake8-simplify
+    "RUF",    # ruff-specific rules
+    "C4",     # flake8-comprehensions
+    "PIE",    # misc lints
+    "T20",    # flake8-print (catch leftover print())
+    "PT",     # flake8-pytest-style
+    "TCH",    # type-checking imports
+]
+ignore = [
+    "E501",   # line length — handled by formatter
+    "F401",   # unused imports — already caught by pyright
+    "UP007",  # X | Y union syntax — let pyright handle
+    "TCH",    # type-checking imports — moving to TYPE_CHECKING blocks risks runtime breakage
+    "RUF001", # ambiguous unicode — en dash etc. are intentional in name patterns
+    "RUF002", # ambiguous unicode in docstrings — multiplication sign etc. are intentional
+    "RUF003", # ambiguous unicode in comments — intentional
+    "RUF005", # consider iterable unpacking — concatenation is often clearer
+    "RUF012", # mutable class attribute default — common pattern in wxPython classes
+    "RUF015", # prefer next() over single-element slice — [0] is often clearer
+    "B005",   # strip() with multi-char strings — intentional for punctuation stripping
+    "SIM105", # use contextlib.suppress — try/except/pass is often more readable
+    "SIM108", # use ternary operator — if/else block is often clearer
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["T20", "B011", "PT006", "PT011", "PT012", "PT018"]
+"scripts/**/*.py" = ["T20"]
+"app/gui/**/*.py" = ["B009"]
+"app/gui/main_window.py" = ["E402"]
+"app/gui/review_panel.py" = ["E402"]
+"scripts/benchmark/*.py" = ["E402"]
+"tests/gui/test_help_dialog.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+[tool.bandit]
+targets = ["app", "scripts"]
+exclude_dirs = ["tests", "dist", "build", ".venv", "_runtime_content"]
+skips = [
+    "B108",   # hardcoded /tmp paths — mock data in visual_test.py, not real temp files
+    "B310",   # urllib urlopen — downloading from known URLs (tessdata, OpenAI images)
+    "B311",   # pseudo-random — used for test data generation, not security
+    "B404",   # import subprocess — macOS "open" usage is intentional
+    "B603",   # subprocess without shell=True — hardcoded commands only
+    "B607",   # partial path in subprocess — "open" is a system binary
+    "B608",   # SQL injection — false positive on f-string UI placeholders
+    "B704",   # markupsafe Markup — content comes from controlled markdown files
+]

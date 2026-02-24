@@ -1,10 +1,12 @@
 """Tests for wxPython main window."""
 
-import pytest
-import wx
 from pathlib import Path
 from unittest.mock import Mock
-from app.gui.main_window import MainWindow, FileDropTarget
+
+import pytest
+import wx
+
+from app.gui.main_window import FileDropTarget, MainWindow
 
 
 @pytest.fixture
@@ -25,7 +27,6 @@ def test_main_window_creation(wx_app):
     window._frame.Destroy()
 
 
-
 def test_folder_state_management(wx_app):
     """Test state is initialized correctly (multi-load architecture)."""
     window = MainWindow()
@@ -40,6 +41,7 @@ def test_folder_state_management(wx_app):
 def test_year_default_value(wx_app):
     """Test year field defaults to last year."""
     from datetime import datetime
+
     window = MainWindow()
     expected_year = datetime.now().year - 1
     assert window._year == expected_year
@@ -100,6 +102,7 @@ def test_drop_target_creation(wx_app):
 
 def test_file_drop_target_callback():
     """Test FileDropTarget stores callback."""
+
     def dummy_callback(path):
         pass
 
@@ -132,6 +135,7 @@ def test_file_drop_target_drag_callbacks_optional():
 def test_drop_overlay_drag_active(wx_app):
     """Test _DropOverlay.set_drag_active toggles flag."""
     from app.gui.main_window import _DropOverlay
+
     frame = wx.Frame(None)
     overlay = _DropOverlay(frame)
     assert overlay._drag_active is False
@@ -223,29 +227,31 @@ def test_processing_progress_without_dialog(wx_app):
 
 def test_worker_result_to_card_conversion(wx_app):
     """Test conversion of PdfWorkerResult to CardResult."""
-    from PIL import Image
-    from app.models.card import PdfWorkerResult
     import io
+
+    from PIL import Image
+
+    from app.models.card import PdfWorkerResult
 
     window = MainWindow()
 
     # Create test image bytes
-    img = Image.new('RGB', (100, 100), color='white')
+    img = Image.new("RGB", (100, 100), color="white")
     buf = io.BytesIO()
-    img.save(buf, format='PNG')
+    img.save(buf, format="PNG")
     img_bytes = buf.getvalue()
 
     worker_result = PdfWorkerResult(
-        pdf_path='/test/card.pdf',
-        file_hash='abc123',
-        family_name='Smith',
-        confidence='high',
-        method='ocr',
-        alternates=['Smyth'],
+        pdf_path="/test/card.pdf",
+        file_hash="abc123",
+        family_name="Smith",
+        confidence="high",
+        method="ocr",
+        alternates=["Smyth"],
         candidates=[],
         remove_family=False,
         selected_candidate_id=None,
-        ocr_text='Smith Family',
+        ocr_text="Smith Family",
         error=None,
         preview_image_bytes=img_bytes,
         page_images_bytes=[img_bytes],
@@ -255,8 +261,8 @@ def test_worker_result_to_card_conversion(wx_app):
 
     assert card.id == 1
     assert card.filename == "card.pdf"
-    assert card.file_hash == 'abc123'
-    assert card.family_name == 'Smith'
+    assert card.file_hash == "abc123"
+    assert card.family_name == "Smith"
     assert card.preview_image is not None
     assert len(card.page_images) == 1
 
@@ -270,19 +276,19 @@ def test_worker_result_to_card_error_preserves_fields(wx_app):
     window = MainWindow()
 
     worker_result = PdfWorkerResult(
-        pdf_path='/test/card.pdf',
+        pdf_path="/test/card.pdf",
         file_hash=None,
-        family_name='',
-        confidence='none',
-        method='missing',
-        error='Failed to process',
+        family_name="",
+        confidence="none",
+        method="missing",
+        error="Failed to process",
     )
 
     card = window._worker_result_to_card(worker_result, card_id=1)
 
-    assert card.error == 'Failed to process'
-    assert card.confidence.value == 'none'
-    assert card.file_hash == ''
+    assert card.error == "Failed to process"
+    assert card.confidence.value == "none"
+    assert card.file_hash == ""
 
     window._frame.Destroy()
 
@@ -299,7 +305,7 @@ def test_search_control_exists(wx_app):
 def test_sidebar_notification_exists(wx_app):
     """Test sidebar has notification area."""
     window = MainWindow()
-    assert hasattr(window._sidebar, '_notify_label')
+    assert hasattr(window._sidebar, "_notify_label")
     assert not window._sidebar._notify_label.IsShown()
     window._frame.Destroy()
 
@@ -453,10 +459,7 @@ def test_edit_menu_exists(wx_app):
 
     edit_menu = menubar.GetMenu(edit_menu_idx)
     items = list(edit_menu.GetMenuItems())
-    labels = [
-        "---" if it.IsSeparator() else it.GetItemLabelText()
-        for it in items
-    ]
+    labels = ["---" if it.IsSeparator() else it.GetItemLabelText() for it in items]
     assert "Find..." in labels
     assert "Select All" in labels
     assert "Select None" in labels
@@ -473,10 +476,7 @@ def test_clear_ai_menu_exists(wx_app):
     assert file_menu_idx != wx.NOT_FOUND
 
     file_menu = menubar.GetMenu(file_menu_idx)
-    labels = [
-        it.GetItemLabelText() for it in file_menu.GetMenuItems()
-        if not it.IsSeparator()
-    ]
+    labels = [it.GetItemLabelText() for it in file_menu.GetMenuItems() if not it.IsSeparator()]
     assert any("Clear AI Results" in label for label in labels)
 
     window._frame.Destroy()
@@ -513,7 +513,7 @@ def test_filter_sidebar_exists(wx_app):
     """Test filter sidebar is created."""
     window = MainWindow()
     assert window._sidebar is not None
-    assert hasattr(window._sidebar, 'get_selected_category_filters')
+    assert hasattr(window._sidebar, "get_selected_category_filters")
     assert window._sidebar.get_selected_category_filters() == ["all"]
     window._frame.Destroy()
 
@@ -573,7 +573,12 @@ def test_sidebar_filter_changes_cards(wx_app):
     card_error.error = "Failed"
     card_error.file_hash = "hash_error"
 
-    window._cards_by_hash = {"hash_high": card_high, "hash_medium": card_medium, "hash_manual": card_manual, "hash_error": card_error}
+    window._cards_by_hash = {
+        "hash_high": card_high,
+        "hash_medium": card_medium,
+        "hash_manual": card_manual,
+        "hash_error": card_error,
+    }
 
     # Test "all" filter (default)
     window._current_category_filters = ["all"]
@@ -1318,7 +1323,9 @@ def test_remove_completed_results_partial_failure(wx_app):
 
     results = [
         RenameResult(Path("/test/old1.pdf"), new_path, True, "Renamed", card=card1),
-        RenameResult(fail_path, Path("/test/Holiday Cards 2024 - Jones Family.pdf"), False, "Permission denied", card=card2),
+        RenameResult(
+            fail_path, Path("/test/Holiday Cards 2024 - Jones Family.pdf"), False, "Permission denied", card=card2
+        ),
     ]
 
     window._remove_completed_results(results)
@@ -1406,7 +1413,9 @@ def test_remove_completed_results_multi_path_card(wx_app):
 
     results = [
         RenameResult(Path("/test/dir_a/old.pdf"), new_path, True, "Renamed", card=card),
-        RenameResult(fail_path, Path("/test/dir_b/Holiday Cards 2024 - Smith Family.pdf"), False, "Permission denied", card=card),
+        RenameResult(
+            fail_path, Path("/test/dir_b/Holiday Cards 2024 - Smith Family.pdf"), False, "Permission denied", card=card
+        ),
     ]
 
     window._remove_completed_results(results)
@@ -1425,8 +1434,9 @@ def test_remove_completed_results_multi_path_card(wx_app):
 
 def test_on_name_change_revert_to_original(wx_app):
     """Clearing the name field reverts card to DB state (best candidate)."""
-    from app.models.card import CardResult, Confidence, CandidateInfo, CardState
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import MagicMock, patch
+
+    from app.models.card import CandidateInfo, CardResult, CardState, Confidence
 
     window = MainWindow()
     card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
@@ -1442,13 +1452,18 @@ def test_on_name_change_revert_to_original(wx_app):
 
     # Mock DB to return OCR candidate
     mock_state = CardState(
-        display_name="Smith", confidence="high", method="ocr",
+        display_name="Smith",
+        confidence="high",
+        method="ocr",
         candidates=[CandidateInfo(id=1, family_name="Smith", method="ocr", confidence="high")],
-        remove_family=False, selected_candidate_id=1,
+        remove_family=False,
+        selected_candidate_id=1,
     )
 
-    with patch("app.gui.main_window.set_manual_name"), \
-         patch("app.gui.main_window.get_card_state", return_value=mock_state):
+    with (
+        patch("app.gui.main_window.set_manual_name"),
+        patch("app.gui.main_window.get_card_state", return_value=mock_state),
+    ):
         window._on_name_change(0, "")
 
     assert card.confidence == Confidence.HIGH
@@ -1461,8 +1476,9 @@ def test_on_name_change_revert_to_original(wx_app):
 
 def test_on_name_change_revert_ai_analyzed(wx_app):
     """Clearing name on an AI-analyzed card reverts method to 'ai'."""
-    from app.models.card import CardResult, Confidence, CandidateInfo, CardState
     from unittest.mock import patch
+
+    from app.models.card import CandidateInfo, CardResult, CardState, Confidence
 
     window = MainWindow()
     card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
@@ -1478,13 +1494,18 @@ def test_on_name_change_revert_ai_analyzed(wx_app):
     window._hash_by_path = {Path("/test/card.pdf"): "h1"}
 
     mock_state = CardState(
-        display_name="Smith", confidence="high", method="ai",
+        display_name="Smith",
+        confidence="high",
+        method="ai",
         candidates=[CandidateInfo(id=1, family_name="Smith", method="ai", confidence="high")],
-        remove_family=False, selected_candidate_id=1,
+        remove_family=False,
+        selected_candidate_id=1,
     )
 
-    with patch("app.gui.main_window.set_manual_name"), \
-         patch("app.gui.main_window.get_card_state", return_value=mock_state):
+    with (
+        patch("app.gui.main_window.set_manual_name"),
+        patch("app.gui.main_window.get_card_state", return_value=mock_state),
+    ):
         window._on_name_change(0, "")
 
     assert card.method == "ai"
@@ -1494,8 +1515,9 @@ def test_on_name_change_revert_ai_analyzed(wx_app):
 
 def test_on_name_change_revert_no_original_confidence(wx_app):
     """Clearing name when no DB state falls back to NONE/missing."""
-    from app.models.card import CardResult, Confidence
     from unittest.mock import patch
+
+    from app.models.card import CardResult, Confidence
 
     window = MainWindow()
     card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
@@ -1508,8 +1530,7 @@ def test_on_name_change_revert_no_original_confidence(wx_app):
     window._cards_by_hash = {"h1": card}
     window._hash_by_path = {Path("/test/card.pdf"): "h1"}
 
-    with patch("app.gui.main_window.set_manual_name"), \
-         patch("app.gui.main_window.get_card_state", return_value=None):
+    with patch("app.gui.main_window.set_manual_name"), patch("app.gui.main_window.get_card_state", return_value=None):
         window._on_name_change(0, "")
 
     assert card.confidence == Confidence.NONE
@@ -1561,13 +1582,12 @@ def test_year_validation_accepts_valid(wx_app):
     # With no cards loaded, _start_rename will call get_cards which returns []
     # Then build_rename_plan([]) returns [], and RenameConfirmDialog opens
     # We just verify it doesn't show the year validation error
-    with patch("wx.MessageBox") as mock_msg:
-        with patch("app.gui.main_window.RenameConfirmDialog") as mock_dialog:
-            mock_dialog.return_value.ShowModal.return_value = 0  # Cancel
-            mock_dialog.return_value.Destroy = lambda: None
-            window._start_rename()
-            # MessageBox should NOT have been called (year is valid)
-            mock_msg.assert_not_called()
+    with patch("wx.MessageBox") as mock_msg, patch("app.gui.main_window.RenameConfirmDialog") as mock_dialog:
+        mock_dialog.return_value.ShowModal.return_value = 0  # Cancel
+        mock_dialog.return_value.Destroy = lambda: None
+        window._start_rename()
+        # MessageBox should NOT have been called (year is valid)
+        mock_msg.assert_not_called()
 
     window._frame.Destroy()
 
@@ -1642,11 +1662,11 @@ def test_worker_result_to_card_invalid_confidence(wx_app):
 
     window = MainWindow()
     worker_result = PdfWorkerResult(
-        pdf_path='/test.pdf',
-        file_hash='abc123',
-        family_name='Smith',
-        confidence='invalid_value',
-        method='ocr',
+        pdf_path="/test.pdf",
+        file_hash="abc123",
+        family_name="Smith",
+        confidence="invalid_value",
+        method="ocr",
     )
 
     card = window._worker_result_to_card(worker_result, 0)
@@ -1661,11 +1681,11 @@ def test_worker_result_to_card_with_error(wx_app):
 
     window = MainWindow()
     worker_result = PdfWorkerResult(
-        pdf_path='/test.pdf',
-        file_hash='abc123',
-        confidence='high',
-        method='ocr',
-        error='Something broke',
+        pdf_path="/test.pdf",
+        file_hash="abc123",
+        confidence="high",
+        method="ocr",
+        error="Something broke",
     )
 
     card = window._worker_result_to_card(worker_result, 0)
@@ -1697,8 +1717,9 @@ def test_load_card_state_from_db_no_hash(wx_app):
 def test_load_card_state_from_db_with_state(wx_app):
     """_load_card_state_from_db populates card from DB state (lines 1224-1235)."""
     from unittest.mock import patch
+
     from app.gui.main_window import MainWindow
-    from app.models.card import CardResult, CardState, CandidateInfo, Confidence
+    from app.models.card import CandidateInfo, CardResult, CardState, Confidence
 
     card = CardResult(id=0, file_paths=[Path("/test.pdf")], primary_path=Path("/test.pdf"))
     card.file_hash = "abc123"
@@ -1726,6 +1747,7 @@ def test_load_card_state_from_db_with_state(wx_app):
 def test_load_card_state_from_db_no_state(wx_app):
     """_load_card_state_from_db sets ai_analyzed when no state found (line 1237)."""
     from unittest.mock import patch
+
     from app.gui.main_window import MainWindow
     from app.models.card import CardResult
 
@@ -1823,6 +1845,7 @@ def test_on_key_press_escape_clears_search(wx_app):
 
     # Mock FindFocus to return search ctrl
     from unittest.mock import patch
+
     with patch.object(window._frame, "FindFocus", return_value=window._search_ctrl):
         window._on_key_press(event)
 
@@ -1837,9 +1860,10 @@ def test_on_key_press_skip_in_text_ctrl(wx_app):
 
     text_ctrl = wx.TextCtrl(window._frame)
     event = Mock(spec=wx.KeyEvent)
-    event.GetKeyCode.return_value = ord('A')
+    event.GetKeyCode.return_value = ord("A")
 
     from unittest.mock import patch
+
     with patch.object(window._frame, "FindFocus", return_value=text_ctrl):
         window._on_key_press(event)
         event.Skip.assert_called_once()
@@ -1969,6 +1993,7 @@ def test_create_text_ctrl_with_callback(wx_app):
 def test_load_cursor_from_symbol_exception_returns_none(wx_app):
     """load_cursor_from_symbol returns None when rendering raises (lines 180-183)."""
     from unittest.mock import patch
+
     from app.gui.icons import load_cursor_from_symbol
 
     with patch("app.gui.icons._render_sf_symbol_to_png", side_effect=RuntimeError("test")):
@@ -1984,6 +2009,7 @@ def test_load_cursor_from_symbol_exception_returns_none(wx_app):
 def test_load_sf_symbol_bad_image_caches_none(wx_app):
     """load_sf_symbol caches None when wx.Image is not OK (lines 220-221)."""
     from unittest.mock import patch
+
     from app.gui import icons
 
     # Clear cache to avoid interference
@@ -2011,14 +2037,17 @@ class TestResolvedMessages:
 
     def test_resolved_messages_contains_renamed(self):
         from app.gui.main_window import _RESOLVED_MESSAGES
+
         assert "Renamed" in _RESOLVED_MESSAGES
 
     def test_resolved_messages_contains_already_named(self):
         from app.gui.main_window import _RESOLVED_MESSAGES
+
         assert "Already named correctly" in _RESOLVED_MESSAGES
 
     def test_resolved_messages_size(self):
         from app.gui.main_window import _RESOLVED_MESSAGES
+
         assert len(_RESOLVED_MESSAGES) == 2
 
 
@@ -2034,10 +2063,7 @@ def test_reload_menu_exists(wx_app):
 
     file_menu_idx = menubar.FindMenu("File")
     file_menu = menubar.GetMenu(file_menu_idx)
-    labels = [
-        it.GetItemLabelText() for it in file_menu.GetMenuItems()
-        if not it.IsSeparator()
-    ]
+    labels = [it.GetItemLabelText() for it in file_menu.GetMenuItems() if not it.IsSeparator()]
     assert any("Reload" in label for label in labels)
 
     window._frame.Destroy()
@@ -2072,6 +2098,7 @@ def test_reload_no_cards_is_noop(wx_app):
 def test_reload_no_changes(wx_app, tmp_path):
     """_reload_cards with unchanged files shows 'up to date' message."""
     from unittest.mock import patch
+
     from app.models.card import CardResult, Confidence
 
     window = MainWindow()
@@ -2087,8 +2114,10 @@ def test_reload_no_changes(wx_app, tmp_path):
     window._pdf_files = [pdf]
 
     # Mock compute_file_hash to return the same hash
-    with patch("app.core.database.compute_file_hash", return_value="hash1"), \
-         patch.object(window, "_show_info_message") as mock_msg:
+    with (
+        patch("app.core.database.compute_file_hash", return_value="hash1"),
+        patch.object(window, "_show_info_message") as mock_msg,
+    ):
         window._reload_cards()
         mock_msg.assert_called_once()
         assert "up to date" in mock_msg.call_args[0][0]
@@ -2129,6 +2158,7 @@ def test_reload_deleted_file(wx_app, tmp_path):
 def test_reload_modified_file(wx_app, tmp_path):
     """_reload_cards reprocesses files with changed content hash."""
     from unittest.mock import patch
+
     from app.models.card import CardResult, Confidence
 
     window = MainWindow()
@@ -2145,8 +2175,10 @@ def test_reload_modified_file(wx_app, tmp_path):
     window._pdf_files = [pdf]
 
     # Mock compute_file_hash to return a new hash
-    with patch("app.core.database.compute_file_hash", return_value="new_hash"), \
-         patch.object(window, "_start_processing") as mock_proc:
+    with (
+        patch("app.core.database.compute_file_hash", return_value="new_hash"),
+        patch.object(window, "_start_processing") as mock_proc,
+    ):
         window._reload_cards()
         mock_proc.assert_called_once()
         assert pdf in mock_proc.call_args[0][0]
@@ -2182,6 +2214,7 @@ def test_reload_deleted_multi_path_card(wx_app, tmp_path):
 
     # Mock compute_file_hash for the remaining file
     from unittest.mock import patch
+
     with patch("app.core.database.compute_file_hash", return_value="hash1"):
         window._reload_cards()
 
@@ -2197,8 +2230,9 @@ def test_reload_deleted_multi_path_card(wx_app, tmp_path):
 def test_reload_updates_cooldown_timestamp(wx_app, tmp_path):
     """_reload_cards updates _last_reload_time."""
     import time
-    from app.models.card import CardResult, Confidence
     from unittest.mock import patch
+
+    from app.models.card import CardResult, Confidence
 
     window = MainWindow()
 
@@ -2224,7 +2258,8 @@ def test_reload_updates_cooldown_timestamp(wx_app, tmp_path):
 
 def test_on_frame_activate_triggers_reload(wx_app, tmp_path):
     """EVT_ACTIVATE triggers _reload_cards when conditions are met."""
-    from unittest.mock import patch, Mock
+    from unittest.mock import Mock, patch
+
     from app.models.card import CardResult, Confidence
 
     window = MainWindow()
@@ -2252,7 +2287,7 @@ def test_on_frame_activate_triggers_reload(wx_app, tmp_path):
 
 def test_on_frame_activate_skips_deactivation(wx_app):
     """EVT_ACTIVATE does not reload on deactivation."""
-    from unittest.mock import patch, Mock
+    from unittest.mock import Mock, patch
 
     window = MainWindow()
     window._hash_by_path = {Path("/test.pdf"): "hash1"}
@@ -2269,7 +2304,7 @@ def test_on_frame_activate_skips_deactivation(wx_app):
 
 def test_on_frame_activate_skips_no_cards(wx_app):
     """EVT_ACTIVATE does not reload when no cards loaded."""
-    from unittest.mock import patch, Mock
+    from unittest.mock import Mock, patch
 
     window = MainWindow()
 
@@ -2286,7 +2321,7 @@ def test_on_frame_activate_skips_no_cards(wx_app):
 def test_on_frame_activate_respects_cooldown(wx_app, tmp_path):
     """EVT_ACTIVATE skips reload within cooldown period."""
     import time
-    from unittest.mock import patch, Mock
+    from unittest.mock import Mock, patch
 
     window = MainWindow()
     window._hash_by_path = {Path("/test.pdf"): "hash1"}
@@ -2305,7 +2340,7 @@ def test_on_frame_activate_respects_cooldown(wx_app, tmp_path):
 
 def test_on_frame_activate_skips_during_processing(wx_app):
     """EVT_ACTIVATE skips reload when processing is in progress (reload tool disabled)."""
-    from unittest.mock import patch, Mock
+    from unittest.mock import Mock, patch
 
     window = MainWindow()
     window._hash_by_path = {Path("/test.pdf"): "hash1"}
@@ -2338,6 +2373,7 @@ def test_enable_action_tools_reload(wx_app):
 def test_reload_hash_error_skips_file(wx_app, tmp_path):
     """_reload_cards skips files that can't be hashed (OSError)."""
     from unittest.mock import patch
+
     from app.models.card import CardResult, Confidence
 
     window = MainWindow()
@@ -2352,8 +2388,10 @@ def test_reload_hash_error_skips_file(wx_app, tmp_path):
     window._hash_by_path = {pdf: "hash1"}
     window._pdf_files = [pdf]
 
-    with patch("app.core.database.compute_file_hash", side_effect=OSError("disk error")), \
-         patch.object(window, "_show_info_message") as mock_msg:
+    with (
+        patch("app.core.database.compute_file_hash", side_effect=OSError("disk error")),
+        patch.object(window, "_show_info_message") as mock_msg,
+    ):
         window._reload_cards()
         # Should show "up to date" since the error is skipped
         assert "up to date" in mock_msg.call_args[0][0]
@@ -2370,6 +2408,7 @@ def test_reload_toolbar_in_icon_map(wx_app):
 
     # Verify _reload_id is in the icon map (tested via _refresh_toolbar_icons)
     from unittest.mock import patch
+
     with patch("app.gui.main_window.load_sf_symbol", return_value=None) as mock_load:
         window._refresh_toolbar_icons()
         # Check arrow.clockwise was requested
@@ -2387,6 +2426,7 @@ def test_reload_toolbar_in_icon_map(wx_app):
 def test_reload_mtime_only_skips_unchanged(wx_app, tmp_path):
     """mtime_only=True skips files with unchanged mtime (no hash call)."""
     from unittest.mock import patch
+
     from app.models.card import CardResult, Confidence
 
     window = MainWindow()
@@ -2403,8 +2443,7 @@ def test_reload_mtime_only_skips_unchanged(wx_app, tmp_path):
     window._mtime_by_path = {pdf: mtime}
     window._pdf_files = [pdf]
 
-    with patch("app.core.database.compute_file_hash") as mock_hash, \
-         patch.object(window, "_show_info_message"):
+    with patch("app.core.database.compute_file_hash") as mock_hash, patch.object(window, "_show_info_message"):
         window._reload_cards(mtime_only=True)
         mock_hash.assert_not_called()
 
@@ -2417,6 +2456,7 @@ def test_reload_mtime_only_skips_unchanged(wx_app, tmp_path):
 def test_reload_mtime_only_hashes_on_mtime_change(wx_app, tmp_path):
     """mtime_only=True falls through to hash check when mtime differs."""
     from unittest.mock import patch
+
     from app.models.card import CardResult, Confidence
 
     window = MainWindow()
@@ -2432,8 +2472,10 @@ def test_reload_mtime_only_hashes_on_mtime_change(wx_app, tmp_path):
     window._mtime_by_path = {pdf: 0.0}  # Stale mtime — will differ from stat
     window._pdf_files = [pdf]
 
-    with patch("app.core.database.compute_file_hash", return_value="hash1") as mock_hash, \
-         patch.object(window, "_show_info_message"):
+    with (
+        patch("app.core.database.compute_file_hash", return_value="hash1") as mock_hash,
+        patch.object(window, "_show_info_message"),
+    ):
         window._reload_cards(mtime_only=True)
         mock_hash.assert_called_once_with(pdf)
 
@@ -2443,6 +2485,7 @@ def test_reload_mtime_only_hashes_on_mtime_change(wx_app, tmp_path):
 def test_reload_manual_always_hashes(wx_app, tmp_path):
     """mtime_only=False (manual reload) always hashes, even when mtime matches."""
     from unittest.mock import patch
+
     from app.models.card import CardResult, Confidence
 
     window = MainWindow()
@@ -2459,8 +2502,10 @@ def test_reload_manual_always_hashes(wx_app, tmp_path):
     window._mtime_by_path = {pdf: mtime}
     window._pdf_files = [pdf]
 
-    with patch("app.core.database.compute_file_hash", return_value="hash1") as mock_hash, \
-         patch.object(window, "_show_info_message"):
+    with (
+        patch("app.core.database.compute_file_hash", return_value="hash1") as mock_hash,
+        patch.object(window, "_show_info_message"),
+    ):
         window._reload_cards(mtime_only=False)
         mock_hash.assert_called_once_with(pdf)
 
@@ -2469,7 +2514,8 @@ def test_reload_manual_always_hashes(wx_app, tmp_path):
 
 def test_on_frame_activate_uses_mtime_only(wx_app, tmp_path):
     """EVT_ACTIVATE passes mtime_only=True to _reload_cards."""
-    from unittest.mock import patch, Mock
+    from unittest.mock import Mock, patch
+
     from app.models.card import CardResult, Confidence
 
     window = MainWindow()

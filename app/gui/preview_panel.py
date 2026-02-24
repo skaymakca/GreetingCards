@@ -2,6 +2,7 @@
 
 import wx
 from PIL import Image
+
 from app.gui import styles, utils
 
 
@@ -42,17 +43,14 @@ class PreviewPanel(wx.Panel):
         # Load custom SF Symbol cursors (with fallback)
         try:
             from app.gui.icons import load_cursor_from_symbol
+
             self._zoom_in_cursor = load_cursor_from_symbol(
                 "plus.magnifyingglass",
                 point_size=7,
-                color_hex="#000000"  # Black for good contrast
+                color_hex="#000000",  # Black for good contrast
             )
-            self._zoom_out_cursor = load_cursor_from_symbol(
-                "minus.magnifyingglass",
-                point_size=7,
-                color_hex="#000000"
-            )
-        except (ImportError, AttributeError, OSError):
+            self._zoom_out_cursor = load_cursor_from_symbol("minus.magnifyingglass", point_size=7, color_hex="#000000")
+        except ImportError, AttributeError, OSError:
             self._zoom_in_cursor = None
             self._zoom_out_cursor = None
 
@@ -70,9 +68,7 @@ class PreviewPanel(wx.Panel):
 
         # Title
         self._title_label = utils.create_static_text(
-            self, "PREVIEW",
-            font=styles.Font.SECTION_HEADER(),
-            colour=styles.Color.TEXT_SECONDARY
+            self, "PREVIEW", font=styles.Font.SECTION_HEADER(), colour=styles.Color.TEXT_SECONDARY
         )
         sizer.Add(self._title_label, 0, wx.ALL, styles.Layout.PAD)
 
@@ -104,9 +100,7 @@ class PreviewPanel(wx.Panel):
         controls_sizer.Add(self._prev_btn, 0, wx.ALIGN_CENTER_VERTICAL)
 
         self._page_label = utils.create_static_text(
-            controls, "",
-            font=styles.Font.SMALL(),
-            colour=styles.Color.TEXT_PRIMARY
+            controls, "", font=styles.Font.SMALL(), colour=styles.Color.TEXT_PRIMARY
         )
         self._page_label.SetMinSize((50, -1))
         self._page_label.SetWindowStyleFlag(wx.ALIGN_CENTRE_HORIZONTAL | wx.ST_NO_AUTORESIZE)
@@ -131,9 +125,7 @@ class PreviewPanel(wx.Panel):
         controls_sizer.Add(self._zout_btn, 0, wx.ALIGN_CENTER_VERTICAL)
 
         self._zoom_label = utils.create_static_text(
-            controls, "",
-            font=styles.Font.SMALL(),
-            colour=styles.Color.TEXT_PRIMARY
+            controls, "", font=styles.Font.SMALL(), colour=styles.Color.TEXT_PRIMARY
         )
         self._zoom_label.SetMinSize((40, -1))
         self._zoom_label.SetWindowStyleFlag(wx.ALIGN_CENTRE_HORIZONTAL | wx.ST_NO_AUTORESIZE)
@@ -558,17 +550,17 @@ class PreviewPanel(wx.Panel):
         current_line: list[str] = []
 
         for word in words:
-            test_line = ' '.join(current_line + [word])
+            test_line = " ".join(current_line + [word])
             tw, _ = dc.GetTextExtent(test_line)
 
             if tw <= max_width:
                 current_line.append(word)
             else:
                 if current_line:
-                    lines.append(' '.join(current_line))
+                    lines.append(" ".join(current_line))
                 current_line = [word]
 
         if current_line:
-            lines.append(' '.join(current_line))
+            lines.append(" ".join(current_line))
 
         return lines if lines else [text]

@@ -1,12 +1,15 @@
 """Tests for app.core.ocr_engine module."""
-from unittest.mock import patch, MagicMock
+
+from unittest.mock import MagicMock, patch
 
 import pytest
 from PIL import Image
 
 import app.core.ocr_engine as ocr_module
 from app.core.ocr_engine import (
-    preprocess_image, extract_text, extract_text_all_pages,
+    extract_text,
+    extract_text_all_pages,
+    preprocess_image,
 )
 
 
@@ -76,9 +79,7 @@ class TestExtractText:
         mock_api_cls.return_value = mock_api
         img = _make_test_image()
         extract_text(img)
-        mock_api.SetVariable.assert_called_once_with(
-            "language_model_penalty_non_dict_word", "0.15"
-        )
+        mock_api.SetVariable.assert_called_once_with("language_model_penalty_non_dict_word", "0.15")
 
     @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI")
     def test_strips_result(self, mock_api_cls):
@@ -136,8 +137,8 @@ class TestTessdataPath:
         import sys
 
         # In dev mode sys._MEIPASS does not exist — just reload
-        if hasattr(sys, '_MEIPASS'):
-            delattr(sys, '_MEIPASS')
+        if hasattr(sys, "_MEIPASS"):
+            delattr(sys, "_MEIPASS")
         importlib.reload(ocr_module)
         path = ocr_module._tessdata_path
         assert path.endswith("_runtime_content/tessdata/fast")

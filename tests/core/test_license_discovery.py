@@ -1,15 +1,16 @@
 """Tests for license discovery helpers."""
 
-import pytest
 from pathlib import Path
 
+import pytest
+
 from app.core.license_discovery import (
-    load_config,
-    _slug,
-    _display_name,
-    _categorize_packages,
-    _parse_uv_lock,
     _build_reverse_deps,
+    _categorize_packages,
+    _display_name,
+    _parse_uv_lock,
+    _slug,
+    load_config,
 )
 from app.core.license_models import (
     LicenseConfig,
@@ -95,7 +96,7 @@ class TestParseUvLock:
     def test_normal_lock(self, tmp_path):
         lock_file = tmp_path / "uv.lock"
         lock_file.write_text(
-            'version = 1\n\n'
+            "version = 1\n\n"
             '[[package]]\nname = "foo"\nversion = "1.0.0"\n\n'
             '[[package]]\nname = "bar"\nversion = "2.0.0"\n'
             '[[package.dependencies]]\nname = "foo"\n',
@@ -109,7 +110,7 @@ class TestParseUvLock:
 
     def test_empty_lock(self, tmp_path):
         lock_file = tmp_path / "uv.lock"
-        lock_file.write_text('version = 1\n', encoding="utf-8")
+        lock_file.write_text("version = 1\n", encoding="utf-8")
         packages = _parse_uv_lock(lock_file)
         assert packages == []
 

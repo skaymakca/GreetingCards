@@ -1,12 +1,13 @@
 """Tests for app.core.pdf_renderer module."""
+
 import io
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from PIL import Image
 
-from app.core.pdf_renderer import _capped_zoom, autocrop_whitespace, render_pdf_page, render_all_pages, get_page_count
+from app.core.pdf_renderer import _capped_zoom, autocrop_whitespace, get_page_count, render_all_pages, render_pdf_page
 
 
 class TestCappedZoom:
@@ -118,7 +119,7 @@ def _make_mock_doc(num_pages=1):
     """Create a mock fitz document with pages."""
     doc = MagicMock()
     pages = []
-    for i in range(num_pages):
+    for _i in range(num_pages):
         page = MagicMock()
         page.get_image_info.return_value = []
         pix = MagicMock()

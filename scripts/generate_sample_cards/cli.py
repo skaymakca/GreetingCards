@@ -55,7 +55,14 @@ async def _process_card(
 ) -> bool:
     """Generate full card images + compose PDF. Returns True on success."""
     card_images = await generate_full_card_images_async(
-        client, semaphore, gate, job, spec, tmp_path, index, image_quality,
+        client,
+        semaphore,
+        gate,
+        job,
+        spec,
+        tmp_path,
+        index,
+        image_quality,
         image_model=image_model,
     )
 
@@ -157,12 +164,14 @@ async def async_main() -> None:
     # Build CardJob list for the live display
     jobs: list[CardJob] = []
     for i, spec in enumerate(specs):
-        jobs.append(CardJob(
-            index=i + 1,
-            filename=spec.filename,
-            pages=spec.page_count,
-            style=spec.visual_style,
-        ))
+        jobs.append(
+            CardJob(
+                index=i + 1,
+                filename=spec.filename,
+                pages=spec.page_count,
+                style=spec.visual_style,
+            )
+        )
 
     # Step 2: Process cards concurrently with live status display
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -175,11 +184,20 @@ async def async_main() -> None:
             async_tasks: list[asyncio.Task[bool]] = []
 
             for i, spec in enumerate(specs):
-                task = asyncio.create_task(_process_card(
-                    openai_client, openai_semaphore, rate_limit_gate,
-                    jobs[i], spec, i, tmp_path, output_dir,
-                    args.image_quality, args.image_model,
-                ))
+                task = asyncio.create_task(
+                    _process_card(
+                        openai_client,
+                        openai_semaphore,
+                        rate_limit_gate,
+                        jobs[i],
+                        spec,
+                        i,
+                        tmp_path,
+                        output_dir,
+                        args.image_quality,
+                        args.image_model,
+                    )
+                )
                 async_tasks.append(task)
 
             # Refresh the table while tasks run

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from app.core.template_env import jinja_env, get_page_order
+from app.core.template_env import get_page_order, jinja_env
 
 
 class TestJinjaEnv:

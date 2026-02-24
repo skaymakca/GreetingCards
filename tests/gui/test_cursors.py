@@ -4,9 +4,11 @@ These tests cover the load_cursor_from_symbol() function which creates
 wx.Cursor objects from SF Symbols for use as mouse cursors in the preview panel.
 """
 
+from unittest.mock import Mock, patch
+
 import pytest
 import wx
-from unittest.mock import Mock, patch
+
 from app.gui.icons import load_cursor_from_symbol
 
 
@@ -65,24 +67,14 @@ class TestCursorLoading:
 
     def test_load_cursor_with_custom_hotspot(self, wx_app):
         """Should accept custom hotspot coordinates."""
-        cursor = load_cursor_from_symbol(
-            "plus.magnifyingglass",
-            point_size=7,
-            hotspot_x=5,
-            hotspot_y=5
-        )
+        cursor = load_cursor_from_symbol("plus.magnifyingglass", point_size=7, hotspot_x=5, hotspot_y=5)
 
         # Should load successfully with custom hotspot
         assert cursor is None or isinstance(cursor, wx.Cursor)
 
     def test_load_cursor_with_zero_hotspot(self, wx_app):
         """Should accept (0,0) hotspot."""
-        cursor = load_cursor_from_symbol(
-            "plus.magnifyingglass",
-            point_size=7,
-            hotspot_x=0,
-            hotspot_y=0
-        )
+        cursor = load_cursor_from_symbol("plus.magnifyingglass", point_size=7, hotspot_x=0, hotspot_y=0)
 
         assert cursor is None or isinstance(cursor, wx.Cursor)
 
@@ -142,14 +134,15 @@ class TestCursorErrorHandling:
         """Should return None gracefully when PyObjC unavailable."""
         # Mock the entire AppKit import to raise ImportError
         import sys
+
         original_modules = sys.modules.copy()
 
         # Remove AppKit if it exists
-        if 'AppKit' in sys.modules:
-            del sys.modules['AppKit']
+        if "AppKit" in sys.modules:
+            del sys.modules["AppKit"]
 
         # Make import fail
-        with patch.dict(sys.modules, {'AppKit': None}):
+        with patch.dict(sys.modules, {"AppKit": None}):
             # Trigger import error by importing inside function
             cursor = load_cursor_from_symbol("plus.magnifyingglass", point_size=7)
 

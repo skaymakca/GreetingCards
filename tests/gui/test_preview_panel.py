@@ -1,9 +1,11 @@
 """Tests for wxPython preview panel."""
 
+from unittest.mock import Mock
+
 import pytest
 import wx
-from unittest.mock import Mock
 from PIL import Image
+
 from app.gui.preview_panel import PreviewPanel
 
 
@@ -26,20 +28,21 @@ def preview_panel(frame):
 @pytest.fixture
 def sample_image():
     """Create a sample PIL image."""
-    return Image.new('RGB', (400, 600), color='white')
+    return Image.new("RGB", (400, 600), color="white")
 
 
 @pytest.fixture
 def sample_images():
     """Create multiple sample PIL images."""
     return [
-        Image.new('RGB', (400, 600), color='white'),
-        Image.new('RGB', (400, 600), color='lightgray'),
-        Image.new('RGB', (400, 600), color='lightblue'),
+        Image.new("RGB", (400, 600), color="white"),
+        Image.new("RGB", (400, 600), color="lightgray"),
+        Image.new("RGB", (400, 600), color="lightblue"),
     ]
 
 
 # --- Level 1: Unit tests (basic functionality) ---
+
 
 def test_initialization(preview_panel):
     """Test that preview panel initializes without errors."""
@@ -143,6 +146,7 @@ def test_page_navigation_multi_page(preview_panel, sample_images):
 
 
 # --- Level 2: Integration tests (component interaction) ---
+
 
 def test_zoom_in_out(preview_panel, sample_image):
     """Test zoom in and out functionality."""
@@ -281,6 +285,7 @@ def test_error_clears_images(preview_panel, sample_images):
 
 # --- Level 3: UI integration tests ---
 
+
 def test_preview_in_dialog(wx_app):
     """Test that preview panel works in a dialog."""
     dialog = wx.Dialog(None, title="Test", size=(600, 400))
@@ -291,7 +296,7 @@ def test_preview_in_dialog(wx_app):
     dialog.SetSizer(sizer)
 
     # Load an image
-    img = Image.new('RGB', (300, 400), color='lightblue')
+    img = Image.new("RGB", (300, 400), color="lightblue")
     preview.show_images([img], "dialog-test.pdf")
 
     assert len(preview._images) == 1
@@ -325,7 +330,7 @@ def test_show_images_clears_error(preview_panel):
     assert preview_panel._error_message != ""
 
     # Show images
-    img = Image.new('RGB', (300, 400), color='white')
+    img = Image.new("RGB", (300, 400), color="white")
     preview_panel.show_images([img])
 
     assert preview_panel._error_message == ""
@@ -397,6 +402,7 @@ def test_zoom_transition_from_fit_to_explicit(preview_panel, sample_image):
 def test_wrap_text(preview_panel):
     """Test text wrapping for error messages."""
     import wx
+
     dc = wx.MemoryDC()
     dc.SetFont(preview_panel._title_label.GetFont())
 
@@ -409,6 +415,7 @@ def test_wrap_text(preview_panel):
 
 
 # --- Level 4: Mouse events and modifier keys ---
+
 
 def test_left_click_with_shift_zooms_in(preview_panel, sample_image):
     """Test Shift+Click zooms in."""
@@ -512,7 +519,7 @@ def test_double_click_with_shift_zooms_twice(preview_panel, sample_image):
 
     # Should have zoomed twice
     assert preview_panel._zoom > zoom_after_first
-    expected = initial_zoom * (PreviewPanel.ZOOM_STEP ** 2)
+    expected = initial_zoom * (PreviewPanel.ZOOM_STEP**2)
     assert preview_panel._zoom == pytest.approx(expected)
 
 
@@ -621,9 +628,10 @@ def test_on_pan_end_clears_drag_state(preview_panel, sample_image):
 
 # --- Level 5: Edge cases ---
 
+
 def test_rapid_page_changes(preview_panel):
     """Test rapid page navigation doesn't crash."""
-    images = [Image.new('RGB', (400, 600), color=c) for c in ['white', 'gray', 'blue', 'red']]
+    images = [Image.new("RGB", (400, 600), color=c) for c in ["white", "gray", "blue", "red"]]
     preview_panel.show_images(images)
 
     # Rapidly navigate

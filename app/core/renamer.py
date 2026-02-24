@@ -2,8 +2,14 @@ import logging
 from pathlib import Path
 
 from app.models.card import (
-    CardResult, RenamePlanItem, RenameResult,
-    STATUS_OK, STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR, STATUS_DUPLICATE,
+    STATUS_DUPLICATE,
+    STATUS_OK,
+    STATUS_SKIP_ERROR,
+    STATUS_SKIP_NO_NAME,
+    STATUS_SKIP_SAME,
+    CardResult,
+    RenamePlanItem,
+    RenameResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -12,7 +18,7 @@ logger = logging.getLogger(__name__)
 def _is_same_file(a: Path, b: Path) -> bool:
     try:
         return a.samefile(b)
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return False
 
 
@@ -29,9 +35,7 @@ def _read_directory_names(directory: Path) -> set[str]:
 _MAX_DUPLICATE_NUMBER = 10000
 
 
-def _find_available_name(
-    directory: Path, stem: str, suffix: str, existing: set[str]
-) -> Path:
+def _find_available_name(directory: Path, stem: str, suffix: str, existing: set[str]) -> Path:
     """Find the next available numbered filename not in the existing set.
 
     Tries: stem (2).suffix, stem (3).suffix, ... until one is not taken.
@@ -43,9 +47,7 @@ def _find_available_name(
     raise RuntimeError(f"Cannot find available filename for {stem}{suffix} after {_MAX_DUPLICATE_NUMBER} attempts")
 
 
-def build_rename_plan(
-    cards: list[CardResult], year: str
-) -> list[RenamePlanItem]:
+def build_rename_plan(cards: list[CardResult], year: str) -> list[RenamePlanItem]:
     """
     Build a rename plan for all file paths across all cards.
 
@@ -136,11 +138,15 @@ def execute_rename_plan(plan: list[RenamePlanItem]) -> list[RenameResult]:
         try:
             # Race condition protection: check if target already exists
             if item.new_path.exists() and not _is_same_file(item.new_path, item.old_path):
-                results.append(RenameResult(
-                    item.old_path, item.new_path, False,
-                    f"Target already exists: {item.new_path.name}",
-                    card=item.card,
-                ))
+                results.append(
+                    RenameResult(
+                        item.old_path,
+                        item.new_path,
+                        False,
+                        f"Target already exists: {item.new_path.name}",
+                        card=item.card,
+                    )
+                )
                 continue
 
             item.old_path.rename(item.new_path)

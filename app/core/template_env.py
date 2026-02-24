@@ -9,9 +9,7 @@ from pathlib import Path
 
 import jinja2
 
-_TEMPLATES_DIR = (
-    Path(__file__).resolve().parent.parent.parent / "content" / "html" / "templates"
-)
+_TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "content" / "html" / "templates"
 
 jinja_env = jinja2.Environment(
     loader=jinja2.FileSystemLoader(str(_TEMPLATES_DIR)),
@@ -33,9 +31,5 @@ def get_page_order(base_path: Path) -> list[str]:
     """
     manifest = base_path / "page_order.txt"
     if manifest.exists():
-        return [
-            line
-            for line in manifest.read_text(encoding="utf-8").splitlines()
-            if line
-        ]
+        return [line for line in manifest.read_text(encoding="utf-8").splitlines() if line]
     return ["index.html"]

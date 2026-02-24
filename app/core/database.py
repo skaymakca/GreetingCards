@@ -4,11 +4,11 @@ import logging
 import threading
 from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 
-from sqlalchemy import create_engine, Engine, String, DateTime, Text, Boolean, ForeignKey, UniqueConstraint, inspect
-from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker, Mapped, mapped_column
+from sqlalchemy import Boolean, DateTime, Engine, ForeignKey, String, Text, UniqueConstraint, create_engine, inspect
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.core.paths import get_db_path
 from app.models.card import CandidateInfo, CardState
@@ -22,6 +22,7 @@ _FILTER_OUT = {
     "shutterfly",  # Card printing service
 }
 
+
 class Base(DeclarativeBase):
     pass
 
@@ -34,46 +35,51 @@ class Settings(Base):
 
 class Card(Base):
     """Main card record. Tracks selected name (manual or from candidates) and preferences."""
+
     __tablename__ = "cards"
     file_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
     selected_family_name: Mapped[str | None] = mapped_column(String)  # Manual entry only
-    selected_candidate_id: Mapped[int | None] = mapped_column(ForeignKey("candidates.id", use_alter=True, name="fk_card_selected_candidate"))
+    selected_candidate_id: Mapped[int | None] = mapped_column(
+        ForeignKey("candidates.id", use_alter=True, name="fk_card_selected_candidate")
+    )
     remove_family: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc),
-                                                  onupdate=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
+    )
 
 
 class Candidate(Base):
     """Name candidates extracted via OCR or AI."""
+
     __tablename__ = "candidates"
-    __table_args__ = (
-        UniqueConstraint('file_hash', 'family_name', 'method', name='_file_name_method_uc'),
-    )
+    __table_args__ = (UniqueConstraint("file_hash", "family_name", "method", name="_file_name_method_uc"),)
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     file_hash: Mapped[str] = mapped_column(String(64), ForeignKey("cards.file_hash"), index=True)
     family_name: Mapped[str] = mapped_column(String)
     method: Mapped[str] = mapped_column(String)  # 'ocr' | 'ai'
     confidence: Mapped[str] = mapped_column(String)  # 'high' | 'medium' | 'low'
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
 
 class RawOCRResult(Base):
     """Raw OCR text preserved for potential re-processing with improved extraction logic."""
+
     __tablename__ = "raw_ocr_results"
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     file_hash: Mapped[str] = mapped_column(String(64), ForeignKey("cards.file_hash"), index=True, unique=True)
     ocr_text: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
 
 class RawAIResult(Base):
     """Raw AI response preserved for debugging and potential re-processing."""
+
     __tablename__ = "raw_ai_results"
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     file_hash: Mapped[str] = mapped_column(String(64), ForeignKey("cards.file_hash"), index=True, unique=True)
     raw_response: Mapped[str] = mapped_column(Text)  # JSON: {"best_name": "...", "alternates": [...]}
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
 
 def _compute_schema_version() -> str:
@@ -170,6 +176,7 @@ def _ensure_schema() -> None:
 
     if orphaned:
         from sqlalchemy import text
+
         with engine.begin() as conn:
             for table_name in orphaned:
                 conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))
@@ -203,6 +210,7 @@ def reset_database() -> None:
 
     if all_tables:
         from sqlalchemy import text
+
         with engine.begin() as conn:
             for table_name in all_tables:
                 conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))
@@ -231,9 +239,7 @@ def clear_ai_results(file_hashes: list[str]) -> int:
 
     with _session_scope() as session:
         # Delete raw AI results for these hashes
-        session.query(RawAIResult).filter(RawAIResult.file_hash.in_(file_hashes)).delete(
-            synchronize_session="fetch"
-        )
+        session.query(RawAIResult).filter(RawAIResult.file_hash.in_(file_hashes)).delete(synchronize_session="fetch")
 
         # Find cards whose selected candidate is an AI candidate (within scope)
         affected_cards = []
@@ -247,10 +253,9 @@ def clear_ai_results(file_hashes: list[str]) -> int:
                     affected_cards.append(card)
 
         # Delete all AI candidates for these hashes
-        session.query(Candidate).filter(
-            Candidate.file_hash.in_(file_hashes),
-            Candidate.method == "ai"
-        ).delete(synchronize_session="fetch")
+        session.query(Candidate).filter(Candidate.file_hash.in_(file_hashes), Candidate.method == "ai").delete(
+            synchronize_session="fetch"
+        )
 
         # Re-select best OCR candidate for affected cards
         changed = 0
@@ -260,11 +265,7 @@ def clear_ai_results(file_hashes: list[str]) -> int:
                 continue
 
             # Find best remaining OCR candidate
-            best_ocr = (
-                session.query(Candidate)
-                .filter_by(file_hash=card.file_hash, method="ocr")
-                .all()
-            )
+            best_ocr = session.query(Candidate).filter_by(file_hash=card.file_hash, method="ocr").all()
             if best_ocr:
                 best = min(best_ocr, key=lambda c: _CONFIDENCE_ORDER.get(c.confidence, 999))
                 card.selected_candidate_id = best.id
@@ -321,11 +322,7 @@ _CONFIDENCE_ORDER = {"high": 0, "medium": 1, "low": 2}
 def _sort_candidates(candidates: list) -> list[CandidateInfo]:
     """Sort candidates by method (AI first) then confidence (high first), returning CandidateInfo list."""
     sorted_candidates = sorted(
-        candidates,
-        key=lambda c: (
-            _METHOD_ORDER.get(c.method, 999),
-            _CONFIDENCE_ORDER.get(c.confidence, 999)
-        )
+        candidates, key=lambda c: (_METHOD_ORDER.get(c.method, 999), _CONFIDENCE_ORDER.get(c.confidence, 999))
     )
     return [
         CandidateInfo(id=c.id, family_name=c.family_name, method=c.method, confidence=c.confidence)
@@ -373,19 +370,14 @@ def add_candidate(file_hash: str, family_name: str, method: str, confidence: str
         _ensure_card_exists(session, file_hash)
 
         # Check if candidate already exists
-        existing = (session.query(Candidate)
-                   .filter_by(file_hash=file_hash, family_name=clean_name, method=method)
-                   .first())
+        existing = (
+            session.query(Candidate).filter_by(file_hash=file_hash, family_name=clean_name, method=method).first()
+        )
         if existing:
             return existing.id
 
         # Add new candidate
-        candidate = Candidate(
-            file_hash=file_hash,
-            family_name=clean_name,
-            method=method,
-            confidence=confidence
-        )
+        candidate = Candidate(file_hash=file_hash, family_name=clean_name, method=method, confidence=confidence)
         session.add(candidate)
         session.flush()
         return candidate.id
@@ -397,9 +389,7 @@ def get_candidates(file_hash: str) -> list[CandidateInfo]:
     Priority: AI high > AI medium > AI low > OCR high > OCR medium > OCR low
     """
     with _session_scope() as session:
-        candidates = (session.query(Candidate)
-                     .filter_by(file_hash=file_hash)
-                     .all())
+        candidates = session.query(Candidate).filter_by(file_hash=file_hash).all()
         return _sort_candidates(candidates)
 
 
@@ -411,13 +401,9 @@ def set_manual_name(file_hash: str, family_name: str, remove_family: bool = Fals
             card.selected_family_name = family_name
             card.selected_candidate_id = None
             card.remove_family = remove_family
-            card.updated_at = datetime.now(timezone.utc)
+            card.updated_at = datetime.now(UTC)
         else:
-            card = Card(
-                file_hash=file_hash,
-                selected_family_name=family_name,
-                remove_family=remove_family
-            )
+            card = Card(file_hash=file_hash, selected_family_name=family_name, remove_family=remove_family)
             session.add(card)
 
 
@@ -429,13 +415,9 @@ def select_candidate(file_hash: str, candidate_id: int, remove_family: bool = Fa
             card.selected_candidate_id = candidate_id
             card.selected_family_name = None
             card.remove_family = remove_family
-            card.updated_at = datetime.now(timezone.utc)
+            card.updated_at = datetime.now(UTC)
         else:
-            card = Card(
-                file_hash=file_hash,
-                selected_candidate_id=candidate_id,
-                remove_family=remove_family
-            )
+            card = Card(file_hash=file_hash, selected_candidate_id=candidate_id, remove_family=remove_family)
             session.add(card)
 
 
@@ -445,7 +427,7 @@ def update_remove_family(file_hash: str, remove_family: bool) -> None:
         card = session.query(Card).filter_by(file_hash=file_hash).first()
         if card:
             card.remove_family = remove_family
-            card.updated_at = datetime.now(timezone.utc)
+            card.updated_at = datetime.now(UTC)
 
 
 def get_card_state(file_hash: str) -> CardState | None:
@@ -456,9 +438,7 @@ def get_card_state(file_hash: str) -> CardState | None:
             return None
 
         # Inline candidate query to avoid opening a nested session
-        raw_candidates = (session.query(Candidate)
-                         .filter_by(file_hash=file_hash)
-                         .all())
+        raw_candidates = session.query(Candidate).filter_by(file_hash=file_hash).all()
         candidates = _sort_candidates(raw_candidates)
 
         # Determine display name, method, and confidence
@@ -491,7 +471,7 @@ def get_card_state(file_hash: str) -> CardState | None:
             confidence=confidence,
             candidates=candidates,
             remove_family=card.remove_family,
-            selected_candidate_id=card.selected_candidate_id
+            selected_candidate_id=card.selected_candidate_id,
         )
 
 

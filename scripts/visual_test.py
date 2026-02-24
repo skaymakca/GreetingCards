@@ -17,25 +17,25 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import wx
 
-from app.gui.styles import Color, Font
 from app.gui import appearance  # type: ignore[attr-defined]
 from app.gui.icons import clear_cache
+from app.gui.styles import Color, Font
 from app.models.card import (
-    CardResult,
-    CandidateInfo,
-    Confidence,
-    RenamePlanItem,
-    RenameResult,
+    STATUS_DUPLICATE,
     STATUS_OK,
     STATUS_SKIP_NO_NAME,
     STATUS_SKIP_SAME,
-    STATUS_DUPLICATE,
+    CandidateInfo,
+    CardResult,
+    Confidence,
+    RenamePlanItem,
+    RenameResult,
 )
-
 
 # ---------------------------------------------------------------------------
 # Mock data factories
 # ---------------------------------------------------------------------------
+
 
 def _mock_cards() -> list[CardResult]:
     """Create a set of mock CardResult objects covering all confidence levels.
@@ -66,8 +66,12 @@ def _mock_cards() -> list[CardResult]:
             ocr_text=f"Sample OCR text for card {i}\nDear {name or 'Friend'} Family,\nHappy Holidays!",
             candidates=[
                 CandidateInfo(id=i * 10, family_name=name, method=method, confidence=conf.value),
-                CandidateInfo(id=i * 10 + 1, family_name=name + "son" if name else "Unknown", method="ocr", confidence="low"),
-            ] if name else [],
+                CandidateInfo(
+                    id=i * 10 + 1, family_name=name + "son" if name else "Unknown", method="ocr", confidence="low"
+                ),
+            ]
+            if name
+            else [],
             selected_candidate_id=i * 10 if name else None,
         )
         if name:
@@ -110,9 +114,24 @@ def _mock_rename_plan() -> list[RenamePlanItem]:
 def _mock_rename_results() -> list[RenameResult]:
     """Create mock rename results for CompletionDialog."""
     return [
-        RenameResult(old_path=Path("/tmp/mock/card_001.pdf"), new_path=Path("/tmp/mock/Johnson Family.pdf"), success=True, message="Renamed"),
-        RenameResult(old_path=Path("/tmp/mock/card_002.pdf"), new_path=Path("/tmp/mock/Williams Family.pdf"), success=True, message="Renamed"),
-        RenameResult(old_path=Path("/tmp/mock/card_003.pdf"), new_path=Path("/tmp/mock/Garcia Family.pdf"), success=False, message="Permission denied"),
+        RenameResult(
+            old_path=Path("/tmp/mock/card_001.pdf"),
+            new_path=Path("/tmp/mock/Johnson Family.pdf"),
+            success=True,
+            message="Renamed",
+        ),
+        RenameResult(
+            old_path=Path("/tmp/mock/card_002.pdf"),
+            new_path=Path("/tmp/mock/Williams Family.pdf"),
+            success=True,
+            message="Renamed",
+        ),
+        RenameResult(
+            old_path=Path("/tmp/mock/card_003.pdf"),
+            new_path=Path("/tmp/mock/Garcia Family.pdf"),
+            success=False,
+            message="Permission denied",
+        ),
     ]
 
 
@@ -129,6 +148,7 @@ def _mock_errors() -> list[tuple[str, str]]:
 # Launcher window
 # ---------------------------------------------------------------------------
 
+
 class VisualTestFrame(wx.Frame):
     """Main launcher window with buttons to open each dialog/panel."""
 
@@ -140,6 +160,7 @@ class VisualTestFrame(wx.Frame):
         self._cards = _mock_cards()
         self._prefs_editor: wx.PreferencesEditor | None = None
         from app.gui.main_window import MainWindow
+
         self._last_main_window: MainWindow | None = None
 
         panel = wx.Panel(self)
@@ -275,24 +296,28 @@ class VisualTestFrame(wx.Frame):
 
     def _open_rename_confirm(self, _evt: wx.CommandEvent) -> None:
         from app.gui.dialogs import RenameConfirmDialog
+
         dlg = RenameConfirmDialog(self, _mock_rename_plan())
         dlg.ShowModal()
         dlg.Destroy()
 
     def _open_completion(self, _evt: wx.CommandEvent) -> None:
         from app.gui.dialogs import CompletionDialog
+
         dlg = CompletionDialog(self, "Rename Complete", _mock_rename_results())
         dlg.ShowModal()
         dlg.Destroy()
 
     def _open_error_list(self, _evt: wx.CommandEvent) -> None:
         from app.gui.dialogs import ErrorListDialog
+
         dlg = ErrorListDialog(self, "Processing Errors", _mock_errors())
         dlg.ShowModal()
         dlg.Destroy()
 
     def _open_progress(self, _evt: wx.CommandEvent) -> None:
         from app.gui.dialogs import ProgressDialog
+
         dlg = ProgressDialog(self, "Analyzing Cards…", total=8)
         dlg.Show()
         # Simulate progress with a timer
@@ -314,6 +339,7 @@ class VisualTestFrame(wx.Frame):
 
     def _open_api_key(self, _evt: wx.CommandEvent) -> None:
         from app.gui.api_key_dialog import show_api_key_dialog
+
         result = show_api_key_dialog(self)
         if result:
             wx.MessageBox(f"Key entered: {result[:8]}…", "API Key Result")
@@ -322,6 +348,7 @@ class VisualTestFrame(wx.Frame):
 
     def _open_settings(self, _evt: wx.CommandEvent) -> None:
         from app.gui.settings_dialog import create_preferences_editor
+
         if self._prefs_editor is None:
             self._prefs_editor = create_preferences_editor(on_db_reset=lambda: None)
         self._prefs_editor.Show(self)
@@ -330,20 +357,24 @@ class VisualTestFrame(wx.Frame):
 
     def _open_help(self, _evt: wx.CommandEvent) -> None:
         from app.gui.help_dialog import show_help
+
         show_help(self)
 
     def _open_changelog(self, _evt: wx.CommandEvent) -> None:
         from app.gui.changelog_dialog import show_changelog
+
         show_changelog(self)
 
     def _open_licenses(self, _evt: wx.CommandEvent) -> None:
         from app.gui.licenses_dialog import show_licenses
+
         show_licenses(self)
 
     # -- Panel launchers (in standalone frames) --
 
     def _open_filter_sidebar(self, _evt: wx.CommandEvent) -> None:
         from app.gui.filter_sidebar import FilterSidebar
+
         frame = wx.Frame(self, title="Filter Sidebar", size=wx.Size(250, 500))
         sidebar = FilterSidebar(
             frame,
@@ -360,6 +391,7 @@ class VisualTestFrame(wx.Frame):
 
     def _open_preview_panel(self, _evt: wx.CommandEvent) -> None:
         from app.gui.preview_panel import PreviewPanel
+
         frame = wx.Frame(self, title="Preview Panel", size=wx.Size(500, 600))
         panel = PreviewPanel(frame)
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -369,6 +401,7 @@ class VisualTestFrame(wx.Frame):
 
     def _open_review_panel(self, _evt: wx.CommandEvent) -> None:
         from app.gui.review_panel import ReviewPanelMasterDetail
+
         frame = wx.Frame(self, title="Review Panel", size=wx.Size(700, 500))
         _noop = print  # Avoid verbose lambda type issues
         panel = ReviewPanelMasterDetail(
@@ -389,11 +422,13 @@ class VisualTestFrame(wx.Frame):
 
     def _open_main_window(self, _evt: wx.CommandEvent) -> None:
         from app.gui.main_window import MainWindow
+
         window = MainWindow()
         window.run()
 
     def _open_main_window_with_data(self, _evt: wx.CommandEvent) -> None:
         from app.gui.main_window import MainWindow
+
         window = MainWindow()
         window.run()
         # Inject mock cards into the main window's internal state
@@ -426,14 +461,12 @@ class VisualTestFrame(wx.Frame):
     def _notify_cards_loaded(self, _evt: wx.CommandEvent) -> None:
         sidebar = self._get_sidebar()
         if sidebar:
-            sidebar.show_notification(
-                "Added 5 new cards\n8 cards loaded", wx.ICON_INFORMATION)
+            sidebar.show_notification("Added 5 new cards\n8 cards loaded", wx.ICON_INFORMATION)
 
     def _notify_processing_complete(self, _evt: wx.CommandEvent) -> None:
         sidebar = self._get_sidebar()
         if sidebar:
-            sidebar.show_notification(
-                "Processing complete\n8 cards loaded", wx.ICON_INFORMATION)
+            sidebar.show_notification("Processing complete\n8 cards loaded", wx.ICON_INFORMATION)
 
     def _notify_all_cleared(self, _evt: wx.CommandEvent) -> None:
         sidebar = self._get_sidebar()
@@ -443,28 +476,24 @@ class VisualTestFrame(wx.Frame):
     def _notify_ai_cleared(self, _evt: wx.CommandEvent) -> None:
         sidebar = self._get_sidebar()
         if sidebar:
-            sidebar.show_notification(
-                "AI results cleared for 5 card(s). 3 reverted to OCR names.",
-                wx.ICON_INFORMATION)
+            sidebar.show_notification("AI results cleared for 5 card(s). 3 reverted to OCR names.", wx.ICON_INFORMATION)
 
     def _notify_analysis_complete(self, _evt: wx.CommandEvent) -> None:
         sidebar = self._get_sidebar()
         if sidebar:
-            sidebar.show_notification(
-                "Analysis complete\n5 cards analyzed", wx.ICON_INFORMATION)
+            sidebar.show_notification("Analysis complete\n5 cards analyzed", wx.ICON_INFORMATION)
 
     def _notify_no_pdfs(self, _evt: wx.CommandEvent) -> None:
         sidebar = self._get_sidebar()
         if sidebar:
-            sidebar.show_notification(
-                "No PDF files found", wx.ICON_WARNING, duration_ms=0)
+            sidebar.show_notification("No PDF files found", wx.ICON_WARNING, duration_ms=0)
 
     def _notify_no_api_key(self, _evt: wx.CommandEvent) -> None:
         sidebar = self._get_sidebar()
         if sidebar:
             sidebar.show_notification(
-                "API key not configured\nUse Settings to add your Anthropic API key",
-                wx.ICON_WARNING, duration_ms=0)
+                "API key not configured\nUse Settings to add your Anthropic API key", wx.ICON_WARNING, duration_ms=0
+            )
 
     def _notify_dismiss(self, _evt: wx.CommandEvent) -> None:
         sidebar = self._get_sidebar()

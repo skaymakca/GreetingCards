@@ -13,7 +13,7 @@ import shutil
 import sys
 import sysconfig
 import tomllib
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -28,8 +28,8 @@ from app.core.license_models import (
     PackageOverride,
     SystemDep,
 )
-from app.core.template_env import jinja_env as _jinja_env
 from app.core.template_env import get_page_order as _get_page_order
+from app.core.template_env import jinja_env as _jinja_env
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +65,7 @@ def _get_licenses_dir() -> Path:
 # ---------------------------------------------------------------------------
 # Config loading
 # ---------------------------------------------------------------------------
+
 
 def load_config(licenses_dir: Path) -> LicenseConfig:
     """Parse config.toml into a LicenseConfig."""
@@ -108,6 +109,7 @@ def load_config(licenses_dir: Path) -> LicenseConfig:
 # uv.lock parsing
 # ---------------------------------------------------------------------------
 
+
 def _parse_uv_lock(lock_path: Path) -> list[dict[str, Any]]:
     """Parse uv.lock, return list of package dicts with name, version, deps."""
     data = tomllib.loads(lock_path.read_text(encoding="utf-8"))
@@ -130,8 +132,7 @@ def _compute_lock_hash(lock_path: Path) -> str:
 # .dist-info discovery
 # ---------------------------------------------------------------------------
 
-_LICENSE_FILENAMES = ("LICENSE", "LICENSE.txt", "LICENSE.md", "LICENSE-MIT",
-                      "COPYING", "COPYING.txt")
+_LICENSE_FILENAMES = ("LICENSE", "LICENSE.txt", "LICENSE.md", "LICENSE-MIT", "COPYING", "COPYING.txt")
 
 
 def _find_dist_info(site_packages: Path, pkg_name: str) -> Path | None:
@@ -139,7 +140,7 @@ def _find_dist_info(site_packages: Path, pkg_name: str) -> Path | None:
     normalized = pkg_name.lower().replace("-", "_").replace(".", "_")
     for d in site_packages.iterdir():
         if d.is_dir() and d.name.endswith(".dist-info"):
-            stem = d.name[:-len(".dist-info")]
+            stem = d.name[: -len(".dist-info")]
             m = re.match(r"^(.+?)-\d", stem)
             if m:
                 dist_name = m.group(1).lower().replace("-", "_").replace(".", "_")
@@ -218,6 +219,7 @@ def _extract_homepage(dist_info: Path) -> str:
 # Categorization
 # ---------------------------------------------------------------------------
 
+
 def _slug(name: str) -> str:
     """Convert package name to filename slug."""
     return name.lower().replace("_", "-").replace(".", "-")
@@ -294,13 +296,16 @@ def _required_by_text(
 # Registry sync
 # ---------------------------------------------------------------------------
 
+
 def _get_site_packages() -> Path:
     """Find the site-packages directory."""
     site_packages = Path(sysconfig.get_path("purelib"))
     if not site_packages.exists():
         project_root = _get_project_root()
         site_packages = (
-            project_root / ".venv" / "lib"
+            project_root
+            / ".venv"
+            / "lib"
             / f"python{sys.version_info.major}.{sys.version_info.minor}"
             / "site-packages"
         )
@@ -331,12 +336,11 @@ def sync_registry() -> LicenseRegistry:
             break
 
     # Dev deps from pyproject.toml
-    pyproject = tomllib.loads(
-        (project_root / "pyproject.toml").read_text(encoding="utf-8")
-    )
+    pyproject = tomllib.loads((project_root / "pyproject.toml").read_text(encoding="utf-8"))
     dev_names: set[str] = set()
     for dep_str in pyproject.get("dependency-groups", {}).get("dev", []):
         from packaging.requirements import Requirement
+
         req = Requirement(dep_str)
         dev_names.add(req.name.lower())
 
@@ -372,8 +376,7 @@ def sync_registry() -> LicenseRegistry:
             homepage = _extract_homepage(dist_info)
             # Only re-extract text if version changed or file missing
             text_path = licenses_dir / text_file
-            if (not text_path.exists()
-                    or existing_versions.get(name) != pkg["version"]):
+            if not text_path.exists() or existing_versions.get(name) != pkg["version"]:
                 license_text = _find_license_file(dist_info) or ""
                 if license_text:
                     text_path.write_text(license_text, encoding="utf-8")
@@ -405,9 +408,7 @@ def sync_registry() -> LicenseRegistry:
             version=pkg["version"],
             license_type=license_type,
             category=category,
-            required_by=_required_by_text(
-                name, category, reverse_deps, config.package_overrides
-            ),
+            required_by=_required_by_text(name, category, reverse_deps, config.package_overrides),
             text_file=text_file,
             homepage=homepage,
         )
@@ -419,13 +420,11 @@ def sync_registry() -> LicenseRegistry:
         PackageCategory.DEVELOPMENT: 1,
         PackageCategory.TRANSITIVE: 2,
     }
-    discovered.sort(
-        key=lambda p: (category_order.get(p.category, 9), p.display.lower())
-    )
+    discovered.sort(key=lambda p: (category_order.get(p.category, 9), p.display.lower()))
 
     registry = LicenseRegistry(
         uv_lock_hash=uv_lock_hash,
-        generated_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        generated_at=datetime.now(UTC).isoformat(timespec="seconds"),
         system_deps=config.system_deps,
         packages=discovered,
     )
@@ -433,7 +432,8 @@ def sync_registry() -> LicenseRegistry:
     _write_registry_toml(licenses_dir, registry)
     logger.info(
         "Synced registry: %d packages, %d system deps",
-        len(discovered), len(config.system_deps),
+        len(discovered),
+        len(config.system_deps),
     )
     return registry
 
@@ -560,14 +560,11 @@ def _build_nav_items() -> list[dict[str, str]]:
     """Build flat sidebar navigation items."""
     items = [
         {"slug": "index", "display": "Home", "href": "index.html"},
-        {"slug": "greeting-cards", "display": "Greeting Cards",
-         "href": "greeting-cards.html"},
+        {"slug": "greeting-cards", "display": "Greeting Cards", "href": "greeting-cards.html"},
         {"slug": "system", "display": "System", "href": "system.html"},
         {"slug": "runtime", "display": "Runtime", "href": "runtime.html"},
-        {"slug": "development", "display": "Development",
-         "href": "development.html"},
-        {"slug": "transitive", "display": "Transitive",
-         "href": "transitive.html"},
+        {"slug": "development", "display": "Development", "href": "development.html"},
+        {"slug": "transitive", "display": "Transitive", "href": "transitive.html"},
     ]
     return items
 
@@ -590,9 +587,7 @@ def generate_licenses_html() -> None:
 
     # Write page_order.txt manifest for runtime navigation
     page_order = [item["href"] for item in _build_nav_items()]
-    (html_dir / "page_order.txt").write_text(
-        "\n".join(page_order), encoding="utf-8"
-    )
+    (html_dir / "page_order.txt").write_text("\n".join(page_order), encoding="utf-8")
 
     logger.info(
         "Generated %d license entries across %d pages in %s",
@@ -618,16 +613,17 @@ def _write_html(
 
     # Read app license from repo root LICENSE file
     project_root = _get_project_root()
-    app_license_text = (project_root / "LICENSE").read_text(
-        encoding="utf-8"
-    ).strip()
+    app_license_text = (project_root / "LICENSE").read_text(encoding="utf-8").strip()
 
     # --- Index page ---
     pkg_dicts = [
         {
-            "slug": pkg.slug, "display": pkg.display,
-            "version": pkg.version, "license_type": pkg.license_type,
-            "category": pkg.category.value, "required_by": pkg.required_by,
+            "slug": pkg.slug,
+            "display": pkg.display,
+            "version": pkg.version,
+            "license_type": pkg.license_type,
+            "category": pkg.category.value,
+            "required_by": pkg.required_by,
             "homepage": pkg.homepage,
             "page": _category_page_for(pkg.category),
         }
@@ -635,18 +631,25 @@ def _write_html(
     ]
     system_dicts = [
         {
-            "slug": dep.slug, "display": dep.display,
-            "version": dep.version, "license": dep.license_type,
-            "notes": dep.notes, "url": dep.url,
+            "slug": dep.slug,
+            "display": dep.display,
+            "version": dep.version,
+            "license": dep.license_type,
+            "notes": dep.notes,
+            "url": dep.url,
         }
         for dep in registry.system_deps
     ]
 
     index_template = _jinja_env.get_template("licenses_index.html.j2")
     index_html = index_template.render(
-        title="Open-Source Licenses", css_path=css_path, js_path=js_path,
-        nav_items=nav_items, active_slug="index",
-        system_deps=system_dicts, pkg_infos=pkg_dicts,
+        title="Open-Source Licenses",
+        css_path=css_path,
+        js_path=js_path,
+        nav_items=nav_items,
+        active_slug="index",
+        system_deps=system_dicts,
+        pkg_infos=pkg_dicts,
     )
     (html_dir / "index.html").write_text(index_html, encoding="utf-8")
 
@@ -654,16 +657,23 @@ def _write_html(
 
     # --- Greeting Cards page ---
     gc_html = page_template.render(
-        title="Greeting Cards — License", css_path=css_path, js_path=js_path,
-        nav_items=nav_items, active_slug="greeting-cards",
+        title="Greeting Cards — License",
+        css_path=css_path,
+        js_path=js_path,
+        nav_items=nav_items,
+        active_slug="greeting-cards",
         page_title="Greeting Cards",
-        entries=[{
-            "slug": "greeting-cards", "display": "Greeting Cards",
-            "version": "", "license_type": "BSD 3-Clause",
-            "license_text": app_license_text,
-            "homepage": "https://github.com/skaymakca/GreetingCards",
-            "notes": "",
-        }],
+        entries=[
+            {
+                "slug": "greeting-cards",
+                "display": "Greeting Cards",
+                "version": "",
+                "license_type": "BSD 3-Clause",
+                "license_text": app_license_text,
+                "homepage": "https://github.com/skaymakca/GreetingCards",
+                "notes": "",
+            }
+        ],
     )
     (html_dir / "greeting-cards.html").write_text(gc_html, encoding="utf-8")
 
@@ -671,19 +681,27 @@ def _write_html(
     system_entries = []
     for dep in registry.system_deps:
         text_path = licenses_dir / "manual" / f"{dep.slug}.txt"
-        dep_text = (text_path.read_text(encoding="utf-8").strip()
-                    if text_path.exists() else "License text not available.")
-        system_entries.append({
-            "slug": dep.slug, "display": dep.display,
-            "version": dep.version, "license_type": dep.license_type,
-            "license_text": dep_text, "homepage": dep.url,
-            "notes": dep.notes,
-        })
+        dep_text = (
+            text_path.read_text(encoding="utf-8").strip() if text_path.exists() else "License text not available."
+        )
+        system_entries.append(
+            {
+                "slug": dep.slug,
+                "display": dep.display,
+                "version": dep.version,
+                "license_type": dep.license_type,
+                "license_text": dep_text,
+                "homepage": dep.url,
+                "notes": dep.notes,
+            }
+        )
 
     sys_html = page_template.render(
-        title="System Dependencies — Licenses", css_path=css_path,
+        title="System Dependencies — Licenses",
+        css_path=css_path,
         js_path=js_path,
-        nav_items=nav_items, active_slug="system",
+        nav_items=nav_items,
+        active_slug="system",
         page_title="System Dependencies",
         entries=system_entries,
     )
@@ -701,18 +719,25 @@ def _write_html(
                 pkg_text = text_path.read_text(encoding="utf-8").strip()
             if not pkg_text:
                 pkg_text = "License text not available."
-            entries.append({
-                "slug": pkg.slug, "display": pkg.display,
-                "version": pkg.version, "license_type": pkg.license_type,
-                "license_text": pkg_text, "homepage": pkg.homepage,
-                "notes": "",
-            })
+            entries.append(
+                {
+                    "slug": pkg.slug,
+                    "display": pkg.display,
+                    "version": pkg.version,
+                    "license_type": pkg.license_type,
+                    "license_text": pkg_text,
+                    "homepage": pkg.homepage,
+                    "notes": "",
+                }
+            )
 
         slug = filename.replace(".html", "")
         cat_html = page_template.render(
-            title=f"{page_title} — Licenses", css_path=css_path,
+            title=f"{page_title} — Licenses",
+            css_path=css_path,
             js_path=js_path,
-            nav_items=nav_items, active_slug=slug,
+            nav_items=nav_items,
+            active_slug=slug,
             page_title=page_title,
             entries=entries,
         )

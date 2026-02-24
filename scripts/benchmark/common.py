@@ -16,9 +16,9 @@ import os
 import statistics
 import urllib.request
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 import fitz  # type: ignore[import-untyped]
 from PIL import Image, ImageChops, ImageFilter, ImageOps
@@ -96,9 +96,7 @@ class Config:
 # tessdata management
 # ---------------------------------------------------------------------------
 
-TESSDATA_BEST_URL = (
-    "https://github.com/tesseract-ocr/tessdata_best/raw/main/eng.traineddata"
-)
+TESSDATA_BEST_URL = "https://github.com/tesseract-ocr/tessdata_best/raw/main/eng.traineddata"
 TESSDATA_BEST_DIR = Path(__file__).resolve().parent.parent / "_script_content" / "tessdata" / "best"
 
 
@@ -120,7 +118,7 @@ def ensure_tessdata_best() -> Path:
     eng_path = TESSDATA_BEST_DIR / "eng.traineddata"
     if eng_path.exists():
         return TESSDATA_BEST_DIR
-    print(f"Downloading tessdata_best eng.traineddata...")
+    print("Downloading tessdata_best eng.traineddata...")
     urllib.request.urlretrieve(TESSDATA_BEST_URL, eng_path)
     size_mb = eng_path.stat().st_size / 1024 / 1024
     print(f"  Downloaded {size_mb:.1f} MB to {eng_path}")
@@ -148,16 +146,12 @@ def _capped_zoom(page: fitz.Page, dpi: int) -> fitz.Matrix:
     target_zoom = dpi / 72
     image_infos = page.get_image_info()
     if image_infos:
-        max_native_dpi = max(
-            max(info.get("xres", 72), info.get("yres", 72)) for info in image_infos
-        )
+        max_native_dpi = max(max(info.get("xres", 72), info.get("yres", 72)) for info in image_infos)
         target_zoom = min(target_zoom, max_native_dpi / 72)
     return fitz.Matrix(target_zoom, target_zoom)
 
 
-def autocrop_whitespace(
-    image: Image.Image, threshold: int = 245, padding: int = 10
-) -> Image.Image:
+def autocrop_whitespace(image: Image.Image, threshold: int = 245, padding: int = 10) -> Image.Image:
     gray = image.convert("L")
     blurred = gray.filter(ImageFilter.GaussianBlur(radius=5))
     bg = Image.new("L", blurred.size, threshold)
@@ -321,13 +315,10 @@ def ocr_pytesseract(img: Image.Image, cfg: Config) -> tuple[str, float]:
 
         # Reconstruct with paragraph structure
         paragraphs: dict[tuple[int, int], list[str]] = defaultdict(list)
-        for (block, par, line), words in sorted(lines_map.items()):
+        for (block, par, _line), words in sorted(lines_map.items()):
             paragraphs[(block, par)].append(" ".join(words))
 
-        text = "\n\n".join(
-            "\n".join(lines)
-            for _, lines in sorted(paragraphs.items())
-        )
+        text = "\n\n".join("\n".join(lines) for _, lines in sorted(paragraphs.items()))
         avg_conf = sum(confidences) / len(confidences) if confidences else 0.0
     except Exception:
         text = ""

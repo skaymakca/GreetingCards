@@ -1,7 +1,9 @@
 """Tests for app.gui.styles module."""
-import wx
-import pytest
+
 from unittest.mock import patch
+
+import pytest
+import wx
 
 from app.gui import appearance
 from app.gui.styles import Color, Font, Layout
@@ -31,9 +33,15 @@ class TestColor:
     def test_semantic_colors_exist(self, wx_app):
         """All semantic color constants are wx.Colour instances."""
         colors = [
-            Color.BG_PRIMARY, Color.BG_SECONDARY, Color.BG_SELECTED,
-            Color.TEXT_PRIMARY, Color.TEXT_SECONDARY,
-            Color.ACCENT, Color.SUCCESS, Color.WARNING, Color.ERROR,
+            Color.BG_PRIMARY,
+            Color.BG_SECONDARY,
+            Color.BG_SELECTED,
+            Color.TEXT_PRIMARY,
+            Color.TEXT_SECONDARY,
+            Color.ACCENT,
+            Color.SUCCESS,
+            Color.WARNING,
+            Color.ERROR,
             Color.MANUAL_BLUE,
         ]
         for c in colors:
@@ -119,9 +127,9 @@ class TestColorRefresh:
         """Should set dark-mode colors when in dark mode."""
         with patch.object(appearance, "is_dark_mode", return_value=True):
             Color.refresh()
-        assert Color.BG_PRIMARY == wx.Colour(30, 30, 30)
-        assert Color.TEXT_PRIMARY == wx.Colour(230, 230, 230)
-        assert Color.BORDER == wx.Colour(56, 56, 58)
+        assert wx.Colour(30, 30, 30) == Color.BG_PRIMARY
+        assert wx.Colour(230, 230, 230) == Color.TEXT_PRIMARY
+        assert wx.Colour(56, 56, 58) == Color.BORDER
 
     @pytest.mark.unit
     def test_refresh_light_mode(self, wx_app):
@@ -131,8 +139,8 @@ class TestColorRefresh:
             Color.refresh()
         with patch.object(appearance, "is_dark_mode", return_value=False):
             Color.refresh()
-        assert Color.BG_PRIMARY == wx.Colour(255, 255, 255)
-        assert Color.TEXT_PRIMARY == wx.Colour(29, 29, 31)
+        assert wx.Colour(255, 255, 255) == Color.BG_PRIMARY
+        assert wx.Colour(29, 29, 31) == Color.TEXT_PRIMARY
 
     @pytest.mark.unit
     def test_semantic_colors_unchanged(self, wx_app):
@@ -140,9 +148,9 @@ class TestColorRefresh:
         accent_before = Color.ACCENT
         with patch.object(appearance, "is_dark_mode", return_value=True):
             Color.refresh()
-        assert Color.ACCENT == accent_before
-        assert Color.SUCCESS == wx.Colour(52, 199, 89)
-        assert Color.ERROR == wx.Colour(255, 59, 48)
+        assert accent_before == Color.ACCENT
+        assert wx.Colour(52, 199, 89) == Color.SUCCESS
+        assert wx.Colour(255, 59, 48) == Color.ERROR
 
     @pytest.mark.unit
     def test_icon_hex_dark(self):

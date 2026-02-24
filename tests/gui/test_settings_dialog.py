@@ -1,11 +1,14 @@
 """Tests for app.gui.settings_dialog module."""
-from unittest.mock import patch, MagicMock
+
+from unittest.mock import MagicMock, patch
 
 import wx
 
 from app.gui.settings_dialog import (
-    GeneralPreferencesPage, AdvancedPreferencesPage,
-    create_preferences_editor, get_commit_hash,
+    AdvancedPreferencesPage,
+    GeneralPreferencesPage,
+    create_preferences_editor,
+    get_commit_hash,
 )
 
 

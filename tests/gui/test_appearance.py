@@ -54,8 +54,10 @@ class TestObserver:
         mock_app = MagicMock()
         callback = MagicMock()
 
-        with patch.object(appearance, "NSApplication") as mock_ns, \
-             patch.object(appearance, "_AppearanceObserver") as mock_cls:
+        with (
+            patch.object(appearance, "NSApplication") as mock_ns,
+            patch.object(appearance, "_AppearanceObserver") as mock_cls,
+        ):
             mock_ns.sharedApplication.return_value = mock_app
             mock_observer_instance = MagicMock()
             mock_cls.alloc.return_value.init.return_value = mock_observer_instance
@@ -78,9 +80,7 @@ class TestObserver:
             mock_ns.sharedApplication.return_value = mock_app
             appearance.stop_observer()
 
-        mock_app.removeObserver_forKeyPath_.assert_called_once_with(
-            mock_observer_instance, "effectiveAppearance"
-        )
+        mock_app.removeObserver_forKeyPath_.assert_called_once_with(mock_observer_instance, "effectiveAppearance")
         assert appearance._observer is None
 
     @pytest.mark.unit

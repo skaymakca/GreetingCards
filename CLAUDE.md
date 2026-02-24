@@ -187,10 +187,20 @@ Before committing, run these checks and fix any issues:
 
 | Command | Purpose | Expected |
 |---------|---------|----------|
+| `make check` | **All static checks** (type + lint + format + security) | 0 errors |
 | `make pyright` | Static type checking (strict structural types) | 0 errors, 0 warnings |
 | `make mypy` | Static type checking (nominal types, plugin-based) | 0 errors |
+| `make lint` | Ruff linting (code quality, bug patterns, imports) | 0 errors |
+| `make format-check` | Ruff formatting check | 0 reformatted |
+| `make security` | Bandit security scan (app + scripts) | 0 issues |
 | `uv run pytest tests/ -x` | Run all tests | All pass |
+
+**Quick pre-commit:** `make check && uv run pytest tests/ -x`
 
 **pyright** (`pyrightconfig.json`): Catches structural type errors, unused imports, unreachable code. Zero-warning baseline.
 
 **mypy** (`[tool.mypy]` in `pyproject.toml`): Catches nominal type mismatches, SQLAlchemy plugin issues. `import-untyped` errors are suppressed globally for stubless third-party libs (wx, AppKit, Foundation, tesserocr, fitz).
+
+**ruff** (`[tool.ruff]` in `pyproject.toml`): Linting (pyflakes, pycodestyle, isort, bugbear, simplify, etc.) and formatting. Use `make lint-fix` for auto-fixes, `make format` to reformat.
+
+**bandit** (`[tool.bandit]` in `pyproject.toml`): Security scanning for app/ and scripts/. Subprocess and known false positives are pre-configured as skips.

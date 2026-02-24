@@ -4,10 +4,12 @@ Tests the integration of custom SF Symbol cursors with modifier key detection,
 timer management, and cursor state transitions in the PreviewPanel.
 """
 
+from unittest.mock import Mock, patch
+
 import pytest
 import wx
-from unittest.mock import Mock, patch
 from PIL import Image
+
 from app.gui.preview_panel import PreviewPanel
 
 
@@ -30,7 +32,7 @@ def preview_panel(frame):
 @pytest.fixture
 def sample_image():
     """Create a sample PIL image."""
-    return Image.new('RGB', (400, 600), color='white')
+    return Image.new("RGB", (400, 600), color="white")
 
 
 @pytest.mark.gui
@@ -39,8 +41,8 @@ class TestCursorInitialization:
 
     def test_custom_cursors_loaded_on_init(self, preview_panel):
         """Should load custom zoom cursors during initialization."""
-        assert hasattr(preview_panel, '_zoom_in_cursor')
-        assert hasattr(preview_panel, '_zoom_out_cursor')
+        assert hasattr(preview_panel, "_zoom_in_cursor")
+        assert hasattr(preview_panel, "_zoom_out_cursor")
         assert preview_panel._zoom_in_cursor is not None
         assert preview_panel._zoom_out_cursor is not None
 
@@ -84,7 +86,7 @@ class TestCursorUpdateLogic:
         mock_state = Mock()
         mock_state.GetModifiers.return_value = wx.MOD_SHIFT
 
-        with patch('wx.GetMouseState', return_value=mock_state):
+        with patch("wx.GetMouseState", return_value=mock_state):
             preview_panel._update_cursor()
 
         # Should have set zoom-in cursor (can't easily verify which cursor)
@@ -99,7 +101,7 @@ class TestCursorUpdateLogic:
         mock_state = Mock()
         mock_state.GetModifiers.return_value = wx.MOD_ALT
 
-        with patch('wx.GetMouseState', return_value=mock_state):
+        with patch("wx.GetMouseState", return_value=mock_state):
             preview_panel._update_cursor()
 
         # Method should complete successfully
@@ -113,7 +115,7 @@ class TestCursorUpdateLogic:
         mock_state = Mock()
         mock_state.GetModifiers.return_value = 0
 
-        with patch('wx.GetMouseState', return_value=mock_state):
+        with patch("wx.GetMouseState", return_value=mock_state):
             preview_panel._update_cursor()
 
         # Method should complete successfully
@@ -127,7 +129,7 @@ class TestCursorUpdateLogic:
         mock_state = Mock()
         mock_state.GetModifiers.return_value = wx.MOD_SHIFT | wx.MOD_ALT
 
-        with patch('wx.GetMouseState', return_value=mock_state):
+        with patch("wx.GetMouseState", return_value=mock_state):
             preview_panel._update_cursor()
 
         # Method should complete successfully (ambiguous state handled)
@@ -152,7 +154,7 @@ class TestCursorUpdateLogic:
         mock_state = Mock()
         mock_state.GetModifiers.return_value = wx.MOD_SHIFT
 
-        with patch('wx.GetMouseState', return_value=mock_state):
+        with patch("wx.GetMouseState", return_value=mock_state):
             preview_panel._update_cursor()
 
         # Should not have changed cursor during drag
@@ -226,7 +228,7 @@ class TestCursorEventHandlers:
         preview_panel.show_images([sample_image])
 
         # Mock _update_cursor to track calls
-        with patch.object(preview_panel, '_update_cursor') as mock_update:
+        with patch.object(preview_panel, "_update_cursor") as mock_update:
             # Simulate timer event using Mock (wx.TimerEvent can't be instantiated)
             event = Mock()
             preview_panel._on_modifier_timer(event)
@@ -257,7 +259,7 @@ class TestCursorSetCalls:
         mock_state = Mock()
         mock_state.GetModifiers.return_value = wx.MOD_SHIFT
 
-        with patch('wx.GetMouseState', return_value=mock_state):
+        with patch("wx.GetMouseState", return_value=mock_state):
             preview_panel._update_cursor()
 
         # Should have called SetCursor
@@ -283,7 +285,7 @@ class TestCursorSetCalls:
         mock_state = Mock()
         mock_state.GetModifiers.return_value = wx.MOD_ALT
 
-        with patch('wx.GetMouseState', return_value=mock_state):
+        with patch("wx.GetMouseState", return_value=mock_state):
             preview_panel._update_cursor()
 
         # Should have called SetCursor with zoom-out cursor
@@ -308,7 +310,7 @@ class TestCursorSetCalls:
         mock_state = Mock()
         mock_state.GetModifiers.return_value = 0
 
-        with patch('wx.GetMouseState', return_value=mock_state):
+        with patch("wx.GetMouseState", return_value=mock_state):
             preview_panel._update_cursor()
 
         # Should have called SetCursor
@@ -336,8 +338,8 @@ class TestCursorStateTransitions:
     def test_cursor_maintains_state_through_page_change(self, preview_panel):
         """Should maintain cursor system through page navigation."""
         images = [
-            Image.new('RGB', (400, 600), color='white'),
-            Image.new('RGB', (400, 600), color='lightgray'),
+            Image.new("RGB", (400, 600), color="white"),
+            Image.new("RGB", (400, 600), color="lightgray"),
         ]
         preview_panel.show_images(images)
 
@@ -392,7 +394,7 @@ class TestCursorEdgeCases:
             mock_state = Mock()
             mock_state.GetModifiers.return_value = mod
 
-            with patch('wx.GetMouseState', return_value=mock_state):
+            with patch("wx.GetMouseState", return_value=mock_state):
                 preview_panel._update_cursor()
 
         # Should not crash
@@ -409,7 +411,7 @@ class TestCursorEdgeCases:
         mock_state = Mock()
         mock_state.GetModifiers.return_value = wx.MOD_SHIFT
 
-        with patch('wx.GetMouseState', return_value=mock_state):
+        with patch("wx.GetMouseState", return_value=mock_state):
             preview_panel._update_cursor()
 
         assert True

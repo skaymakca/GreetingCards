@@ -5,9 +5,9 @@ from enum import Enum
 
 
 class PackageCategory(Enum):
-    RUNTIME = "Runtime"           # app imports these
-    DEVELOPMENT = "Development"   # dev/build tools
-    TRANSITIVE = "Transitive"     # pulled in by others
+    RUNTIME = "Runtime"  # app imports these
+    DEVELOPMENT = "Development"  # dev/build tools
+    TRANSITIVE = "Transitive"  # pulled in by others
 
 
 @dataclass
@@ -23,9 +23,10 @@ class SystemDep:
 @dataclass
 class PackageOverride:
     """Partial package entry from config.toml — overrides auto-discovered values."""
+
     name: str
     display: str = ""
-    category: str = ""       # PackageCategory value string, or empty for auto
+    category: str = ""  # PackageCategory value string, or empty for auto
     license_type: str = ""
     homepage: str = ""
     notes: str = ""

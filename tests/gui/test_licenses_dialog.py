@@ -1,29 +1,42 @@
 """Tests for the licenses system (discovery, registry, viewer)."""
 
-import wx
-from unittest.mock import patch
 from pathlib import Path
-
-from app.gui.licenses_dialog import show_licenses
-from app.core.paths import get_runtime_content_path
-from app.core.license_discovery import (
-    generate_licenses_html, sync_registry, load_config,
-    get_page_order,
-    _parse_uv_lock, _find_dist_info, _find_license_file,
-    _extract_license_type, _extract_homepage,
-    _categorize_packages, _build_reverse_deps,
-    _slug, _display_name, _get_licenses_dir, _category_page_for,
-)
-from app.core.license_models import (
-    LicenseConfig, LicenseRegistry, PackageCategory, SystemDep,
-    PackageOverride, DiscoveredPackage,
-)
-from app.gui.html_viewer import _viewer_refs
+from unittest.mock import patch
 
 import pytest
+import wx
 
+from app.core.license_discovery import (
+    _build_reverse_deps,
+    _categorize_packages,
+    _category_page_for,
+    _display_name,
+    _extract_homepage,
+    _extract_license_type,
+    _find_dist_info,
+    _find_license_file,
+    _get_licenses_dir,
+    _parse_uv_lock,
+    _slug,
+    generate_licenses_html,
+    get_page_order,
+    load_config,
+    sync_registry,
+)
+from app.core.license_models import (
+    DiscoveredPackage,
+    LicenseConfig,
+    LicenseRegistry,
+    PackageCategory,
+    PackageOverride,
+    SystemDep,
+)
+from app.core.paths import get_runtime_content_path
+from app.gui.html_viewer import _viewer_refs
+from app.gui.licenses_dialog import show_licenses
 
 # --- Shared fixtures ---
+
 
 @pytest.fixture
 def licenses_window(wx_app, wx_frame):
@@ -43,9 +56,14 @@ def sample_config():
     """A minimal LicenseConfig for testing."""
     return LicenseConfig(
         system_deps=[
-            SystemDep(slug="python", display="Python", version="3.14",
-                      license_type="PSF License 2.0", notes="Bundled",
-                      url="https://python.org"),
+            SystemDep(
+                slug="python",
+                display="Python",
+                version="3.14",
+                license_type="PSF License 2.0",
+                notes="Bundled",
+                url="https://python.org",
+            ),
         ],
         package_overrides={
             "anthropic": PackageOverride(name="anthropic", display="Anthropic SDK"),
@@ -60,6 +78,7 @@ def _get_licenses_base_path() -> Path:
 
 
 # --- Path tests ---
+
 
 class TestGetLicensesBasePath:
     """Tests for licenses base path resolution."""
@@ -78,6 +97,7 @@ class TestGetLicensesBasePath:
 
 
 # --- Config tests ---
+
 
 class TestLoadConfig:
     """Tests for config.toml loading."""
@@ -105,6 +125,7 @@ class TestLoadConfig:
 
 
 # --- Registry tests ---
+
 
 class TestSyncRegistry:
     """Tests for registry sync."""
@@ -144,6 +165,7 @@ class TestSyncRegistry:
 
 # --- Generation tests ---
 
+
 class TestGenerateLicensesHtml:
     """Tests for license HTML generation."""
 
@@ -177,6 +199,7 @@ class TestGenerateLicensesHtml:
 
 # --- Content tests ---
 
+
 class TestLicenseContentFiles:
     """Tests that all generated pages have correct structure."""
 
@@ -205,8 +228,7 @@ class TestLicenseContentFiles:
         page_order = get_page_order(_get_licenses_base_path())
         for rel_path in page_order:
             content = (base / rel_path).read_text()
-            assert content.count('class="active"') == 1, \
-                f"Expected 1 active link in {rel_path}"
+            assert content.count('class="active"') == 1, f"Expected 1 active link in {rel_path}"
 
     def test_index_has_tables(self):
         base = _get_licenses_base_path()
@@ -256,8 +278,7 @@ class TestLicenseContentFiles:
 
     def test_category_pages_have_pre_blocks(self):
         base = _get_licenses_base_path()
-        for page in ("runtime.html", "system.html",
-                      "greeting-cards.html"):
+        for page in ("runtime.html", "system.html", "greeting-cards.html"):
             content = (base / page).read_text()
             assert "<pre>" in content, f"No <pre> in {page}"
 
@@ -281,6 +302,7 @@ class TestLicenseContentFiles:
 
 # --- Page order tests ---
 
+
 class TestPageOrder:
     """Tests for dynamic page order."""
 
@@ -302,6 +324,7 @@ class TestPageOrder:
 
 
 # --- Utility function tests ---
+
 
 class TestSlug:
     def test_lowercase(self):
@@ -341,13 +364,14 @@ class TestCategoryPageFor:
 class TestCategorizePackages:
     def test_runtime_deps(self, sample_config):
         pkgs = [
-            {"name": "greeting-cards", "version": "0.8.0",
-             "deps": ["anthropic", "pillow"]},
+            {"name": "greeting-cards", "version": "0.8.0", "deps": ["anthropic", "pillow"]},
             {"name": "anthropic", "version": "1.0", "deps": []},
             {"name": "pillow", "version": "10.0", "deps": []},
         ]
         cats = _categorize_packages(
-            pkgs, set(), sample_config,
+            pkgs,
+            set(),
+            sample_config,
             runtime_deps={"anthropic", "pillow"},
         )
         assert cats["anthropic"] == PackageCategory.RUNTIME
@@ -358,7 +382,9 @@ class TestCategorizePackages:
             {"name": "pytest", "version": "9.0", "deps": []},
         ]
         cats = _categorize_packages(
-            pkgs, {"pytest"}, sample_config,
+            pkgs,
+            {"pytest"},
+            sample_config,
             runtime_deps=set(),
         )
         assert cats["pytest"] == PackageCategory.DEVELOPMENT
@@ -368,7 +394,9 @@ class TestCategorizePackages:
             {"name": "idna", "version": "3.0", "deps": []},
         ]
         cats = _categorize_packages(
-            pkgs, set(), sample_config,
+            pkgs,
+            set(),
+            sample_config,
             runtime_deps=set(),
         )
         assert cats["idna"] == PackageCategory.TRANSITIVE
@@ -412,6 +440,7 @@ version = "2.0.0"
 
 # --- Dataclass tests ---
 
+
 class TestLicenseModels:
     """Tests for license dataclasses."""
 
@@ -422,9 +451,14 @@ class TestLicenseModels:
         assert len(PackageCategory) == 3
 
     def test_system_dep_creation(self):
-        sd = SystemDep(slug="python", display="Python", version="3.14",
-                       license_type="PSF", notes="bundled",
-                       url="https://python.org")
+        sd = SystemDep(
+            slug="python",
+            display="Python",
+            version="3.14",
+            license_type="PSF",
+            notes="bundled",
+            url="https://python.org",
+        )
         assert sd.slug == "python"
         assert sd.url == "https://python.org"
 
@@ -436,9 +470,14 @@ class TestLicenseModels:
 
     def test_discovered_package_default_text(self):
         dp = DiscoveredPackage(
-            name="foo", slug="foo", display="Foo", version="1.0",
-            license_type="MIT", category=PackageCategory.RUNTIME,
-            required_by="\u2014", text_file="texts/foo.txt",
+            name="foo",
+            slug="foo",
+            display="Foo",
+            version="1.0",
+            license_type="MIT",
+            category=PackageCategory.RUNTIME,
+            required_by="\u2014",
+            text_file="texts/foo.txt",
         )
         assert dp.license_text == ""
         assert dp.homepage == ""
@@ -447,12 +486,14 @@ class TestLicenseModels:
         registry = LicenseRegistry(
             uv_lock_hash="sha256:abc",
             generated_at="2026-01-01T00:00:00",
-            system_deps=[], packages=[],
+            system_deps=[],
+            packages=[],
         )
         assert registry.uv_lock_hash.startswith("sha256:")
 
 
 # --- Manual text file tests ---
+
 
 class TestManualTextFiles:
     """Tests for committed manual license texts."""
@@ -472,6 +513,7 @@ class TestManualTextFiles:
 
 # --- WebView window tests ---
 
+
 class TestLicensesWebViewWindow:
     """Tests for the WebView licenses window."""
 
@@ -480,8 +522,10 @@ class TestLicensesWebViewWindow:
         assert licenses_window.GetTitle() == "Open-Source Licenses"
 
     def test_singleton_reuse(self, licenses_window):
-        with patch.object(licenses_window, "Raise") as mock_raise, \
-             patch.object(licenses_window, "IsBeingDeleted", return_value=False):
+        with (
+            patch.object(licenses_window, "Raise") as mock_raise,
+            patch.object(licenses_window, "IsBeingDeleted", return_value=False),
+        ):
             show_licenses(licenses_window.GetParent())
             mock_raise.assert_called_once()
 
@@ -502,6 +546,7 @@ class TestLicensesWebViewWindow:
 
 
 # --- License extraction tests ---
+
 
 class TestFindLicenseFile:
     """Tests for _find_license_file()."""
@@ -557,17 +602,14 @@ class TestExtractLicenseType:
     def test_extracts_license_field(self, tmp_path):
         dist_info = tmp_path / "foo-1.0.dist-info"
         dist_info.mkdir()
-        (dist_info / "METADATA").write_text(
-            "Name: foo\nVersion: 1.0\nLicense: MIT\n"
-        )
+        (dist_info / "METADATA").write_text("Name: foo\nVersion: 1.0\nLicense: MIT\n")
         assert _extract_license_type(dist_info) == "MIT"
 
     def test_extracts_from_classifier(self, tmp_path):
         dist_info = tmp_path / "foo-1.0.dist-info"
         dist_info.mkdir()
         (dist_info / "METADATA").write_text(
-            "Name: foo\nVersion: 1.0\n"
-            "Classifier: License :: OSI Approved :: BSD License\n"
+            "Name: foo\nVersion: 1.0\nClassifier: License :: OSI Approved :: BSD License\n"
         )
         assert _extract_license_type(dist_info) == "BSD License"
 
@@ -585,9 +627,7 @@ class TestExtractLicenseType:
     def test_ignores_unknown_license_value(self, tmp_path):
         dist_info = tmp_path / "foo-1.0.dist-info"
         dist_info.mkdir()
-        (dist_info / "METADATA").write_text(
-            "Name: foo\nVersion: 1.0\nLicense: UNKNOWN\n"
-        )
+        (dist_info / "METADATA").write_text("Name: foo\nVersion: 1.0\nLicense: UNKNOWN\n")
         assert _extract_license_type(dist_info) == "See LICENSE file"
 
 
@@ -597,25 +637,19 @@ class TestExtractHomepage:
     def test_extracts_project_url_homepage(self, tmp_path):
         dist_info = tmp_path / "foo-1.0.dist-info"
         dist_info.mkdir()
-        (dist_info / "METADATA").write_text(
-            "Name: foo\nProject-URL: Homepage, https://example.com\n"
-        )
+        (dist_info / "METADATA").write_text("Name: foo\nProject-URL: Homepage, https://example.com\n")
         assert _extract_homepage(dist_info) == "https://example.com"
 
     def test_extracts_project_url_repository(self, tmp_path):
         dist_info = tmp_path / "foo-1.0.dist-info"
         dist_info.mkdir()
-        (dist_info / "METADATA").write_text(
-            "Name: foo\nProject-URL: Repository, https://github.com/x/y\n"
-        )
+        (dist_info / "METADATA").write_text("Name: foo\nProject-URL: Repository, https://github.com/x/y\n")
         assert _extract_homepage(dist_info) == "https://github.com/x/y"
 
     def test_falls_back_to_home_page_field(self, tmp_path):
         dist_info = tmp_path / "foo-1.0.dist-info"
         dist_info.mkdir()
-        (dist_info / "METADATA").write_text(
-            "Name: foo\nHome-page: https://old-style.com\n"
-        )
+        (dist_info / "METADATA").write_text("Name: foo\nHome-page: https://old-style.com\n")
         assert _extract_homepage(dist_info) == "https://old-style.com"
 
     def test_returns_empty_when_no_url(self, tmp_path):
@@ -632,7 +666,5 @@ class TestExtractHomepage:
     def test_ignores_unknown_home_page(self, tmp_path):
         dist_info = tmp_path / "foo-1.0.dist-info"
         dist_info.mkdir()
-        (dist_info / "METADATA").write_text(
-            "Name: foo\nHome-page: UNKNOWN\n"
-        )
+        (dist_info / "METADATA").write_text("Name: foo\nHome-page: UNKNOWN\n")
         assert _extract_homepage(dist_info) == ""

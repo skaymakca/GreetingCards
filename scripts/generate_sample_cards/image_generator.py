@@ -234,8 +234,15 @@ async def generate_full_card_images_async(
         prompt = build_full_card_prompt(spec, side)
         status_label = "gen_front" if side == "front" else "gen_back"
         success = await generate_image_openai_async(
-            client, semaphore, gate, job, prompt, image_file, quality,
-            size=FULL_CARD_SIZE, model=image_model,
+            client,
+            semaphore,
+            gate,
+            job,
+            prompt,
+            image_file,
+            quality,
+            size=FULL_CARD_SIZE,
+            model=image_model,
             status_label=status_label,
         )
         if success:

@@ -1,12 +1,12 @@
 """Tests for app.core.license_models module."""
 
 from app.core.license_models import (
-    PackageCategory,
-    SystemDep,
-    PackageOverride,
-    LicenseConfig,
     DiscoveredPackage,
+    LicenseConfig,
     LicenseRegistry,
+    PackageCategory,
+    PackageOverride,
+    SystemDep,
 )
 
 
@@ -31,8 +31,12 @@ class TestSystemDep:
 
     def test_construction(self):
         dep = SystemDep(
-            slug="python", display="Python", version="3.14",
-            license_type="PSF", notes="Runtime", url="https://python.org"
+            slug="python",
+            display="Python",
+            version="3.14",
+            license_type="PSF",
+            notes="Runtime",
+            url="https://python.org",
         )
         assert dep.slug == "python"
         assert dep.display == "Python"
@@ -40,8 +44,7 @@ class TestSystemDep:
 
     def test_url_default_empty(self):
         dep = SystemDep(
-            slug="tesseract", display="Tesseract", version="5.0",
-            license_type="Apache-2.0", notes="OCR engine"
+            slug="tesseract", display="Tesseract", version="5.0", license_type="Apache-2.0", notes="OCR engine"
         )
         assert dep.url == ""
 
@@ -59,10 +62,7 @@ class TestPackageOverride:
         assert o.notes == ""
 
     def test_with_overrides(self):
-        o = PackageOverride(
-            name="wxPython", display="wxPython (Phoenix)",
-            category="Runtime", license_type="wxWindows"
-        )
+        o = PackageOverride(name="wxPython", display="wxPython (Phoenix)", category="Runtime", license_type="wxWindows")
         assert o.display == "wxPython (Phoenix)"
         assert o.category == "Runtime"
 
@@ -71,10 +71,7 @@ class TestLicenseConfig:
     """Tests for LicenseConfig dataclass."""
 
     def test_construction(self):
-        dep = SystemDep(
-            slug="python", display="Python", version="3.14",
-            license_type="PSF", notes=""
-        )
+        dep = SystemDep(slug="python", display="Python", version="3.14", license_type="PSF", notes="")
         config = LicenseConfig(system_deps=[dep])
         assert len(config.system_deps) == 1
         assert config.package_overrides == {}
@@ -95,10 +92,14 @@ class TestDiscoveredPackage:
 
     def test_construction(self):
         pkg = DiscoveredPackage(
-            name="anyio", slug="anyio", display="anyio",
-            version="4.0", license_type="MIT",
+            name="anyio",
+            slug="anyio",
+            display="anyio",
+            version="4.0",
+            license_type="MIT",
             category=PackageCategory.TRANSITIVE,
-            required_by="httpx", text_file="texts/anyio.txt",
+            required_by="httpx",
+            text_file="texts/anyio.txt",
         )
         assert pkg.name == "anyio"
         assert pkg.category == PackageCategory.TRANSITIVE
@@ -110,15 +111,16 @@ class TestLicenseRegistry:
     """Tests for LicenseRegistry dataclass."""
 
     def test_construction(self):
-        dep = SystemDep(
-            slug="python", display="Python", version="3.14",
-            license_type="PSF", notes=""
-        )
+        dep = SystemDep(slug="python", display="Python", version="3.14", license_type="PSF", notes="")
         pkg = DiscoveredPackage(
-            name="anyio", slug="anyio", display="anyio",
-            version="4.0", license_type="MIT",
+            name="anyio",
+            slug="anyio",
+            display="anyio",
+            version="4.0",
+            license_type="MIT",
             category=PackageCategory.RUNTIME,
-            required_by="direct", text_file="texts/anyio.txt",
+            required_by="direct",
+            text_file="texts/anyio.txt",
         )
         reg = LicenseRegistry(
             uv_lock_hash="abc123",

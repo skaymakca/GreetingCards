@@ -11,8 +11,10 @@ from pathlib import Path
 
 from app.core.constants import PDF_DPI
 from app.core.database import (
-    compute_file_hash, get_card_state, save_raw_ocr,
+    compute_file_hash,
+    get_card_state,
     reprocess_candidates_from_raw,
+    save_raw_ocr,
 )
 from app.core.ocr_engine import extract_text_all_pages
 from app.core.pdf_renderer import render_all_pages
@@ -40,12 +42,12 @@ def process_pdf_worker(pdf_path_str: str) -> PdfWorkerResult:
         if images:
             # Serialize images to bytes
             preview_buf = io.BytesIO()
-            images[0].save(preview_buf, format='PNG')
+            images[0].save(preview_buf, format="PNG")
             result.preview_image_bytes = preview_buf.getvalue()
 
             for img in images:
                 buf = io.BytesIO()
-                img.save(buf, format='PNG')
+                img.save(buf, format="PNG")
                 result.page_images_bytes.append(buf.getvalue())
 
         # New file: run OCR and save raw data

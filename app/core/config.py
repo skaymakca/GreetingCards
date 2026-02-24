@@ -14,6 +14,7 @@ _MODEL_KEY = "AI_MODEL"
 @dataclass(frozen=True)
 class ModelInfo:
     """Metadata for an available AI model."""
+
     model_id: str
     label: str
     description: str
@@ -23,12 +24,18 @@ class ModelInfo:
 
 
 AI_MODELS = (
-    ModelInfo("claude-haiku-4-5", "Claude Haiku 4.5", "Fast, low cost",
-              speed="Fastest", quality="Good", cost_cents=0.4),
-    ModelInfo("claude-sonnet-4-6", "Claude Sonnet 4.6", "Balanced (default)",
-              speed="Fast", quality="Excellent", cost_cents=1.3),
-    ModelInfo("claude-opus-4-6", "Claude Opus 4.6", "Most capable",
-              speed="Moderate", quality="Best", cost_cents=2.1),
+    ModelInfo(
+        "claude-haiku-4-5", "Claude Haiku 4.5", "Fast, low cost", speed="Fastest", quality="Good", cost_cents=0.4
+    ),
+    ModelInfo(
+        "claude-sonnet-4-6",
+        "Claude Sonnet 4.6",
+        "Balanced (default)",
+        speed="Fast",
+        quality="Excellent",
+        cost_cents=1.3,
+    ),
+    ModelInfo("claude-opus-4-6", "Claude Opus 4.6", "Most capable", speed="Moderate", quality="Best", cost_cents=2.1),
 )
 
 DEFAULT_AI_MODEL = "claude-sonnet-4-6"
@@ -77,10 +84,7 @@ def get_api_key() -> str | None:
         env_key = None
 
     if env_key and plist_key and env_key != plist_key and not _mismatch_warned:
-        logger.warning(
-            "ANTHROPIC_API_KEY env var differs from preferences.plist; "
-            "using env var"
-        )
+        logger.warning("ANTHROPIC_API_KEY env var differs from preferences.plist; using env var")
         _mismatch_warned = True
 
     return env_key or plist_key

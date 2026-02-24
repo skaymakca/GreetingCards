@@ -1,6 +1,7 @@
 """Tests for name formatting utilities."""
 
 import pytest
+
 from app.core.name_formatting import deparameterize_name, smart_title_case
 
 
@@ -51,15 +52,18 @@ class TestDeparameterizeName:
         assert deparameterize_name("Van der Bergs") == "Van der Berg"
 
     @pytest.mark.unit
-    @pytest.mark.parametrize("input_name,expected", [
-        ("Smiths", "Smith"),
-        ("Jones", "Jones"),
-        ("The Millers", "The Miller"),
-        ("Browns", "Brown"),
-        ("Williams", "Williams"),
-        ("Thompsons", "Thompson"),
-        ("Davis", "Davis"),
-    ])
+    @pytest.mark.parametrize(
+        "input_name,expected",
+        [
+            ("Smiths", "Smith"),
+            ("Jones", "Jones"),
+            ("The Millers", "The Miller"),
+            ("Browns", "Brown"),
+            ("Williams", "Williams"),
+            ("Thompsons", "Thompson"),
+            ("Davis", "Davis"),
+        ],
+    )
     def test_deparameterize_various_names(self, input_name, expected):
         """Parameterized test for various name patterns."""
         assert deparameterize_name(input_name) == expected
@@ -186,29 +190,32 @@ class TestSmartTitleCase:
 
     # Parameterized comprehensive test
     @pytest.mark.unit
-    @pytest.mark.parametrize("input_name,expected", [
-        # Basic
-        ("smith", "Smith"),
-        ("JONES", "Jones"),
-        # Apostrophes
-        ("o'brian", "O'Brian"),
-        ("d'angelo", "D'Angelo"),
-        # Hyphens
-        ("smith-jones", "Smith-Jones"),
-        # Mc/Mac
-        ("mcdonald", "McDonald"),
-        ("macdonald", "MacDonald"),
-        ("macintosh", "Macintosh"),  # Exception
-        # Particles
-        ("van der berg", "Van der Berg"),  # First word
-        ("john von trapp", "John von Trapp"),  # Not first
-        # Suffixes
-        ("john smith ii", "John Smith II"),
-        ("john smith jr", "John Smith Jr."),
-        # Complex
-        ("jean de macdonald", "Jean de MacDonald"),
-        ("o'brien-mcdonald", "O'Brien-McDonald"),
-    ])
+    @pytest.mark.parametrize(
+        "input_name,expected",
+        [
+            # Basic
+            ("smith", "Smith"),
+            ("JONES", "Jones"),
+            # Apostrophes
+            ("o'brian", "O'Brian"),
+            ("d'angelo", "D'Angelo"),
+            # Hyphens
+            ("smith-jones", "Smith-Jones"),
+            # Mc/Mac
+            ("mcdonald", "McDonald"),
+            ("macdonald", "MacDonald"),
+            ("macintosh", "Macintosh"),  # Exception
+            # Particles
+            ("van der berg", "Van der Berg"),  # First word
+            ("john von trapp", "John von Trapp"),  # Not first
+            # Suffixes
+            ("john smith ii", "John Smith II"),
+            ("john smith jr", "John Smith Jr."),
+            # Complex
+            ("jean de macdonald", "Jean de MacDonald"),
+            ("o'brien-mcdonald", "O'Brien-McDonald"),
+        ],
+    )
     def test_smart_title_case_comprehensive(self, input_name, expected):
         """Comprehensive parameterized test for various name patterns."""
         assert smart_title_case(input_name) == expected

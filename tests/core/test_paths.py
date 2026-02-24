@@ -1,11 +1,12 @@
 """Tests for app.core.paths module."""
+
 import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.core.paths import is_bundled, get_data_dir, get_db_path
+from app.core.paths import get_data_dir, get_db_path, is_bundled
 
 
 class TestIsBundled:
@@ -46,9 +47,11 @@ class TestGetDataDir:
     def test_bundled_mode_returns_app_support(self):
         """In bundled mode, returns ~/Library/Application Support/GreetingCards."""
         fake_home = Path("/fake/home")
-        with patch.object(sys, "_MEIPASS", "/tmp/bundle", create=True), \
-             patch.object(Path, "home", return_value=fake_home), \
-             patch.object(Path, "mkdir"):
+        with (
+            patch.object(sys, "_MEIPASS", "/tmp/bundle", create=True),
+            patch.object(Path, "home", return_value=fake_home),
+            patch.object(Path, "mkdir"),
+        ):
             result = get_data_dir()
             assert result == fake_home / "Library" / "Application Support" / "GreetingCards"
 
@@ -56,9 +59,11 @@ class TestGetDataDir:
         """In bundled mode, auto-creates the data directory."""
         fake_home = Path("/fake/home")
         mock_mkdir = MagicMock()
-        with patch.object(sys, "_MEIPASS", "/tmp/bundle", create=True), \
-             patch.object(Path, "home", return_value=fake_home), \
-             patch.object(Path, "mkdir", mock_mkdir):
+        with (
+            patch.object(sys, "_MEIPASS", "/tmp/bundle", create=True),
+            patch.object(Path, "home", return_value=fake_home),
+            patch.object(Path, "mkdir", mock_mkdir),
+        ):
             get_data_dir()
             mock_mkdir.assert_called_once_with(parents=True, exist_ok=True)
 

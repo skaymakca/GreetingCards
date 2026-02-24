@@ -1,8 +1,9 @@
 """Tests for filename sanitization in the name cleaning pipeline."""
 
 import pytest
-from app.core.name_formatting import sanitize_for_filename, INVALID_FILENAME_CHARS, _INVALID_FS_CHARS
+
 from app.core.database import _clean_and_filter_names
+from app.core.name_formatting import _INVALID_FS_CHARS, INVALID_FILENAME_CHARS, sanitize_for_filename
 from app.models.card import CardResult, Confidence
 
 

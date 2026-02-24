@@ -12,6 +12,4 @@ def show_changelog(parent: wx.Window) -> None:
     base_path = get_runtime_content_path("html/changelog")
     page_order = get_page_order(base_path)
 
-    show_viewer(parent, title="What's New",
-                base_path=base_path, page_order=page_order,
-                singleton_key="changelog")
+    show_viewer(parent, title="What's New", base_path=base_path, page_order=page_order, singleton_key="changelog")

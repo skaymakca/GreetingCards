@@ -1,23 +1,29 @@
 """wxPython dialog classes for the application."""
 
+from pathlib import Path
+
 import wx
 import wx.dataview as dv
-from pathlib import Path
+
 from app.gui import styles
 from app.models.card import (
-    RenamePlanItem, RenameResult,
-    STATUS_OK, STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR, STATUS_DUPLICATE,
+    STATUS_DUPLICATE,
+    STATUS_OK,
+    STATUS_SKIP_ERROR,
+    STATUS_SKIP_NO_NAME,
+    STATUS_SKIP_SAME,
+    RenamePlanItem,
+    RenameResult,
 )
 
-
 # Dialog layout constants
-_DIALOG_PADDING = 20          # Outer margin for dialog content
-_HEADER_GAP = 4               # Gap between header and summary text
-_SECTION_GAP = 12             # Gap between summary and table/content
-_BTN_GAP = 8                  # Gap between adjacent buttons
-_SCROLLBAR_WIDTH = 20         # Reserve space for vertical scrollbar
-_STATUS_COL_WIDTH = 100       # Width for short status columns (OK, SKIP, SAME, ERROR, DUP)
-_RESULT_COL_WIDTH = 140       # Width for result columns (OK, ERROR: msg)
+_DIALOG_PADDING = 20  # Outer margin for dialog content
+_HEADER_GAP = 4  # Gap between header and summary text
+_SECTION_GAP = 12  # Gap between summary and table/content
+_BTN_GAP = 8  # Gap between adjacent buttons
+_SCROLLBAR_WIDTH = 20  # Reserve space for vertical scrollbar
+_STATUS_COL_WIDTH = 100  # Width for short status columns (OK, SKIP, SAME, ERROR, DUP)
+_RESULT_COL_WIDTH = 140  # Width for result columns (OK, ERROR: msg)
 
 
 def _display_path(path: Path) -> str:
@@ -97,7 +103,7 @@ class ProgressDialog(wx.Dialog):
         super().__init__(
             parent,
             title=title,
-            style=wx.CAPTION  # No close button
+            style=wx.CAPTION,  # No close button
         )
 
         self._total = total
@@ -174,10 +180,7 @@ class RenameConfirmDialog(wx.Dialog):
 
     def __init__(self, parent: wx.Window, plan: list[RenamePlanItem]):
         super().__init__(
-            parent,
-            title="Confirm Rename",
-            size=(700, 500),
-            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
+            parent, title="Confirm Rename", size=(700, 500), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
         )
 
         self.result = False
@@ -239,21 +242,18 @@ class RenameConfirmDialog(wx.Dialog):
         colors = []
         for item in plan:
             old_display = _display_path(item.old_path) if multi_dir else item.old_path.name
-            new_display = "-" if item.status in _SKIP_STATUSES else (
-                _display_path(item.new_path) if multi_dir else item.new_path.name
+            new_display = (
+                "-"
+                if item.status in _SKIP_STATUSES
+                else (_display_path(item.new_path) if multi_dir else item.new_path.name)
             )
-            label, color = _STATUS_STYLE.get(
-                item.status, (item.status, styles.Color.TEXT_PRIMARY)
-            )
+            label, color = _STATUS_STYLE.get(item.status, (item.status, styles.Color.TEXT_PRIMARY))
             data.append([old_display, new_display, label])
             colors.append(color)
 
         # Create model and ctrl
         self.model = TableModel(data, colors)
-        self.list_ctrl = dv.DataViewCtrl(
-            self,
-            style=dv.DV_ROW_LINES | dv.DV_VERT_RULES
-        )
+        self.list_ctrl = dv.DataViewCtrl(self, style=dv.DV_ROW_LINES | dv.DV_VERT_RULES)
         self.list_ctrl.AssociateModel(self.model)
 
         # Add columns — file name columns share remaining space equally
@@ -322,12 +322,7 @@ class ErrorListDialog(wx.Dialog):
     """Dialog showing AI analysis errors in a structured table."""
 
     def __init__(self, parent: wx.Window, title: str, errors: list[tuple[str, str]], auth_aborted: bool = False):
-        super().__init__(
-            parent,
-            title=title,
-            size=(650, 400),
-            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
-        )
+        super().__init__(parent, title=title, size=(650, 400), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
 
         # Main sizer
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -337,7 +332,7 @@ class ErrorListDialog(wx.Dialog):
         # Summary header
         header_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        symbol = wx.StaticText(self, label="\u26A0")
+        symbol = wx.StaticText(self, label="\u26a0")
         symbol_font = styles.Font.TITLE()
         symbol_font.SetPointSize(20)
         symbol.SetFont(symbol_font)
@@ -362,10 +357,7 @@ class ErrorListDialog(wx.Dialog):
 
         # Create model and ctrl
         self.model = TableModel(data, colors)
-        self.list_ctrl = dv.DataViewCtrl(
-            self,
-            style=dv.DV_ROW_LINES | dv.DV_VERT_RULES
-        )
+        self.list_ctrl = dv.DataViewCtrl(self, style=dv.DV_ROW_LINES | dv.DV_VERT_RULES)
         self.list_ctrl.AssociateModel(self.model)
 
         # Add columns — split space equally
@@ -400,12 +392,7 @@ class CompletionDialog(wx.Dialog):
     """Dialog showing rename results in a structured table."""
 
     def __init__(self, parent: wx.Window, title: str, results: list[RenameResult]):
-        super().__init__(
-            parent,
-            title=title,
-            size=(650, 420),
-            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
-        )
+        super().__init__(parent, title=title, size=(650, 420), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
 
         # Compute counts
         renamed = sum(1 for r in results if r.success and r.message == "Renamed")
@@ -460,10 +447,7 @@ class CompletionDialog(wx.Dialog):
 
         # Create model and ctrl
         self.model = TableModel(data, colors)
-        self.list_ctrl = dv.DataViewCtrl(
-            self,
-            style=dv.DV_ROW_LINES | dv.DV_VERT_RULES
-        )
+        self.list_ctrl = dv.DataViewCtrl(self, style=dv.DV_ROW_LINES | dv.DV_VERT_RULES)
         self.list_ctrl.AssociateModel(self.model)
 
         # Add columns

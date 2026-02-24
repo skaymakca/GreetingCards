@@ -2,7 +2,8 @@
 
 import pytest
 import wx
-from app.gui.icons import load_sf_symbol, load_menu_icon, _hex_to_rgb, clear_cache, _cache
+
+from app.gui.icons import _cache, _hex_to_rgb, clear_cache, load_menu_icon, load_sf_symbol
 
 
 @pytest.mark.gui
@@ -58,13 +59,16 @@ class TestSFSymbolLoading:
         if bitmap_red:
             assert bitmap_red.IsOk()
 
-    @pytest.mark.parametrize("symbol_name", [
-        "scissors",
-        "doc.on.doc",
-        "doc.on.clipboard",
-        "textformat.abc",
-        "xmark.circle",
-    ])
+    @pytest.mark.parametrize(
+        "symbol_name",
+        [
+            "scissors",
+            "doc.on.doc",
+            "doc.on.clipboard",
+            "textformat.abc",
+            "xmark.circle",
+        ],
+    )
     def test_context_menu_symbols_load(self, wx_app, symbol_name):
         """Test that all context menu SF Symbols load successfully."""
         bitmap = load_sf_symbol(symbol_name, 12, "#1D1D1F")
@@ -153,14 +157,17 @@ class TestColorHandling:
         # May fail due to missing # - that's OK, test documents it
         assert bitmap is None or isinstance(bitmap, wx.Bitmap)
 
-    @pytest.mark.parametrize("color_hex", [
-        "#000000",  # Black
-        "#FFFFFF",  # White
-        "#FF0000",  # Red
-        "#00FF00",  # Green
-        "#0000FF",  # Blue
-        "#1D1D1F",  # Near-black (our default)
-    ])
+    @pytest.mark.parametrize(
+        "color_hex",
+        [
+            "#000000",  # Black
+            "#FFFFFF",  # White
+            "#FF0000",  # Red
+            "#00FF00",  # Green
+            "#0000FF",  # Blue
+            "#1D1D1F",  # Near-black (our default)
+        ],
+    )
     def test_various_colors(self, wx_app, color_hex):
         """Test loading with various hex colors."""
         bitmap = load_sf_symbol("scissors", 12, color_hex)
@@ -388,13 +395,16 @@ class TestLoadMenuIcon:
         # Should load with default color
         assert bitmap is None or isinstance(bitmap, wx.Bitmap)
 
-    @pytest.mark.parametrize("symbol_name", [
-        "scissors",
-        "doc.on.doc",
-        "doc.on.clipboard",
-        "textformat.abc",
-        "xmark.circle",
-    ])
+    @pytest.mark.parametrize(
+        "symbol_name",
+        [
+            "scissors",
+            "doc.on.doc",
+            "doc.on.clipboard",
+            "textformat.abc",
+            "xmark.circle",
+        ],
+    )
     def test_load_menu_icon_common_symbols(self, wx_app, symbol_name):
         """Should load common menu symbols."""
         bitmap = load_menu_icon(symbol_name)

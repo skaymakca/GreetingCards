@@ -1,15 +1,16 @@
 """Tests for app.models.card module."""
+
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from app.models.card import (
-    Confidence,
     CandidateInfo,
-    CardState,
-    NameMatch,
     CardResult,
+    CardState,
+    Confidence,
+    NameMatch,
     RenamePlanItem,
     RenameResult,
 )
@@ -18,23 +19,29 @@ from app.models.card import (
 class TestConfidence:
     """Tests for Confidence enum."""
 
-    @pytest.mark.parametrize("member,value", [
-        (Confidence.HIGH, "high"),
-        (Confidence.MEDIUM, "medium"),
-        (Confidence.LOW, "low"),
-        (Confidence.MANUAL, "manual"),
-        (Confidence.NONE, "none"),
-    ])
+    @pytest.mark.parametrize(
+        "member,value",
+        [
+            (Confidence.HIGH, "high"),
+            (Confidence.MEDIUM, "medium"),
+            (Confidence.LOW, "low"),
+            (Confidence.MANUAL, "manual"),
+            (Confidence.NONE, "none"),
+        ],
+    )
     def test_values(self, member, value):
         assert member.value == value
 
-    @pytest.mark.parametrize("member,expected_color", [
-        (Confidence.HIGH, "#34C759"),
-        (Confidence.MEDIUM, "#FF9500"),
-        (Confidence.LOW, "#FF3B30"),
-        (Confidence.MANUAL, "#1E90FF"),
-        (Confidence.NONE, "#6E6E73"),
-    ])
+    @pytest.mark.parametrize(
+        "member,expected_color",
+        [
+            (Confidence.HIGH, "#34C759"),
+            (Confidence.MEDIUM, "#FF9500"),
+            (Confidence.LOW, "#FF3B30"),
+            (Confidence.MANUAL, "#1E90FF"),
+            (Confidence.NONE, "#6E6E73"),
+        ],
+    )
     def test_colors(self, member, expected_color):
         assert member.color() == expected_color
 

@@ -28,18 +28,18 @@ def deparameterize_name(name: str) -> str:
 
     for word in words:
         # Skip articles and particles
-        if word.lower() in ['the', 'a', 'an']:
+        if word.lower() in ["the", "a", "an"]:
             result.append(word)
             continue
 
         # Remove trailing 's' if it looks like a plural family name
         # But keep names that naturally end in 's' (Jones, Williams, etc.)
-        if len(word) > 3 and word.endswith('s') and not word.endswith('ss'):
+        if len(word) > 3 and word.endswith("s") and not word.endswith("ss"):
             # Check if the word naturally ends in 's' by looking at common patterns
             # Natural endings: Jones, Williams, Adams, Davis, Thomas, Matthews, etc.
             # These typically end in: -nes, -ms, -vis, -lis, -as, -es (after certain letters)
             lower_word = word.lower()
-            natural_endings = ('nes', 'mes', 'ams', 'vis', 'lis', 'as', 'is', 'us', 'ris', 'ies')
+            natural_endings = ("nes", "mes", "ams", "vis", "lis", "as", "is", "us", "ris", "ies")
 
             # Check if this looks like a natural 's' ending
             if any(lower_word.endswith(ending) for ending in natural_endings):
@@ -50,17 +50,18 @@ def deparameterize_name(name: str) -> str:
         else:
             result.append(word)
 
-    return ' '.join(result)
+    return " ".join(result)
 
 
 # --- Constants ---
 
-_MAC_EXCEPTIONS = ['macintosh', 'machine', 'mach', 'macro', 'mace']
-_PARTICLES = ['van', 'von', 'de', 'del', 'der', 'den', 'la', 'le', 'da', 'di', 'st']
-_SUFFIXES = ['ii', 'iii', 'iv', 'v', 'jr', 'sr']
+_MAC_EXCEPTIONS = ["macintosh", "machine", "mach", "macro", "mace"]
+_PARTICLES = ["van", "von", "de", "del", "der", "den", "la", "le", "da", "di", "st"]
+_SUFFIXES = ["ii", "iii", "iv", "v", "jr", "sr"]
 
 
 # --- Helper Functions ---
+
 
 def _is_mac_exception(word: str) -> bool:
     """Check if word is a Mac exception (macintosh, machine, etc.)."""
@@ -77,10 +78,10 @@ def _apply_mc_mac_rules(word: str) -> str:
     """
     if _is_mac_exception(word):
         return word.capitalize()
-    elif word.lower().startswith('mc') and len(word) > 2:
-        return 'Mc' + word[2:].capitalize()
-    elif word.lower().startswith('mac') and len(word) > 3:
-        return 'Mac' + word[3:].capitalize()
+    elif word.lower().startswith("mc") and len(word) > 2:
+        return "Mc" + word[2:].capitalize()
+    elif word.lower().startswith("mac") and len(word) > 3:
+        return "Mac" + word[3:].capitalize()
     else:
         return word.capitalize()
 
@@ -97,8 +98,8 @@ def _format_suffix(word: str) -> str | None:
         "smith" → None (not a suffix)
     """
     lower = word.lower()
-    if lower in ['jr', 'sr']:
-        return word.capitalize() + '.'
+    if lower in ["jr", "sr"]:
+        return word.capitalize() + "."
     elif lower in _SUFFIXES:
         return word.upper()
     return None
@@ -176,6 +177,7 @@ def _format_word_with_structure(word: str) -> str:
 
 # --- Main Function ---
 
+
 def smart_title_case(name: str) -> str:
     """Apply smart title case with special rules for names.
 
@@ -200,7 +202,7 @@ def smart_title_case(name: str) -> str:
     result = []
 
     for i, word in enumerate(words):
-        is_first_word = (i == 0)
+        is_first_word = i == 0
 
         # Check if word is a particle (special handling for position)
         particle = _format_particle(word, is_first_word)
@@ -212,4 +214,4 @@ def smart_title_case(name: str) -> str:
         formatted = _format_word_with_structure(word)
         result.append(formatted)
 
-    return ' '.join(result)
+    return " ".join(result)

@@ -1,4 +1,5 @@
 """Tests for app.core.database module."""
+
 import hashlib
 from pathlib import Path
 from unittest.mock import patch
@@ -10,32 +11,32 @@ from sqlalchemy.orm import sessionmaker
 import app.core.database as db_mod
 from app.core.database import (
     Base,
-    Card,
     Candidate,
-    Settings,
-    RawOCRResult,
+    Card,
     RawAIResult,
-    compute_file_hash,
+    RawOCRResult,
+    Settings,
+    _clean_and_filter_names,
     _compute_schema_version,
     _ensure_schema,
     _session_scope,
-    _clean_and_filter_names,
-    create_or_update_card,
     add_candidate,
-    get_candidates,
-    set_manual_name,
-    select_candidate,
-    update_remove_family,
-    get_card_state,
-    save_raw_ocr,
-    get_raw_ocr,
-    save_raw_ai,
-    get_raw_ai,
-    clear_unselected_candidates,
     clear_ai_results,
-    reset_database,
-    should_reprocess,
+    clear_unselected_candidates,
+    compute_file_hash,
+    create_or_update_card,
+    get_candidates,
+    get_card_state,
+    get_raw_ai,
+    get_raw_ocr,
     reprocess_candidates_from_raw,
+    reset_database,
+    save_raw_ai,
+    save_raw_ocr,
+    select_candidate,
+    set_manual_name,
+    should_reprocess,
+    update_remove_family,
 )
 
 
@@ -469,6 +470,7 @@ class TestEnsureSchema:
     def test_missing_settings_table_recreates(self):
         """When settings table is missing, schema is created from scratch."""
         from sqlalchemy import text
+
         # Drop the settings table
         with db_mod._engine.begin() as conn:
             conn.execute(text("DROP TABLE IF EXISTS settings"))
@@ -484,7 +486,8 @@ class TestEnsureSchema:
 
     def test_orphaned_tables_dropped(self):
         """Orphaned tables not in current metadata are dropped during migration."""
-        from sqlalchemy import text, inspect
+        from sqlalchemy import inspect, text
+
         # Create an orphaned table
         with db_mod._engine.begin() as conn:
             conn.execute(text("CREATE TABLE orphan_table (id INTEGER PRIMARY KEY)"))
@@ -595,7 +598,7 @@ class TestClearUnselectedCandidatesEdgeCases:
         """When selected candidate is of the same method being cleared, it's preserved."""
         create_or_update_card("hash1")
         cid1 = add_candidate("hash1", "A", "ocr", "high")
-        cid2 = add_candidate("hash1", "B", "ocr", "medium")
+        add_candidate("hash1", "B", "ocr", "medium")
         select_candidate("hash1", cid1)
 
         clear_unselected_candidates("hash1", "ocr")
@@ -788,7 +791,7 @@ class TestClearAIResultsEdgeCases:
     def test_manual_plus_ai_preserves_manual(self, mock_title, mock_clean):
         """Card with manual entry + AI selected: manual preserved, AI cleared."""
         create_or_update_card("hash1")
-        ai_cid = add_candidate("hash1", "AiName", "ai", "high")
+        add_candidate("hash1", "AiName", "ai", "high")
         # Set manual name (this clears selected_candidate_id)
         set_manual_name("hash1", "ManualName")
         # Now also have AI candidate (but not selected due to manual)
@@ -810,7 +813,7 @@ class TestClearAIResultsEdgeCases:
     def test_multi_ocr_selects_best(self, mock_title, mock_clean):
         """After clearing AI, best OCR candidate (by confidence) is selected."""
         create_or_update_card("hash1")
-        ocr_low = add_candidate("hash1", "LowName", "ocr", "low")
+        add_candidate("hash1", "LowName", "ocr", "low")
         ocr_high = add_candidate("hash1", "HighName", "ocr", "high")
         ai_cid = add_candidate("hash1", "AiName", "ai", "high")
         select_candidate("hash1", ai_cid)
@@ -868,8 +871,8 @@ class TestReprocessCandidatesEdgeCases:
         create_or_update_card("hash1")
         # Directly insert corrupted JSON into raw_ai_results
         session = db_mod._Session()
-        from app.core.database import RawAIResult
-        card = session.query(Card).filter_by(file_hash="hash1").first()
+
+        session.query(Card).filter_by(file_hash="hash1").first()
         ai_result = RawAIResult(file_hash="hash1", raw_response="not valid json{{{")
         session.add(ai_result)
         session.commit()
@@ -895,11 +898,10 @@ class TestSessionScope:
 
     def test_rollback_on_exception(self):
         """Changes are rolled back on exception."""
-        with pytest.raises(ValueError):
-            with _session_scope() as session:
-                session.add(Card(file_hash="rollback_test"))
-                session.flush()
-                raise ValueError("test error")
+        with pytest.raises(ValueError), _session_scope() as session:
+            session.add(Card(file_hash="rollback_test"))
+            session.flush()
+            raise ValueError("test error")
         # Verify NOT persisted
         state = get_card_state("rollback_test")
         assert state is None

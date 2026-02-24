@@ -69,6 +69,14 @@ Run `make help` to see all available commands.
 | `make bump-major` | Bump major version (e.g. 0.6.0 → 1.0.0) |
 | `make tag` | Create git tag `vX.Y.Z` from current version |
 | `make tag-push` | Push all tags to remote |
+| `make check` | Run all static checks (pyright + mypy + ruff lint + format + bandit) |
+| `make pyright` | Run pyright type checking on app/ and scripts/ |
+| `make mypy` | Run mypy type checking on app/ and scripts/ |
+| `make lint` | Run ruff linter |
+| `make lint-fix` | Run ruff linter with auto-fix |
+| `make format` | Format code with ruff |
+| `make format-check` | Check formatting without making changes |
+| `make security` | Run bandit security scan on app/ and scripts/ |
 | `make loc` | Count lines of code in project files (excludes dependencies and build artifacts) |
 | `make show-scripts` | Show available script invocations without running them |
 | `make clean` | Remove `build/` and `dist/` directories |
@@ -180,7 +188,7 @@ tests/
 
 ### Current Coverage
 
-- **1300 tests** covering core logic and GUI components
+- **1304 tests** covering core logic and GUI components
 - **Core** (17 test files): AI analysis, card model, changelog, config, database, filename sanitization, help builder, license discovery, name extraction, name formatting, OCR engine, paths, PDF rendering, PDF worker, renamer, template environment, version
 - **GUI** (14 test files): API key dialog, context menu, dialogs, filter sidebar, help system, icons, main window, preview cursor behavior, preview panel, review panel, settings, styles, utilities
 

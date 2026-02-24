@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev run app build clean icon html-content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-unit test-gui test-watch tessdata pyright mypy show-scripts
+.PHONY: help setup setup-dev run app build clean icon html-content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-unit test-gui test-watch tessdata pyright mypy lint lint-fix format format-check security check show-scripts
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -58,6 +58,23 @@ pyright: ## Run pyright type checking on app/ and scripts/
 
 mypy: ## Run mypy type checking on app/ and scripts/
 	uv run mypy app/ scripts/
+
+lint: ## Run ruff linter
+	uv run ruff check app/ scripts/ tests/ main.py
+
+lint-fix: ## Run ruff linter with auto-fix
+	uv run ruff check --fix app/ scripts/ tests/ main.py
+
+format: ## Format code with ruff
+	uv run ruff format app/ scripts/ tests/ main.py
+
+format-check: ## Check formatting (no changes)
+	uv run ruff format --check app/ scripts/ tests/ main.py
+
+security: ## Run bandit security scan
+	uv run bandit -r app/ scripts/ -c pyproject.toml
+
+check: pyright mypy lint format-check security ## Run all static checks
 
 build: app ## Build the macOS .app bundle (alias for 'app')
 

@@ -1,12 +1,13 @@
 """Tests for help page builder — frontmatter, validation, reading, and generation."""
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 from app.core.help_builder import (
     _parse_frontmatter,
-    _validate_numbering,
     _read_help_pages,
+    _validate_numbering,
     generate_help_html,
 )
 

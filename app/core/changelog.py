@@ -34,10 +34,14 @@ def _parse_changelog(md_text: str) -> list[ChangelogVersion]:
             body_lines.append("</ul>")
             in_list = False
         body_html = "\n".join(body_lines)
-        versions.append(ChangelogVersion(
-            version=current_version, title=current_title or current_version,
-            date=current_date, body_html=body_html,
-        ))
+        versions.append(
+            ChangelogVersion(
+                version=current_version,
+                title=current_title or current_version,
+                date=current_date,
+                body_html=body_html,
+            )
+        )
         body_lines.clear()
         current_version = None
         current_title = None
@@ -46,8 +50,8 @@ def _parse_changelog(md_text: str) -> list[ChangelogVersion]:
     def _inline(text: str) -> str:
         """Apply inline formatting: **bold** and *italic*."""
         escaped = html.escape(text)
-        escaped = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', escaped)
-        escaped = re.sub(r'\*(.+?)\*', r'<em>\1</em>', escaped)
+        escaped = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
+        escaped = re.sub(r"\*(.+?)\*", r"<em>\1</em>", escaped)
         return escaped
 
     for raw_line in md_text.splitlines():
@@ -58,14 +62,14 @@ def _parse_changelog(md_text: str) -> list[ChangelogVersion]:
             _flush()
             heading = line[3:].strip()
             # Extract version tag (e.g. "0.8.0" from "0.8.0 — Title (date)")
-            version_match = re.match(r'([\d.]+)', heading)
+            version_match = re.match(r"([\d.]+)", heading)
             current_version = version_match.group(1) if version_match else heading
 
             # Extract date/status from parentheses at end
-            date_match = re.search(r'\(([^)]+)\)\s*$', heading)
+            date_match = re.search(r"\(([^)]+)\)\s*$", heading)
             if date_match:
                 current_date = date_match.group(1)
-                current_title = heading[:date_match.start()].rstrip()
+                current_title = heading[: date_match.start()].rstrip()
             else:
                 current_date = ""
                 current_title = heading
@@ -121,8 +125,7 @@ def _group_by_minor(versions: list[ChangelogVersion]) -> list[ChangelogGroup]:
     return [groups[k] for k in order]
 
 
-def _generate_changelog_html(versions: list[ChangelogVersion],
-                             output_dir: Path) -> list[str]:
+def _generate_changelog_html(versions: list[ChangelogVersion], output_dir: Path) -> list[str]:
     """Write HTML files to output_dir. Returns page_order list.
 
     Versions are grouped by MAJOR.MINOR — one page per group.
@@ -146,32 +149,25 @@ def _generate_changelog_html(versions: list[ChangelogVersion],
     template = _jinja_env.get_template("changelog_page.html.j2")
 
     # Template data for sidebar groups
-    sidebar_groups = [
-        {"filename": fname, "basename": Path(fname).name, "label": g.label}
-        for fname, g in page_files
-    ]
+    sidebar_groups = [{"filename": fname, "basename": Path(fname).name, "label": g.label} for fname, g in page_files]
 
-    def _render_page(group: ChangelogGroup, active_page: str,
-                     css_path: str, js_path: str,
-                     *, from_index: bool) -> str:
+    def _render_page(group: ChangelogGroup, active_page: str, css_path: str, js_path: str, *, from_index: bool) -> str:
         title = group.versions[0].title if group.versions else group.label
-        version_data = [
-            {"title": v.title, "date": v.date, "body_html": v.body_html}
-            for v in group.versions
-        ]
+        version_data = [{"title": v.title, "date": v.date, "body_html": v.body_html} for v in group.versions]
         return template.render(
-            title=title, css_path=css_path, js_path=js_path,
-            groups=sidebar_groups, active_page=active_page,
-            from_index=from_index, versions=version_data,
+            title=title,
+            css_path=css_path,
+            js_path=js_path,
+            groups=sidebar_groups,
+            active_page=active_page,
+            from_index=from_index,
+            versions=version_data,
         )
 
     # Write group pages (pages/ subdir — CSS/JS at ../../common/)
     for filename, g in page_files:
         (output_dir / filename).write_text(
-            _render_page(g, filename,
-                         "../../common/css/viewer.css",
-                         "../../common/js/search.js",
-                         from_index=False),
+            _render_page(g, filename, "../../common/css/viewer.css", "../../common/js/search.js", from_index=False),
             encoding="utf-8",
         )
 
@@ -180,23 +176,20 @@ def _generate_changelog_html(versions: list[ChangelogVersion],
         latest_group = groups[0]
         latest_page = page_files[0][0]
         (output_dir / "index.html").write_text(
-            _render_page(latest_group, latest_page,
-                         "../common/css/viewer.css",
-                         "../common/js/search.js",
-                         from_index=True),
+            _render_page(
+                latest_group, latest_page, "../common/css/viewer.css", "../common/js/search.js", from_index=True
+            ),
             encoding="utf-8",
         )
 
     # Write page_order.txt manifest for runtime navigation
-    (output_dir / "page_order.txt").write_text(
-        "\n".join(page_order), encoding="utf-8"
-    )
+    (output_dir / "page_order.txt").write_text("\n".join(page_order), encoding="utf-8")
 
     return page_order
 
 
 # Re-export for consumers that import from here
-from app.core.template_env import get_page_order  # noqa: E402, F811
+from app.core.template_env import get_page_order  # noqa: E402
 
 
 def _get_project_root() -> Path:

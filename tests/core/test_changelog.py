@@ -1,9 +1,10 @@
 """Tests for changelog parsing and HTML generation."""
 
-import pytest
 from pathlib import Path
 
-from app.core.changelog import _parse_changelog, _minor_key, _group_by_minor, _generate_changelog_html
+import pytest
+
+from app.core.changelog import _generate_changelog_html, _group_by_minor, _minor_key, _parse_changelog
 from app.core.changelog_models import ChangelogVersion
 
 

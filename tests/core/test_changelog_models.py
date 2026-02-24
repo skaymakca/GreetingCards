@@ -1,6 +1,6 @@
 """Tests for app.core.changelog_models module."""
 
-from app.core.changelog_models import ChangelogVersion, ChangelogGroup
+from app.core.changelog_models import ChangelogGroup, ChangelogVersion
 
 
 class TestChangelogVersion:
@@ -19,9 +19,7 @@ class TestChangelogVersion:
         assert v.body_html == "<p>Content</p>"
 
     def test_in_progress_date(self):
-        v = ChangelogVersion(
-            version="1.0.0", title="1.0.0", date="in progress", body_html=""
-        )
+        v = ChangelogVersion(version="1.0.0", title="1.0.0", date="in progress", body_html="")
         assert v.date == "in progress"
 
 

@@ -1,7 +1,8 @@
-import fitz  # PyMuPDF
-from pathlib import Path
-from PIL import Image, ImageChops, ImageFilter
 import io
+from pathlib import Path
+
+import fitz  # PyMuPDF
+from PIL import Image, ImageChops, ImageFilter
 
 
 def _capped_zoom(page: fitz.Page, dpi: int) -> fitz.Matrix:
@@ -9,10 +10,7 @@ def _capped_zoom(page: fitz.Page, dpi: int) -> fitz.Matrix:
     target_zoom = dpi / 72
     image_infos = page.get_image_info()
     if image_infos:
-        max_native_dpi = max(
-            max(info.get("xres", 72), info.get("yres", 72))
-            for info in image_infos
-        )
+        max_native_dpi = max(max(info.get("xres", 72), info.get("yres", 72)) for info in image_infos)
         target_zoom = min(target_zoom, max_native_dpi / 72)
     return fitz.Matrix(target_zoom, target_zoom)
 

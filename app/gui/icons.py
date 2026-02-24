@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import logging
+
 import wx
 
 # NSImage rendering constants
@@ -51,16 +52,16 @@ def _render_sf_symbol_to_png(
     """
     try:
         from AppKit import (
-            NSImage,
-            NSImageSymbolConfiguration,
             NSBitmapImageRep,
             NSColor,
-            NSGraphicsContext,
             NSCompositingOperationSourceOver,
+            NSGraphicsContext,
+            NSImage,
+            NSImageSymbolConfiguration,
             NSPNGFileType,
             NSScreen,
         )
-        from Foundation import NSSize, NSRect, NSPoint
+        from Foundation import NSPoint, NSRect, NSSize
 
         # Load the SF Symbol
         image = NSImage.imageWithSystemSymbolName_accessibilityDescription_(name, None)
@@ -68,9 +69,7 @@ def _render_sf_symbol_to_png(
             return None
 
         # Build size config
-        size_config = NSImageSymbolConfiguration.configurationWithPointSize_weight_scale_(
-            point_size, weight, scale
-        )
+        size_config = NSImageSymbolConfiguration.configurationWithPointSize_weight_scale_(point_size, weight, scale)
 
         # Build color config from hex
         r, g, b = _hex_to_rgb(color_hex)
@@ -116,7 +115,7 @@ def _render_sf_symbol_to_png(
         png_data = rep.representationUsingType_properties_(NSPNGFileType, None)
         return (bytes(png_data), render_scale) if png_data else None
 
-    except (ImportError, AttributeError, RuntimeError):
+    except ImportError, AttributeError, RuntimeError:
         return None
 
 
@@ -139,6 +138,7 @@ def load_menu_icon(name: str, color_hex: str | None = None) -> wx.Bitmap | None:
     """
     if color_hex is None:
         from app.gui.styles import Color
+
         color_hex = Color.icon_hex()
     return load_sf_symbol(name, point_size=11, color_hex=color_hex, scale=1)
 
@@ -148,7 +148,7 @@ def load_cursor_from_symbol(
     point_size: int = 20,
     color_hex: str = "#1D1D1F",
     hotspot_x: int | None = None,
-    hotspot_y: int | None = None
+    hotspot_y: int | None = None,
 ) -> wx.Cursor | None:
     """Load SF Symbol as a wx.Cursor for use as mouse cursor.
 
@@ -191,7 +191,10 @@ def load_cursor_from_symbol(
 
 
 def load_sf_symbol(
-    name: str, point_size: int = 14, color_hex: str | None = None, scale: int = 2,
+    name: str,
+    point_size: int = 14,
+    color_hex: str | None = None,
+    scale: int = 2,
     weight: float | int = _NS_FONT_WEIGHT_MEDIUM,
 ) -> wx.Bitmap | None:
     """Load an SF Symbol by name and return a wx.Bitmap.
@@ -211,6 +214,7 @@ def load_sf_symbol(
     """
     if color_hex is None:
         from app.gui.styles import Color
+
         color_hex = Color.icon_hex()
     key = (name, point_size, color_hex, scale, weight)
     if key in _cache:
