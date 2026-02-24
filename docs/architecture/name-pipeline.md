@@ -68,7 +68,7 @@ Single async function used for all AI analysis (single card, selected, or batch)
 - `analyze_card_with_ai_async()` — async `anthropic.AsyncAnthropic` client
 
 ### Prompt Structure
-Sends all page images as base64 PNG content blocks, followed by a text prompt requesting just family last names, one per line. Model: `claude-sonnet-4-5-20250929`, max 256 tokens.
+Sends all page images as base64 PNG content blocks, followed by a text prompt requesting just family last names, one per line. Model: configurable (default `claude-sonnet-4-6`), max 256 tokens.
 
 ### Response Parsing (`_parse_response`)
 - `"UNKNOWN"` → empty AIResult

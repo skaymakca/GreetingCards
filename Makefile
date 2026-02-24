@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev run app build clean icon html-content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-unit test-gui test-watch tessdata pyright mypy
+.PHONY: help setup setup-dev run app build clean icon html-content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-unit test-gui test-watch tessdata pyright mypy show-scripts
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -101,6 +101,7 @@ loc: ## Count lines of code (excludes dependencies)
 	@find . -name "*.py" -not -path "./.venv/*" -not -path "./build/*" -not -path "./dist/*" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="Python:" '$(FMT_LINE)'
 	@(find ./app -name "*.py" -not -path "*/gui/*" -not -path "*/__pycache__/*" -exec cat {} + ; cat main.py) | wc -l | awk -v lbl="  Core:" '$(FMT_LINE)'
 	@find ./app/gui -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  GUI:" '$(FMT_LINE)'
+	@find ./scripts -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  Scripts:" '$(FMT_LINE)'
 	@find ./tests -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  Tests:" '$(FMT_LINE)'
 	@echo ""
 	@find ./content/html/help \( -name "*.md" \) -exec cat {} + 2>/dev/null | wc -l | awk -v lbl="Help MD:" '$(FMT_LINE)'
@@ -146,6 +147,26 @@ visual-test: html-content ## Run visual test harness from source
 
 visual-test-app: icon html-content tessdata ## Build visual test harness as .app bundle
 	uv run pyinstaller -y "scripts/Visual Test.spec"
+
+show-scripts: ## Show available script invocations (does not run them)
+	@echo "Available scripts (run with uv run python -m scripts.<name>):"
+	@echo ""
+	@echo "  \033[36mgenerate_sample_cards\033[0m        Generate sample greeting card PDFs for testing"
+	@echo "    uv run python -m scripts.generate_sample_cards --layout-cards=5"
+	@echo "    uv run python -m scripts.generate_sample_cards --full-image-cards=5"
+	@echo "    uv run python -m scripts.generate_sample_cards --layout-cards=5 --no-images"
+	@echo ""
+	@echo "  \033[36mbenchmark.ocr_configuration_quality\033[0m  Benchmark Tesseract config space (192 configs)"
+	@echo "    uv run python -m scripts.benchmark.ocr_configuration_quality ~/Desktop/Cards"
+	@echo ""
+	@echo "  \033[36mbenchmark.pre_processing_concurrency\033[0m Benchmark preprocessing concurrency models"
+	@echo "    uv run python -m scripts.benchmark.pre_processing_concurrency ~/Desktop/Cards"
+	@echo ""
+	@echo "  \033[36mbenchmark.ocr_concurrency\033[0m    Benchmark OCR concurrency (sequential/threads/processes)"
+	@echo "    uv run python -m scripts.benchmark.ocr_concurrency ~/Desktop/Cards"
+	@echo ""
+	@echo "  All scripts support --help, --no-open, and -o <output_dir>."
+	@echo "  Output goes to _script_output/ with timestamped directories."
 
 clean: ## Remove build artifacts
 	@$(LSREGISTER) -u "dist/Greeting Cards.app" 2>/dev/null || true

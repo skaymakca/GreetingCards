@@ -23,7 +23,7 @@ class ModelInfo:
 
 
 AI_MODELS = (
-    ModelInfo("claude-haiku-4-5-20251001", "Claude Haiku 4.5", "Fast, low cost",
+    ModelInfo("claude-haiku-4-5", "Claude Haiku 4.5", "Fast, low cost",
               speed="Fastest", quality="Good", cost_cents=0.4),
     ModelInfo("claude-sonnet-4-6", "Claude Sonnet 4.6", "Balanced (default)",
               speed="Fast", quality="Excellent", cost_cents=1.3),

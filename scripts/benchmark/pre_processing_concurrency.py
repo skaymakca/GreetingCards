@@ -63,7 +63,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from benchmark_common import (
+from scripts.benchmark.common import (
     HAS_OPENCV,
     PREPROCESS_FNS,
     build_jobs,
@@ -818,7 +818,9 @@ def _write_csv(path: Path, result: BenchmarkResult) -> None:
 # Main
 # ---------------------------------------------------------------------------
 
-DEFAULT_OUTPUT = Path("_script_output") / "benchmark_pre_processing_concurrency"
+from scripts.helpers import make_output_dir
+
+_FOLDER_NAME = "benchmark_pre_processing_concurrency"
 
 
 def main() -> None:
@@ -827,8 +829,8 @@ def main() -> None:
     )
     parser.add_argument("corpus", type=Path, help="Path to directory containing PDF files")
     parser.add_argument(
-        "-o", "--output", type=Path, default=DEFAULT_OUTPUT,
-        help=f"Output directory for reports (default: {DEFAULT_OUTPUT})",
+        "-o", "--output", type=Path, default=None,
+        help="Output directory for reports (default: timestamped)",
     )
     parser.add_argument("--dpi", type=int, default=200, help="DPI for rendering (default: 200)")
     parser.add_argument(
@@ -864,8 +866,11 @@ def main() -> None:
             print(f"Error: unknown model '{m}'. Available: {', '.join(ALL_MODELS)}")
             sys.exit(1)
 
-    output_dir = args.output
-    output_dir.mkdir(parents=True, exist_ok=True)
+    if args.output:
+        output_dir = Path(args.output)
+        output_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        output_dir = make_output_dir(_FOLDER_NAME)
 
     result = run_benchmark(corpus_path, args.dpi, levels, models, pipelines)
 

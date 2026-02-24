@@ -69,6 +69,7 @@ Run `make help` to see all available commands.
 | `make tag` | Create git tag `vX.Y.Z` from current version |
 | `make tag-push` | Push all tags to remote |
 | `make loc` | Count lines of code in project files (excludes dependencies and build artifacts) |
+| `make show-scripts` | Show available script invocations without running them |
 | `make clean` | Remove `build/` and `dist/` directories |
 
 ## Manual setup and commands
@@ -207,29 +208,72 @@ The app stores OCR results, AI results, and manual name edits in a SQLite databa
 
 ## Scripts
 
-Benchmark and analysis scripts live in `scripts/`. They take a corpus directory (folder of PDF files) as a positional argument.
+Utility and benchmark scripts live in `scripts/` (a Python package). Run them with `python -m scripts.<name>`. All script dependencies are included in the dev group — run `make setup-dev` first.
 
-All script dependencies are included in the dev group — run `make setup-dev` first. The OCR benchmark scripts also require the [Tesseract CLI](https://github.com/tesseract-ocr/tesseract) to be installed on your system (e.g. `brew install tesseract` on macOS).
+Output goes to `_script_output/` with timestamped directories (e.g., `20260223_2011-generate_sample_cards/`) so runs don't overwrite each other. Use `-o` to specify a custom output directory instead.
+
+### Sample Card Generator
+
+`generate_sample_cards` creates a corpus of realistic greeting card PDFs for testing and demos. It uses Claude to generate card metadata (family names, greetings, backstories) and OpenAI's gpt-image-1.5 for photorealistic images, then assembles rasterized PDFs with PyMuPDF. Generated images are temporary and cleaned up after PDF creation.
+
+Two generation modes:
+
+- **Layout cards** (default) — AI generates a family photo, then PyMuPDF composites it into one of 11 layout styles (photo card, collage, typography, minimalist, ornate, playful, vintage, modern grid, full bleed, polaroid, border frame) with text overlays and decorative elements
+- **Full-image cards** — AI generates the entire card as a single image in the style of commercial greeting cards (Shutterfly, Snapfish, Minted), with typography baked into the artwork
+
+All pages are rasterized to images so the app must use OCR to extract names — matching real-world conditions.
+
+```bash
+# Default: 3 layout cards
+uv run python -m scripts.generate_sample_cards
+
+# 10 layout cards
+uv run python -m scripts.generate_sample_cards --layout-cards=10
+
+# 5 full-image cards (Shutterfly/Minted style)
+uv run python -m scripts.generate_sample_cards --full-image-cards=5
+
+# Both modes combined
+uv run python -m scripts.generate_sample_cards --layout-cards=10 --full-image-cards=10
+
+# Placeholder images (no OpenAI cost, still needs ANTHROPIC_API_KEY)
+uv run python -m scripts.generate_sample_cards --no-images --layout-cards=5
+```
+
+| Flag | Description |
+|------|-------------|
+| `--layout-cards=N` | Number of layout-based cards (default: 3 if neither flag passed) |
+| `--full-image-cards=N` | Number of full-image cards (Shutterfly/Minted style) |
+| `--no-images` | Skip OpenAI; use colored placeholders |
+| `--ai-model MODEL` | Claude model for metadata generation (default: `claude-sonnet-4-6`) |
+| `--image-model MODEL` | OpenAI image model (default: `gpt-image-1.5`) |
+| `--image-quality LEVEL` | `low`, `medium`, or `high` (default: `high`) |
+| `--seed N` | Seed for soft reproducibility via prompt |
+| `--no-open` | Don't open output folder when done |
+
+**Required API keys:** `ANTHROPIC_API_KEY` (always), `OPENAI_API_KEY` (unless `--no-images`).
+
+### Benchmarks
+
+The benchmark scripts take a corpus directory (folder of PDF files) as a positional argument. The OCR benchmarks also require the [Tesseract CLI](https://github.com/tesseract-ocr/tesseract) (`brew install tesseract` on macOS).
 
 | Script | Description |
 |--------|-------------|
-| `benchmark_ocr_configuration_quality.py` | Exhaustive search of the Tesseract configuration space (192 configs) with optional AI scoring. Produces per-card and per-config HTML detail pages, a ranked summary, and CSV exports. |
-| `benchmark_pre_processing_concurrency.py` | Measures how 6 Python concurrency models (sequential, threads, futures processes, asyncio threads/processes, mp.Queue) scale for the CPU-bound image preprocessing step across 3 pipelines (pillow, clahe, otsu). |
-| `benchmark_ocr_concurrency.py` | Measures how sequential, threads, and futures processes scale for the OCR step using a single configuration. Confirms that processes achieve near-linear scaling while threads are GIL-limited. |
-
-### Usage
+| `benchmark.ocr_configuration_quality` | Exhaustive search of the Tesseract configuration space (192 configs) with optional AI scoring. Produces per-card and per-config HTML detail pages, a ranked summary, and CSV exports. |
+| `benchmark.pre_processing_concurrency` | Measures how 6 Python concurrency models (sequential, threads, futures processes, asyncio threads/processes, mp.Queue) scale for the CPU-bound image preprocessing step across 3 pipelines (pillow, clahe, otsu). |
+| `benchmark.ocr_concurrency` | Measures how sequential, threads, and futures processes scale for the OCR step using a single configuration. Confirms that processes achieve near-linear scaling while threads are GIL-limited. |
 
 ```bash
 # OCR configuration quality (AI scoring enabled by default)
-uv run python scripts/benchmark_ocr_configuration_quality.py ~/Desktop/Cards
+uv run python -m scripts.benchmark.ocr_configuration_quality ~/Desktop/Cards
 
 # Preprocessing concurrency
-uv run python scripts/benchmark_pre_processing_concurrency.py ~/Desktop/Cards
+uv run python -m scripts.benchmark.pre_processing_concurrency ~/Desktop/Cards
 
 # OCR concurrency (default config: tesserocr-default-200-3-pillow-0.15)
-uv run python scripts/benchmark_ocr_concurrency.py ~/Desktop/Cards
+uv run python -m scripts.benchmark.ocr_concurrency ~/Desktop/Cards
 
 # All scripts support --help, --no-open, and custom output dirs (-o)
 ```
 
-Each script generates a self-contained HTML report (with sorting, filtering, and heatmap coloring) and a CSV export in `_script_output/`.
+Each benchmark generates a self-contained HTML report (with sorting, filtering, and heatmap coloring) and a CSV export in `_script_output/`.

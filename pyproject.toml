@@ -11,6 +11,7 @@ dependencies = [
     "pyobjc-framework-Cocoa==12.1",
     "SQLAlchemy==2.0.46",
     "wxPython==4.2.5",
+    "openai>=2.22.0",
 ]
 
 [dependency-groups]
@@ -29,6 +30,7 @@ dev = [
     "mypy>=1.19.1",
     "pytesseract>=0.3.13",
     "types-markdown>=3.10.2.20260211",
+    "rich>=14.3.3",
 ]
 
 [tool.pytest.ini_options]

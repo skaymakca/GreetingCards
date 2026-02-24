@@ -156,7 +156,7 @@ class TestGeneralPreferencesPage:
         panel = page.CreateWindow(wx_frame)
         page._model_choice.SetSelection(0)  # Haiku
         page._on_model_changed(None)
-        mock_save.assert_called_once_with("claude-haiku-4-5-20251001")
+        mock_save.assert_called_once_with("claude-haiku-4-5")
         panel.Destroy()
 
 

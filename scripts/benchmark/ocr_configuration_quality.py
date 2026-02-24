@@ -95,25 +95,25 @@ Usage
 -----
 Basic benchmark (AI scoring enabled by default):
 
-    uv run python scripts/benchmark_ocr_configuration_quality.py ~/Desktop/cards
+    uv run python -m scripts.benchmark.ocr_configuration_quality ~/Desktop/cards
 
 Without AI scoring:
 
-    uv run python scripts/benchmark_ocr_configuration_quality.py ~/Desktop/cards --no-ai-score
+    uv run python -m scripts.benchmark.ocr_configuration_quality ~/Desktop/cards --no-ai-score
 
 Custom output directory and config filter:
 
-    uv run python scripts/benchmark_ocr_configuration_quality.py ~/Desktop/cards \\
+    uv run python -m scripts.benchmark.ocr_configuration_quality ~/Desktop/cards \\
         -o results/ --configs pytesseract/default/200/6/pillow/0.15
 
 AI scoring with Haiku for lower cost:
 
-    uv run python scripts/benchmark_ocr_configuration_quality.py ~/Desktop/cards \\
-        --ai-model claude-haiku-4-5-20251001
+    uv run python -m scripts.benchmark.ocr_configuration_quality ~/Desktop/cards \\
+        --ai-model claude-haiku-4-5
 
 Open the report:
 
-    open _script_output/benchmark_ocr_configuration_quality/index.html
+    open _script_output/YYYYMMDD_HHMM-benchmark_ocr_configuration_quality/index.html
 
 Environment Variables
 ---------------------
@@ -141,7 +141,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import anthropic
 
-from benchmark_common import (
+from scripts.benchmark.common import (
     CSS,
     Config,
     HAS_OPENCV,
@@ -1520,7 +1520,9 @@ def write_detail_csv(
 # Main
 # ---------------------------------------------------------------------------
 
-DEFAULT_OUTPUT = Path("_script_output") / "benchmark_ocr_configuration_quality"
+from scripts.helpers import make_output_dir
+
+_FOLDER_NAME = "benchmark_ocr_configuration_quality"
 
 
 def main() -> None:
@@ -1532,8 +1534,8 @@ def main() -> None:
         "-o",
         "--output",
         type=Path,
-        default=DEFAULT_OUTPUT,
-        help=f"Output directory for HTML reports (default: {DEFAULT_OUTPUT})",
+        default=None,
+        help="Output directory for HTML reports (default: timestamped)",
     )
     parser.add_argument(
         "--configs",
@@ -1599,8 +1601,11 @@ def main() -> None:
         print(f"  AI Scoring: disabled")
     print()
 
-    output_dir = args.output
-    output_dir.mkdir(parents=True, exist_ok=True)
+    if args.output:
+        output_dir = Path(args.output)
+        output_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        output_dir = make_output_dir(_FOLDER_NAME)
     cards_dir = output_dir / "cards"
     cards_dir.mkdir(exist_ok=True)
     configs_dir = output_dir / "configs"

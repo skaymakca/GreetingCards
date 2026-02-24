@@ -58,6 +58,29 @@ pip install package-name
 
 ---
 
+## LSP (Language Server Protocol)
+
+**Always use the LSP tool** for code navigation instead of guessing or grepping. It provides accurate, type-aware results.
+
+### When to use LSP
+- **`goToDefinition`** — jump to where a symbol is defined (class, function, variable)
+- **`findReferences`** — find all usages of a symbol across the codebase
+- **`hover`** — get type info and docstrings for a symbol
+- **`documentSymbol`** — list all symbols in a file (overview of a module)
+- **`goToImplementation`** — find concrete implementations of abstract methods
+- **`incomingCalls` / `outgoingCalls`** — trace call chains
+
+### When LSP is better than Grep
+- Finding all callers of a method (Grep misses aliased/dynamic calls)
+- Navigating to the actual definition (not just string matches)
+- Understanding type signatures and overloads
+- Getting a quick overview of a module's public API (`documentSymbol`)
+
+### If LSP fails
+If the LSP tool returns an error or "no server available", **tell the user immediately** so they can check their LSP configuration. Example: "LSP server is not responding for Python files — you may need to restart it. Falling back to Grep for now."
+
+---
+
 ## Project Overview
 
 Greeting Cards - macOS app for organizing and renaming greeting card PDFs using OCR and AI.
@@ -81,7 +104,8 @@ app/
   gui/          # wxPython UI (main window, panels, dialogs, styles, icons)
   models/       # Data models (CardResult, RenamePlanItem, etc.)
 content/        # Static assets (HTML templates, CSS, JS, help markdown, licenses)
-scripts/        # Standalone scripts (benchmarks, visual test harness)
+scripts/        # Standalone scripts and benchmarks
+  benchmark/    # OCR and concurrency benchmark suite
 tests/          # Pytest suite (mirrors app/ structure)
 main.py         # Entry point
 ```
@@ -90,29 +114,6 @@ Key entry points:
 - `main.py` → `app.gui.main_window.MainWindow` — the app
 - `scripts/visual_test.py` — visual test harness for all dialogs/panels
 - `Greeting Cards.spec` — PyInstaller bundle config
-
----
-
-## LSP (Language Server Protocol)
-
-**Always use the LSP tool** for code navigation instead of guessing or grepping. It provides accurate, type-aware results.
-
-### When to use LSP
-- **`goToDefinition`** — jump to where a symbol is defined (class, function, variable)
-- **`findReferences`** — find all usages of a symbol across the codebase
-- **`hover`** — get type info and docstrings for a symbol
-- **`documentSymbol`** — list all symbols in a file (overview of a module)
-- **`goToImplementation`** — find concrete implementations of abstract methods
-- **`incomingCalls` / `outgoingCalls`** — trace call chains
-
-### When LSP is better than Grep
-- Finding all callers of a method (Grep misses aliased/dynamic calls)
-- Navigating to the actual definition (not just string matches)
-- Understanding type signatures and overloads
-- Getting a quick overview of a module's public API (`documentSymbol`)
-
-### If LSP fails
-If the LSP tool returns an error or "no server available", **tell the user immediately** so they can check their LSP configuration. Example: "LSP server is not responding for Python files — you may need to restart it. Falling back to Grep for now."
 
 ---
 
@@ -146,6 +147,7 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `app/gui/icons.py` (clear_cache, icon tint) | `docs/architecture/dark-mode.md` |
 | `app/gui/main_window.py` (appearance observer, refresh) | `docs/architecture/dark-mode.md` |
 | `content/html/common/css/viewer.css` (color variables) | `docs/architecture/dark-mode.md` |
+| `scripts/*.py` (adding/removing/renaming scripts) | Update `Makefile` `show-scripts` target + `README.md` Scripts section |
 
 ### Test Count
 When adding or removing tests, update the test count in `README.md` (search for "tests** covering") to match the actual number from `pytest` output.

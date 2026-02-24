@@ -180,10 +180,10 @@ class TestSaveAiModel:
         """Existing plist data is preserved when saving model."""
         with patch("app.core.config._read_plist", return_value={"ANTHROPIC_API_KEY": "sk-key"}), \
              patch("app.core.config._write_plist") as mock_write:
-            save_ai_model("claude-haiku-4-5-20251001")
+            save_ai_model("claude-haiku-4-5")
             written = mock_write.call_args[0][0]
             assert written["ANTHROPIC_API_KEY"] == "sk-key"
-            assert written["AI_MODEL"] == "claude-haiku-4-5-20251001"
+            assert written["AI_MODEL"] == "claude-haiku-4-5"
 
 
 class TestPlistPath:
