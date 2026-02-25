@@ -18,5 +18,9 @@ Before using AI analysis, add your Anthropic API key in **Settings** (<kbd>Cmd+,
 6. Click **Rename** to rename files with extracted names
 
 <div class="note">
+    <strong>Tip:</strong> If you edit a PDF externally (e.g., rotate pages in Preview), the app automatically detects changes when you switch back to it. You can also manually reload via <strong>File → Reload</strong> (<kbd>Cmd+Shift+R</kbd>).
+</div>
+
+<div class="note">
     <strong>Note:</strong> You can load cards from multiple folders! They accumulate rather than replacing previous loads. Identical files at different locations are automatically detected and merged.
 </div>

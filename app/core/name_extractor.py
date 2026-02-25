@@ -1,22 +1,65 @@
 import re
+
 from app.models.card import Confidence, NameMatch
 
 # Words to filter out — common greeting card phrases
 GREETING_WORDS = {
-    "merry", "christmas", "happy", "holidays", "season", "seasons",
-    "greetings", "new", "year", "joy", "peace", "love", "hope",
-    "wishing", "wish", "warm", "warmest", "best", "wishes",
-    "cheers", "noel", "blessings", "blessed", "wonderful",
-    "joyful", "joyous", "festive", "celebrate", "celebration",
-    "may", "your", "you", "and", "the", "from", "with", "all",
-    "have", "very", "this", "that", "for", "our", "are", "was",
-    "dear", "friends", "friend", "neighbor", "neighbors",
+    "merry",
+    "christmas",
+    "happy",
+    "holidays",
+    "season",
+    "seasons",
+    "greetings",
+    "new",
+    "year",
+    "joy",
+    "peace",
+    "love",
+    "hope",
+    "wishing",
+    "wish",
+    "warm",
+    "warmest",
+    "best",
+    "wishes",
+    "cheers",
+    "noel",
+    "blessings",
+    "blessed",
+    "wonderful",
+    "joyful",
+    "joyous",
+    "festive",
+    "celebrate",
+    "celebration",
+    "may",
+    "your",
+    "you",
+    "and",
+    "the",
+    "from",
+    "with",
+    "all",
+    "have",
+    "very",
+    "this",
+    "that",
+    "for",
+    "our",
+    "are",
+    "was",
+    "dear",
+    "friends",
+    "friend",
+    "neighbor",
+    "neighbors",
 }
 
 
 def _clean_name(name: str) -> str:
     """Clean up extracted name."""
-    name = name.strip().strip(".,!;:-—–\"'""''")
+    name = name.strip().strip(".,!;:-—–\"'''")
     name = re.sub(r"\s+", " ", name)
     return name.strip()
 
@@ -33,9 +76,7 @@ def _is_valid_name(name: str) -> bool:
     if len(words) > 6:
         return False
     # Must contain at least one capitalized word
-    if not any(w[0].isupper() for w in name.split() if w):
-        return False
-    return True
+    return any(w[0].isupper() for w in name.split() if w)
 
 
 def extract_family_names(text: str) -> list[NameMatch]:
@@ -129,7 +170,7 @@ def extract_family_names(text: str) -> list[NameMatch]:
     # Last line with capitalized words as fallback
     for line in reversed(lines):
         words = line.split()
-        caps = [w for w in words if w[0].isupper() and w.lower() not in GREETING_WORDS]
+        caps = [w for w in words if w and w[0].isupper() and w.lower() not in GREETING_WORDS]
         if caps and len(caps) <= 3:
             name = caps[-1]
             name = _clean_name(name)

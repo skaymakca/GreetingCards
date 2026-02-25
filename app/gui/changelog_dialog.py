@@ -1,29 +1,15 @@
 """Changelog viewer — shows generated HTML in the shared HTML viewer."""
 
-import sys
-from pathlib import Path
-
 import wx
 
 from app.core.changelog import get_page_order
-from app.core.paths import is_bundled
+from app.core.paths import get_runtime_content_path
 from app.gui.html_viewer import show_viewer
-
-_CHANGELOG_REL_PATH = Path("_runtime_content") / "html" / "changelog"
-
-
-def _get_changelog_base_path() -> Path:
-    """Return path to changelog HTML directory."""
-    if is_bundled():
-        return Path(sys._MEIPASS) / _CHANGELOG_REL_PATH
-    return Path(__file__).resolve().parent.parent.parent / _CHANGELOG_REL_PATH
 
 
 def show_changelog(parent: wx.Window) -> None:
     """Open changelog in a WebView window."""
-    base_path = _get_changelog_base_path()
+    base_path = get_runtime_content_path("html/changelog")
     page_order = get_page_order(base_path)
 
-    show_viewer(parent, title="What's New",
-                base_path=base_path, page_order=page_order,
-                singleton_key="changelog")
+    show_viewer(parent, title="What's New", base_path=base_path, page_order=page_order, singleton_key="changelog")

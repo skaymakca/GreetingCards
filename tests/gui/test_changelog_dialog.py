@@ -2,15 +2,17 @@
 
 from pathlib import Path
 
-from app.core.changelog import (
-    _parse_changelog, _generate_changelog_html, _group_by_minor,
-)
-from app.core.changelog_models import ChangelogVersion, ChangelogGroup
-
 import pytest
 
+from app.core.changelog import (
+    _generate_changelog_html,
+    _group_by_minor,
+    _parse_changelog,
+)
+from app.core.changelog_models import ChangelogGroup, ChangelogVersion
 
 # --- CHANGELOG.md file tests ---
+
 
 class TestChangelogFileExists:
     """Tests that CHANGELOG.md exists and has valid content."""
@@ -34,6 +36,7 @@ class TestChangelogFileExists:
 
 
 # --- Parse changelog tests ---
+
 
 class TestParseChangelog:
     """Tests for _parse_changelog()."""
@@ -131,10 +134,10 @@ First release of the app.
         text = md_path.read_text(encoding="utf-8")
         result = _parse_changelog(text)
         assert len(result) >= 3
-        assert result[0].version == "0.9.1"
+        assert result[0].version == "0.10.0"
 
     def test_html_entities_escaped(self):
-        md = "## 1.0.0\n\nUse <html> & \"quotes\".\n"
+        md = '## 1.0.0\n\nUse <html> & "quotes".\n'
         result = _parse_changelog(md)
         assert "&lt;html&gt;" in result[0].body_html
         assert "&amp;" in result[0].body_html
@@ -146,6 +149,7 @@ First release of the app.
 
 
 # --- Group by minor tests ---
+
 
 class TestGroupByMinor:
     """Tests for _group_by_minor()."""
@@ -186,6 +190,7 @@ class TestGroupByMinor:
 
 # --- Generate HTML tests ---
 
+
 class TestGenerateChangelogHtml:
     """Tests for _generate_changelog_html()."""
 
@@ -193,12 +198,11 @@ class TestGenerateChangelogHtml:
     def versions(self):
         """Two versions in same minor group + one in another."""
         return [
-            ChangelogVersion("0.9.1", "0.9.1", "in progress",
-                             "<p>Latest changes.</p><ul><li>Feature A</li></ul>"),
-            ChangelogVersion("0.9.0", "0.9.0 — Stability", "2026-02-20",
-                             "<p>Stability improvements.</p>"),
-            ChangelogVersion("0.8.0", "0.8.0 — Native UI", "2026-02-19",
-                             "<p>GUI rewrite.</p><ul><li>Feature B</li></ul>"),
+            ChangelogVersion("0.9.1", "0.9.1", "in progress", "<p>Latest changes.</p><ul><li>Feature A</li></ul>"),
+            ChangelogVersion("0.9.0", "0.9.0 — Stability", "2026-02-20", "<p>Stability improvements.</p>"),
+            ChangelogVersion(
+                "0.8.0", "0.8.0 — Native UI", "2026-02-19", "<p>GUI rewrite.</p><ul><li>Feature B</li></ul>"
+            ),
         ]
 
     def test_returns_page_order(self, versions, tmp_path):

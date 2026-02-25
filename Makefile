@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev run app build clean icon html-content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-unit test-gui test-watch
+.PHONY: help setup setup-dev run app build clean icon html-content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-core test-gui tessdata pyright mypy lint lint-fix format format-check security check pycharm-inspect show-scripts visual-test visual-test-app
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -24,7 +24,16 @@ setup-dev: ## Install all dependencies including dev/testing tools
 	@echo "✓ Development setup complete!"
 	@echo "  Run 'make test' to run tests."
 
-run: html-content ## Run the app from source
+TESSDATA_DIR := _runtime_content/tessdata/fast
+TESSDATA_ENG := $(TESSDATA_DIR)/eng.traineddata
+TESSDATA_URL := https://github.com/tesseract-ocr/tessdata_fast/raw/main/eng.traineddata
+
+tessdata: $(TESSDATA_ENG) ## Download tessdata (eng.traineddata)
+$(TESSDATA_ENG):
+	@mkdir -p $(TESSDATA_DIR)
+	@curl -sL -o $@ $(TESSDATA_URL)
+
+run: html-content tessdata ## Run the app from source
 	uv run python main.py
 
 test: ## Run all tests
@@ -35,14 +44,59 @@ test-cov: ## Run tests with coverage report
 	@echo ""
 	@echo "Coverage report generated: htmlcov/index.html"
 
-test-unit: ## Run unit tests only (fast)
-	uv run pytest -v -m unit
+test-core: ## Run core (non-GUI) tests only
+	uv run pytest tests/core/ -v
 
 test-gui: ## Run GUI tests only
-	uv run pytest -v -m gui
+	uv run pytest tests/gui/ -v
 
-test-watch: ## Run tests on file changes (requires pytest-watch)
-	uv run ptw -- -v
+pyright: ## Run pyright type checking on app/ and scripts/
+	pyright app/ scripts/
+
+mypy: ## Run mypy type checking on app/ and scripts/
+	uv run mypy app/ scripts/
+
+lint: ## Run ruff linter
+	uv run ruff check app/ scripts/ tests/ main.py
+
+lint-fix: ## Run ruff linter with auto-fix
+	uv run ruff check --fix app/ scripts/ tests/ main.py
+
+format: ## Format code with ruff
+	uv run ruff format app/ scripts/ tests/ main.py
+
+format-check: ## Check formatting (no changes)
+	uv run ruff format --check app/ scripts/ tests/ main.py
+
+security: ## Run bandit security scan
+	uv run bandit -r app/ scripts/ -c pyproject.toml
+
+check: pyright mypy lint format-check security ## Run all static checks
+
+INSPECT_OUT := /tmp/pycharm-inspect-out
+
+# Find PyCharm — Toolbox (~/Applications) first, then system (/Applications).
+# Override with PYCHARM_APP env var for non-standard locations.
+PYCHARM_APP ?= $(firstword $(wildcard $(HOME)/Applications/PyCharm.app $(HOME)/Applications/PyCharm\ CE.app /Applications/PyCharm.app /Applications/PyCharm\ CE.app))
+
+pycharm-inspect: ## Run PyCharm inspections (requires PyCharm; skipped if not installed)
+	@if [ -z "$(PYCHARM_APP)" ] || [ ! -x "$(PYCHARM_APP)/Contents/bin/inspect.sh" ]; then \
+		echo "PyCharm not found — skipping pycharm-inspect (set PYCHARM_APP to override)"; \
+	else \
+		echo "Using $(PYCHARM_APP)"; \
+		rm -rf "$(INSPECT_OUT)"; \
+		"$(PYCHARM_APP)/Contents/bin/inspect.sh" "$(CURDIR)" \
+			.idea/inspectionProfiles/Project_Default.xml \
+			"$(INSPECT_OUT)" -v2; \
+		echo ""; \
+		echo "Results written to $(INSPECT_OUT)/"; \
+		xml_count=$$(find "$(INSPECT_OUT)" -name "*.xml" 2>/dev/null | wc -l | tr -d ' '); \
+		if [ "$$xml_count" = "0" ]; then \
+			echo "No inspection findings."; \
+		else \
+			echo "$$xml_count inspection result file(s). Open in PyCharm: Code > Inspect Code > Load Results."; \
+		fi; \
+	fi
 
 build: app ## Build the macOS .app bundle (alias for 'app')
 
@@ -60,9 +114,12 @@ html-content: ## Generate all HTML content (help, changelog, licenses)
 licenses-sync: ## Sync license registry from uv.lock + .dist-info
 	uv run python -c "from app.core.license_discovery import sync_registry; sync_registry()"
 
-app: icon html-content ## Build the macOS .app bundle
+app: icon html-content tessdata ## Build the macOS .app bundle
 	@$(LSREGISTER) -u "dist/Greeting Cards.app" 2>/dev/null || true
 	uv run pyinstaller -y "Greeting Cards.spec"
+
+app-run: app ## Build and run the .app bundle (logs visible in terminal)
+	"dist/Greeting Cards.app/Contents/MacOS/Greeting Cards"
 
 icon: content/images/icon.png ## Generate icon.icns from icon.png
 	@mkdir -p _runtime_content icon.iconset
@@ -86,6 +143,7 @@ loc: ## Count lines of code (excludes dependencies)
 	@find . -name "*.py" -not -path "./.venv/*" -not -path "./build/*" -not -path "./dist/*" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="Python:" '$(FMT_LINE)'
 	@(find ./app -name "*.py" -not -path "*/gui/*" -not -path "*/__pycache__/*" -exec cat {} + ; cat main.py) | wc -l | awk -v lbl="  Core:" '$(FMT_LINE)'
 	@find ./app/gui -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  GUI:" '$(FMT_LINE)'
+	@find ./scripts -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  Scripts:" '$(FMT_LINE)'
 	@find ./tests -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  Tests:" '$(FMT_LINE)'
 	@echo ""
 	@find ./content/html/help \( -name "*.md" \) -exec cat {} + 2>/dev/null | wc -l | awk -v lbl="Help MD:" '$(FMT_LINE)'
@@ -103,18 +161,21 @@ bump-patch: ## Bump patch version (0.5.0 → 0.5.1)
 	p='app/version.py'; v=open(p).read().split('\"')[1].split('.'); \
 	v=[int(x) for x in v]; v[2]+=1; nv='.'.join(map(str,v)); \
 	open(p,'w').write(f'__version__ = \"{nv}\"\n'); print(nv)"
+	@sed -i '' 's/^version = ".*"/version = "'$$(uv run python -c "from app.version import __version__; print(__version__)")'"/' pyproject.toml
 
 bump-minor: ## Bump minor version (0.5.1 → 0.6.0)
 	@uv run python -c "\
 	p='app/version.py'; v=open(p).read().split('\"')[1].split('.'); \
 	v=[int(x) for x in v]; v[1]+=1; v[2]=0; nv='.'.join(map(str,v)); \
 	open(p,'w').write(f'__version__ = \"{nv}\"\n'); print(nv)"
+	@sed -i '' 's/^version = ".*"/version = "'$$(uv run python -c "from app.version import __version__; print(__version__)")'"/' pyproject.toml
 
 bump-major: ## Bump major version (0.6.0 → 1.0.0)
 	@uv run python -c "\
 	p='app/version.py'; v=open(p).read().split('\"')[1].split('.'); \
 	v=[int(x) for x in v]; v[0]+=1; v[1]=0; v[2]=0; nv='.'.join(map(str,v)); \
 	open(p,'w').write(f'__version__ = \"{nv}\"\n'); print(nv)"
+	@sed -i '' 's/^version = ".*"/version = "'$$(uv run python -c "from app.version import __version__; print(__version__)")'"/' pyproject.toml
 
 tag: ## Create git tag vX.Y.Z from current version
 	@v=$$(uv run python -c "from app.version import __version__; print(__version__)"); \
@@ -122,6 +183,31 @@ tag: ## Create git tag vX.Y.Z from current version
 
 tag-push: ## Push all tags to remote
 	@git push --tags && echo "Tags pushed"
+
+visual-test: html-content ## Run visual test harness from source
+	uv run python scripts/visual_test.py
+
+visual-test-app: icon html-content tessdata ## Build visual test harness as .app bundle
+	uv run pyinstaller -y "scripts/Visual Test.spec"
+
+show-scripts: ## Show available script invocations (does not run them)
+	@echo "Available scripts (run with uv run python -m scripts.<name>):"
+	@echo ""
+	@echo "  \033[36mgenerate_sample_cards\033[0m        Generate sample greeting card PDFs for testing"
+	@echo "    uv run python -m scripts.generate_sample_cards --count=5"
+	@echo "    uv run python -m scripts.generate_sample_cards --count=10 --image-quality=low"
+	@echo ""
+	@echo "  \033[36mbenchmark.ocr_configuration_quality\033[0m  Benchmark Tesseract config space (192 configs)"
+	@echo "    uv run python -m scripts.benchmark.ocr_configuration_quality ~/Desktop/Cards"
+	@echo ""
+	@echo "  \033[36mbenchmark.pre_processing_concurrency\033[0m Benchmark preprocessing concurrency models"
+	@echo "    uv run python -m scripts.benchmark.pre_processing_concurrency ~/Desktop/Cards"
+	@echo ""
+	@echo "  \033[36mbenchmark.ocr_concurrency\033[0m    Benchmark OCR concurrency (sequential/threads/processes)"
+	@echo "    uv run python -m scripts.benchmark.ocr_concurrency ~/Desktop/Cards"
+	@echo ""
+	@echo "  All scripts support --help, --no-open, and -o <output_dir>."
+	@echo "  Output goes to _script_output/ with timestamped directories."
 
 clean: ## Remove build artifacts
 	@$(LSREGISTER) -u "dist/Greeting Cards.app" 2>/dev/null || true

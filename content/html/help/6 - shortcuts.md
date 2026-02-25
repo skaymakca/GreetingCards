@@ -7,6 +7,7 @@ title: Shortcuts
 ## General
 
 - <kbd>Cmd+O</kbd> — Open files or folders
+- <kbd>Cmd+Shift+R</kbd> — Reload (re-check loaded files for changes)
 - <kbd>Cmd+Shift+I</kbd> — AI Analyze (visible or selected cards)
 - <kbd>Cmd+R</kbd> — Rename Files
 - <kbd>Cmd+,</kbd> — Open Settings

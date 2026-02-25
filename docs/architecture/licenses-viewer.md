@@ -1,13 +1,13 @@
 # Licenses Viewer
 
-Generates comprehensive license HTML from a layered system: config files, uv.lock, .dist-info metadata, and committed license texts.
+Generates comprehensive license HTML from a layered system: config files, `uv.lock`, `.dist-info` metadata, and committed license texts.
 
 **Key files:**
 - `app/core/license_models.py` — dataclasses (PackageCategory, SystemDep, PackageOverride, LicenseConfig, DiscoveredPackage, LicenseRegistry)
 - `app/core/license_discovery.py` — discovery + HTML generation logic
 - `app/gui/licenses_dialog.py` — viewer only (~30 lines)
 - `content/licenses/config.toml` — manual configuration: `[[system]]` seeds and `[[package]]` overrides
-- `content/licenses/manual/` — hand-written license texts (committed, never auto-modified)
+- `content/licenses/manual/` — handwritten license texts (committed, never auto-modified)
 
 ## Directory Structure
 
@@ -42,7 +42,7 @@ _runtime_content/html/
 
 `content/licenses/config.toml` uses two array-of-tables sections:
 
-### `[[system]]` — Seeds for dependencies not in uv.lock
+### `[[system]]` — Seeds for dependencies not in `uv.lock`
 
 ```toml
 [[system]]
@@ -75,7 +75,7 @@ Available override fields: `display`, `category`, `license_type`, `homepage`, `n
 1. Reads `content/licenses/config.toml` for system deps and package overrides
 2. Computes SHA-256 hash of `uv.lock`
 3. Parses `uv.lock` (TOML) for all package names, versions, and dependency edges
-4. Finds greeting-cards' direct deps in uv.lock → Runtime category
+4. Finds greeting-cards direct deps in `uv.lock` → Runtime category
 5. Reads `pyproject.toml` dev group → Development category
 6. Everything else → Transitive category
 7. For each package, finds its `.dist-info` directory in site-packages:
@@ -106,14 +106,14 @@ Licenses are grouped into **category pages** (6 files). Each category page conta
 
 ### Page Types
 
-| File | Content |
-|------|---------|
-| `index.html` | Overview with dependency type explanations, summary tables |
-| `greeting-cards.html` | App's own BSD 3-Clause license |
-| `system.html` | Python and Tesseract (not in uv.lock) |
-| `runtime.html` | Libraries the app directly imports |
-| `development.html` | Testing, development, and build tools |
-| `transitive.html` | Dependencies pulled in by other packages |
+| File                  | Content                                                    |
+|-----------------------|------------------------------------------------------------|
+| `index.html`          | Overview with dependency type explanations, summary tables |
+| `greeting-cards.html` | App's own BSD 3-Clause license                             |
+| `system.html`         | Python and Tesseract (not in uv.lock)                      |
+| `runtime.html`        | Libraries the app directly imports                         |
+| `development.html`    | Testing, development, and build tools                      |
+| `transitive.html`     | Dependencies pulled in by other packages                   |
 
 ### Linking
 
@@ -125,34 +125,34 @@ Licenses are grouped into **category pages** (6 files). Each category page conta
 
 All data structures use Python dataclasses from `app/core/license_models.py`:
 
-| Class | Purpose |
-|-------|---------|
-| `PackageCategory` | Enum: RUNTIME, DEVELOPMENT, TRANSITIVE |
-| `SystemDep` | Python, Tesseract (not in uv.lock); includes `url` field |
-| `PackageOverride` | Partial entry from config.toml; non-empty fields override auto-discovered values |
-| `LicenseConfig` | Parsed from config.toml: system deps + package overrides |
-| `DiscoveredPackage` | One per package with version, license, category, text file path, homepage |
-| `LicenseRegistry` | Full resolved state: hash + system deps + packages |
+| Class               | Purpose                                                                          |
+|---------------------|----------------------------------------------------------------------------------|
+| `PackageCategory`   | Enum: RUNTIME, DEVELOPMENT, TRANSITIVE                                           |
+| `SystemDep`         | Python, Tesseract (not in uv.lock); includes `url` field                         |
+| `PackageOverride`   | Partial entry from config.toml; non-empty fields override auto-discovered values |
+| `LicenseConfig`     | Parsed from config.toml: system deps + package overrides                         |
+| `DiscoveredPackage` | One per package with version, license, category, text file path, homepage        |
+| `LicenseRegistry`   | Full resolved state: hash + system deps + packages                               |
 
 ## Data Sources
 
-| Source | Data |
-|--------|------|
-| `content/licenses/config.toml` | System dep seeds, package overrides (display name, category, etc.) |
-| `uv.lock` | Package names, versions, dependency graph; greeting-cards deps = Runtime |
-| `pyproject.toml` | Dev dependency group → Development category |
-| `.dist-info/METADATA` | License type, homepage URL |
-| `.dist-info/licenses/` or `LICENSE` | Full license text |
-| `content/licenses/manual/*.txt` | Hand-written license texts for system deps |
-| `LICENSE` (repo root) | App's own license text |
+| Source                              | Data                                                                     |
+|-------------------------------------|--------------------------------------------------------------------------|
+| `content/licenses/config.toml`      | System dep seeds, package overrides (display name, category, etc.)       |
+| `uv.lock`                           | Package names, versions, dependency graph; greeting-cards deps = Runtime |
+| `pyproject.toml`                    | Dev dependency group → Development category                              |
+| `.dist-info/METADATA`               | License type, homepage URL                                               |
+| `.dist-info/licenses/` or `LICENSE` | Full license text                                                        |
+| `content/licenses/manual/*.txt`     | Hand-written license texts for system deps                               |
+| `LICENSE` (repo root)               | App's own license text                                                   |
 
 ## Package Categories
 
-| Category | Meaning | How determined |
-|----------|---------|----------------|
-| Runtime | App imports it | In greeting-cards' direct deps in `uv.lock` |
-| Development | Dev/build tool | In `pyproject.toml` `[dependency-groups] dev` |
-| Transitive | Pulled in by others | Everything else |
+| Category    | Meaning             | How determined                                |
+|-------------|---------------------|-----------------------------------------------|
+| Runtime     | App imports it      | In greeting-cards' direct deps in `uv.lock`   |
+| Development | Dev/build tool      | In `pyproject.toml` `[dependency-groups] dev` |
+| Transitive  | Pulled in by others | Everything else                               |
 
 Config overrides can force any package into a specific category via the `category` field.
 

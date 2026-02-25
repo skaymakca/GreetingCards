@@ -12,13 +12,13 @@ Parses `CHANGELOG.md` and generates HTML pages for the "What's New" viewer.
 `generate_changelog_html()` (entry point for `make html-content`):
 
 1. Reads `CHANGELOG.md` from project root
-2. `_parse_changelog()` parses markdown into `ChangelogVersion` objects (version, title, date, body_html)
+2. `_parse_changelog()` parses Markdown into `ChangelogVersion` objects (version, title, date, body_html)
 3. `_group_by_minor()` groups versions by MAJOR.MINOR (one HTML page per group)
 4. `_generate_changelog_html()` renders Jinja2 templates to produce sidebar + content HTML files
 5. CSS is shared via `../common/css/viewer.css` (no copy step needed)
 6. JS is included via `../common/js/search.js`
 
-The parser handles `##` headings, `- ` bullets, `**bold**`, `*italic*`, paragraphs, and date extraction from parenthesized suffixes. No external markdown library needed.
+The parser handles `##` headings, `- ` bullets, `**bold**`, `*italic*`, paragraphs, and date extraction from parenthesized suffixes. No external Markdown library needed.
 
 ## Templates
 

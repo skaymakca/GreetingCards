@@ -6,22 +6,28 @@ from unittest.mock import Mock, patch
 import pytest
 import wx
 import wx.dataview as dv
+
 from app.gui.dialogs import (
-    _display_path,
-    _dismiss_on_key,
-    TableModel,
+    CompletionDialog,
+    ErrorListDialog,
     ProgressDialog,
     RenameConfirmDialog,
-    ErrorListDialog,
-    CompletionDialog,
+    TableModel,
+    _dismiss_on_key,
+    _display_path,
 )
 from app.models.card import (
-    RenamePlanItem, RenameResult,
-    STATUS_OK, STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR, STATUS_DUPLICATE,
+    STATUS_DUPLICATE,
+    STATUS_OK,
+    STATUS_SKIP_ERROR,
+    STATUS_SKIP_NO_NAME,
+    STATUS_SKIP_SAME,
+    RenamePlanItem,
+    RenameResult,
 )
 
-
 # --- _display_path ---
+
 
 class TestDisplayPath:
     """Tests for _display_path() helper."""
@@ -41,7 +47,7 @@ class TestDisplayPath:
 
 # --- TableModel (pre-existing tests preserved) ---
 
-@pytest.mark.gui
+
 class TestTableModel:
     """Tests for TableModel data view model.
 
@@ -185,17 +191,20 @@ class TestTableModel:
 
         assert value == "D"
 
-    @pytest.mark.parametrize("row_idx,col_idx,expected", [
-        (0, 0, "A"),
-        (0, 1, "B"),
-        (0, 2, "C"),
-        (1, 0, "D"),
-        (1, 1, "E"),
-        (1, 2, "F"),
-        (2, 0, "G"),
-        (2, 1, "H"),
-        (2, 2, "I"),
-    ])
+    @pytest.mark.parametrize(
+        "row_idx,col_idx,expected",
+        [
+            (0, 0, "A"),
+            (0, 1, "B"),
+            (0, 2, "C"),
+            (1, 0, "D"),
+            (1, 1, "E"),
+            (1, 2, "F"),
+            (2, 0, "G"),
+            (2, 1, "H"),
+            (2, 2, "I"),
+        ],
+    )
     def test_get_value_various_positions(self, wx_app, row_idx, col_idx, expected):
         """Test GetValue for various row/column combinations."""
         data = [
@@ -320,7 +329,7 @@ class TestTableModel:
 
 # --- ProgressDialog ---
 
-@pytest.mark.gui
+
 class TestProgressDialog:
     """Tests for ProgressDialog."""
 
@@ -335,61 +344,63 @@ class TestProgressDialog:
         dlg = ProgressDialog(wx_frame, "Test", 5)
         dlg.update_progress(3, "Working...")
         assert dlg._current == 3
-        assert dlg.progress.GetValue() == 3
-        assert dlg.label.GetLabel() == "Working..."
+        assert dlg._progress.GetValue() == 3
+        assert dlg._label.GetLabel() == "Working..."
         dlg.Destroy()
 
     def test_update_progress_no_message(self, wx_app, wx_frame):
         dlg = ProgressDialog(wx_frame, "Test", 5)
         dlg.update_progress(2)
         assert dlg._current == 2
-        assert dlg.label.GetLabel() == "Processing..."
+        assert dlg._label.GetLabel() == "Processing..."
         dlg.Destroy()
 
     def test_count_label_format(self, wx_app, wx_frame):
         dlg = ProgressDialog(wx_frame, "Test", 10)
         dlg.update_progress(7)
-        assert dlg.count_label.GetLabel() == "7 / 10"
+        assert dlg._count_label.GetLabel() == "7 / 10"
         dlg.Destroy()
 
     def test_initial_count_label(self, wx_app, wx_frame):
         dlg = ProgressDialog(wx_frame, "Test", 20)
-        assert dlg.count_label.GetLabel() == "0 / 20"
+        assert dlg._count_label.GetLabel() == "0 / 20"
         dlg.Destroy()
 
 
 # --- RenameConfirmDialog ---
 
-@pytest.mark.gui
+
 class TestRenameConfirmDialog:
     """Tests for RenameConfirmDialog."""
 
     def _make_plan(self, statuses):
         items = []
         for i, status in enumerate(statuses):
-            items.append(RenamePlanItem(
-                old_path=Path(f"/cards/card{i}.pdf"),
-                new_path=Path(f"/cards/Smith Family {i}.pdf"),
-                status=status,
-            ))
+            items.append(
+                RenamePlanItem(
+                    old_path=Path(f"/cards/card{i}.pdf"),
+                    new_path=Path(f"/cards/Smith Family {i}.pdf"),
+                    status=status,
+                )
+            )
         return items
 
     def test_creation(self, wx_app, wx_frame):
         plan = self._make_plan([STATUS_OK, STATUS_SKIP_NO_NAME])
-        dlg = RenameConfirmDialog(wx_frame, plan, "2025")
+        dlg = RenameConfirmDialog(wx_frame, plan)
         assert dlg.GetTitle() == "Confirm Rename"
         assert dlg.result is False
         dlg.Destroy()
 
     def test_all_ok(self, wx_app, wx_frame):
         plan = self._make_plan([STATUS_OK, STATUS_OK, STATUS_OK])
-        dlg = RenameConfirmDialog(wx_frame, plan, "2025")
+        dlg = RenameConfirmDialog(wx_frame, plan)
         assert dlg is not None
         dlg.Destroy()
 
     def test_with_duplicates_and_errors(self, wx_app, wx_frame):
         plan = self._make_plan([STATUS_OK, STATUS_DUPLICATE, STATUS_SKIP_ERROR, STATUS_SKIP_SAME])
-        dlg = RenameConfirmDialog(wx_frame, plan, "2025")
+        dlg = RenameConfirmDialog(wx_frame, plan)
         assert dlg is not None
         dlg.Destroy()
 
@@ -399,7 +410,7 @@ class TestRenameConfirmDialog:
             RenamePlanItem(Path("/dir1/card1.pdf"), Path("/dir1/Smith.pdf"), STATUS_OK),
             RenamePlanItem(Path("/dir2/card2.pdf"), Path("/dir2/Jones.pdf"), STATUS_OK),
         ]
-        dlg = RenameConfirmDialog(wx_frame, plan, "2025")
+        dlg = RenameConfirmDialog(wx_frame, plan)
         assert dlg is not None
         dlg.Destroy()
 
@@ -409,14 +420,14 @@ class TestRenameConfirmDialog:
             RenamePlanItem(Path("/cards/a.pdf"), Path("/cards/b.pdf"), STATUS_OK),
             RenamePlanItem(Path("/cards/c.pdf"), Path("/cards/d.pdf"), STATUS_OK),
         ]
-        dlg = RenameConfirmDialog(wx_frame, plan, "2025")
+        dlg = RenameConfirmDialog(wx_frame, plan)
         assert dlg is not None
         dlg.Destroy()
 
 
 # --- ErrorListDialog ---
 
-@pytest.mark.gui
+
 class TestErrorListDialog:
     """Tests for ErrorListDialog."""
 
@@ -447,7 +458,7 @@ class TestErrorListDialog:
 
 # --- CompletionDialog ---
 
-@pytest.mark.gui
+
 class TestCompletionDialog:
     """Tests for CompletionDialog."""
 
@@ -497,7 +508,7 @@ class TestCompletionDialog:
 
 # --- _dismiss_on_key ---
 
-@pytest.mark.gui
+
 class TestDismissOnKey:
     """Tests for _dismiss_on_key() helper (lines 82-88)."""
 
@@ -534,7 +545,7 @@ class TestDismissOnKey:
     def test_other_key_skips(self, wx_app, wx_frame):
         dlg = wx.Dialog(wx_frame)
         event = Mock(spec=wx.KeyEvent)
-        event.GetKeyCode.return_value = ord('A')
+        event.GetKeyCode.return_value = ord("A")
         _dismiss_on_key(dlg, event)
         event.Skip.assert_called_once()
         dlg.Destroy()
@@ -542,7 +553,7 @@ class TestDismissOnKey:
 
 # --- ProgressDialog.finish ---
 
-@pytest.mark.gui
+
 class TestProgressDialogFinish:
     """Tests for ProgressDialog.finish() (lines 160-161)."""
 
@@ -555,7 +566,7 @@ class TestProgressDialogFinish:
 
 # --- RenameConfirmDialog handlers ---
 
-@pytest.mark.gui
+
 class TestRenameConfirmDialogHandlers:
     """Tests for RenameConfirmDialog confirm/cancel/key handlers (lines 287-305)."""
 
@@ -565,7 +576,7 @@ class TestRenameConfirmDialogHandlers:
         ]
 
     def test_on_confirm_sets_result_true(self, wx_app, wx_frame):
-        dlg = RenameConfirmDialog(wx_frame, self._make_plan(), "2025")
+        dlg = RenameConfirmDialog(wx_frame, self._make_plan())
         assert dlg.result is False
         # _on_confirm sets result=True
         try:
@@ -576,7 +587,7 @@ class TestRenameConfirmDialogHandlers:
         dlg.Destroy()
 
     def test_on_cancel_sets_result_false(self, wx_app, wx_frame):
-        dlg = RenameConfirmDialog(wx_frame, self._make_plan(), "2025")
+        dlg = RenameConfirmDialog(wx_frame, self._make_plan())
         dlg.result = True  # Set it first
         try:
             dlg._on_cancel(None)
@@ -586,7 +597,7 @@ class TestRenameConfirmDialogHandlers:
         dlg.Destroy()
 
     def test_on_key_return_confirms(self, wx_app, wx_frame):
-        dlg = RenameConfirmDialog(wx_frame, self._make_plan(), "2025")
+        dlg = RenameConfirmDialog(wx_frame, self._make_plan())
         event = Mock(spec=wx.KeyEvent)
         event.GetKeyCode.return_value = wx.WXK_RETURN
         try:
@@ -597,7 +608,7 @@ class TestRenameConfirmDialogHandlers:
         dlg.Destroy()
 
     def test_on_key_escape_cancels(self, wx_app, wx_frame):
-        dlg = RenameConfirmDialog(wx_frame, self._make_plan(), "2025")
+        dlg = RenameConfirmDialog(wx_frame, self._make_plan())
         dlg.result = True
         event = Mock(spec=wx.KeyEvent)
         event.GetKeyCode.return_value = wx.WXK_ESCAPE
@@ -609,9 +620,9 @@ class TestRenameConfirmDialogHandlers:
         dlg.Destroy()
 
     def test_on_key_other_skips(self, wx_app, wx_frame):
-        dlg = RenameConfirmDialog(wx_frame, self._make_plan(), "2025")
+        dlg = RenameConfirmDialog(wx_frame, self._make_plan())
         event = Mock(spec=wx.KeyEvent)
-        event.GetKeyCode.return_value = ord('X')
+        event.GetKeyCode.return_value = ord("X")
         dlg._on_key(event)
         event.Skip.assert_called_once()
         dlg.Destroy()

@@ -1,12 +1,19 @@
 # Changelog
 
-## 0.9.1 (in progress)
+## 0.10.0 — Dark Mode & Reliability (2026-02-25)
 
-Polish and fixes to the changelog viewer and build pipeline.
+Dark mode support, database reliability, smarter API handling, and broad quality improvements.
 
-- Fixed changelog sidebar navigation — clicking versions now works correctly
-- Dates displayed as subheadings below version titles
-- Simplified changelog build: pre-generated at build time, no runtime generation
+- Full dark mode support — the app automatically follows macOS appearance settings, including native UI elements, toolbar icons, and HTML viewers (Help, Changelog, Licenses)
+- Cmd+W now closes the focused window (Help, Changelog, Licenses) instead of quitting the app
+- "AI Analyze" available in the card list right-click context menu
+- GitHub repository link added to the Help menu and help page
+- Native file/folder picker replaces the old file dialog for a more consistent macOS experience
+- Smarter API retry handling with exponential backoff and rate limit coordination across concurrent requests
+- Fixed database concurrency issues — race conditions, dangling foreign keys, and fragmented sessions
+- Auto-reload uses file modification time as a fast pre-filter, skipping unchanged files
+- Fixed changelog sidebar navigation and date display
+- Bundled Tesseract OCR data for more reliable out-of-the-box text recognition
 
 ## 0.9.0 — Stability & Developer Experience (2026-02-20)
 
@@ -43,7 +50,7 @@ First release of Greeting Cards — a macOS app for organizing and renaming gree
 - PDF loading with drag-and-drop support
 - OCR text extraction via Tesseract for offline name detection
 - AI-powered name analysis using Claude's vision API
-- Multi-page PDF preview with zoom and pan controls
+- Multipage PDF preview with zoom and pan controls
 - Keyboard navigation for card selection and preview paging
 - SQLite caching of OCR results, AI analysis, and manual edits
 - Settings dialog with API key management

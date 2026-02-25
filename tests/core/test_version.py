@@ -1,4 +1,5 @@
 """Tests for app.version module."""
+
 from app.version import __version__
 
 

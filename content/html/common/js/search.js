@@ -34,23 +34,28 @@
  * @param {string} query - The search string to highlight.
  * @returns {number} Total number of matches found (0 if query is empty).
  */
+// noinspection JSUnusedGlobalSymbols — called from Python via WebView.RunScript()
 function shlMark(query) {
     /* Inject highlight CSS once ----------------------------------------- */
     if (!document.getElementById('_shl-css')) {
-        var s = document.createElement('style');
+        const s = document.createElement('style');
         s.id = '_shl-css';
         s.textContent = 'mark._shl{background:#CCDEFF;border-radius:2px;padding:0 1px}'
-            + 'mark._shl._cur{background:#007AFF;color:#fff;border-radius:2px;padding:0 1px}';
+            + 'mark._shl._cur{background:#007AFF;color:#fff;border-radius:2px;padding:0 1px}'
+            + '@media(prefers-color-scheme:dark){'
+            + 'mark._shl{background:#1a3a5c}'
+            + 'mark._shl._cur{background:#4a9eff}'
+            + '}';
         document.head.appendChild(s);
     }
 
-    var content = document.querySelector('.content');
+    const content = document.querySelector('.content');
     if (!content) return 0;
 
     /* Clear previous highlights ----------------------------------------- */
-    var marks = content.querySelectorAll('mark._shl');
-    for (var j = 0; j < marks.length; j++) {
-        var m = marks[j], p = m.parentNode;
+    let marks = content.querySelectorAll('mark._shl');
+    for (let j = 0; j < marks.length; j++) {
+        const m = marks[j], p = m.parentNode;
         while (m.firstChild) p.insertBefore(m.firstChild, m);
         p.removeChild(m);
     }
@@ -59,15 +64,15 @@ function shlMark(query) {
     if (!query) return 0;
 
     /* Walk all text nodes and collect match positions -------------------- */
-    var lq = query.toLowerCase();
-    var qLen = query.length;
-    var walker = document.createTreeWalker(
-        content, NodeFilter.SHOW_TEXT, null, false);
-    var allMatches = [];
+    const lq = query.toLowerCase();
+    const qLen = query.length;
+    const walker = document.createTreeWalker(
+        content, NodeFilter.SHOW_TEXT, null);
+    const allMatches = [];
     while (walker.nextNode()) {
-        var node = walker.currentNode;
-        var lt = node.textContent.toLowerCase();
-        var idx = 0;
+        const node = walker.currentNode;
+        const lt = node.textContent.toLowerCase();
+        let idx = 0;
         while ((idx = lt.indexOf(lq, idx)) !== -1) {
             allMatches.push({node: node, offset: idx});
             idx += qLen;
@@ -75,12 +80,12 @@ function shlMark(query) {
     }
 
     /* Wrap matches in reverse order to preserve text-node offsets -------- */
-    for (var i = allMatches.length - 1; i >= 0; i--) {
-        var match = allMatches[i];
-        var range = document.createRange();
+    for (let i = allMatches.length - 1; i >= 0; i--) {
+        const match = allMatches[i];
+        const range = document.createRange();
         range.setStart(match.node, match.offset);
         range.setEnd(match.node, match.offset + qLen);
-        var mark = document.createElement('mark');
+        const mark = document.createElement('mark');
         mark.className = '_shl';
         range.surroundContents(mark);
     }
@@ -97,10 +102,11 @@ function shlMark(query) {
  *
  * @param {number} idx - 0-based index into the list of <mark._shl> elements.
  */
+// noinspection JSUnusedGlobalSymbols — called from Python via WebView.RunScript()
 function shlFocus(idx) {
-    var marks = document.querySelectorAll('mark._shl');
+    const marks = document.querySelectorAll('mark._shl');
     if (!marks.length) return;
-    var old = document.querySelector('mark._shl._cur');
+    const old = document.querySelector('mark._shl._cur');
     if (old) old.className = '_shl';
     if (idx >= 0 && idx < marks.length) {
         marks[idx].className = '_shl _cur';
@@ -114,12 +120,13 @@ function shlFocus(idx) {
  * Unwraps every <mark._shl> element (moves children back to the parent),
  * then normalizes the DOM to merge the resulting adjacent text nodes.
  */
+// noinspection JSUnusedGlobalSymbols — called from Python via WebView.RunScript()
 function shlClear() {
-    var content = document.querySelector('.content');
+    const content = document.querySelector('.content');
     if (!content) return;
-    var marks = content.querySelectorAll('mark._shl');
-    for (var j = 0; j < marks.length; j++) {
-        var m = marks[j], p = m.parentNode;
+    const marks = content.querySelectorAll('mark._shl');
+    for (let j = 0; j < marks.length; j++) {
+        const m = marks[j], p = m.parentNode;
         while (m.firstChild) p.insertBefore(m.firstChild, m);
         p.removeChild(m);
     }

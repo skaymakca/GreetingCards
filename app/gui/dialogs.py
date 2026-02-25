@@ -1,23 +1,29 @@
 """wxPython dialog classes for the application."""
 
+from pathlib import Path
+
 import wx
 import wx.dataview as dv
-from pathlib import Path
+
 from app.gui import styles
 from app.models.card import (
-    RenamePlanItem, RenameResult,
-    STATUS_OK, STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR, STATUS_DUPLICATE,
+    STATUS_DUPLICATE,
+    STATUS_OK,
+    STATUS_SKIP_ERROR,
+    STATUS_SKIP_NO_NAME,
+    STATUS_SKIP_SAME,
+    RenamePlanItem,
+    RenameResult,
 )
 
-
 # Dialog layout constants
-_DIALOG_PADDING = 20          # Outer margin for dialog content
-_HEADER_GAP = 4               # Gap between header and summary text
-_SECTION_GAP = 12             # Gap between summary and table/content
-_BTN_GAP = 8                  # Gap between adjacent buttons
-_SCROLLBAR_WIDTH = 20         # Reserve space for vertical scrollbar
-_STATUS_COL_WIDTH = 100       # Width for short status columns (OK, SKIP, SAME, ERROR, DUP)
-_RESULT_COL_WIDTH = 140       # Width for result columns (OK, ERROR: msg)
+_DIALOG_PADDING = 20  # Outer margin for dialog content
+_HEADER_GAP = 4  # Gap between header and summary text
+_SECTION_GAP = 12  # Gap between summary and table/content
+_BTN_GAP = 8  # Gap between adjacent buttons
+_SCROLLBAR_WIDTH = 20  # Reserve space for vertical scrollbar
+_STATUS_COL_WIDTH = 100  # Width for short status columns (OK, SKIP, SAME, ERROR, DUP)
+_RESULT_COL_WIDTH = 140  # Width for result columns (OK, ERROR: msg)
 
 
 def _display_path(path: Path) -> str:
@@ -31,7 +37,7 @@ def _display_path(path: Path) -> str:
 class TableModel(dv.PyDataViewModel):
     """DataViewModel for tables with colored rows."""
 
-    def __init__(self, data: list[list[str]], colors: list[wx.Colour]):
+    def __init__(self, data: list[list[str]], colors: list[wx.Colour]) -> None:
         """Initialize model.
 
         Args:
@@ -42,35 +48,36 @@ class TableModel(dv.PyDataViewModel):
         self.data = data
         self.colors = colors
 
-    def GetColumnCount(self):
+    # noinspection PyPep8Naming
+    def GetColumnCount(self) -> int:
         """Return number of columns."""
         return len(self.data[0]) if self.data else 0
 
-    def GetChildren(self, parent, children):
+    def GetChildren(self, item: dv.DataViewItem, children: list[dv.DataViewItem]) -> int:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Return list of children for parent item."""
         # For a flat list, root has all items as children
-        if not parent:
+        if not item:
             for i in range(len(self.data)):
                 children.append(self.ObjectToItem(i))
             return len(self.data)
         return 0
 
-    def IsContainer(self, item):
+    def IsContainer(self, item: dv.DataViewItem) -> bool:
         """Check if item is a container (has children)."""
         # Only root is a container
         return not item
 
-    def GetParent(self, item):
+    def GetParent(self, item: dv.DataViewItem) -> dv.DataViewItem:
         """Return parent of item."""
         # All items have root as parent
         return dv.NullDataViewItem
 
-    def GetValue(self, item, col):
+    def GetValue(self, item: dv.DataViewItem, col: int) -> str:
         """Return value for item and column."""
         row = self.ItemToObject(item)
         return self.data[row][col]
 
-    def GetAttr(self, item, col, attr):
+    def GetAttr(self, item: dv.DataViewItem, col: int, attr: dv.DataViewItemAttr) -> bool:
         """Set display attributes for item."""
         row = self.ItemToObject(item)
         if row < len(self.colors):
@@ -90,14 +97,15 @@ def _dismiss_on_key(dialog: wx.Dialog, event: wx.KeyEvent) -> None:
         event.Skip()
 
 
+# noinspection PyTypeChecker
 class ProgressDialog(wx.Dialog):
     """Modal progress dialog for batch processing."""
 
-    def __init__(self, parent, title: str, total: int):
+    def __init__(self, parent: wx.Window, title: str, total: int):
         super().__init__(
             parent,
             title=title,
-            style=wx.CAPTION  # No close button
+            style=wx.CAPTION,  # No close button
         )
 
         self._total = total
@@ -111,20 +119,20 @@ class ProgressDialog(wx.Dialog):
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         # Message label
-        self.label = wx.StaticText(panel, label="Processing...")
-        self.label.SetFont(styles.Font.BODY())
-        self.label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
-        sizer.Add(self.label, 0, wx.ALL, 20)
+        self._label = wx.StaticText(panel, label="Processing...")
+        self._label.SetFont(styles.Font.BODY())
+        self._label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        sizer.Add(self._label, 0, wx.ALL, 20)
 
         # Progress bar
-        self.progress = wx.Gauge(panel, range=total, size=(350, -1))
-        sizer.Add(self.progress, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 20)
+        self._progress = wx.Gauge(panel, range=total, size=(350, -1))
+        sizer.Add(self._progress, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 20)
 
         # Count label
-        self.count_label = wx.StaticText(panel, label=f"0 / {total}")
-        self.count_label.SetFont(styles.Font.SMALL())
-        self.count_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
-        sizer.Add(self.count_label, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        self._count_label = wx.StaticText(panel, label=f"0 / {total}")
+        self._count_label.SetFont(styles.Font.SMALL())
+        self._count_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
+        sizer.Add(self._count_label, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         # Set sizers
         panel.SetSizer(sizer)
@@ -138,10 +146,16 @@ class ProgressDialog(wx.Dialog):
         # Center on parent
         self.CenterOnParent()
 
-        # Prevent closing
-        self.Bind(wx.EVT_CLOSE, lambda evt: None)
+        # Prevent closing (Veto the close event so the dialog stays open)
+        self.Bind(wx.EVT_CLOSE, lambda evt: evt.Veto())
 
-    def update_progress(self, current: int, message: str = ""):
+    def refresh_colors(self) -> None:
+        """Re-apply mode-dependent colors after an appearance change."""
+        self._label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        self._count_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
+        self.Refresh()
+
+    def update_progress(self, current: int, message: str = "") -> None:
         """Update progress bar and labels.
 
         Args:
@@ -149,29 +163,27 @@ class ProgressDialog(wx.Dialog):
             message: Optional message to display
         """
         self._current = current
-        self.progress.SetValue(current)
-        self.count_label.SetLabel(f"{current} / {self._total}")
+        self._progress.SetValue(current)
+        self._count_label.SetLabel(f"{current} / {self._total}")
         if message:
-            self.label.SetLabel(message)
+            self._label.SetLabel(message)
 
         # Force UI update
         wx.SafeYield()
 
-    def finish(self):
+    def finish(self) -> None:
         """Close the dialog."""
         self.EndModal(wx.ID_OK)
         self.Destroy()
 
 
+# noinspection PyUnusedLocal,PyTypeChecker
 class RenameConfirmDialog(wx.Dialog):
     """Dialog showing the rename plan and asking for confirmation."""
 
-    def __init__(self, parent, plan: list[RenamePlanItem], year: str):
+    def __init__(self, parent: wx.Window, plan: list[RenamePlanItem]):
         super().__init__(
-            parent,
-            title="Confirm Rename",
-            size=(700, 500),
-            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
+            parent, title="Confirm Rename", size=(700, 500), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
         )
 
         self.result = False
@@ -182,10 +194,10 @@ class RenameConfirmDialog(wx.Dialog):
         sizer.AddSpacer(_DIALOG_PADDING)
 
         # Header
-        header = wx.StaticText(self, label="Rename Plan")
-        header.SetFont(styles.Font.TITLE())
-        header.SetForegroundColour(styles.Color.TEXT_PRIMARY)
-        sizer.Add(header, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
+        self._header = wx.StaticText(self, label="Rename Plan")
+        self._header.SetFont(styles.Font.TITLE())
+        self._header.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        sizer.Add(self._header, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
         sizer.AddSpacer(_HEADER_GAP)
 
@@ -193,7 +205,7 @@ class RenameConfirmDialog(wx.Dialog):
         ok_count = sum(1 for item in plan if item.status == STATUS_OK)
         dup_count = sum(1 for item in plan if item.status == STATUS_DUPLICATE)
         error_count = sum(1 for item in plan if item.status == STATUS_SKIP_ERROR)
-        skip_count = sum(1 for item in plan if item.status.startswith("skip") and item.status != STATUS_SKIP_ERROR)
+        skip_count = sum(1 for item in plan if item.status in {STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME})
 
         # Count unique directories
         directories = {item.old_path.parent for item in plan}
@@ -208,25 +220,22 @@ class RenameConfirmDialog(wx.Dialog):
         if len(directories) > 1:
             summary += f" across {len(directories)} directories"
 
-        summary_label = wx.StaticText(self, label=summary)
-        summary_label.SetFont(styles.Font.BODY())
-        summary_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
-        sizer.Add(summary_label, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
+        self._summary_label = wx.StaticText(self, label=summary)
+        self._summary_label.SetFont(styles.Font.BODY())
+        self._summary_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
+        sizer.Add(self._summary_label, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
         sizer.AddSpacer(_SECTION_GAP)
 
-        # Status labels and colors
-        STATUS_LABELS = {
-            STATUS_OK: "OK", STATUS_DUPLICATE: "DUP",
-            STATUS_SKIP_NO_NAME: "SKIP", STATUS_SKIP_SAME: "SAME", STATUS_SKIP_ERROR: "ERROR",
+        # Status → (label, color) mapping
+        _STATUS_STYLE: dict[str, tuple[str, wx.Colour]] = {
+            STATUS_OK: ("OK", styles.Color.SUCCESS),
+            STATUS_DUPLICATE: ("DUP", styles.Color.TEXT_PRIMARY),
+            STATUS_SKIP_NO_NAME: ("SKIP", styles.Color.TEXT_SECONDARY),
+            STATUS_SKIP_SAME: ("SAME", styles.Color.TEXT_SECONDARY),
+            STATUS_SKIP_ERROR: ("ERROR", styles.Color.ERROR),
         }
-        STATUS_COLORS = {
-            STATUS_OK: styles.Color.SUCCESS,
-            STATUS_DUPLICATE: styles.Color.TEXT_PRIMARY,
-            STATUS_SKIP_NO_NAME: styles.Color.TEXT_SECONDARY,
-            STATUS_SKIP_SAME: styles.Color.TEXT_SECONDARY,
-            STATUS_SKIP_ERROR: styles.Color.ERROR,
-        }
+        _SKIP_STATUSES = {STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR}
 
         # Show full paths only when multiple directories
         multi_dir = len(directories) > 1
@@ -236,20 +245,18 @@ class RenameConfirmDialog(wx.Dialog):
         colors = []
         for item in plan:
             old_display = _display_path(item.old_path) if multi_dir else item.old_path.name
-            if item.status not in (STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR):
-                new_display = _display_path(item.new_path) if multi_dir else item.new_path.name
-            else:
-                new_display = "-"
-            status_text = STATUS_LABELS.get(item.status, item.status)
-            data.append([old_display, new_display, status_text])
-            colors.append(STATUS_COLORS.get(item.status, styles.Color.TEXT_PRIMARY))
+            new_display = (
+                "-"
+                if item.status in _SKIP_STATUSES
+                else (_display_path(item.new_path) if multi_dir else item.new_path.name)
+            )
+            label, color = _STATUS_STYLE.get(item.status, (item.status, styles.Color.TEXT_PRIMARY))
+            data.append([old_display, new_display, label])
+            colors.append(color)
 
         # Create model and ctrl
         self.model = TableModel(data, colors)
-        self.list_ctrl = dv.DataViewCtrl(
-            self,
-            style=dv.DV_ROW_LINES | dv.DV_VERT_RULES
-        )
+        self.list_ctrl = dv.DataViewCtrl(self, style=dv.DV_ROW_LINES | dv.DV_VERT_RULES)
         self.list_ctrl.AssociateModel(self.model)
 
         # Add columns — file name columns share remaining space equally
@@ -269,13 +276,13 @@ class RenameConfirmDialog(wx.Dialog):
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         btn_sizer.AddStretchSpacer()
 
-        confirm_btn = wx.Button(self, wx.ID_OK, "Rename All")
-        confirm_btn.Bind(wx.EVT_BUTTON, self._on_confirm)
-        btn_sizer.Add(confirm_btn, 0, wx.RIGHT, _BTN_GAP)
-
         cancel_btn = wx.Button(self, wx.ID_CANCEL, "Cancel")
         cancel_btn.Bind(wx.EVT_BUTTON, self._on_cancel)
-        btn_sizer.Add(cancel_btn, 0)
+        btn_sizer.Add(cancel_btn, 0, wx.RIGHT, _BTN_GAP)
+
+        confirm_btn = wx.Button(self, wx.ID_OK, "Rename All")
+        confirm_btn.Bind(wx.EVT_BUTTON, self._on_confirm)
+        btn_sizer.Add(confirm_btn, 0)
 
         sizer.Add(btn_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
@@ -287,17 +294,23 @@ class RenameConfirmDialog(wx.Dialog):
         # Keyboard shortcuts
         self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
 
-    def _on_confirm(self, event):
+    def refresh_colors(self) -> None:
+        """Re-apply mode-dependent colors after an appearance change."""
+        self._header.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        self._summary_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
+        self.Refresh()
+
+    def _on_confirm(self, event: wx.CommandEvent) -> None:
         """Handle Rename All button."""
         self.result = True
         self.EndModal(wx.ID_OK)
 
-    def _on_cancel(self, event):
+    def _on_cancel(self, event: wx.CommandEvent) -> None:
         """Handle Cancel button."""
         self.result = False
         self.EndModal(wx.ID_CANCEL)
 
-    def _on_key(self, event):
+    def _on_key(self, event: wx.KeyEvent) -> None:
         """Handle keyboard shortcuts."""
         key_code = event.GetKeyCode()
         if key_code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
@@ -308,16 +321,12 @@ class RenameConfirmDialog(wx.Dialog):
             event.Skip()
 
 
+# noinspection PyTypeChecker
 class ErrorListDialog(wx.Dialog):
     """Dialog showing AI analysis errors in a structured table."""
 
-    def __init__(self, parent, title: str, errors: list[tuple[str, str]], auth_aborted: bool = False):
-        super().__init__(
-            parent,
-            title=title,
-            size=(650, 400),
-            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
-        )
+    def __init__(self, parent: wx.Window, title: str, errors: list[tuple[str, str]], auth_aborted: bool = False):
+        super().__init__(parent, title=title, size=(650, 400), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
 
         # Main sizer
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -327,7 +336,7 @@ class ErrorListDialog(wx.Dialog):
         # Summary header
         header_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        symbol = wx.StaticText(self, label="\u26A0")
+        symbol = wx.StaticText(self, label="\u26a0")
         symbol_font = styles.Font.TITLE()
         symbol_font.SetPointSize(20)
         symbol.SetFont(symbol_font)
@@ -337,10 +346,10 @@ class ErrorListDialog(wx.Dialog):
         summary = f"{len(errors)} error(s)"
         if auth_aborted:
             summary += " — batch aborted"
-        summary_label = wx.StaticText(self, label=summary)
-        summary_label.SetFont(styles.Font.HEADING())
-        summary_label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
-        header_sizer.Add(summary_label, 0, wx.ALIGN_CENTER_VERTICAL)
+        self._summary_label = wx.StaticText(self, label=summary)
+        self._summary_label.SetFont(styles.Font.HEADING())
+        self._summary_label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        header_sizer.Add(self._summary_label, 0, wx.ALIGN_CENTER_VERTICAL)
 
         sizer.Add(header_sizer, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
@@ -352,10 +361,7 @@ class ErrorListDialog(wx.Dialog):
 
         # Create model and ctrl
         self.model = TableModel(data, colors)
-        self.list_ctrl = dv.DataViewCtrl(
-            self,
-            style=dv.DV_ROW_LINES | dv.DV_VERT_RULES
-        )
+        self.list_ctrl = dv.DataViewCtrl(self, style=dv.DV_ROW_LINES | dv.DV_VERT_RULES)
         self.list_ctrl.AssociateModel(self.model)
 
         # Add columns — split space equally
@@ -380,17 +386,18 @@ class ErrorListDialog(wx.Dialog):
         # Keyboard shortcuts
         self.Bind(wx.EVT_CHAR_HOOK, lambda e: _dismiss_on_key(self, e))
 
+    def refresh_colors(self) -> None:
+        """Re-apply mode-dependent colors after an appearance change."""
+        self._summary_label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        self.Refresh()
 
+
+# noinspection PyTypeChecker
 class CompletionDialog(wx.Dialog):
     """Dialog showing rename results in a structured table."""
 
-    def __init__(self, parent, title: str, results: list[RenameResult]):
-        super().__init__(
-            parent,
-            title=title,
-            size=(650, 420),
-            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
-        )
+    def __init__(self, parent: wx.Window, title: str, results: list[RenameResult]):
+        super().__init__(parent, title=title, size=(650, 420), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
 
         # Compute counts
         renamed = sum(1 for r in results if r.success and r.message == "Renamed")
@@ -403,10 +410,10 @@ class CompletionDialog(wx.Dialog):
         sizer.AddSpacer(_DIALOG_PADDING)
 
         # Header
-        header = wx.StaticText(self, label="Rename Complete")
-        header.SetFont(styles.Font.TITLE())
-        header.SetForegroundColour(styles.Color.TEXT_PRIMARY)
-        sizer.Add(header, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
+        self._header = wx.StaticText(self, label="Rename Complete")
+        self._header.SetFont(styles.Font.TITLE())
+        self._header.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        sizer.Add(self._header, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
         sizer.AddSpacer(_HEADER_GAP)
 
@@ -415,10 +422,10 @@ class CompletionDialog(wx.Dialog):
         if errors:
             summary += f", {errors} failed"
 
-        summary_label = wx.StaticText(self, label=summary)
-        summary_label.SetFont(styles.Font.BODY())
-        summary_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
-        sizer.Add(summary_label, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
+        self._summary_label = wx.StaticText(self, label=summary)
+        self._summary_label.SetFont(styles.Font.BODY())
+        self._summary_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
+        sizer.Add(self._summary_label, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
         sizer.AddSpacer(_SECTION_GAP)
 
@@ -445,10 +452,7 @@ class CompletionDialog(wx.Dialog):
 
         # Create model and ctrl
         self.model = TableModel(data, colors)
-        self.list_ctrl = dv.DataViewCtrl(
-            self,
-            style=dv.DV_ROW_LINES | dv.DV_VERT_RULES
-        )
+        self.list_ctrl = dv.DataViewCtrl(self, style=dv.DV_ROW_LINES | dv.DV_VERT_RULES)
         self.list_ctrl.AssociateModel(self.model)
 
         # Add columns
@@ -472,3 +476,9 @@ class CompletionDialog(wx.Dialog):
 
         # Keyboard shortcuts
         self.Bind(wx.EVT_CHAR_HOOK, lambda e: _dismiss_on_key(self, e))
+
+    def refresh_colors(self) -> None:
+        """Re-apply mode-dependent colors after an appearance change."""
+        self._header.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        self._summary_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
+        self.Refresh()

@@ -36,13 +36,13 @@ CardResult
 
 ### Confidence Enum
 
-| Value | Color | Meaning |
-|-------|-------|---------|
-| `HIGH` | Green (#34C759) | Strong OCR pattern or AI match |
-| `MEDIUM` | Orange (#FF9500) | Partial pattern match |
-| `LOW` | Red (#FF3B30) | Weak/fallback match |
-| `MANUAL` | Blue (#1E90FF) | User manually entered name |
-| `NONE` | Gray (#6E6E73) | No name extracted yet |
+| Value    | Color            | Meaning                        |
+|----------|------------------|--------------------------------|
+| `HIGH`   | Green (#34C759)  | Strong OCR pattern or AI match |
+| `MEDIUM` | Orange (#FF9500) | Partial pattern match          |
+| `LOW`    | Red (#FF3B30)    | Weak/fallback match            |
+| `MANUAL` | Blue (#1E90FF)   | User manually entered name     |
+| `NONE`   | Gray (#6E6E73)   | No name extracted yet          |
 
 ### CandidateInfo (from DB)
 
@@ -127,6 +127,20 @@ Cards accumulate from multiple sources. `_load_paths()`:
 `_clear_all()` resets everything — clears all state, sidebar, preview. Also triggered by the Clear toolbar button.
 
 `clear_ai_results(file_hashes)` performs scoped deletion of AI data for specific cards. Deletes `raw_ai_results` and AI candidates for the given hashes. For cards whose selected candidate was AI, automatically re-selects the best OCR candidate (using `_CONFIDENCE_ORDER`), or clears the selection if no OCR candidates remain. Manual entries (`selected_family_name`) are preserved.
+
+### Reload
+
+`_reload_cards()` re-checks all currently loaded paths without scanning folders for new files. It runs a diff against the existing `_hash_by_path` snapshot:
+
+1. **Deleted files** (path no longer exists) — path is removed from `_hash_by_path`, `_mtime_by_path`, `_pdf_files`, and the card's `file_paths`. If the card has no remaining paths, it's removed from `_cards_by_hash`.
+2. **Modified files** (path exists, `compute_file_hash()` returns a different hash) — the path is detached from the old card (same cleanup as deletion), then added to a reprocessing list.
+3. **Unchanged files** — skipped.
+
+**mtime pre-filter:** Auto-reload (window re-activation) passes `mtime_only=True`, which compares `path.stat().st_mtime` against `_mtime_by_path` before computing any hash. Files whose mtime hasn't changed are skipped entirely — a single `stat()` call per file instead of reading the full file content through SHA-256. Files with a changed mtime still fall through to hash comparison (mtime change doesn't guarantee content change). Manual reload (menu/toolbar) uses `mtime_only=False` (the default) and always hash-checks every file.
+
+Modified files go through `_start_processing()`, where the existing dedup logic in `_process_cards()` handles hash convergence: if the new hash matches an existing card, the path merges into that card automatically. `_process_cards()` also records `_mtime_by_path[path]` after each successful hash, keeping the mtime cache in sync.
+
+Triggered by: File > Reload (Cmd+Shift+R), toolbar Reload button, or automatically on window re-activation (with a 2-second cooldown).
 
 ## Rename Flow
 

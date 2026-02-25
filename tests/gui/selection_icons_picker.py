@@ -1,6 +1,7 @@
 """Selection icon picker - shows various SF Symbols for the selection indicator."""
 
 import wx
+
 from app.gui.icons import load_sf_symbol
 
 
@@ -19,8 +20,7 @@ def create_selection_icon_picker():
 
     # Instructions
     instructions = wx.StaticText(
-        dialog,
-        label="Click an icon to see its SF Symbol name. Colors shown: Black, Blue, Accent Orange"
+        dialog, label="Click an icon to see its SF Symbol name. Colors shown: Black, Blue, Accent Orange"
     )
     instructions_font = wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
     instructions.SetFont(instructions_font)
@@ -42,7 +42,6 @@ def create_selection_icon_picker():
         ("arrow.forward", "Arrow Forward"),
         ("arrow.forward.circle", "Arrow Forward Circle"),
         ("arrow.forward.circle.fill", "Arrow Forward Circle Fill"),
-
         # Chevrons
         ("chevron.right", "Chevron Right (current)"),
         ("chevron.right.circle", "Chevron Right Circle"),
@@ -50,7 +49,6 @@ def create_selection_icon_picker():
         ("chevron.forward", "Chevron Forward"),
         ("chevron.forward.circle", "Chevron Forward Circle"),
         ("chevron.forward.circle.fill", "Chevron Forward Circle Fill"),
-
         # Triangles
         ("arrowtriangle.right", "Arrow Triangle Right"),
         ("arrowtriangle.right.fill", "Arrow Triangle Right Fill"),
@@ -59,7 +57,6 @@ def create_selection_icon_picker():
         ("play.fill", "Play Fill"),
         ("play.circle", "Play Circle"),
         ("play.circle.fill", "Play Circle Fill"),
-
         # Shapes
         ("circle.fill", "Circle Fill"),
         ("smallcircle.filled.circle", "Small Circle in Circle"),
@@ -68,7 +65,6 @@ def create_selection_icon_picker():
         ("record.circle.fill", "Record Circle Fill"),
         ("diamond.fill", "Diamond Fill"),
         ("star.fill", "Star Fill"),
-
         # Other indicators
         ("checkmark", "Checkmark"),
         ("checkmark.circle", "Checkmark Circle"),
@@ -94,7 +90,7 @@ def create_selection_icon_picker():
         row_sizer.Add(text, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
 
         # Show icon in different colors
-        for color_hex, color_name in colors:
+        for color_hex, _color_name in colors:
             bitmap = load_sf_symbol(symbol_name, 10, color_hex)
             if bitmap:
                 icon_panel = wx.Panel(row, size=(40, 20))

@@ -1,20 +1,25 @@
 """Tests for app.gui.html_viewer module (shared WebView viewer)."""
 
-import wx
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+import wx
+
 from app.gui import html_viewer
 from app.gui.html_viewer import (
-    HTMLViewerWindow, show_viewer,
-    _TextExtractor, _build_page_index, _count_occurrences,
-    _PageMatch, _viewer_refs, _MIN_SEARCH_LEN,
+    _MIN_SEARCH_LEN,
+    HTMLViewerWindow,
+    _build_page_index,
+    _count_occurrences,
+    _PageMatch,
+    _TextExtractor,
+    _viewer_refs,
+    show_viewer,
 )
 
-import pytest
-
-
 # --- Shared fixtures ---
+
 
 @pytest.fixture
 def sample_html_dir(tmp_path):
@@ -28,11 +33,7 @@ def sample_html_dir(tmp_path):
 
     # Stub JS functions matching the real search.js API so RunScript calls
     # don't error out during tests.
-    search_stubs = ("<script>"
-                    "function shlMark(q){return 0}"
-                    "function shlFocus(i){}"
-                    "function shlClear(){}"
-                    "</script>")
+    search_stubs = "<script>function shlMark(q){return 0}function shlFocus(i){}function shlClear(){}</script>"
 
     index_html = f"""<!DOCTYPE html>
 <html><head>{search_stubs}</head><body>
@@ -68,9 +69,14 @@ def viewer_window(wx_app, wx_frame, sample_html_dir, sample_page_order):
     """Open a viewer window and yield it; destroy on teardown."""
     key = "test-viewer"
     _viewer_refs.pop(key, None)
-    viewer = show_viewer(wx_frame, title="Test Viewer", size=(600, 400),
-                         base_path=sample_html_dir, page_order=sample_page_order,
-                         singleton_key=key)
+    viewer = show_viewer(
+        wx_frame,
+        title="Test Viewer",
+        size=(600, 400),
+        base_path=sample_html_dir,
+        page_order=sample_page_order,
+        singleton_key=key,
+    )
     yield viewer
     if viewer and viewer.frame and not viewer.frame.IsBeingDeleted():
         viewer.frame.Destroy()
@@ -82,6 +88,7 @@ def _get_toolbar(frame: wx.Frame) -> wx.ToolBar:
 
 
 # --- TextExtractor tests ---
+
 
 class TestTextExtractor:
     """Tests for _TextExtractor HTML parser."""
@@ -96,8 +103,7 @@ class TestTextExtractor:
         assert "Hello world" in self._extract(html)
 
     def test_ignores_sidebar(self):
-        html = ('<div class="sidebar"><h2>Nav</h2></div>'
-                '<div class="content"><p>Body</p></div>')
+        html = '<div class="sidebar"><h2>Nav</h2></div><div class="content"><p>Body</p></div>'
         text = self._extract(html)
         assert "Body" in text
         assert "Nav" not in text
@@ -146,6 +152,7 @@ class TestTextExtractor:
 
 # --- Page index tests ---
 
+
 class TestBuildPageIndex:
     """Tests for _build_page_index()."""
 
@@ -156,12 +163,12 @@ class TestBuildPageIndex:
 
     def test_text_is_lowercase(self, sample_html_dir, sample_page_order):
         index = _build_page_index(sample_html_dir, sample_page_order)
-        for page, text in index.items():
+        for _page, text in index.items():
             assert text == text.lower()
 
     def test_text_strips_html_tags(self, sample_html_dir, sample_page_order):
         index = _build_page_index(sample_html_dir, sample_page_order)
-        for page, text in index.items():
+        for _page, text in index.items():
             assert "<" not in text
             assert ">" not in text
 
@@ -172,7 +179,7 @@ class TestBuildPageIndex:
     def test_only_extracts_content_div(self, sample_html_dir, sample_page_order):
         index = _build_page_index(sample_html_dir, sample_page_order)
         # "nav" is the sidebar heading — must not appear
-        for page, text in index.items():
+        for _page, text in index.items():
             assert "nav" not in text.split()
 
     def test_missing_file_returns_empty_string(self, tmp_path):
@@ -181,6 +188,7 @@ class TestBuildPageIndex:
 
 
 # --- Count occurrences tests ---
+
 
 class TestCountOccurrences:
     """Tests for _count_occurrences()."""
@@ -209,22 +217,24 @@ class TestCountOccurrences:
 
 # --- PageMatch NamedTuple tests ---
 
+
 class TestPageMatch:
     """Tests for _PageMatch NamedTuple."""
 
     def test_fields(self):
         m = _PageMatch("index.html", 3)
         assert m.page == "index.html"
-        assert m.count == 3
+        assert m.match_count == 3
 
     def test_unpacking(self):
         m = _PageMatch("pages/tips.html", 5)
-        page, count = m
+        page, match_count = m
         assert page == "pages/tips.html"
-        assert count == 5
+        assert match_count == 5
 
 
 # --- WebView window tests ---
+
 
 class TestHTMLViewerWindow:
     """Tests for the HTMLViewerWindow class."""
@@ -237,8 +247,7 @@ class TestHTMLViewerWindow:
         assert isinstance(viewer_window.frame, wx.Frame)
 
     def test_toolbar_exists(self, viewer_window):
-        toolbars = [c for c in viewer_window.frame.GetChildren()
-                    if isinstance(c, wx.ToolBar)]
+        toolbars = [c for c in viewer_window.frame.GetChildren() if isinstance(c, wx.ToolBar)]
         assert len(toolbars) == 1
 
     def test_toolbar_has_five_tools(self, viewer_window):
@@ -254,8 +263,7 @@ class TestHTMLViewerWindow:
 
     def test_search_ctrl_exists(self, viewer_window):
         toolbar = _get_toolbar(viewer_window.frame)
-        search_ctrls = [c for c in toolbar.GetChildren()
-                        if isinstance(c, wx.SearchCtrl)]
+        search_ctrls = [c for c in toolbar.GetChildren() if isinstance(c, wx.SearchCtrl)]
         assert len(search_ctrls) == 1
 
     def test_match_buttons_disabled_initially(self, viewer_window):
@@ -273,17 +281,22 @@ class TestHTMLViewerWindow:
 
 # --- Singleton tests ---
 
+
 class TestSingleton:
     """Tests for singleton window management."""
 
     def test_singleton_reuse(self, viewer_window):
         """Second call with same key should raise existing window."""
-        with patch.object(viewer_window.frame, "Raise") as mock_raise, \
-             patch.object(viewer_window.frame, "IsBeingDeleted", return_value=False):
+        with (
+            patch.object(viewer_window.frame, "Raise") as mock_raise,
+            patch.object(viewer_window.frame, "IsBeingDeleted", return_value=False),
+        ):
             result = show_viewer(
                 viewer_window.frame.GetParent(),
-                title="Test Viewer", size=(600, 400),
-                base_path=Path("/tmp"), page_order=["index.html"],
+                title="Test Viewer",
+                size=(600, 400),
+                base_path=Path("/tmp"),
+                page_order=["index.html"],
                 singleton_key="test-viewer",
             )
             mock_raise.assert_called_once()
@@ -295,12 +308,22 @@ class TestSingleton:
         _viewer_refs.pop(key1, None)
         _viewer_refs.pop(key2, None)
 
-        v1 = show_viewer(wx_frame, title="Viewer 1", size=(600, 400),
-                         base_path=sample_html_dir, page_order=sample_page_order,
-                         singleton_key=key1)
-        v2 = show_viewer(wx_frame, title="Viewer 2", size=(600, 400),
-                         base_path=sample_html_dir, page_order=sample_page_order,
-                         singleton_key=key2)
+        v1 = show_viewer(
+            wx_frame,
+            title="Viewer 1",
+            size=(600, 400),
+            base_path=sample_html_dir,
+            page_order=sample_page_order,
+            singleton_key=key1,
+        )
+        v2 = show_viewer(
+            wx_frame,
+            title="Viewer 2",
+            size=(600, 400),
+            base_path=sample_html_dir,
+            page_order=sample_page_order,
+            singleton_key=key2,
+        )
 
         assert v1 is not None
         assert v2 is not None
@@ -311,8 +334,46 @@ class TestSingleton:
         _viewer_refs.pop(key1, None)
         _viewer_refs.pop(key2, None)
 
+    def test_reopen_after_close_with_dead_weakref(self, wx_app, wx_frame, sample_html_dir, sample_page_order):
+        """Reopening after close should create a new window even if weakref lingers."""
+        import unittest.mock
+
+        key = "test-reopen"
+        _viewer_refs.pop(key, None)
+
+        v1 = show_viewer(
+            wx_frame,
+            title="First",
+            size=(600, 400),
+            base_path=sample_html_dir,
+            page_order=sample_page_order,
+            singleton_key=key,
+        )
+        assert v1 is not None
+
+        # Simulate the scenario where C++ frame is deleted but weakref survives.
+        # Patch the weakref to return a mock that raises RuntimeError on IsBeingDeleted.
+        dead_frame = unittest.mock.MagicMock()
+        dead_frame.IsBeingDeleted.side_effect = RuntimeError("wrapped C/C++ object has been deleted")
+        _viewer_refs[key] = lambda: dead_frame  # type: ignore[assignment]
+
+        v2 = show_viewer(
+            wx_frame,
+            title="Second",
+            size=(600, 400),
+            base_path=sample_html_dir,
+            page_order=sample_page_order,
+            singleton_key=key,
+        )
+        assert v2 is not None  # Should create a new viewer, not crash
+
+        v1.frame.Destroy()
+        v2.frame.Destroy()
+        _viewer_refs.pop(key, None)
+
 
 # --- External link handling tests ---
+
 
 class TestSearchMinLength:
     """Tests for the 3-character minimum search threshold."""
@@ -323,8 +384,7 @@ class TestSearchMinLength:
     def test_short_query_clears_highlights(self, viewer_window):
         """Queries shorter than _MIN_SEARCH_LEN should not trigger search."""
         toolbar = _get_toolbar(viewer_window.frame)
-        search_ctrls = [c for c in toolbar.GetChildren()
-                        if isinstance(c, wx.SearchCtrl)]
+        search_ctrls = [c for c in toolbar.GetChildren() if isinstance(c, wx.SearchCtrl)]
         search_ctrl = search_ctrls[0]
 
         # Type a 2-char query (below minimum) — fires EVT_TEXT synchronously
@@ -344,8 +404,7 @@ class TestSearchMinLength:
     def test_exact_min_length_triggers_search(self, viewer_window):
         """Queries at exactly _MIN_SEARCH_LEN should trigger search (via debounce)."""
         toolbar = _get_toolbar(viewer_window.frame)
-        search_ctrls = [c for c in toolbar.GetChildren()
-                        if isinstance(c, wx.SearchCtrl)]
+        search_ctrls = [c for c in toolbar.GetChildren() if isinstance(c, wx.SearchCtrl)]
         search_ctrl = search_ctrls[0]
 
         # Type a 3-char query — this starts the debounce timer
@@ -361,8 +420,8 @@ class TestExternalLinkHandling:
     def test_webview_binds_navigating_event(self, viewer_window):
         """WebView should have EVT_WEBVIEW_NAVIGATING bound."""
         import wx.html2
+
         # The viewer should have a webview child that responds to navigation
         frame = viewer_window.frame
-        webviews = [c for c in frame.GetChildren()
-                    if isinstance(c, wx.html2.WebView)]
+        webviews = [c for c in frame.GetChildren() if isinstance(c, wx.html2.WebView)]
         assert len(webviews) == 1, "Should have exactly one WebView"

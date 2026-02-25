@@ -1,7 +1,7 @@
-"""Help page generation — converts markdown help pages to HTML.
+"""Help page generation — converts Markdown help pages to HTML.
 
 Reads .md files from content/html/help/, derives navigation order from the
-filename prefix (e.g. ``1 - index.md``), renders markdown to HTML, and
+filename prefix (e.g. ``1 - index.md``), renders Markdown to HTML, and
 writes to _runtime_content/html/help/ via Jinja2 templates.
 
 Filename convention::
@@ -19,35 +19,28 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-import jinja2
 import markdown
+
+from app.core.template_env import jinja_env as _jinja_env
 
 logger = logging.getLogger(__name__)
 
-_TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "content" / "html" / "templates"
-
-_jinja_env = jinja2.Environment(
-    loader=jinja2.FileSystemLoader(str(_TEMPLATES_DIR)),
-    autoescape=True,
-    trim_blocks=True,
-    lstrip_blocks=True,
-)
-
 # Pattern: "<number> - <slug>.md"
-_FILENAME_RE = re.compile(r'^(\d+) - (.+)\.md$')
+_FILENAME_RE = re.compile(r"^(\d+) - (.+)\.md$")
 
 
 @dataclass
 class _HelpPage:
     """A parsed help page with frontmatter metadata."""
-    slug: str           # e.g. "getting-started"
-    title: str          # e.g. "Getting Started"
-    nav_order: int      # sorting key from filename prefix
-    body_html: str      # rendered HTML content
+
+    slug: str  # e.g. "getting-started"
+    title: str  # e.g. "Getting Started"
+    nav_order: int  # sorting key from filename prefix
+    body_html: str  # rendered HTML content
 
 
 def _parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
-    """Parse YAML frontmatter from a markdown file.
+    """Parse YAML frontmatter from a Markdown file.
 
     Simple parser: splits on --- delimiters, extracts key: value pairs.
     Returns (metadata_dict, remaining_body).
@@ -61,20 +54,21 @@ def _parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
         return {}, text
 
     front = text[3:end].strip()
-    body = text[end + 3:].strip()
+    body = text[end + 3 :].strip()
 
     metadata: dict[str, str] = {}
     for line in front.splitlines():
         line = line.strip()
         if not line:
             continue
-        match = re.match(r'^(\w+)\s*:\s*(.+)$', line)
+        match = re.match(r"^(\w+)\s*:\s*(.+)$", line)
         if match:
             metadata[match.group(1)] = match.group(2).strip()
 
     return metadata, body
 
 
+# noinspection GrazieInspection
 def _validate_numbering(numbers: list[int], filenames: list[str]) -> None:
     """Validate that file numbers form a contiguous 1..N sequence.
 
@@ -85,12 +79,9 @@ def _validate_numbering(numbers: list[int], filenames: list[str]) -> None:
 
     # Check for duplicates
     seen: dict[int, str] = {}
-    for num, fname in zip(numbers, filenames):
+    for num, fname in zip(numbers, filenames, strict=False):
         if num in seen:
-            raise ValueError(
-                f"Duplicate help page number {num}: "
-                f"'{fname}' and '{seen[num]}'"
-            )
+            raise ValueError(f"Duplicate help page number {num}: '{fname}' and '{seen[num]}'")
         seen[num] = fname
 
     sorted_nums = sorted(numbers)
@@ -98,8 +89,7 @@ def _validate_numbering(numbers: list[int], filenames: list[str]) -> None:
     # Must start at 1
     if sorted_nums[0] != 1:
         raise ValueError(
-            f"Help page numbering must start at 1, "
-            f"but lowest is {sorted_nums[0]} ('{seen[sorted_nums[0]]}')"
+            f"Help page numbering must start at 1, but lowest is {sorted_nums[0]} ('{seen[sorted_nums[0]]}')"
         )
 
     # Check for gaps
@@ -131,8 +121,7 @@ def _read_help_pages(content_dir: Path) -> list[_HelpPage]:
         match = _FILENAME_RE.match(md_file.name)
         if not match:
             raise ValueError(
-                f"Help page filename '{md_file.name}' doesn't match "
-                f"expected pattern '<number> - <slug>.md'"
+                f"Help page filename '{md_file.name}' doesn't match expected pattern '<number> - <slug>.md'"
             )
 
         nav_order = int(match.group(1))
@@ -148,12 +137,14 @@ def _read_help_pages(content_dir: Path) -> list[_HelpPage]:
         md_converter.reset()
         body_html = md_converter.convert(body)
 
-        pages.append(_HelpPage(
-            slug=slug,
-            title=title,
-            nav_order=nav_order,
-            body_html=body_html,
-        ))
+        pages.append(
+            _HelpPage(
+                slug=slug,
+                title=title,
+                nav_order=nav_order,
+                body_html=body_html,
+            )
+        )
 
     _validate_numbering(numbers, filenames)
     pages.sort(key=lambda p: p.nav_order)
@@ -161,7 +152,7 @@ def _read_help_pages(content_dir: Path) -> list[_HelpPage]:
 
 
 def generate_help_html() -> None:
-    """Entry point for Makefile — generate help HTML from markdown pages."""
+    """Entry point for Makefile — generate help HTML from Markdown pages."""
     project_root = Path(__file__).resolve().parent.parent.parent
     content_dir = project_root / "content" / "html"
     output_dir = project_root / "_runtime_content" / "html" / "help"
@@ -182,33 +173,35 @@ def generate_help_html() -> None:
     nav_items = []
     for page in pages:
         if page.slug == "index":
-            nav_items.append({
-                "slug": page.slug,
-                "title": page.title,
-                "href": "index.html",
-                "href_from_pages": "../index.html",
-            })
+            nav_items.append(
+                {
+                    "slug": page.slug,
+                    "title": page.title,
+                    "href": "index.html",
+                    "href_from_pages": "../index.html",
+                }
+            )
         else:
-            nav_items.append({
-                "slug": page.slug,
-                "title": page.title,
-                "href": f"pages/{page.slug}.html",
-                "href_from_pages": f"{page.slug}.html",
-            })
+            nav_items.append(
+                {
+                    "slug": page.slug,
+                    "title": page.title,
+                    "href": f"pages/{page.slug}.html",
+                    "href_from_pages": f"{page.slug}.html",
+                }
+            )
 
     # Render each page
     for page in pages:
         if page.slug == "index":
             # Index page: nav hrefs are child-relative
-            nav = [{"slug": n["slug"], "title": n["title"], "href": n["href"]}
-                   for n in nav_items]
+            nav = [{"slug": n["slug"], "title": n["title"], "href": n["href"]} for n in nav_items]
             css_path = "../common/css/viewer.css"
             js_path = "../common/js/search.js"
             out_path = output_dir / "index.html"
         else:
             # Sub-pages: nav hrefs are sibling-relative
-            nav = [{"slug": n["slug"], "title": n["title"], "href": n["href_from_pages"]}
-                   for n in nav_items]
+            nav = [{"slug": n["slug"], "title": n["title"], "href": n["href_from_pages"]} for n in nav_items]
             css_path = "../../common/css/viewer.css"
             js_path = "../../common/js/search.js"
             out_path = pages_dir / f"{page.slug}.html"
@@ -230,17 +223,11 @@ def generate_help_html() -> None:
             order.append("index.html")
         else:
             order.append(f"pages/{page.slug}.html")
-    (output_dir / "page_order.txt").write_text(
-        "\n".join(order), encoding="utf-8"
-    )
+    (output_dir / "page_order.txt").write_text("\n".join(order), encoding="utf-8")
 
     logger.info("Generated %d help pages in %s", len(pages), output_dir)
 
 
-def get_page_order(base_path: Path) -> list[str]:
-    """Read page order from the generated manifest file."""
-    manifest = base_path / "page_order.txt"
-    if manifest.exists():
-        return [line for line in manifest.read_text(encoding="utf-8").splitlines() if line]
-    # Fallback: index only
-    return ["index.html"]
+# noinspection PyUnusedImports
+# Re-export for consumers that import from here
+from app.core.template_env import get_page_order  # noqa: E402

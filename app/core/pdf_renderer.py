@@ -1,18 +1,17 @@
-import fitz  # PyMuPDF
-from pathlib import Path
-from PIL import Image, ImageChops, ImageFilter
 import io
+from pathlib import Path
+
+import fitz  # PyMuPDF
+from PIL import Image, ImageChops, ImageFilter
 
 
-def _capped_zoom(page, dpi: int) -> fitz.Matrix:
+# noinspection DuplicatedCode
+def _capped_zoom(page: fitz.Page, dpi: int) -> fitz.Matrix:
     """Compute a zoom matrix targeting the given DPI, capped at native image resolution."""
     target_zoom = dpi / 72
     image_infos = page.get_image_info()
     if image_infos:
-        max_native_dpi = max(
-            max(info.get("xres", 72), info.get("yres", 72))
-            for info in image_infos
-        )
+        max_native_dpi = max(max(info.get("xres", 72), info.get("yres", 72)) for info in image_infos)
         target_zoom = min(target_zoom, max_native_dpi / 72)
     return fitz.Matrix(target_zoom, target_zoom)
 
@@ -22,6 +21,12 @@ def autocrop_whitespace(image: Image.Image, threshold: int = 245, padding: int =
 
     Applies a Gaussian blur before thresholding to ignore scanner speckle
     noise that would otherwise prevent effective cropping.
+
+    Args:
+        image: The PIL image to crop.
+        threshold: Grayscale value (0-255) above which pixels are considered white.
+            245 catches near-white scanner backgrounds without clipping cream paper.
+        padding: Pixels to keep around the detected content to avoid clipping edges.
     """
     gray = image.convert("L")
     blurred = gray.filter(ImageFilter.GaussianBlur(radius=5))
@@ -49,6 +54,7 @@ def render_pdf_page(pdf_path: Path, page_num: int = 0, dpi: int = 200) -> Image.
         doc.close()
 
 
+# noinspection DuplicatedCode
 def render_all_pages(pdf_path: Path, dpi: int = 200) -> list[Image.Image]:
     """Render all pages of a PDF to PIL Images (capped at native resolution)."""
     doc = fitz.open(str(pdf_path))

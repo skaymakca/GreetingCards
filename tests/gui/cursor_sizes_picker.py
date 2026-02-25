@@ -5,6 +5,7 @@ Run this to visually compare cursor sizes:
 """
 
 import wx
+
 from app.gui import styles
 from app.gui.icons import load_cursor_from_symbol
 
@@ -16,11 +17,7 @@ class CursorSizeTestDialog(wx.Dialog):
     SIZES = [6, 7, 8, 9, 10, 11, 12]
 
     def __init__(self, parent=None):
-        super().__init__(
-            parent,
-            title="Cursor Size Picker",
-            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
-        )
+        super().__init__(parent, title="Cursor Size Picker", style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
         self.SetSize(900, 700)
 
         self._cursors = {}  # Cache loaded cursors
@@ -34,8 +31,7 @@ class CursorSizeTestDialog(wx.Dialog):
         # Instructions
         instructions = wx.StaticText(
             self,
-            label="Hover over each box to see the cursor at that size. "
-                  "Click a size to see details in the console."
+            label="Hover over each box to see the cursor at that size. Click a size to see details in the console.",
         )
         instructions.Wrap(850)
         main_sizer.Add(instructions, 0, wx.ALL | wx.EXPAND, styles.Layout.PAD)
@@ -82,16 +78,8 @@ class CursorSizeTestDialog(wx.Dialog):
         sizer.Add(label, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 8)
 
         # Load cursors for this size
-        zoom_in_cursor = load_cursor_from_symbol(
-            "plus.magnifyingglass",
-            point_size=size,
-            color_hex="#000000"
-        )
-        zoom_out_cursor = load_cursor_from_symbol(
-            "minus.magnifyingglass",
-            point_size=size,
-            color_hex="#000000"
-        )
+        zoom_in_cursor = load_cursor_from_symbol("plus.magnifyingglass", point_size=size, color_hex="#000000")
+        zoom_out_cursor = load_cursor_from_symbol("minus.magnifyingglass", point_size=size, color_hex="#000000")
 
         # Fallback if loading failed
         if not zoom_in_cursor:
@@ -146,7 +134,9 @@ class CursorSizeTestDialog(wx.Dialog):
         zoom_out_sizer.Add(zoom_out_desc, 0, wx.ALIGN_CENTER | wx.TOP, 4)
 
         zoom_out_area.SetSizer(zoom_out_sizer)
-        zoom_out_area.Bind(wx.EVT_ENTER_WINDOW, lambda e, c=zoom_out_cursor, s=size: self._on_enter(e, c, s, "zoom out"))
+        zoom_out_area.Bind(
+            wx.EVT_ENTER_WINDOW, lambda e, c=zoom_out_cursor, s=size: self._on_enter(e, c, s, "zoom out")
+        )
         zoom_out_area.Bind(wx.EVT_LEAVE_WINDOW, lambda e: self._on_leave(e))
         zoom_out_area.Bind(wx.EVT_LEFT_DOWN, lambda e, s=size: self._on_click(e, s, "zoom out"))
 
@@ -171,7 +161,7 @@ class CursorSizeTestDialog(wx.Dialog):
     def _on_click(self, event, size: int, cursor_type: str):
         """Print cursor info when clicked."""
         print(f"✓ Selected: {size}pt for {cursor_type}")
-        print(f"  To use this size, update preview_panel.py:")
+        print("  To use this size, update preview_panel.py:")
         print(f"  load_cursor_from_symbol(..., point_size={size}, ...)")
         print()
 

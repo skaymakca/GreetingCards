@@ -15,9 +15,15 @@ from app.gui.styles import Color
 _viewer_refs: dict[str, weakref.ref] = {}
 
 _TOOL_BITMAP_SIZE = wx.Size(24, 24)
-_ICON_KW = dict(point_size=16, weight=0.0)  # Regular weight to match main toolbar
 _LABEL_WIDTH = 80
 _SEARCH_MIN_WIDTH = 150
+
+
+def _toolbar_icon(name: str) -> wx.Bitmap:
+    """Load an SF Symbol sized for the HTML viewer toolbar (regular weight)."""
+    return load_sf_symbol(name, point_size=16, weight=0.0) or wx.NullBitmap
+
+
 _TOOL_WIDTH_EST = 36
 _TOOLBAR_MARGIN = 24
 _NUM_TOOLS = 5
@@ -28,8 +34,9 @@ _DEBOUNCE_MS = 200
 
 class _PageMatch(NamedTuple):
     """A page that matched a search query."""
+
     page: str
-    count: int
+    match_count: int
 
 
 class _TextExtractor(HTMLParser):
@@ -42,8 +49,8 @@ class _TextExtractor(HTMLParser):
         super().__init__()
         self._pieces: list[str] = []
         self._in_content = False
-        self._content_depth = 0   # nested div depth inside .content
-        self._skip_depth = 0      # nested script/style depth
+        self._content_depth = 0  # nested div depth inside .content
+        self._skip_depth = 0  # nested script/style depth
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if self._in_content and tag in ("script", "style"):
@@ -51,7 +58,7 @@ class _TextExtractor(HTMLParser):
             return
         if tag == "div":
             if not self._in_content:
-                classes = dict(attrs).get("class", "").split()
+                classes = (dict(attrs).get("class") or "").split()
                 if "content" in classes:
                     self._in_content = True
                     self._content_depth = 1
@@ -101,22 +108,26 @@ def _count_occurrences(text: str, query_lower: str) -> int:
     return count
 
 
-
-
+# noinspection PyUnusedLocal,PyTypeChecker
 class HTMLViewerWindow:
     """WebView-based HTML viewer with toolbar navigation and cross-page search."""
 
-    def __init__(self, parent: wx.Window, *, title: str,
-                 base_path: Path, page_order: list[str],
-                 size: tuple[int, int] = (800, 600),
-                 search_hint: str = "Search") -> None:
+    def __init__(
+        self,
+        parent: wx.Window,
+        *,
+        title: str,
+        base_path: Path,
+        page_order: list[str],
+        size: tuple[int, int] = (800, 600),
+        search_hint: str = "Search",
+    ) -> None:
         import wx.html2
 
         self._page_order = page_order
         self._base_path = base_path
 
-        frame = wx.Frame(parent, title=title, size=size,
-                         style=wx.DEFAULT_FRAME_STYLE)
+        frame = wx.Frame(parent, title=title, size=size, style=wx.DEFAULT_FRAME_STYLE)
         self._frame = frame
 
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -128,24 +139,22 @@ class HTMLViewerWindow:
         toolbar = wx.ToolBar(frame, style=wx.TB_HORIZONTAL | wx.TB_NODIVIDER)
         toolbar.SetToolBitmapSize(_TOOL_BITMAP_SIZE)
 
-        home_bmp = load_sf_symbol("house", **_ICON_KW) or wx.NullBitmap
-        home_id = toolbar.AddTool(wx.ID_ANY, "Home", home_bmp,
-                                  shortHelp="Home").GetId()
+        home_bmp = _toolbar_icon("house")
+        home_id = toolbar.AddTool(wx.ID_ANY, "Home", home_bmp, shortHelp="Home").GetId()
 
-        prev_bmp = load_sf_symbol("chevron.left", **_ICON_KW) or wx.NullBitmap
-        prev_id = toolbar.AddTool(wx.ID_ANY, "Previous", prev_bmp,
-                                  shortHelp="Previous page").GetId()
+        prev_bmp = _toolbar_icon("chevron.left")
+        prev_id = toolbar.AddTool(wx.ID_ANY, "Previous", prev_bmp, shortHelp="Previous page").GetId()
 
-        next_bmp = load_sf_symbol("chevron.right", **_ICON_KW) or wx.NullBitmap
-        next_id = toolbar.AddTool(wx.ID_ANY, "Next", next_bmp,
-                                  shortHelp="Next page").GetId()
+        next_bmp = _toolbar_icon("chevron.right")
+        next_id = toolbar.AddTool(wx.ID_ANY, "Next", next_bmp, shortHelp="Next page").GetId()
 
         # Search controls (right side)
         toolbar.AddStretchableSpace()
 
-        search_label = wx.StaticText(toolbar, label="", size=(_LABEL_WIDTH, -1),
-                                     style=wx.ALIGN_RIGHT | wx.ST_NO_AUTORESIZE)
-        search_label.SetForegroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_GRAYTEXT))
+        search_label = wx.StaticText(
+            toolbar, label="", size=(_LABEL_WIDTH, -1), style=wx.ALIGN_RIGHT | wx.ST_NO_AUTORESIZE
+        )
+        search_label.SetForegroundColour(Color.TEXT_SECONDARY)
         toolbar.AddControl(search_label)
 
         search_ctrl = wx.SearchCtrl(toolbar, size=(_SEARCH_MIN_WIDTH, -1))
@@ -153,19 +162,27 @@ class HTMLViewerWindow:
         search_ctrl.ShowCancelButton(True)
         toolbar.AddControl(search_ctrl)
 
-        prev_match_bmp = load_sf_symbol("chevron.up", **_ICON_KW) or wx.NullBitmap
-        prev_match_id = toolbar.AddTool(wx.ID_ANY, "Prev Match", prev_match_bmp,
-                                        shortHelp="Previous match").GetId()
+        prev_match_bmp = _toolbar_icon("chevron.up")
+        prev_match_id = toolbar.AddTool(wx.ID_ANY, "Prev Match", prev_match_bmp, shortHelp="Previous match").GetId()
 
-        next_match_bmp = load_sf_symbol("chevron.down", **_ICON_KW) or wx.NullBitmap
-        next_match_id = toolbar.AddTool(wx.ID_ANY, "Next Match", next_match_bmp,
-                                        shortHelp="Next match").GetId()
+        next_match_bmp = _toolbar_icon("chevron.down")
+        next_match_id = toolbar.AddTool(wx.ID_ANY, "Next Match", next_match_bmp, shortHelp="Next match").GetId()
 
         toolbar.EnableTool(prev_id, False)
         toolbar.EnableTool(prev_match_id, False)
         toolbar.EnableTool(next_match_id, False)
         toolbar.Realize()
         sizer.Add(toolbar, 0, wx.EXPAND)
+
+        # Store toolbar references for refresh_colors()
+        self._toolbar = toolbar
+        self._tool_icons: list[tuple[int, str]] = [
+            (home_id, "house"),
+            (prev_id, "chevron.left"),
+            (next_id, "chevron.right"),
+            (prev_match_id, "chevron.up"),
+            (next_match_id, "chevron.down"),
+        ]
 
         # Dynamically resize search ctrl to fill available toolbar space
         def _resize_search_ctrl(evt: wx.SizeEvent | None = None) -> None:
@@ -184,6 +201,7 @@ class HTMLViewerWindow:
         tb_line = wx.Panel(frame, size=(-1, 1))
         tb_line.SetBackgroundColour(Color.BORDER)
         sizer.Add(tb_line, 0, wx.EXPAND | wx.TOP, -1)
+        self._tb_line = tb_line
 
         # WebView — HTML pages have built-in CSS sidebar
         url = (base_path / page_order[0]).as_uri()
@@ -192,6 +210,27 @@ class HTMLViewerWindow:
         sizer.Add(webview, 1, wx.EXPAND)
 
         frame.SetSizer(sizer)
+
+        # Menu bar so this viewer gets its own Cmd+W / Cmd+F / Help on macOS.
+        # On macOS, the focused frame's menu bar becomes the global menu bar.
+        menubar = wx.MenuBar()
+        file_menu = wx.Menu()
+        file_menu.Append(wx.ID_CLOSE, "Close Window\tCtrl+W")
+        menubar.Append(file_menu, "&File")
+        edit_menu = wx.Menu()
+        find_id = wx.NewIdRef()
+        find_item = edit_menu.Append(find_id, "Find\tCtrl+F")
+        from app.gui.icons import load_menu_icon
+
+        find_icon = load_menu_icon("magnifyingglass")
+        if find_icon:
+            find_item.SetBitmap(find_icon)
+        menubar.Append(edit_menu, "&Edit")
+        menubar.Append(build_help_menu(frame), "&Help")
+        frame.SetMenuBar(menubar)
+        frame.Bind(wx.EVT_MENU, lambda e: frame.Close(), id=wx.ID_CLOSE)
+        frame.Bind(wx.EVT_MENU, lambda e: search_ctrl.SetFocus(), id=find_id)
+
         frame.CenterOnParent()
         frame.Show()
 
@@ -199,10 +238,10 @@ class HTMLViewerWindow:
         search_pages: list[_PageMatch] = []
         page_cursor = 0
         match_cursor = 0
-        page_ready = False        # True after first EVT_WEBVIEW_LOADED
-        pending_mark = False      # Need full _mark_all after page load
-        pending_focus = False     # Need _focus_match after page load
-        last_query = ""           # Avoid redundant re-marking
+        page_ready = False  # True after first EVT_WEBVIEW_LOADED
+        pending_mark = False  # Need full _mark_all after page load
+        pending_focus = False  # Need _focus_match after page load
+        last_query = ""  # Avoid redundant re-marking
         debounce_timer = wx.Timer(frame)
 
         # --- Navigation helpers ---
@@ -221,11 +260,11 @@ class HTMLViewerWindow:
             toolbar.EnableTool(next_id, 0 <= idx < len(page_order) - 1)
 
         def _total_matches() -> int:
-            return sum(m.count for m in search_pages)
+            return sum(m.match_count for m in search_pages)
 
         def _global_position() -> int:
             nonlocal page_cursor, match_cursor
-            return sum(m.count for m in search_pages[:page_cursor]) + match_cursor + 1
+            return sum(m.match_count for m in search_pages[:page_cursor]) + match_cursor + 1
 
         def _update_search_ui() -> None:
             total = _total_matches()
@@ -360,13 +399,13 @@ class HTMLViewerWindow:
                 _update_search_ui()
             else:
                 prev_pg = (page_cursor - 1) % len(search_pages)
-                _navigate_to_page(prev_pg, search_pages[prev_pg].count - 1)
+                _navigate_to_page(prev_pg, search_pages[prev_pg].match_count - 1)
 
         def on_next_match(evt: wx.CommandEvent) -> None:
             nonlocal match_cursor
             if not search_pages:
                 return
-            if match_cursor < search_pages[page_cursor].count - 1:
+            if match_cursor < search_pages[page_cursor].match_count - 1:
                 match_cursor += 1
                 _focus_match(match_cursor)
                 _update_search_ui()
@@ -374,8 +413,10 @@ class HTMLViewerWindow:
                 next_pg = (page_cursor + 1) % len(search_pages)
                 _navigate_to_page(next_pg, 0)
 
+        # noinspection PyShadowingNames
         def on_navigating(evt) -> None:
             url = evt.GetURL()
+            # noinspection HttpUrlsUsage
             if url.startswith(("http://", "https://")):
                 evt.Veto()
                 wx.LaunchDefaultBrowser(url)
@@ -406,12 +447,10 @@ class HTMLViewerWindow:
         webview.Bind(wx.html2.EVT_WEBVIEW_NAVIGATING, on_navigating)
         webview.Bind(wx.html2.EVT_WEBVIEW_LOADED, on_page_loaded)
 
-        # Cmd+F accelerator to focus search ctrl
-        accel_id = wx.NewIdRef()
-        frame.Bind(wx.EVT_MENU, lambda evt: search_ctrl.SetFocus(), id=accel_id)
-        frame.SetAcceleratorTable(
-            wx.AcceleratorTable([(wx.ACCEL_CMD, ord("F"), accel_id)])
-        )
+        # Cmd+F is handled by the Edit > Find menu item above
+
+        # Expose refresh_colors on the frame so appearance observers can find it
+        frame.refresh_colors = self.refresh_colors  # type: ignore[attr-defined]
 
         # Stop debounce timer on close/destroy to prevent RunScript on a dead
         # WebView.  EVT_CLOSE covers user close; EVT_WINDOW_DESTROY covers
@@ -428,25 +467,97 @@ class HTMLViewerWindow:
         # Initial search ctrl sizing
         wx.CallAfter(_resize_search_ctrl)
 
+    def refresh_colors(self) -> None:
+        """Update toolbar icons and border for current appearance mode."""
+        from app.gui.icons import clear_cache
+
+        clear_cache()
+        for tool_id, symbol_name in self._tool_icons:
+            bmp = _toolbar_icon(symbol_name)
+            self._toolbar.SetToolNormalBitmap(tool_id, wx.BitmapBundle(bmp))
+        self._toolbar.Realize()
+        self._tb_line.SetBackgroundColour(Color.BORDER)
+        self._frame.Refresh()
+
     @property
     def frame(self) -> wx.Frame:
         return self._frame
 
 
-def show_viewer(parent: wx.Window, *, title: str,
-                base_path: Path, page_order: list[str],
-                singleton_key: str, size: tuple[int, int] = (800, 600),
-                search_hint: str = "Search") -> HTMLViewerWindow | None:
+# noinspection PyTypeChecker
+def build_help_menu(frame: wx.Frame) -> wx.Menu:
+    """Build a Help menu with viewer items and bind events.
+
+    Opens each viewer as a singleton.  When called from a viewer frame,
+    ``frame.GetParent()`` should be the main window so that new viewers
+    are parented correctly.
+    """
+    from app.core.config import GITHUB_URL
+    from app.gui.changelog_dialog import show_changelog
+    from app.gui.help_dialog import show_help
+    from app.gui.icons import load_menu_icon
+    from app.gui.licenses_dialog import show_licenses
+
+    parent = frame.GetParent() or frame
+
+    menu = wx.Menu()
+
+    help_item = menu.Append(wx.ID_HELP, "Greeting Cards Help")
+    help_icon = load_menu_icon("book")
+    if help_icon:
+        help_item.SetBitmap(help_icon)
+
+    whats_new_id = wx.NewIdRef()
+    whats_new_item = menu.Append(whats_new_id, "What's New")
+    whats_new_icon = load_menu_icon("newspaper")
+    if whats_new_icon:
+        whats_new_item.SetBitmap(whats_new_icon)
+
+    licenses_id = wx.NewIdRef()
+    licenses_item = menu.Append(licenses_id, "Licenses")
+    licenses_icon = load_menu_icon("doc.text")
+    if licenses_icon:
+        licenses_item.SetBitmap(licenses_icon)
+
+    menu.AppendSeparator()
+
+    github_id = wx.NewIdRef()
+    github_item = menu.Append(github_id, "GitHub Repository")
+    github_icon = load_menu_icon("arrow.up.forward.square")
+    if github_icon:
+        github_item.SetBitmap(github_icon)
+
+    frame.Bind(wx.EVT_MENU, lambda e: show_help(parent), id=wx.ID_HELP)
+    frame.Bind(wx.EVT_MENU, lambda e: show_changelog(parent), id=whats_new_id)
+    frame.Bind(wx.EVT_MENU, lambda e: show_licenses(parent), id=licenses_id)
+    frame.Bind(wx.EVT_MENU, lambda e: wx.LaunchDefaultBrowser(GITHUB_URL), id=github_id)
+
+    return menu
+
+
+def show_viewer(
+    parent: wx.Window,
+    *,
+    title: str,
+    base_path: Path,
+    page_order: list[str],
+    singleton_key: str,
+    size: tuple[int, int] = (800, 600),
+    search_hint: str = "Search",
+) -> HTMLViewerWindow | None:
     """Show an HTML viewer window, reusing an existing one if still alive."""
     ref = _viewer_refs.get(singleton_key)
     if ref is not None:
         frame = ref()
-        if frame is not None and not frame.IsBeingDeleted():
-            frame.Raise()
-            return None
+        try:
+            if frame is not None and not frame.IsBeingDeleted():
+                frame.Raise()
+                return None
+        except RuntimeError:
+            pass  # C++ object already deleted; create a new one
 
-    viewer = HTMLViewerWindow(parent, title=title, size=size,
-                              base_path=base_path, page_order=page_order,
-                              search_hint=search_hint)
+    viewer = HTMLViewerWindow(
+        parent, title=title, size=size, base_path=base_path, page_order=page_order, search_hint=search_hint
+    )
     _viewer_refs[singleton_key] = weakref.ref(viewer.frame)
     return viewer

@@ -7,5 +7,6 @@ You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
 
-Tesseract is an external dependency (not bundled with this application).
-Install via Homebrew: brew install tesseract
+Tesseract is bundled via tesserocr, which links to libtesseract and its
+transitive dependencies. The tessdata (eng.traineddata) is bundled in
+_runtime_content/tessdata/.

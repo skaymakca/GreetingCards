@@ -1,12 +1,13 @@
 """Preferences pages for native macOS Preferences editor."""
+
 import subprocess
 from collections.abc import Callable
 
 import wx
 
-from app.gui import styles
-from app.core.config import get_api_key, save_api_key, AI_MODELS, get_ai_model, save_ai_model
+from app.core.config import AI_MODELS, get_ai_model, get_api_key, save_ai_model, save_api_key
 from app.core.database import reset_database
+from app.gui import styles
 
 _PREFS_PAD = 20
 _PREFS_WIDTH = 480
@@ -16,21 +17,26 @@ _STATUS_DISPLAY_MS = 3000
 def get_commit_hash() -> str:
     """Get short git commit hash, or empty string if unavailable."""
     try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"],
-            stderr=subprocess.DEVNULL,
-        ).decode().strip()
-    except (OSError, subprocess.SubprocessError):
+        return (
+            subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"],
+                stderr=subprocess.DEVNULL,
+            )
+            .decode()
+            .strip()
+        )
+    except OSError, subprocess.SubprocessError:
         return ""
 
 
+# noinspection PyAttributeOutsideInit,PyUnusedLocal
 class GeneralPreferencesPage(wx.StockPreferencesPage):
     """General preferences page with API key management."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(wx.StockPreferencesPage.Kind_General)
 
-    def CreateWindow(self, parent):
+    def CreateWindow(self, parent: wx.Window) -> wx.Panel:
         """Create the preferences panel. May be called multiple times."""
         panel = wx.Panel(parent)
         panel.SetMaxSize(wx.Size(_PREFS_WIDTH, -1))
@@ -104,7 +110,7 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
         panel.SetSizer(sizer)
         return panel
 
-    def _on_model_changed(self, event) -> None:
+    def _on_model_changed(self, event: wx.CommandEvent) -> None:
         """Save model selection immediately."""
         if not self._model_choice:
             return
@@ -112,7 +118,7 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
         if idx != wx.NOT_FOUND:
             save_ai_model(AI_MODELS[idx].model_id)
 
-    def _save_api_key(self, event) -> None:
+    def _save_api_key(self, event: wx.CommandEvent) -> None:
         """Save API key and show status."""
         # Guard against stale widget reference after CreateWindow re-creation
         if not self._key_entry or not self._key_status:
@@ -132,7 +138,6 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
         if self._status_timer is not None:
             self._status_timer.Stop()
         self._status_timer = wx.CallLater(_STATUS_DISPLAY_MS, self._cancel_status)
-
 
     def _on_panel_shown(self, event: wx.ShowEvent) -> None:
         """Clean up status label on show/hide transitions.
@@ -154,6 +159,7 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
             self._key_status.GetParent().Layout()
 
 
+# noinspection PyAttributeOutsideInit,PyUnusedLocal
 class AdvancedPreferencesPage(wx.StockPreferencesPage):
     """Advanced preferences page with database controls."""
 
@@ -161,7 +167,7 @@ class AdvancedPreferencesPage(wx.StockPreferencesPage):
         super().__init__(wx.StockPreferencesPage.Kind_Advanced)
         self._on_db_reset = on_db_reset
 
-    def CreateWindow(self, parent):
+    def CreateWindow(self, parent: wx.Window) -> wx.Panel:
         """Create the preferences panel. May be called multiple times."""
         panel = wx.Panel(parent)
         panel.SetMaxSize(wx.Size(_PREFS_WIDTH, -1))
@@ -180,7 +186,7 @@ class AdvancedPreferencesPage(wx.StockPreferencesPage):
 
         db_desc = wx.StaticText(
             panel,
-            label="Erase all manual entries, candidates, cached OCR,\nand cached AI results. Cards will be reprocessed on next load."
+            label="Erase all manual entries, candidates, cached OCR,\nand cached AI results. Cards will be reprocessed on next load.",
         )
         db_desc.SetFont(styles.Font.SMALL())
         db_row.Add(db_desc, 1, wx.ALIGN_CENTER_VERTICAL)
@@ -196,7 +202,7 @@ class AdvancedPreferencesPage(wx.StockPreferencesPage):
         panel.SetSizer(sizer)
         return panel
 
-    def _reset_card_data(self, event):
+    def _reset_card_data(self, event: wx.CommandEvent) -> None:
         """Reset all card data after confirmation."""
         result = wx.MessageBox(
             "This will reset all card data including manual name entries, "

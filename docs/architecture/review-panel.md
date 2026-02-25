@@ -41,14 +41,14 @@ Note: The drop overlay (`_DropOverlay`) lives in `main_window.py` and covers the
 
 Wraps a flat `list[CardResult]` for display in DataViewCtrl.
 
-| Method | Purpose |
-|--------|---------|
-| `load_cards(cards)` | Replace all data, notify via `Cleared()` |
-| `get_card_by_item(item)` | DataViewItem → CardResult |
-| `get_item_by_card_id(id)` | Card ID → DataViewItem |
-| `update_card(id, card)` | Update one card, notify via `ItemChanged()` |
-| `GetValue(item, col)` | Returns dot symbol (col 0), filename (col 1), display_name (col 2) |
-| `GetAttr(item, col, attr)` | Sets dot color by confidence; blue filename for multi-path cards |
+| Method                     | Purpose                                                            |
+|----------------------------|--------------------------------------------------------------------|
+| `load_cards(cards)`        | Replace all data, notify via `Cleared()`                           |
+| `get_card_by_item(item)`   | DataViewItem → CardResult                                          |
+| `get_item_by_card_id(id)`  | Card ID → DataViewItem                                             |
+| `update_card(id, card)`    | Update one card, notify via `ItemChanged()`                        |
+| `GetValue(item, col)`      | Returns dot symbol (col 0), filename (col 1), display_name (col 2) |
+| `GetAttr(item, col, attr)` | Sets dot color by confidence; blue filename for multi-path cards   |
 
 ## DetailPanel
 
@@ -63,12 +63,12 @@ Shows edit controls for the currently selected card. Key behaviors:
 
 ReviewPanelMasterDetail receives these callbacks from MainWindow:
 
-| Callback | Triggered By | What Happens |
-|----------|-------------|--------------|
-| `on_select(card_id)` | List selection change | MainWindow updates preview panel |
-| `on_name_change(card_id, name)` | User types in name field | MainWindow saves to DB, debounces refresh |
-| `on_card_edited(card_id)` | Candidate selected from dropdown | MainWindow calls `_refresh_display()` |
-| `on_ai_request(card_id)` | AI button clicked | MainWindow starts background AI analysis |
+| Callback                        | Triggered By                     | What Happens                              |
+|---------------------------------|----------------------------------|-------------------------------------------|
+| `on_select(card_id)`            | List selection change            | MainWindow updates preview panel          |
+| `on_name_change(card_id, name)` | User types in name field         | MainWindow saves to DB, debounces refresh |
+| `on_card_edited(card_id)`       | Candidate selected from dropdown | MainWindow calls `_refresh_display()`     |
+| `on_ai_request(card_id)`        | AI button clicked                | MainWindow starts background AI analysis  |
 
 **Important:** The panel does NOT write to the database directly (except `_handle_checkbox` for `remove_family` and `_handle_candidate` for `select_candidate`). The parent MainWindow handles most DB writes and card state updates, then calls `update_card()` back on the panel.
 
@@ -89,15 +89,15 @@ This ensures consistent behavior: any change to the displayed list (search, filt
 
 ## Public API
 
-| Method | Purpose |
-|--------|---------|
-| `load_cards(cards)` | Full reload, resets selection to none |
-| `get_cards()` | Return cards in display order |
-| `update_card(card_id, card)` | Update single card (after AI analysis) |
-| `update_dot(card_id, confidence)` | Update just the confidence indicator |
+| Method                                      | Purpose                                         |
+|---------------------------------------------|-------------------------------------------------|
+| `load_cards(cards)`                         | Full reload, resets selection to none           |
+| `get_cards()`                               | Return cards in display order                   |
+| `update_card(card_id, card)`                | Update single card (after AI analysis)          |
+| `update_dot(card_id, confidence)`           | Update just the confidence indicator            |
 | `select_next_card()` / `select_prev_card()` | Keyboard navigation (collapses multi-selection) |
-| `select_all()` / `select_none()` | Cmd+A / Cmd+Shift+A |
-| `set_ai_button_state(card_id, state, text)` | Enable/disable AI button |
+| `select_all()` / `select_none()`            | Cmd+A / Cmd+Shift+A                             |
+| `set_ai_button_state(card_id, state, text)` | Enable/disable AI button                        |
 
 ## Drag Highlight
 
@@ -109,11 +109,11 @@ The drop overlay (empty state) is managed by `_DropOverlay` in `main_window.py`,
 
 `_on_key` (bound to `EVT_CHAR_HOOK`) handles all keyboard navigation:
 
-| Key | Action |
-|-----|--------|
-| Up / Down | Move to prev/next card (collapses multi-selection to single) |
-| Shift+Up / Shift+Down | Extend selection up/down (`_extend_selection_up/down`) |
-| Other keys | Passed through via `event.Skip()` |
+| Key                   | Action                                                       |
+|-----------------------|--------------------------------------------------------------|
+| Up / Down             | Move to prev/next card (collapses multi-selection to single) |
+| Shift+Up / Shift+Down | Extend selection up/down (`_extend_selection_up/down`)       |
+| Other keys            | Passed through via `event.Skip()`                            |
 
 Cmd+A (Select All) and Cmd+Shift+A (Select None) are handled by MainWindow's Edit menu bindings, calling `select_all()` / `select_none()`. Cmd+Delete (Remove) is also an Edit menu item, handled by `_on_remove_menu` in MainWindow.
 
