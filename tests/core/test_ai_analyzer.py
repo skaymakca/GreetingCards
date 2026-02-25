@@ -8,6 +8,7 @@ from PIL import Image
 
 from app.core.ai_analyzer import (
     _MAX_LINE_LENGTH,
+    _MAX_RETRIES,
     AIResult,
     _build_content_blocks,
     _get_validated_api_key,
@@ -18,6 +19,7 @@ from app.core.ai_analyzer import (
     analyze_card_with_ai_async,
     clean_family_name,
     format_ai_error,
+    parse_retry_after,
 )
 
 
@@ -498,3 +500,66 @@ class TestAnalyzeCardWithAiErrors:
         with patch.object(anthropic, "AsyncAnthropic", return_value=mock_client):
             result = await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
             assert result.best_name == ""
+
+
+class TestParseRetryAfter:
+    """Tests for parse_retry_after()."""
+
+    def test_retry_after_ms_header(self):
+        """Extracts delay from retry-after-ms header."""
+        exc = MagicMock()
+        exc.response.headers = {"retry-after-ms": "5000"}
+        assert parse_retry_after(exc) == 5.0
+
+    def test_retry_after_header(self):
+        """Extracts delay from retry-after header."""
+        exc = MagicMock()
+        exc.response.headers = {"retry-after": "15"}
+        assert parse_retry_after(exc) == 15.0
+
+    def test_retry_after_ms_takes_precedence(self):
+        """retry-after-ms is preferred over retry-after."""
+        exc = MagicMock()
+        exc.response.headers = {"retry-after-ms": "3000", "retry-after": "60"}
+        assert parse_retry_after(exc) == 3.0
+
+    def test_missing_headers_returns_default(self):
+        """Falls back to 10s when no retry-after headers present."""
+        exc = MagicMock()
+        exc.response.headers = {}
+        assert parse_retry_after(exc) == 10.0
+
+    def test_no_response_attribute(self):
+        """Falls back to 10s when exception has no response."""
+        exc = Exception("plain error")
+        assert parse_retry_after(exc) == 10.0
+
+    def test_malformed_value(self):
+        """Falls back to 10s when header value is not a number."""
+        exc = MagicMock()
+        exc.response.headers = {"retry-after-ms": "not-a-number", "retry-after": "also-bad"}
+        assert parse_retry_after(exc) == 10.0
+
+
+class TestMaxRetriesConfig:
+    """Tests for SDK retry configuration."""
+
+    @pytest.mark.asyncio
+    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    async def test_max_retries_passed_to_client(self, mock_key, mock_model):
+        """Verifies max_retries=4 is passed to AsyncAnthropic constructor."""
+        import anthropic
+
+        mock_msg = MagicMock()
+        mock_msg.content = [MagicMock(text="Smith")]
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(return_value=mock_msg)
+
+        with patch.object(anthropic, "AsyncAnthropic", return_value=mock_client) as mock_ctor:
+            await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
+            mock_ctor.assert_called_once_with(api_key="sk-test", max_retries=_MAX_RETRIES)
+
+    def test_max_retries_value(self):
+        """_MAX_RETRIES is set to 4."""
+        assert _MAX_RETRIES == 4

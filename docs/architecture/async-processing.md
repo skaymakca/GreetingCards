@@ -7,22 +7,22 @@ ProcessPoolExecutor for PDF rendering + OCR, asyncio for AI batch, and thread-sa
 ## Architecture Overview
 
 ```
-┌───────────────────────────────────────────────────┐
-│                 Main Thread (wx)                   │
-│  UI events, wx.CallAfter callbacks, timer events  │
-└─────────┬─────────────────────────┬───────────────┘
-          │                         │
-    ┌─────▼───────┐          ┌──────▼───────┐
-    │  Thread 1   │          │  Thread 2    │
-    │ _process_   │          │ _run_ai_all  │
-    │   cards()   │          │  asyncio     │
-    └─────┬───────┘          └──────┬───────┘
-          │                         │
-  ┌───────▼──────────┐    ┌────────▼──────────┐
-  │ ProcessPool      │    │ asyncio.Semaphore  │
-  │   Executor       │    │   (3 concurrent)   │
-  │ OCR_WORKERS      │    │                    │
-  └──────────────────┘    └────────────────────┘
+┌──────────────────────────────────────────────────┐
+│                Main Thread (wx)                  │
+│ UI events, wx.CallAfter callbacks, timer events  │
+└────────┬─────────────────────────┬───────────────┘
+         │                         │
+   ┌─────▼───────┐          ┌─────▼────────┐
+   │  Thread 1   │          │  Thread 2    │
+   │ _process_   │          │ _run_ai_all  │
+   │   cards()   │          │   asyncio    │
+   └─────┬───────┘          └─────┬────────┘
+         │                        │
+ ┌───────▼──────────┐   ┌────────▼───────────┐
+ │ ProcessPool      │   │ asyncio.Semaphore   │
+ │   Executor       │   │  (3 concurrent)     │
+ │ OCR_WORKERS      │   │ + _RateLimitGate    │
+ └──────────────────┘   └────────────────────┘
 ```
 
 ## PDF Processing: ProcessPoolExecutor
@@ -87,6 +87,31 @@ The menu label and toolbar tooltip update dynamically based on scope:
 - 2+ selected: "AI Analyze Selected (N)"
 - Disabled: "AI Analyze"
 
+### Retry and Rate Limit Coordination
+
+Two layers of retry protect against transient API failures:
+
+1. **SDK-level retry** (`_MAX_RETRIES = 4` in `ai_analyzer.py`): The Anthropic SDK retries 429, 408, 409, and ≥500 errors automatically with exponential backoff + jitter + `retry-after` header parsing. Configured via `AsyncAnthropic(max_retries=4)`.
+
+2. **App-level retry** (in `_run_ai_all_async()`): After SDK retries are exhausted, each card gets one more attempt:
+   - `RateLimitError` → pause the shared `_RateLimitGate`, retry once after pause
+   - `APITimeoutError` / `APIConnectionError` → retry once after 2s delay
+   - `AuthenticationError` → abort all (no retry)
+   - Other exceptions → no retry
+
+### `_RateLimitGate` (Thundering Herd Prevention)
+
+```python
+class _RateLimitGate:
+    def __init__(self): self._resume_at = 0
+    async def wait_if_paused(self): ...  # sleep until resume_at
+    def pause(self, seconds): ...        # set resume_at = max(current, now + seconds)
+```
+
+When any task hits a rate limit, it calls `gate.pause(delay)` using the delay from `parse_retry_after()` (which reads `retry-after-ms` / `retry-after` headers, falling back to 10s). All tasks call `gate.wait_if_paused()` before acquiring the semaphore, so queued tasks won't immediately fire into another rate limit. Multiple pauses coalesce — only the longest remaining pause applies.
+
+Safe without locks because asyncio is single-threaded — only one coroutine runs at a time between await points.
+
 ### Auth Abort Pattern
 ```python
 auth_failed = asyncio.Event()
@@ -135,7 +160,7 @@ Both PDF processing and AI batch use `ProgressDialog`:
 
 - **spawn method:** `multiprocessing.set_start_method('spawn', force=True)` is required for PyInstaller-bundled apps (fork doesn't work with frozen modules).
 - **Module-level worker:** `process_pdf_worker` is defined at module level in `app/core/pdf_worker.py`, not as a method. Methods can't be pickled for multiprocessing.
-- **Semaphore(3):** Limits concurrent API calls to prevent rate limiting. The Anthropic API has per-account rate limits.
+- **Semaphore(3):** Limits concurrent API calls. Combined with `_RateLimitGate` for cross-request coordination — the gate pauses all tasks before semaphore acquisition when a rate limit is hit.
 - **asyncio.run() in thread:** Creates a new event loop in the background thread. The main thread's wx event loop is separate.
 - **Busy cursor:** `wx.BeginBusyCursor()` / `wx.EndBusyCursor()` bracket processing. Guard: `if wx.IsBusy()` prevents double-end.
 - **tesserocr C API:** Uses tesserocr (C++ bindings to Tesseract) instead of pytesseract (CLI wrapper). No binary path resolution needed — tesserocr links directly to libtesseract. Tessdata (`eng.traineddata`) is bundled in `_runtime_content/tessdata/` and the path is set deterministically via `_get_tessdata_path()` in `ocr_engine.py` (uses `sys._MEIPASS` when bundled, project root in dev).

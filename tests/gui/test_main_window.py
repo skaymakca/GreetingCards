@@ -2607,3 +2607,229 @@ def test_on_frame_activate_uses_mtime_only(wx_app, tmp_path):
         mock_reload.assert_called_once_with(mtime_only=True)
 
     window._frame.Destroy()
+
+
+# ============================================================================
+# RateLimitGate Tests
+# ============================================================================
+
+
+class TestRateLimitGate:
+    """Tests for _RateLimitGate."""
+
+    @pytest.mark.asyncio
+    async def test_no_pause_by_default(self):
+        """Gate does not block when no pause has been set."""
+        import time
+
+        from app.gui.main_window import _RateLimitGate
+
+        gate = _RateLimitGate()
+        before = time.monotonic()
+        await gate.wait_if_paused()
+        elapsed = time.monotonic() - before
+        assert elapsed < 0.1
+
+    @pytest.mark.asyncio
+    async def test_pause_causes_wait(self):
+        """Gate waits for the paused duration."""
+        import time
+
+        from app.gui.main_window import _RateLimitGate
+
+        gate = _RateLimitGate()
+        gate.pause(0.2)
+        before = time.monotonic()
+        await gate.wait_if_paused()
+        elapsed = time.monotonic() - before
+        assert elapsed >= 0.15  # Allow small tolerance
+
+    @pytest.mark.asyncio
+    async def test_pause_coalesces(self):
+        """Multiple pauses keep the longest remaining duration."""
+        import time
+
+        from app.gui.main_window import _RateLimitGate
+
+        gate = _RateLimitGate()
+        gate.pause(0.1)
+        gate.pause(0.3)  # Longer — should win
+        gate.pause(0.05)  # Shorter — should not shorten
+        before = time.monotonic()
+        await gate.wait_if_paused()
+        elapsed = time.monotonic() - before
+        assert elapsed >= 0.2  # At least ~0.3s from the longest pause
+
+
+# ============================================================================
+# AI Retry Behavior Tests
+# ============================================================================
+
+
+class TestAiRetryBehavior:
+    """Tests for retry logic in _run_ai_all_async's process_card."""
+
+    def _make_card(self):
+        """Create a minimal CardResult for testing."""
+        from PIL import Image
+
+        from app.models.card import CardResult
+
+        dummy_path = Path("/tmp/test_card.pdf")
+        card = CardResult(id=0, file_paths=[dummy_path], primary_path=dummy_path)
+        card.file_hash = "testhash"
+        card.preview_image = Image.new("RGB", (10, 10))
+        return card
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_retries_and_succeeds(self):
+        """RateLimitError on first attempt retries; success on second."""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        import anthropic
+
+        from app.core.ai_analyzer import AIResult
+        from app.gui.main_window import _RateLimitGate
+
+        card = self._make_card()
+
+        # First call: RateLimitError, second call: success
+        rate_err = anthropic.RateLimitError(
+            message="rate limited",
+            response=MagicMock(status_code=429, headers={"retry-after-ms": "100"}),
+            body=None,
+        )
+        mock_analyze = AsyncMock(side_effect=[rate_err, AIResult(best_name="Smith")])
+
+        gate = _RateLimitGate()
+        semaphore = asyncio.Semaphore(5)
+        errors: list[tuple[str, str]] = []
+
+        with (
+            patch("app.gui.main_window.analyze_card_with_ai_async", mock_analyze),
+            patch("app.gui.main_window.get_card_state", return_value=None),
+            patch("app.gui.main_window.save_raw_ai"),
+            patch("app.gui.main_window.reprocess_candidates_from_raw"),
+            patch("app.gui.main_window.parse_retry_after", return_value=0.05),
+        ):
+            for attempt in range(2):
+                await gate.wait_if_paused()
+                async with semaphore:
+                    try:
+                        await mock_analyze([card.preview_image])
+                        break
+                    except anthropic.RateLimitError as e:
+                        if attempt == 0:
+                            from app.core.ai_analyzer import parse_retry_after
+
+                            delay = parse_retry_after(e)
+                            gate.pause(delay)
+                            continue
+                        errors.append((card.filename, str(e)))
+
+        assert mock_analyze.call_count == 2
+        assert len(errors) == 0
+
+    @pytest.mark.asyncio
+    async def test_timeout_retries_once(self):
+        """APITimeoutError retries once with a short delay."""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        import anthropic
+
+        from app.core.ai_analyzer import AIResult
+        from app.gui.main_window import _RateLimitGate
+
+        card = self._make_card()
+
+        timeout_err = anthropic.APITimeoutError(request=MagicMock())
+        mock_analyze = AsyncMock(side_effect=[timeout_err, AIResult(best_name="Jones")])
+
+        gate = _RateLimitGate()
+        semaphore = asyncio.Semaphore(5)
+        errors: list[tuple[str, str]] = []
+
+        for attempt in range(2):
+            await gate.wait_if_paused()
+            async with semaphore:
+                try:
+                    await mock_analyze([card.preview_image])
+                    break
+                except anthropic.APITimeoutError, anthropic.APIConnectionError:
+                    if attempt == 0:
+                        await asyncio.sleep(0.01)  # Short delay for test
+                        continue
+                    errors.append((card.filename, "timeout"))
+
+        assert mock_analyze.call_count == 2
+        assert len(errors) == 0
+
+    @pytest.mark.asyncio
+    async def test_non_retryable_error_no_retry(self):
+        """Generic exceptions do not retry."""
+        import asyncio
+        from unittest.mock import AsyncMock, patch
+
+        from app.gui.main_window import _RateLimitGate
+
+        card = self._make_card()
+
+        mock_analyze = AsyncMock(side_effect=ValueError("bad input"))
+
+        gate = _RateLimitGate()
+        semaphore = asyncio.Semaphore(5)
+        errors: list[tuple[str, str]] = []
+
+        for _attempt in range(2):
+            await gate.wait_if_paused()
+            async with semaphore:
+                try:
+                    await mock_analyze([card.preview_image])
+                    break
+                except Exception as e:
+                    errors.append((card.filename, str(e)))
+                    break  # non-retryable
+
+        assert mock_analyze.call_count == 1
+        assert len(errors) == 1
+
+    @pytest.mark.asyncio
+    async def test_auth_error_no_retry(self):
+        """AuthenticationError does not retry and sets auth_failed."""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        import anthropic
+
+        from app.gui.main_window import _RateLimitGate
+
+        card = self._make_card()
+
+        auth_err = anthropic.AuthenticationError(
+            message="invalid key",
+            response=MagicMock(status_code=401),
+            body=None,
+        )
+        mock_analyze = AsyncMock(side_effect=auth_err)
+
+        gate = _RateLimitGate()
+        semaphore = asyncio.Semaphore(5)
+        auth_failed = asyncio.Event()
+        errors: list[tuple[str, str]] = []
+
+        for _attempt in range(2):
+            await gate.wait_if_paused()
+            async with semaphore:
+                try:
+                    await mock_analyze([card.preview_image])
+                    break
+                except anthropic.AuthenticationError as e:
+                    auth_failed.set()
+                    errors.append((card.filename, str(e)))
+                    break  # no retry
+
+        assert mock_analyze.call_count == 1
+        assert auth_failed.is_set()
+        assert len(errors) == 1

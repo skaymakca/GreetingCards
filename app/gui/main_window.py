@@ -14,7 +14,7 @@ import wx.adv
 
 logger = logging.getLogger(__name__)
 
-from app.core.ai_analyzer import analyze_card_with_ai_async, format_ai_error
+from app.core.ai_analyzer import analyze_card_with_ai_async, format_ai_error, parse_retry_after
 from app.core.config import get_api_key
 from app.core.constants import AI_CONCURRENCY, OCR_WORKERS
 from app.core.database import (
@@ -39,6 +39,27 @@ from app.models.card import CardResult, Confidence, PdfWorkerResult, RenameResul
 
 # Messages indicating a rename result is resolved (path moved or already correct)
 _RESOLVED_MESSAGES = {"Renamed", "Already named correctly"}
+
+
+class _RateLimitGate:
+    """Pauses all tasks when any one hits a rate limit.
+
+    Safe without locks because asyncio is single-threaded — only one
+    coroutine runs at a time between await points.
+    """
+
+    def __init__(self) -> None:
+        self._resume_at: float = 0
+
+    async def wait_if_paused(self) -> None:
+        """Wait until any active rate limit pause expires."""
+        remaining = self._resume_at - time.monotonic()
+        if remaining > 0:
+            await asyncio.sleep(remaining)
+
+    def pause(self, seconds: float) -> None:
+        """Pause all tasks for at least *seconds* from now."""
+        self._resume_at = max(self._resume_at, time.monotonic() + seconds)
 
 
 def _plural(count: int, word: str) -> str:
@@ -1394,11 +1415,12 @@ class MainWindow:
             wx.CallAfter(self._ai_all_complete, [("Batch", error_msg)])
 
     async def _run_ai_all_async(self) -> None:
-        """Async batch AI processing with concurrency limit."""
+        """Async batch AI processing with concurrency limit and retry."""
         import anthropic
 
         target_cards = self._ai_target_cards
         semaphore = asyncio.Semaphore(AI_CONCURRENCY)
+        gate = _RateLimitGate()
         completed = 0
         total = len(target_cards)
         auth_failed = asyncio.Event()
@@ -1418,46 +1440,67 @@ class MainWindow:
                 wx.CallAfter(self._update_ai_all_progress, completed, total, card.filename, card_id, None)
                 return
 
-            async with semaphore:
-                # Re-check after acquiring semaphore
-                if auth_failed.is_set():
-                    completed += 1
-                    wx.CallAfter(self._update_ai_all_progress, completed, total, card.filename, card_id, None)
-                    return
+            for attempt in range(2):  # 1 initial + 1 app-level retry
+                await gate.wait_if_paused()
 
-                try:
-                    # Check if we already have AI candidates
-                    card_state = get_card_state(card.file_hash) if card.file_hash else None
-                    has_ai_candidates = False
-                    if card_state:
-                        has_ai_candidates = any(c.method == "ai" for c in card_state.candidates)
+                async with semaphore:
+                    # Re-check after acquiring semaphore
+                    if auth_failed.is_set():
+                        completed += 1
+                        wx.CallAfter(self._update_ai_all_progress, completed, total, card.filename, card_id, None)
+                        return
 
-                    if not has_ai_candidates:
-                        # Run AI analysis
-                        source = card.page_images or []
-                        if not source and card.preview_image is not None:
-                            source = [card.preview_image]
-                        ai_images = [img for img in source if img is not None]
-                        if not ai_images:
-                            completed += 1
-                            wx.CallAfter(self._update_ai_all_progress, completed, total, card.filename, card_id, None)
-                            return
-                        result = await analyze_card_with_ai_async(ai_images)
+                    try:
+                        # Check if we already have AI candidates
+                        card_state = get_card_state(card.file_hash) if card.file_hash else None
+                        has_ai_candidates = False
+                        if card_state:
+                            has_ai_candidates = any(c.method == "ai" for c in card_state.candidates)
 
-                        if card.file_hash and result.best_name:
-                            save_raw_ai(card.file_hash, result.best_name, result.alternates)
-                            reprocess_candidates_from_raw(card.file_hash)
+                        if not has_ai_candidates:
+                            # Run AI analysis
+                            source = card.page_images or []
+                            if not source and card.preview_image is not None:
+                                source = [card.preview_image]
+                            ai_images = [img for img in source if img is not None]
+                            if not ai_images:
+                                completed += 1
+                                wx.CallAfter(
+                                    self._update_ai_all_progress, completed, total, card.filename, card_id, None
+                                )
+                                return
+                            result = await analyze_card_with_ai_async(ai_images)
 
-                    self._load_card_state_from_db(card)
+                            if card.file_hash and result.best_name:
+                                save_raw_ai(card.file_hash, result.best_name, result.alternates)
+                                reprocess_candidates_from_raw(card.file_hash)
 
-                except anthropic.AuthenticationError as e:
-                    auth_failed.set()
-                    errors.append((card.filename, format_ai_error(e)))
-                except Exception as e:
-                    errors.append((card.filename, format_ai_error(e)))
+                        self._load_card_state_from_db(card)
+                        break  # success
 
-                completed += 1
-                wx.CallAfter(self._update_ai_all_progress, completed, total, card.filename, card_id, card)
+                    except anthropic.AuthenticationError as e:
+                        auth_failed.set()
+                        errors.append((card.filename, format_ai_error(e)))
+                        break  # no retry
+                    except anthropic.RateLimitError as e:
+                        if attempt == 0:
+                            delay = parse_retry_after(e)
+                            gate.pause(delay)
+                            logger.warning("Rate limited on %s, pausing %.0fs", card.filename, delay)
+                            continue  # retry after gate pause
+                        errors.append((card.filename, format_ai_error(e)))
+                    except (anthropic.APITimeoutError, anthropic.APIConnectionError) as e:
+                        if attempt == 0:
+                            logger.warning("Transient error on %s, retrying: %s", card.filename, e)
+                            await asyncio.sleep(2)
+                            continue  # retry once
+                        errors.append((card.filename, format_ai_error(e)))
+                    except Exception as e:
+                        errors.append((card.filename, format_ai_error(e)))
+                        break  # non-retryable
+
+            completed += 1
+            wx.CallAfter(self._update_ai_all_progress, completed, total, card.filename, card_id, card)
 
         # Process all cards concurrently with semaphore limiting concurrency
         await asyncio.gather(*[process_card(card.id, card) for card in target_cards])

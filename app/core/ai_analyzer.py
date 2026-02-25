@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 
 # Generous for up to 5 name lines in the response
 _MAX_TOKENS = 256
+# SDK-level retries with exponential backoff + jitter + retry-after header parsing
+_MAX_RETRIES = 4
 # Lines longer than this are likely OCR garbage, not family names
 _MAX_LINE_LENGTH = 50
 
@@ -112,6 +114,19 @@ def format_ai_error(error: Exception) -> str:
             return str(error)
 
 
+def parse_retry_after(exc: Exception) -> float:
+    """Extract retry-after delay from a rate limit exception. Falls back to 10s."""
+    headers = getattr(getattr(exc, "response", None), "headers", {})
+    for key, divisor in [("retry-after-ms", 1000), ("retry-after", 1)]:
+        val = headers.get(key)
+        if val:
+            try:
+                return float(val) / divisor
+            except ValueError:
+                pass
+    return 10.0
+
+
 def _image_to_b64(image: Image.Image) -> str:
     buf = io.BytesIO()
     image.save(buf, format="PNG")
@@ -204,7 +219,7 @@ async def analyze_card_with_ai_async(images: list[Image.Image] | Image.Image) ->
 
     images = _normalize_images(images)
     api_key = _get_validated_api_key()
-    client = anthropic.AsyncAnthropic(api_key=api_key)
+    client = anthropic.AsyncAnthropic(api_key=api_key, max_retries=_MAX_RETRIES)
     content = _build_content_blocks(images)
 
     message = await client.messages.create(
