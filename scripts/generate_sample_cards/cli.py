@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 
 import openai
@@ -23,7 +24,7 @@ from scripts.generate_sample_cards.image_generator import (
 from scripts.generate_sample_cards.models import CardJob, CardSpec
 from scripts.generate_sample_cards.pdf_composer import compose_pdf_from_images
 from scripts.generate_sample_cards.spec_generator import generate_card_specs
-from scripts.helpers import make_output_dir
+from scripts.helpers import script_output_dir
 
 
 def validate_api_keys() -> bool:
@@ -138,11 +139,13 @@ async def async_main() -> None:
     count = args.count
 
     # Resolve output directory
+    ctx: AbstractContextManager[Path]
     if args.output_dir:
-        output_dir = Path(args.output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
+        custom = Path(args.output_dir)
+        custom.mkdir(parents=True, exist_ok=True)
+        ctx = nullcontext(custom)
     else:
-        output_dir = make_output_dir("generate_sample_cards")
+        ctx = script_output_dir("generate_sample_cards")
 
     # Validate API keys
     if not validate_api_keys():
@@ -174,71 +177,72 @@ async def async_main() -> None:
         )
 
     # Step 2: Process cards concurrently with live status display
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        tmp_path = Path(tmp_dir)
-        with Live(
-            build_status_table(jobs, args.image_model),
-            refresh_per_second=10,
-            console=console,
-        ) as live:
-            async_tasks: list[asyncio.Task[bool]] = []
+    with ctx as output_dir:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            with Live(
+                build_status_table(jobs, args.image_model),
+                refresh_per_second=10,
+                console=console,
+            ) as live:
+                async_tasks: list[asyncio.Task[bool]] = []
 
-            for i, spec in enumerate(specs):
-                task = asyncio.create_task(
-                    _process_card(
-                        openai_client,
-                        openai_semaphore,
-                        rate_limit_gate,
-                        jobs[i],
-                        spec,
-                        i,
-                        tmp_path,
-                        output_dir,
-                        args.image_quality,
-                        args.image_model,
+                for i, spec in enumerate(specs):
+                    task = asyncio.create_task(
+                        _process_card(
+                            openai_client,
+                            openai_semaphore,
+                            rate_limit_gate,
+                            jobs[i],
+                            spec,
+                            i,
+                            tmp_path,
+                            output_dir,
+                            args.image_quality,
+                            args.image_model,
+                        )
                     )
-                )
-                async_tasks.append(task)
+                    async_tasks.append(task)
 
-            # Refresh the table while tasks run
-            while not all(t.done() for t in async_tasks):
+                # Refresh the table while tasks run
+                while not all(t.done() for t in async_tasks):
+                    live.update(build_status_table(jobs, args.image_model))
+                    await asyncio.sleep(0.1)
+
+                # Final update
                 live.update(build_status_table(jobs, args.image_model))
-                await asyncio.sleep(0.1)
+                results = [t.result() for t in async_tasks]
 
-            # Final update
-            live.update(build_status_table(jobs, args.image_model))
-            results = [t.result() for t in async_tasks]
+        await openai_client.close()
+        created = sum(results)
 
-    await openai_client.close()
-    created = sum(results)
+        # Summary
+        elapsed = time.time() - start_time
+        console.print(f"\nGenerated {created}/{len(specs)} cards in {elapsed:.1f}s")
+        console.print(f"Output: {output_dir}")
 
-    # Summary
-    elapsed = time.time() - start_time
-    console.print(f"\nGenerated {created}/{len(specs)} cards in {elapsed:.1f}s")
-    console.print(f"Output: {output_dir}")
+        # Style distribution
+        style_counts: dict[str, int] = {}
+        for spec in specs:
+            style_counts[spec.visual_style] = style_counts.get(spec.visual_style, 0) + 1
+        console.print(f"Styles: {', '.join(f'{k}={v}' for k, v in sorted(style_counts.items()))}")
 
-    # Style distribution
-    style_counts: dict[str, int] = {}
-    for spec in specs:
-        style_counts[spec.visual_style] = style_counts.get(spec.visual_style, 0) + 1
-    console.print(f"Styles: {', '.join(f'{k}={v}' for k, v in sorted(style_counts.items()))}")
+        # Holiday distribution
+        holiday_counts: dict[str, int] = {}
+        for spec in specs:
+            holiday_counts[spec.holiday] = holiday_counts.get(spec.holiday, 0) + 1
+        console.print(f"Holidays: {len(holiday_counts)} types")
 
-    # Holiday distribution
-    holiday_counts: dict[str, int] = {}
-    for spec in specs:
-        holiday_counts[spec.holiday] = holiday_counts.get(spec.holiday, 0) + 1
-    console.print(f"Holidays: {len(holiday_counts)} types")
+        # Page count distribution
+        multi_page = sum(1 for s in specs if s.page_count >= 2)
+        console.print(f"Multi-page: {multi_page}/{len(specs)} ({100 * multi_page / len(specs):.0f}%)")
 
-    # Page count distribution
-    multi_page = sum(1 for s in specs if s.page_count >= 2)
-    console.print(f"Multi-page: {multi_page}/{len(specs)} ({100 * multi_page / len(specs):.0f}%)")
-
-    # Open output folder
-    if not args.no_open:
-        try:
-            subprocess.run(["open", str(output_dir)], check=False)
-        except FileNotFoundError:
-            pass
+        # Open output folder
+        if not args.no_open:
+            try:
+                subprocess.run(["open", str(output_dir)], check=False)
+            except FileNotFoundError:
+                pass
 
 
 def main() -> None:

@@ -209,7 +209,7 @@ show-scripts: ## Show available script invocations (does not run them)
 	@echo "  \033[36mbenchmark.ocr_concurrency\033[0m    Benchmark OCR concurrency (sequential/threads/processes)"
 	@echo "    uv run python -m scripts.benchmark.ocr_concurrency ~/Desktop/Cards"
 	@echo ""
-	@echo "  All scripts support --help, --no-open, and -o <output_dir>."
+	@echo "  All scripts support --help and --no-open."
 	@echo "  Output goes to _build/script_output/ with timestamped directories."
 
 clean: ## Remove build artifacts

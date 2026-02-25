@@ -222,7 +222,7 @@ The app stores OCR results, AI results, and manual name edits in a SQLite databa
 
 Utility and benchmark scripts live in `scripts/` (a Python package). Run them with `python -m scripts.<name>`. All script dependencies are included in the dev group — run `make setup-dev` first.
 
-Output goes to `_build/script_output/` with timestamped directories (e.g., `20260223_2011-generate_sample_cards/`) so runs don't overwrite each other. Use `-o` to specify a custom output directory instead.
+Output goes to `_build/script_output/` with timestamped directories (e.g., `20260223_2011-generate_sample_cards/`) so runs don't overwrite each other. Empty output directories are automatically cleaned up if a script errors out before writing any files.
 
 ### Sample Card Generator
 

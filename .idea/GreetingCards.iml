@@ -13,6 +13,7 @@
       <excludeFolder url="file://$MODULE_DIR$/content/licenses/texts" />
       <excludeFolder url="file://$MODULE_DIR$/dist" />
       <excludeFolder url="file://$MODULE_DIR$/htmlcov" />
+      <excludeFolder url="file://$MODULE_DIR$/_build" />
     </content>
     <orderEntry type="jdk" jdkName="uv (GreetingCards)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
