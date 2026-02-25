@@ -926,6 +926,7 @@ def main() -> None:
             console.print(f"[red]Error: unknown model '{m}'. Available: {', '.join(ALL_MODELS)}[/]")
             sys.exit(1)
 
+    # noinspection PyTypeChecker
     with script_output_dir(_FOLDER_NAME) as output_dir:
         result = run_benchmark(corpus_path, cfg, levels, models)
 

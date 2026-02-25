@@ -6,6 +6,7 @@ import asyncio
 from typing import Any
 
 import anthropic
+from anthropic.types import MessageParam
 
 from scripts.generate_sample_cards.spec_generators.utils import extract_json
 
@@ -35,10 +36,10 @@ async def _generate_batch(
         model=model,
         max_tokens=2048,
         messages=[
-            {
-                "role": "user",
-                "content": COLOR_SCHEME_PROMPT.format(pairs_text=pairs_text),
-            }
+            MessageParam(
+                role="user",
+                content=COLOR_SCHEME_PROMPT.format(pairs_text=pairs_text),
+            )
         ],
     )
     text = response.content[0].text  # type: ignore[union-attr]

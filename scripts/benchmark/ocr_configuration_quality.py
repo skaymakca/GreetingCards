@@ -1631,6 +1631,7 @@ def main() -> None:
         )
     )
 
+    # noinspection PyTypeChecker
     with script_output_dir(_FOLDER_NAME) as output_dir:
         cards_dir = output_dir / "cards"
         cards_dir.mkdir(exist_ok=True)

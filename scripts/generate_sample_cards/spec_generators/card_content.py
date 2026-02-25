@@ -6,6 +6,7 @@ import asyncio
 from typing import Any
 
 import anthropic
+from anthropic.types import MessageParam
 from rich.console import Console
 
 from scripts.generate_sample_cards.image_generator import (
@@ -134,7 +135,7 @@ async def generate_card_content_async(
                 response = await client.messages.create(
                     model=model,
                     max_tokens=1024,
-                    messages=[{"role": "user", "content": prompt}],
+                    messages=[MessageParam(role="user", content=prompt)],
                 )
                 text = response.content[0].text  # type: ignore[union-attr]
                 return dict(extract_json(text))  # type: ignore[arg-type]

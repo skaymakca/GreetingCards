@@ -179,6 +179,7 @@ async def async_main() -> None:
         )
 
     # Step 2: Process cards concurrently with live status display
+    # noinspection PyTypeChecker
     with script_output_dir("generate_sample_cards") as output_dir:
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)

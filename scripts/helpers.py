@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import shutil
-from collections.abc import Generator
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 
@@ -27,7 +27,7 @@ def _make_output_dir(folder_name: str) -> Path:
 
 
 @contextlib.contextmanager
-def script_output_dir(folder_name: str) -> Generator[Path]:
+def script_output_dir(folder_name: str) -> Iterator[Path]:
     """Context manager that creates a timestamped output directory.
 
     Yields the directory path for use inside the block.

@@ -1,6 +1,6 @@
 """Claude API — generate card specifications with async concurrent calls.
 
-Orchestrates the multi-phase spec generation pipeline:
+Orchestrates the multiphase spec generation pipeline:
   Phase 1a: Unique family names (one call)
   Phase 1b: Color schemes (batched calls)
   Phase 1c: Subtitles / "from" lines (batched calls)

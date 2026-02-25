@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import anthropic
+from anthropic.types import MessageParam
 
 from scripts.generate_sample_cards.spec_generators.utils import extract_json
 
@@ -27,7 +28,7 @@ async def generate_family_names_async(
     response = await client.messages.create(
         model=model,
         max_tokens=1024,
-        messages=[{"role": "user", "content": FAMILY_NAME_PROMPT.format(count=count)}],
+        messages=[MessageParam(role="user", content=FAMILY_NAME_PROMPT.format(count=count))],
     )
     text = response.content[0].text  # type: ignore[union-attr]
     names: list[str] = list(extract_json(text))

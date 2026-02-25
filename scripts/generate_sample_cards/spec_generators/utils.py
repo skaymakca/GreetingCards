@@ -44,7 +44,7 @@ def extract_json(text: str) -> Any:
             except json.JSONDecodeError:
                 break
 
-    # Last resort: find first [ or { and last ] or } and try that slice
+    # Last resort: find first [ or { and last } or ] and try that slice
     start = -1
     for i, ch in enumerate(text):
         if ch in ("[", "{"):
