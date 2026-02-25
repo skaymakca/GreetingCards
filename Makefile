@@ -188,9 +188,10 @@ tag-push: ## Push all tags to remote
 visual-test: html-content ## Run visual test harness from source
 	uv run python scripts/visual_test.py
 
-visual-test-app: icon html-content tessdata ## Build visual test harness as .app bundle
+visual-test-app: icon html-content tessdata ## Build and run visual test harness as .app bundle (logs visible)
 	uv run pyinstaller --workpath _build/pyinstaller_build -y "scripts/Visual Test.spec"
 	@rm -rf "dist/Visual Test"
+	"dist/Visual Test.app/Contents/MacOS/Visual Test"
 
 show-scripts: ## Show available script invocations (does not run them)
 	@echo "Available scripts (run with uv run python -m scripts.<name>):"
