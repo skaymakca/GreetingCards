@@ -16,6 +16,7 @@ from app.core.database import (
     RawAIResult,
     RawOCRResult,
     Settings,
+    _add_candidate_inline,
     _clean_and_filter_names,
     _compute_schema_version,
     _ensure_schema,
@@ -913,3 +914,148 @@ class TestSessionScope:
             # Should be able to query
             result = session.query(Card).all()
             assert isinstance(result, list)
+
+
+class TestAddCandidateDuplicateRace:
+    """Tests for add_candidate() handling concurrent duplicate inserts."""
+
+    @patch("app.core.database._clean_and_filter_names", return_value=["Smith"])
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_concurrent_duplicate_no_error(self, mock_title, mock_clean):
+        """Calling add_candidate twice with the same args returns the same ID without error."""
+        create_or_update_card("hash1")
+
+        cid1 = add_candidate("hash1", "Smith", "ocr", "high")
+        assert cid1 > 0
+
+        cid2 = add_candidate("hash1", "Smith", "ocr", "high")
+        assert cid1 == cid2
+
+        # Only one candidate should exist
+        candidates = get_candidates("hash1")
+        assert len(candidates) == 1
+
+    @patch("app.core.database._clean_and_filter_names", return_value=["Smith"])
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_direct_duplicate_insert_no_error(self, mock_title, mock_clean):
+        """Directly inserting a duplicate via DB then calling add_candidate recovers."""
+        create_or_update_card("hash1")
+
+        # Pre-insert the candidate directly via session (bypassing add_candidate's check)
+        with _session_scope() as session:
+            candidate = Candidate(file_hash="hash1", family_name="Smith", method="ocr", confidence="high")
+            session.add(candidate)
+            session.flush()
+            expected_id = candidate.id
+
+        # add_candidate should find the existing one via its check-before-insert
+        cid = add_candidate("hash1", "Smith", "ocr", "high")
+        assert cid == expected_id
+
+        # Still only one candidate
+        candidates = get_candidates("hash1")
+        assert len(candidates) == 1
+
+
+class TestClearAIResultsFKOrdering:
+    """Tests that clear_ai_results nulls FK before deleting candidates."""
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_no_dangling_fk_during_delete(self, mock_title, mock_clean):
+        """selected_candidate_id is nulled before AI candidates are deleted."""
+        create_or_update_card("hash1")
+        ai_cid = add_candidate("hash1", "AiName", "ai", "high")
+        select_candidate("hash1", ai_cid)
+
+        # Track the order of operations
+        operations = []
+        original_flush = db_mod.Session.flush
+
+        def tracking_flush(self, *args, **kwargs):
+            # Check if any card has selected_candidate_id set to None
+            for obj in self.dirty:
+                if isinstance(obj, Card) and obj.selected_candidate_id is None:
+                    operations.append("null_fk")
+            return original_flush(self, *args, **kwargs)
+
+        with patch.object(db_mod.Session, "flush", tracking_flush):
+            clear_ai_results(["hash1"])
+
+        # FK should have been nulled
+        assert "null_fk" in operations
+
+        # Final state should be correct
+        state = get_card_state("hash1")
+        assert state.method == "missing"
+
+
+class TestAddCandidateInline:
+    """Tests for _add_candidate_inline helper."""
+
+    @patch("app.core.database._clean_and_filter_names", return_value=["Smith"])
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_adds_within_session(self, mock_title, mock_clean):
+        """_add_candidate_inline adds candidate in the given session."""
+        create_or_update_card("hash1")
+        with _session_scope() as session:
+            cid = _add_candidate_inline(session, "hash1", "Smith", "ocr", "high")
+            assert cid > 0
+        candidates = get_candidates("hash1")
+        assert len(candidates) == 1
+        assert candidates[0].family_name == "Smith"
+
+    @patch("app.core.database._clean_and_filter_names", return_value=[])
+    def test_filtered_name_returns_zero(self, mock_clean):
+        """_add_candidate_inline returns 0 for filtered names."""
+        create_or_update_card("hash1")
+        with _session_scope() as session:
+            cid = _add_candidate_inline(session, "hash1", "unknown", "ocr", "low")
+            assert cid == 0
+
+    @patch("app.core.database._clean_and_filter_names", return_value=["Smith"])
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_dedup_within_session(self, mock_title, mock_clean):
+        """_add_candidate_inline deduplicates within the same session."""
+        create_or_update_card("hash1")
+        with _session_scope() as session:
+            cid1 = _add_candidate_inline(session, "hash1", "Smith", "ocr", "high")
+            cid2 = _add_candidate_inline(session, "hash1", "Smith", "ocr", "high")
+            assert cid1 == cid2
+        candidates = get_candidates("hash1")
+        assert len(candidates) == 1
+
+
+class TestReprocessSingleTransaction:
+    """Tests that reprocess_candidates_from_raw uses a single transaction."""
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_clears_fk_before_deleting(self, mock_title, mock_clean):
+        """selected_candidate_id is cleared before candidates are deleted."""
+        create_or_update_card("hash1")
+        cid = add_candidate("hash1", "OldName", "ocr", "high")
+        select_candidate("hash1", cid)
+        save_raw_ocr("hash1", "The Smith Family")
+
+        # Should not raise any FK errors
+        reprocess_candidates_from_raw("hash1")
+
+        # Old candidate should be gone, new ones from OCR should exist
+        state = get_card_state("hash1")
+        assert state is not None
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_autoselects_best_after_reprocess(self, mock_title, mock_clean):
+        """After reprocessing, the best candidate is auto-selected."""
+        create_or_update_card("hash1")
+        save_raw_ai("hash1", "AiBest", ["AiAlt"])
+
+        reprocess_candidates_from_raw("hash1")
+
+        state = get_card_state("hash1")
+        # AI best should be auto-selected
+        assert state.display_name == "AiBest"
+        assert state.method == "ai"
+        assert state.confidence == "high"

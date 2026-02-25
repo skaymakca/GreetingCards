@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import Boolean, DateTime, Engine, ForeignKey, String, Text, UniqueConstraint, create_engine, inspect
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.core.paths import get_db_path
@@ -255,6 +256,11 @@ def clear_ai_results(file_hashes: list[str]) -> int:
                 if selected and selected.method == "ai":
                     affected_cards.append(card)
 
+        # Null out selected_candidate_id BEFORE deleting candidates (prevents dangling FK)
+        for card in affected_cards:
+            card.selected_candidate_id = None
+        session.flush()
+
         # Delete all AI candidates for these hashes
         session.query(Candidate).filter(Candidate.file_hash.in_(file_hashes), Candidate.method == "ai").delete(
             synchronize_session="fetch"
@@ -352,6 +358,29 @@ def create_or_update_card(file_hash: str, remove_family: bool = False) -> None:
             session.add(card)
 
 
+def _add_candidate_inline(session: Session, file_hash: str, family_name: str, method: str, confidence: str) -> int:
+    """Add a candidate within an existing session (no new session scope).
+
+    Used by reprocess_candidates_from_raw() to keep everything in one transaction.
+    Returns the candidate ID, or 0 if the name is filtered out.
+    """
+    from app.core.name_formatting import smart_title_case
+
+    cleaned = _clean_and_filter_names([family_name])
+    if not cleaned:
+        return 0
+    clean_name = smart_title_case(cleaned[0])
+
+    existing = session.query(Candidate).filter_by(file_hash=file_hash, family_name=clean_name, method=method).first()
+    if existing:
+        return existing.id
+
+    candidate = Candidate(file_hash=file_hash, family_name=clean_name, method=method, confidence=confidence)
+    session.add(candidate)
+    session.flush()
+    return candidate.id
+
+
 # noinspection PyTypeChecker
 def add_candidate(file_hash: str, family_name: str, method: str, confidence: str) -> int:
     """Add a name candidate (OCR or AI result). Returns candidate ID.
@@ -380,10 +409,17 @@ def add_candidate(file_hash: str, family_name: str, method: str, confidence: str
         if existing:
             return existing.id
 
-        # Add new candidate
+        # Add new candidate — catch IntegrityError from concurrent inserts
         candidate = Candidate(file_hash=file_hash, family_name=clean_name, method=method, confidence=confidence)
         session.add(candidate)
-        session.flush()
+        try:
+            session.flush()
+        except IntegrityError:
+            session.rollback()
+            existing = (
+                session.query(Candidate).filter_by(file_hash=file_hash, family_name=clean_name, method=method).first()
+            )
+            return existing.id if existing else 0
         return candidate.id
 
 
@@ -583,6 +619,9 @@ def reprocess_candidates_from_raw(file_hash: str) -> None:
     - Re-parses raw_ocr and raw_ai with current cleaning logic
     - Auto-selects best candidate (prioritizes AI high > OCR high)
     - Preserves manual entries (selected_family_name)
+
+    All work happens in a single transaction to prevent dangling FKs
+    and inconsistent intermediate states.
     """
     from app.core.name_extractor import extract_family_names
 
@@ -594,19 +633,21 @@ def reprocess_candidates_from_raw(file_hash: str) -> None:
         # If manual entry exists, keep it but still update candidates
         is_manual = bool(card.selected_family_name)
 
+        # Clear selected_candidate_id BEFORE deleting candidates (prevents dangling FK)
+        card.selected_candidate_id = None
+        session.flush()
+
         # Clear all existing candidates
         session.query(Candidate).filter_by(file_hash=file_hash).delete()
 
-    # Re-parse raw OCR if exists — use separate sessions via public API
-    with _session_scope() as session:
+        # Re-parse raw OCR if exists
         ocr_result = session.query(RawOCRResult).filter_by(file_hash=file_hash).first()
         if ocr_result:
             names = extract_family_names(ocr_result.ocr_text)
             for match in names:
-                add_candidate(file_hash, match.name, "ocr", match.confidence.value)
+                _add_candidate_inline(session, file_hash, match.name, "ocr", match.confidence.value)
 
-    # Re-parse raw AI if exists
-    with _session_scope() as session:
+        # Re-parse raw AI if exists
         ai_result = session.query(RawAIResult).filter_by(file_hash=file_hash).first()
         if ai_result:
             data = _parse_raw_ai_json(ai_result.raw_response, file_hash)
@@ -616,14 +657,13 @@ def reprocess_candidates_from_raw(file_hash: str) -> None:
             alternates = data.get("alternates", [])
 
             if best_name:
-                add_candidate(file_hash, best_name, "ai", "high")
+                _add_candidate_inline(session, file_hash, best_name, "ai", "high")
             for alt_name in alternates:
-                add_candidate(file_hash, alt_name, "ai", "medium")
+                _add_candidate_inline(session, file_hash, alt_name, "ai", "medium")
 
-    # Auto-select best candidate if not manual entry
-    if not is_manual:
-        candidates = get_candidates(file_hash)
-        if candidates:
-            # First candidate is best (AI high priority due to sorting)
-            best_id = candidates[0].id
-            select_candidate(file_hash, best_id)
+        # Auto-select best candidate if not manual entry
+        if not is_manual:
+            raw_candidates = session.query(Candidate).filter_by(file_hash=file_hash).all()
+            sorted_candidates = _sort_candidates(raw_candidates)
+            if sorted_candidates:
+                card.selected_candidate_id = sorted_candidates[0].id
