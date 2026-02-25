@@ -6,7 +6,6 @@ import wx
 from app.gui.context_menu import _clear, _title_case, add_entry_context_menu
 
 
-@pytest.mark.gui
 class TestContextMenuSetup:
     """Tests for context menu setup and binding."""
 
@@ -45,7 +44,6 @@ class TestContextMenuSetup:
         text_ctrl.Destroy()
 
 
-@pytest.mark.gui
 class TestClipboardOperations:
     """Tests for clipboard operations (Cut, Copy, Paste)."""
 
@@ -105,7 +103,6 @@ class TestClipboardOperations:
         text_ctrl.Destroy()
 
 
-@pytest.mark.gui
 class TestTextTransformations:
     """Tests for text transformation operations (Title Case, Clear)."""
 
@@ -164,7 +161,6 @@ class TestTextTransformations:
         text_ctrl.Destroy()
 
 
-@pytest.mark.gui
 class TestEdgeCases:
     """Tests for edge cases and special scenarios."""
 
@@ -239,7 +235,6 @@ class TestEdgeCases:
         text_ctrl.Destroy()
 
 
-@pytest.mark.gui
 class TestContextMenuIntegration:
     """Level 3: Integration tests for context menu in real dialogs."""
 

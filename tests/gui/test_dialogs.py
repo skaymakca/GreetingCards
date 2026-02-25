@@ -48,7 +48,6 @@ class TestDisplayPath:
 # --- TableModel (pre-existing tests preserved) ---
 
 
-@pytest.mark.gui
 class TestTableModel:
     """Tests for TableModel data view model.
 
@@ -331,7 +330,6 @@ class TestTableModel:
 # --- ProgressDialog ---
 
 
-@pytest.mark.gui
 class TestProgressDialog:
     """Tests for ProgressDialog."""
 
@@ -372,7 +370,6 @@ class TestProgressDialog:
 # --- RenameConfirmDialog ---
 
 
-@pytest.mark.gui
 class TestRenameConfirmDialog:
     """Tests for RenameConfirmDialog."""
 
@@ -431,7 +428,6 @@ class TestRenameConfirmDialog:
 # --- ErrorListDialog ---
 
 
-@pytest.mark.gui
 class TestErrorListDialog:
     """Tests for ErrorListDialog."""
 
@@ -463,7 +459,6 @@ class TestErrorListDialog:
 # --- CompletionDialog ---
 
 
-@pytest.mark.gui
 class TestCompletionDialog:
     """Tests for CompletionDialog."""
 
@@ -514,7 +509,6 @@ class TestCompletionDialog:
 # --- _dismiss_on_key ---
 
 
-@pytest.mark.gui
 class TestDismissOnKey:
     """Tests for _dismiss_on_key() helper (lines 82-88)."""
 
@@ -560,7 +554,6 @@ class TestDismissOnKey:
 # --- ProgressDialog.finish ---
 
 
-@pytest.mark.gui
 class TestProgressDialogFinish:
     """Tests for ProgressDialog.finish() (lines 160-161)."""
 
@@ -574,7 +567,6 @@ class TestProgressDialogFinish:
 # --- RenameConfirmDialog handlers ---
 
 
-@pytest.mark.gui
 class TestRenameConfirmDialogHandlers:
     """Tests for RenameConfirmDialog confirm/cancel/key handlers (lines 287-305)."""
 

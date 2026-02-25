@@ -9,14 +9,6 @@ import wx
 from app.gui.main_window import FileDropTarget, MainWindow
 
 
-@pytest.fixture
-def wx_app():
-    """Create wx.App for testing."""
-    app = wx.App()
-    yield app
-    app.Destroy()
-
-
 def test_main_window_creation(wx_app):
     """Test window can be created."""
     window = MainWindow()

@@ -10,7 +10,6 @@ from app.gui import appearance
 class TestIsDarkMode:
     """Tests for is_dark_mode() detection."""
 
-    @pytest.mark.unit
     def test_detects_dark_mode(self):
         """Should return True when effectiveAppearance name contains 'Dark'."""
         mock_app = MagicMock()
@@ -20,7 +19,6 @@ class TestIsDarkMode:
             mock_ns.sharedApplication.return_value = mock_app
             assert appearance.is_dark_mode() is True
 
-    @pytest.mark.unit
     def test_detects_light_mode(self):
         """Should return False when effectiveAppearance name is light."""
         mock_app = MagicMock()
@@ -30,7 +28,6 @@ class TestIsDarkMode:
             mock_ns.sharedApplication.return_value = mock_app
             assert appearance.is_dark_mode() is False
 
-    @pytest.mark.unit
     def test_returns_false_on_error(self):
         """Should return False if AppKit call raises an exception."""
         with patch.object(appearance, "NSApplication") as mock_ns:
@@ -48,7 +45,6 @@ class TestObserver:
         yield
         appearance._observer = None
 
-    @pytest.mark.unit
     def test_start_observer_registers_kvo(self):
         """Should call addObserver on NSApp with correct key path."""
         mock_app = MagicMock()
@@ -69,7 +65,6 @@ class TestObserver:
             assert args[0] is mock_observer_instance
             assert args[1] == "effectiveAppearance"
 
-    @pytest.mark.unit
     def test_stop_observer_removes_kvo(self):
         """Should call removeObserver on NSApp."""
         mock_app = MagicMock()
@@ -83,13 +78,11 @@ class TestObserver:
         mock_app.removeObserver_forKeyPath_.assert_called_once_with(mock_observer_instance, "effectiveAppearance")
         assert appearance._observer is None
 
-    @pytest.mark.unit
     def test_stop_observer_noop_when_not_started(self):
         """Should be safe to call stop_observer when no observer is active."""
         appearance.stop_observer()  # Should not raise
         assert appearance._observer is None
 
-    @pytest.mark.unit
     def test_start_observer_ignores_duplicate(self):
         """Should not register a second observer if one is already active."""
         appearance._observer = MagicMock()  # Simulate already started

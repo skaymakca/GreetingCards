@@ -6,7 +6,6 @@ import wx
 from app.gui.icons import _cache, _hex_to_rgb, clear_cache, load_menu_icon, load_sf_symbol
 
 
-@pytest.mark.gui
 class TestSFSymbolLoading:
     """Tests for SF Symbol loading and caching.
 
@@ -79,7 +78,6 @@ class TestSFSymbolLoading:
             assert bitmap.IsOk()
 
 
-@pytest.mark.gui
 class TestCaching:
     """Tests for icon caching behavior."""
 
@@ -138,7 +136,6 @@ class TestCaching:
         assert len(_cache) == 0
 
 
-@pytest.mark.gui
 class TestColorHandling:
     """Tests for hex color string handling."""
 
@@ -177,7 +174,6 @@ class TestColorHandling:
             assert bitmap.IsOk()
 
 
-@pytest.mark.gui
 class TestEdgeCases:
     """Tests for edge cases and error handling.
 
@@ -201,7 +197,6 @@ class TestEdgeCases:
         assert bitmap is None
 
 
-@pytest.mark.gui
 class TestIconDialogIntegration:
     """Level 3: Structural validation tests for icon display in dialogs.
 
@@ -286,7 +281,6 @@ class TestIconDialogIntegration:
             dialog.Destroy()
 
 
-@pytest.mark.gui
 class TestHexToRgb:
     """Tests for _hex_to_rgb() utility function."""
 
@@ -349,7 +343,6 @@ class TestHexToRgb:
             assert 0.0 <= b <= 1.0
 
 
-@pytest.mark.gui
 class TestLoadMenuIcon:
     """Tests for load_menu_icon() wrapper function."""
 

@@ -59,9 +59,8 @@ Run `make help` to see all available commands.
 | `make run`             | Run the app from source                                                                  |
 | `make test`            | Run all tests                                                                            |
 | `make test-cov`        | Run tests with coverage report (generates `htmlcov/index.html`)                          |
-| `make test-unit`       | Run unit tests only (fast, no GUI)                                                       |
-| `make test-gui`        | Run GUI tests only (requires wxPython)                                                   |
-| `make test-watch`      | Run tests on file changes (requires pytest-watch)                                        |
+| `make test-core`       | Run core (non-GUI) tests only                                                            |
+| `make test-gui`        | Run GUI tests only                                                                       |
 | `make build`           | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`) — alias for `make app` |
 | `make app`             | Build the macOS `.app` bundle (same as `make build`)                                     |
 | `make app-run`         | Build and run the `.app` bundle with logs visible in terminal                            |

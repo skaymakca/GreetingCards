@@ -34,7 +34,6 @@ def sample_image():
     return Image.new("RGB", (400, 600), color="white")
 
 
-@pytest.mark.gui
 class TestCursorInitialization:
     """Tests for cursor loading during panel initialization."""
 
@@ -73,7 +72,6 @@ class TestCursorInitialization:
         assert panel._zoom_out_cursor is not None
 
 
-@pytest.mark.gui
 class TestCursorUpdateLogic:
     """Tests for _update_cursor() method and modifier key detection."""
 
@@ -161,7 +159,6 @@ class TestCursorUpdateLogic:
         assert True
 
 
-@pytest.mark.gui
 class TestCursorEventHandlers:
     """Tests for cursor-related event handlers."""
 
@@ -236,7 +233,6 @@ class TestCursorEventHandlers:
             mock_update.assert_called_once()
 
 
-@pytest.mark.gui
 class TestCursorSetCalls:
     """Tests that verify SetCursor is called with correct cursor objects."""
 
@@ -317,7 +313,6 @@ class TestCursorSetCalls:
         # Can't easily check if it's NullCursor, but it was called
 
 
-@pytest.mark.gui
 class TestCursorStateTransitions:
     """Tests for cursor state transitions during various operations."""
 
@@ -378,7 +373,6 @@ class TestCursorStateTransitions:
         assert preview_panel._zoom_out_cursor is not None
 
 
-@pytest.mark.gui
 class TestCursorEdgeCases:
     """Edge case tests for cursor behavior."""
 

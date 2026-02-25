@@ -25,14 +25,6 @@ def _select_card(panel, card_id):
 
 
 @pytest.fixture
-def wx_app():
-    """Create wx.App for tests that need it."""
-    app = wx.App()
-    yield app
-    app.Destroy()
-
-
-@pytest.fixture
 def parent_frame(wx_app):
     """Create a parent frame for panel tests."""
     frame = wx.Frame(None)

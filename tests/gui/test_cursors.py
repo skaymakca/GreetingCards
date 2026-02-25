@@ -12,7 +12,6 @@ import wx
 from app.gui.icons import load_cursor_from_symbol
 
 
-@pytest.mark.gui
 class TestCursorLoading:
     """Tests for basic cursor loading functionality."""
 
@@ -99,7 +98,6 @@ class TestCursorLoading:
         assert cursor is None or isinstance(cursor, wx.Cursor)
 
 
-@pytest.mark.gui
 class TestCursorSymbols:
     """Tests for specific SF Symbols used as cursors."""
 
@@ -126,7 +124,6 @@ class TestCursorSymbols:
             assert isinstance(zoom_out, wx.Cursor)
 
 
-@pytest.mark.gui
 class TestCursorErrorHandling:
     """Tests for error handling in cursor loading."""
 
@@ -175,7 +172,6 @@ class TestCursorErrorHandling:
         assert cursor is None
 
 
-@pytest.mark.gui
 class TestCursorIntegration:
     """Integration tests for cursor usage in UI."""
 

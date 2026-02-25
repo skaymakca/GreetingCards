@@ -13,7 +13,6 @@ from app.gui import utils
 class TestColorConversion:
     """Tests for hex ↔ wx.Colour conversion functions."""
 
-    @pytest.mark.unit
     def test_hex_to_colour_with_hash(self):
         """Should convert hex string with # prefix to wx.Colour."""
         colour = utils.hex_to_colour("#FFFFFF")
@@ -21,7 +20,6 @@ class TestColorConversion:
         assert colour.Green() == 255
         assert colour.Blue() == 255
 
-    @pytest.mark.unit
     def test_hex_to_colour_without_hash(self):
         """Should convert hex string without # prefix to wx.Colour."""
         colour = utils.hex_to_colour("000000")
@@ -29,7 +27,6 @@ class TestColorConversion:
         assert colour.Green() == 0
         assert colour.Blue() == 0
 
-    @pytest.mark.unit
     @pytest.mark.parametrize(
         "hex_str,r,g,b",
         [
@@ -50,21 +47,18 @@ class TestColorConversion:
         assert colour.Green() == g
         assert colour.Blue() == b
 
-    @pytest.mark.unit
     def test_colour_to_hex_white(self):
         """Should convert white wx.Colour to hex string."""
         colour = wx.Colour(255, 255, 255)
         hex_str = utils.colour_to_hex(colour)
         assert hex_str == "#FFFFFF"
 
-    @pytest.mark.unit
     def test_colour_to_hex_black(self):
         """Should convert black wx.Colour to hex string."""
         colour = wx.Colour(0, 0, 0)
         hex_str = utils.colour_to_hex(colour)
         assert hex_str == "#000000"
 
-    @pytest.mark.unit
     @pytest.mark.parametrize(
         "r,g,b,expected_hex",
         [
@@ -82,7 +76,6 @@ class TestColorConversion:
         hex_str = utils.colour_to_hex(colour)
         assert hex_str == expected_hex
 
-    @pytest.mark.unit
     def test_hex_to_colour_round_trip(self):
         """Should convert hex -> colour -> hex without loss."""
         original_hex = "#34C759"
@@ -90,7 +83,6 @@ class TestColorConversion:
         result_hex = utils.colour_to_hex(colour)
         assert result_hex == original_hex
 
-    @pytest.mark.unit
     def test_colour_to_hex_round_trip(self):
         """Should convert colour -> hex -> colour without loss."""
         original = wx.Colour(0, 122, 255)
@@ -101,7 +93,6 @@ class TestColorConversion:
         assert result.Blue() == original.Blue()
 
 
-@pytest.mark.gui
 class TestImageConversion:
     """Tests for PIL ↔ wx image conversion functions.
 
@@ -213,7 +204,6 @@ class TestImageConversion:
         assert scaled.IsOk()
 
 
-@pytest.mark.gui
 class TestWidgetCreation:
     """Tests for widget creation helper functions.
 
@@ -303,7 +293,6 @@ class TestWidgetCreation:
         # If we get here without exception, the test passes
 
 
-@pytest.mark.gui
 class TestMessageDialogs:
     """Tests for message dialog helper functions.
 
@@ -333,7 +322,6 @@ class TestMessageDialogs:
 class TestOpenFilesAndFolders:
     """Tests for open_files_and_folders() using mocked NSOpenPanel."""
 
-    @pytest.mark.unit
     def test_returns_selected_paths(self):
         """Should return list of Paths when user selects files/folders."""
         mock_url1 = MagicMock()
@@ -356,7 +344,6 @@ class TestOpenFilesAndFolders:
             Path("/Users/test/Documents/Cards"),
         ]
 
-    @pytest.mark.unit
     def test_returns_empty_on_cancel(self):
         """Should return empty list when user cancels the dialog."""
         mock_panel = MagicMock()
@@ -370,7 +357,6 @@ class TestOpenFilesAndFolders:
 
         assert result == []
 
-    @pytest.mark.unit
     def test_configures_panel_correctly(self):
         """Should configure NSOpenPanel with correct settings."""
         mock_panel = MagicMock()

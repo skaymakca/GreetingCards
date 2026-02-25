@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev run app build clean icon html-content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-unit test-gui test-watch tessdata pyright mypy lint lint-fix format format-check security check pycharm-inspect show-scripts visual-test visual-test-app
+.PHONY: help setup setup-dev run app build clean icon html-content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-core test-gui tessdata pyright mypy lint lint-fix format format-check security check pycharm-inspect show-scripts visual-test visual-test-app
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -44,14 +44,11 @@ test-cov: ## Run tests with coverage report
 	@echo ""
 	@echo "Coverage report generated: htmlcov/index.html"
 
-test-unit: ## Run unit tests only (fast)
-	uv run pytest -v -m unit
+test-core: ## Run core (non-GUI) tests only
+	uv run pytest tests/core/ -v
 
 test-gui: ## Run GUI tests only
-	uv run pytest -v -m gui
-
-test-watch: ## Run tests on file changes (requires pytest-watch)
-	uv run ptw -- -v
+	uv run pytest tests/gui/ -v
 
 pyright: ## Run pyright type checking on app/ and scripts/
 	pyright app/ scripts/

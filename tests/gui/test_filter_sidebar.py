@@ -9,14 +9,6 @@ from app.gui.filter_sidebar import FilterSidebar
 from app.models.card import CardResult, Confidence
 
 
-@pytest.fixture
-def wx_app():
-    """Create wx.App for testing."""
-    app = wx.App()
-    yield app
-    app.Destroy()
-
-
 def test_sidebar_creation(wx_app):
     """Test sidebar can be created."""
     parent = wx.Frame(None)

@@ -122,7 +122,6 @@ class TestColorRefresh:
         with patch.object(appearance, "is_dark_mode", return_value=False):
             Color.refresh()
 
-    @pytest.mark.unit
     def test_refresh_dark_mode(self, wx_app):
         """Should set dark-mode colors when in dark mode."""
         with patch.object(appearance, "is_dark_mode", return_value=True):
@@ -131,7 +130,6 @@ class TestColorRefresh:
         assert wx.Colour(230, 230, 230) == Color.TEXT_PRIMARY
         assert wx.Colour(56, 56, 58) == Color.BORDER
 
-    @pytest.mark.unit
     def test_refresh_light_mode(self, wx_app):
         """Should set light-mode colors when in light mode."""
         # First go dark, then back to light
@@ -142,7 +140,6 @@ class TestColorRefresh:
         assert wx.Colour(255, 255, 255) == Color.BG_PRIMARY
         assert wx.Colour(29, 29, 31) == Color.TEXT_PRIMARY
 
-    @pytest.mark.unit
     def test_semantic_colors_unchanged(self, wx_app):
         """Semantic colors should not change across modes."""
         accent_before = Color.ACCENT
@@ -152,13 +149,11 @@ class TestColorRefresh:
         assert wx.Colour(52, 199, 89) == Color.SUCCESS
         assert wx.Colour(255, 59, 48) == Color.ERROR
 
-    @pytest.mark.unit
     def test_icon_hex_dark(self):
         """Should return light hex for dark mode."""
         with patch.object(appearance, "is_dark_mode", return_value=True):
             assert Color.icon_hex() == "#E6E6E6"
 
-    @pytest.mark.unit
     def test_icon_hex_light(self):
         """Should return dark hex for light mode."""
         with patch.object(appearance, "is_dark_mode", return_value=False):
