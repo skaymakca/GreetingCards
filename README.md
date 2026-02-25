@@ -184,14 +184,14 @@ tests/
 |-------------------------------------------------------|------------------------------------|
 | `make test`                                           | Run all tests with verbose output  |
 | `make test-cov`                                       | Generate HTML coverage report      |
-| `make test-unit`                                      | Run only unit tests (fast, no GUI) |
+| `make test-core`                                      | Run only core tests (fast, no GUI) |
 | `make test-gui`                                       | Run only GUI tests                 |
 | `uv run pytest -k "mac_names"`                        | Run tests matching pattern         |
 | `uv run pytest tests/core/test_name_formatting.py -v` | Run specific test file             |
 
 ### Current Coverage
 
-- **1392 tests** covering core logic and GUI components
+- **1393 tests** covering core logic and GUI components
 - **Core** (17 test files): AI analysis, card model, changelog, config, database, filename sanitization, help builder, license discovery, name extraction, name formatting, OCR engine, paths, PDF rendering, PDF worker, renamer, template environment, version
 - **GUI** (14 test files): API key dialog, context menu, dialogs, filter sidebar, help system, icons, main window, preview cursor behavior, preview panel, review panel, settings, styles, utilities
 

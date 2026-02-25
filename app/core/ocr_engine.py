@@ -5,9 +5,15 @@ from app.core.paths import get_runtime_content_path
 
 _tessdata_path = str(get_runtime_content_path("tessdata/fast"))
 
-# Percent of lightest/darkest pixels to clip during autocontrast
+# Percent of lightest/darkest pixels to clip during autocontrast.
+# Value of 2 clips the top/bottom 2% of the histogram, improving contrast
+# on washed-out scans without losing detail on high-contrast originals.
 _OCR_CONTRAST_CUTOFF = 2
-# Tesseract penalty for non-dictionary words (lower = more lenient on names)
+
+# Tesseract penalty for non-dictionary words (lower = more lenient on names).
+# Greeting cards contain proper names that aren't in dictionaries, so a low
+# penalty (0.15 vs default 1.0) prevents Tesseract from "correcting" names
+# into dictionary words (e.g. "Walton" → "Watson").
 _OCR_DICT_PENALTY = "0.15"
 
 

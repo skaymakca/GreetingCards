@@ -228,6 +228,8 @@ async def analyze_card_with_ai_async(images: list[Image.Image] | Image.Image) ->
         messages=[{"role": "user", "content": content}],  # type: ignore[typeddict-item]  # pyright: ignore[reportArgumentType]  # dict matches MessageParam
     )
 
+    if not message.content:
+        return _parse_response("")
     block = message.content[0]
     response_text = block.text.strip() if hasattr(block, "text") else ""  # pyright: ignore[reportAttributeAccessIssue]
     return _parse_response(response_text)

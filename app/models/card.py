@@ -140,7 +140,7 @@ class RenameResult:
 class CardResult:
     id: int  # Unique, monotonically increasing identifier
     file_paths: list[Path] = field(default_factory=list)  # All paths with same content
-    primary_path: Path = field(default_factory=lambda: Path(""))  # First path found
+    primary_path: Path = field(default_factory=Path)  # First path found
     family_name: str = ""
     confidence: Confidence = Confidence.NONE
     alternates: list[str] = field(default_factory=list)  # Just names for backward compat

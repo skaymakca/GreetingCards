@@ -470,6 +470,23 @@ class TestAnalyzeCardWithAiErrors:
     @pytest.mark.asyncio
     @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
     @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    async def test_empty_content_list(self, mock_key, mock_model):
+        """Empty message.content list returns empty AIResult."""
+        import anthropic
+
+        mock_msg = MagicMock()
+        mock_msg.content = []
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(return_value=mock_msg)
+
+        with patch.object(anthropic, "AsyncAnthropic", return_value=mock_client):
+            result = await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
+            assert result.best_name == ""
+            assert result.alternates == []
+
+    @pytest.mark.asyncio
+    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
     async def test_empty_content_block(self, mock_key, mock_model):
         """Empty response content returns empty AIResult."""
         import anthropic
