@@ -50,11 +50,11 @@ test-core: ## Run core (non-GUI) tests only
 test-gui: ## Run GUI tests only
 	uv run pytest tests/gui/ -v
 
-pyright: ## Run pyright type checking on app/ and scripts/
-	pyright app/ scripts/
+pyright: ## Run pyright type checking
+	pyright app/ scripts/ main.py
 
-mypy: ## Run mypy type checking on app/ and scripts/
-	uv run mypy app/ scripts/
+mypy: ## Run mypy type checking
+	uv run mypy app/ scripts/ main.py
 
 lint: ## Run ruff linter
 	uv run ruff check app/ scripts/ tests/ main.py

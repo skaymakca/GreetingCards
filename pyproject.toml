@@ -54,7 +54,7 @@ filterwarnings = [
 ]
 
 [tool.pyright]
-include = ["app", "tests", "scripts"]
+include = ["app", "tests", "scripts", "main.py"]
 exclude = ["dist", "_build", ".venv"]
 reportArgumentType = false
 reportAttributeAccessIssue = false

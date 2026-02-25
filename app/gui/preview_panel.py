@@ -512,7 +512,7 @@ class PreviewPanel(wx.Panel):
         cw, ch = self._canvas.GetSize()
         dc.DrawText(text, (cw - tw) // 2, (ch - th) // 2)
 
-    def _paint_error(self, dc) -> None:
+    def _paint_error(self, dc: wx.PaintDC) -> None:
         """Draw error message on canvas."""
         cw, ch = self._canvas.GetSize()
         if cw < 10 or ch < 10:

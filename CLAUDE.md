@@ -213,7 +213,7 @@ Before committing, run these checks and fix any issues:
 
 **Quick pre-commit:** `make check && uv run pytest tests/ -x`
 
-**pyright** (`pyrightconfig.json`): Catches structural type errors, unused imports, unreachable code. Zero-warning baseline.
+**pyright** (`[tool.pyright]` in `pyproject.toml`): Catches structural type errors, unused imports, unreachable code. Zero-warning baseline.
 
 **mypy** (`[tool.mypy]` in `pyproject.toml`): Catches nominal type mismatches, SQLAlchemy plugin issues. `import-untyped` errors are suppressed globally for stubless third-party libs (wx, AppKit, Foundation, tesserocr, fitz).
 

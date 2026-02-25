@@ -2,7 +2,7 @@
 
 When asked to audit the codebase, check for these categories across all files in `app/` and `tests/`.
 
-**Include** the `scripts/benchmark_*.py` files in type checking (`pyright scripts/`, `mypy scripts/`). They are standalone analysis tools, so they are excluded from app test-coverage analysis but should still pass static checks.
+**Include** `scripts/` in all static checks. Scripts are standalone analysis tools excluded from app test-coverage analysis but must pass all static checks.
 
 ## What to Look For
 1. **Missing tests** — public methods/functions without tests, untested error paths, shallow happy-path-only coverage
@@ -19,14 +19,21 @@ When asked to audit the codebase, check for these categories across all files in
 12. **License registry gaps** — run `make licenses-sync`, then check `content/licenses/registry.toml` for: missing license text files, empty homepage URLs, "Unknown" license types, platform-specific packages that should be in the `exclude` list in `content/licenses/config.toml`
 13. **Redundant license config entries** — `content/licenses/config.toml` `[[package]]` entries should only exist when they override auto-discovered values (e.g. a different display name, homepage URL, license type, or category). Remove entries where `display` matches the package `name` and no other fields are set — the fallback in `_display_name()` already returns the package name
 
-## Static Type Checking
+## Static Analysis
 
-Run both **pyright** and **mypy** on the codebase and review all errors and warnings:
+Run the full static analysis suite and verify zero issues across all tools:
 
 ```bash
-uv run pyright app/
-uv run mypy app/
+make check   # runs all of the below in sequence
 ```
+
+| Tool | Command | Scope | Expected |
+|------|---------|-------|----------|
+| pyright | `pyright app/ scripts/ main.py` | Type checking (structural) | 0 errors, 0 warnings |
+| mypy | `uv run mypy app/ scripts/ main.py` | Type checking (nominal, SQLAlchemy plugin) | 0 errors |
+| ruff check | `uv run ruff check app/ scripts/ tests/ main.py` | Linting (pyflakes, pycodestyle, isort, bugbear, etc.) | 0 errors |
+| ruff format | `uv run ruff format --check app/ scripts/ tests/ main.py` | Formatting | 0 reformatted |
+| bandit | `uv run bandit -r app/ scripts/ -c pyproject.toml` | Security scan | 0 issues |
 
 For each diagnostic, determine whether to:
 - **Fix the code** — if the checker found a real bug or a type that should be tightened

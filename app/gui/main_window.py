@@ -1058,7 +1058,7 @@ class MainWindow:
                         try:
                             self._mtime_by_path[pdf_path] = pdf_path.stat().st_mtime
                         except OSError:
-                            pass
+                            pass  # File vanished; reload will re-check
 
                 # Update UI (thread-safe with wx.CallAfter)
                 completed += 1
