@@ -25,7 +25,6 @@ def frame(wx_app):
 def preview_panel(frame):
     """Create preview panel for testing."""
     panel = PreviewPanel(frame)
-    frame.Show()
     return panel
 
 
