@@ -15,7 +15,7 @@ import wx.adv
 logger = logging.getLogger(__name__)
 
 from app.core.ai_analyzer import analyze_card_with_ai_async, format_ai_error
-from app.core.config import GITHUB_URL, get_api_key
+from app.core.config import get_api_key
 from app.core.constants import AI_CONCURRENCY, OCR_WORKERS
 from app.core.database import (
     clear_ai_results,
@@ -27,12 +27,10 @@ from app.core.database import (
 from app.core.pdf_worker import process_pdf_worker
 from app.core.renamer import build_rename_plan, execute_rename_plan
 from app.gui.api_key_dialog import show_api_key_dialog
-from app.gui.changelog_dialog import show_changelog
 from app.gui.dialogs import CompletionDialog, ErrorListDialog, ProgressDialog, RenameConfirmDialog
 from app.gui.filter_sidebar import FilterSidebar
-from app.gui.help_dialog import show_help
+from app.gui.html_viewer import build_help_menu
 from app.gui.icons import load_menu_icon, load_sf_symbol
-from app.gui.licenses_dialog import show_licenses
 from app.gui.preview_panel import PreviewPanel
 from app.gui.review_panel import ReviewPanelMasterDetail
 from app.gui.settings_dialog import create_preferences_editor, get_commit_hash
@@ -288,7 +286,7 @@ class MainWindow:
         file_menu.Append(wx.ID_PREFERENCES, "Settings...\tCtrl+,")
         file_menu.AppendSeparator()
         file_menu.Append(wx.ID_CLOSE, "Close Window\tCtrl+W")
-        file_menu.Append(wx.ID_EXIT, "Quit\tCtrl+Q")
+        file_menu.Append(wx.ID_EXIT, "Quit Greeting Cards\tCtrl+Q")
         menubar.Append(file_menu, "&File")
 
         # Edit menu
@@ -323,36 +321,10 @@ class MainWindow:
 
         menubar.Append(edit_menu, "&Edit")
 
-        # Help menu
-        help_menu = wx.Menu()
-        help_menu.Append(wx.ID_ABOUT, "About Greeting Cards")
-        help_menu.AppendSeparator()
-
-        help_item = help_menu.Append(wx.ID_HELP, "Greeting Cards Help")
-        help_icon = load_menu_icon("book")
-        if help_icon:
-            help_item.SetBitmap(help_icon)
-
-        self._whats_new_id = wx.NewIdRef()
-        whats_new_item = help_menu.Append(self._whats_new_id, "What's New")
-        whats_new_icon = load_menu_icon("newspaper")
-        if whats_new_icon:
-            whats_new_item.SetBitmap(whats_new_icon)
-
-        self._licenses_id = wx.NewIdRef()
-        licenses_item = help_menu.Append(self._licenses_id, "Licenses")
-        licenses_icon = load_menu_icon("doc.text")
-        if licenses_icon:
-            licenses_item.SetBitmap(licenses_icon)
-
-        help_menu.AppendSeparator()
-
-        self._github_id = wx.NewIdRef()
-        github_item = help_menu.Append(self._github_id, "GitHub Repository")
-        github_icon = load_menu_icon("arrow.up.forward.square")
-        if github_icon:
-            github_item.SetBitmap(github_icon)
-
+        # Help menu — shared items + About (main window only)
+        help_menu = build_help_menu(self._frame)
+        help_menu.PrependSeparator()
+        help_menu.Prepend(wx.ID_ABOUT, "About Greeting Cards")
         menubar.Append(help_menu, "&Help")
 
         self._frame.SetMenuBar(menubar)
@@ -361,12 +333,8 @@ class MainWindow:
         self._frame.Bind(wx.EVT_MENU, lambda e: self._show_about(), id=wx.ID_ABOUT)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._add_files_folders(), id=wx.ID_OPEN)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._show_preferences(), id=wx.ID_PREFERENCES)
-        self._frame.Bind(wx.EVT_MENU, lambda e: self._frame.Close(), id=wx.ID_CLOSE)
+        self._frame.Bind(wx.EVT_MENU, self._on_close_window, id=wx.ID_CLOSE)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._frame.Close(), id=wx.ID_EXIT)
-        self._frame.Bind(wx.EVT_MENU, lambda e: show_changelog(self._frame), id=self._whats_new_id)
-        self._frame.Bind(wx.EVT_MENU, lambda e: show_help(self._frame), id=wx.ID_HELP)
-        self._frame.Bind(wx.EVT_MENU, lambda e: wx.LaunchDefaultBrowser(GITHUB_URL), id=self._github_id)
-        self._frame.Bind(wx.EVT_MENU, lambda e: show_licenses(self._frame), id=self._licenses_id)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._search_ctrl.SetFocus(), id=self._find_menu_id)
         self._frame.Bind(wx.EVT_MENU, self._on_select_all, id=wx.ID_SELECTALL)
         self._frame.Bind(wx.EVT_MENU, lambda e: self._review_panel.select_none(), id=self._select_none_id)
@@ -1684,6 +1652,21 @@ class MainWindow:
             return
         self._last_reload_time = now
         self._reload_cards(mtime_only=True)
+
+    def _on_close_window(self, _event: wx.CommandEvent) -> None:
+        """Handle Cmd+W: close the macOS key window (not always the main frame).
+
+        Uses AppKit to find the actual frontmost window so that Cmd+W closes
+        the preferences editor, about panel, or any other non-main window
+        when it is focused.
+        """
+        from AppKit import NSApplication  # type: ignore[import-untyped]
+
+        key_win = NSApplication.sharedApplication().keyWindow()
+        if key_win is not None:
+            key_win.performClose_(None)
+        else:
+            self._frame.Close()
 
     def _on_close(self, event: wx.CloseEvent) -> None:
         """Handle window close event."""

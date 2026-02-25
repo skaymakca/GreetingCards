@@ -578,6 +578,49 @@ def test_three_column_layout(wx_app):
     window._frame.Destroy()
 
 
+def test_viewer_frame_has_close_and_find_menus(wx_app):
+    """Viewer frames have their own menu bar with Close (Cmd+W) and Find (Cmd+F)."""
+    import tempfile
+
+    from app.gui.html_viewer import HTMLViewerWindow
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmppath = Path(tmpdir)
+        (tmppath / "index.html").write_text("<html><body>test</body></html>")
+        parent = wx.Frame(None)
+        viewer = HTMLViewerWindow(parent, title="Test", base_path=tmppath, page_order=["index.html"])
+        menubar = viewer._frame.GetMenuBar()
+        assert menubar is not None
+        # File > Close Window
+        close_item = menubar.FindMenuItem("File", "Close Window")
+        assert close_item != wx.NOT_FOUND
+        # Edit > Find
+        find_item = menubar.FindMenuItem("Edit", "Find")
+        assert find_item != wx.NOT_FOUND
+        viewer._frame.Destroy()
+        parent.Destroy()
+
+
+def test_close_window_uses_appkit_key_window(wx_app):
+    """Cmd+W handler uses AppKit keyWindow to close the frontmost window."""
+    window = MainWindow()
+
+    # Mock AppKit to return a fake key window (not the main frame)
+    mock_key_win = Mock()
+    mock_ns_app = Mock()
+    mock_ns_app.keyWindow.return_value = mock_key_win
+
+    with pytest.MonkeyPatch.context() as mp:
+        mock_module = Mock()
+        mock_module.NSApplication.sharedApplication.return_value = mock_ns_app
+        mp.setitem(__import__("sys").modules, "AppKit", mock_module)
+        # Clear the cached import so the handler re-imports
+        window._on_close_window(wx.CommandEvent())
+
+    mock_key_win.performClose_.assert_called_once_with(None)
+    window._frame.Destroy()
+
+
 def test_sidebar_filter_changes_cards(wx_app):
     """Test sidebar filters change displayed cards (multi-select)."""
     from app.models.card import CardResult, Confidence

@@ -210,6 +210,27 @@ class HTMLViewerWindow:
         sizer.Add(webview, 1, wx.EXPAND)
 
         frame.SetSizer(sizer)
+
+        # Menu bar so this viewer gets its own Cmd+W / Cmd+F / Help on macOS.
+        # On macOS, the focused frame's menu bar becomes the global menu bar.
+        menubar = wx.MenuBar()
+        file_menu = wx.Menu()
+        file_menu.Append(wx.ID_CLOSE, "Close Window\tCtrl+W")
+        menubar.Append(file_menu, "&File")
+        edit_menu = wx.Menu()
+        find_id = wx.NewIdRef()
+        find_item = edit_menu.Append(find_id, "Find\tCtrl+F")
+        from app.gui.icons import load_menu_icon
+
+        find_icon = load_menu_icon("magnifyingglass")
+        if find_icon:
+            find_item.SetBitmap(find_icon)
+        menubar.Append(edit_menu, "&Edit")
+        menubar.Append(build_help_menu(frame), "&Help")
+        frame.SetMenuBar(menubar)
+        frame.Bind(wx.EVT_MENU, lambda e: frame.Close(), id=wx.ID_CLOSE)
+        frame.Bind(wx.EVT_MENU, lambda e: search_ctrl.SetFocus(), id=find_id)
+
         frame.CenterOnParent()
         frame.Show()
 
@@ -426,10 +447,7 @@ class HTMLViewerWindow:
         webview.Bind(wx.html2.EVT_WEBVIEW_NAVIGATING, on_navigating)
         webview.Bind(wx.html2.EVT_WEBVIEW_LOADED, on_page_loaded)
 
-        # Cmd+F accelerator to focus search ctrl
-        accel_id = wx.NewIdRef()
-        frame.Bind(wx.EVT_MENU, lambda evt: search_ctrl.SetFocus(), id=accel_id)
-        frame.SetAcceleratorTable(wx.AcceleratorTable([(wx.ACCEL_CMD, ord("F"), accel_id)]))
+        # Cmd+F is handled by the Edit > Find menu item above
 
         # Expose refresh_colors on the frame so appearance observers can find it
         frame.refresh_colors = self.refresh_colors  # type: ignore[attr-defined]
@@ -464,6 +482,56 @@ class HTMLViewerWindow:
     @property
     def frame(self) -> wx.Frame:
         return self._frame
+
+
+def build_help_menu(frame: wx.Frame) -> wx.Menu:
+    """Build a Help menu with viewer items and bind events.
+
+    Opens each viewer as a singleton.  When called from a viewer frame,
+    ``frame.GetParent()`` should be the main window so that new viewers
+    are parented correctly.
+    """
+    from app.core.config import GITHUB_URL
+    from app.gui.changelog_dialog import show_changelog
+    from app.gui.help_dialog import show_help
+    from app.gui.icons import load_menu_icon
+    from app.gui.licenses_dialog import show_licenses
+
+    parent = frame.GetParent() or frame
+
+    menu = wx.Menu()
+
+    help_item = menu.Append(wx.ID_HELP, "Greeting Cards Help")
+    help_icon = load_menu_icon("book")
+    if help_icon:
+        help_item.SetBitmap(help_icon)
+
+    whats_new_id = wx.NewIdRef()
+    whats_new_item = menu.Append(whats_new_id, "What's New")
+    whats_new_icon = load_menu_icon("newspaper")
+    if whats_new_icon:
+        whats_new_item.SetBitmap(whats_new_icon)
+
+    licenses_id = wx.NewIdRef()
+    licenses_item = menu.Append(licenses_id, "Licenses")
+    licenses_icon = load_menu_icon("doc.text")
+    if licenses_icon:
+        licenses_item.SetBitmap(licenses_icon)
+
+    menu.AppendSeparator()
+
+    github_id = wx.NewIdRef()
+    github_item = menu.Append(github_id, "GitHub Repository")
+    github_icon = load_menu_icon("arrow.up.forward.square")
+    if github_icon:
+        github_item.SetBitmap(github_icon)
+
+    frame.Bind(wx.EVT_MENU, lambda e: show_help(parent), id=wx.ID_HELP)
+    frame.Bind(wx.EVT_MENU, lambda e: show_changelog(parent), id=whats_new_id)
+    frame.Bind(wx.EVT_MENU, lambda e: show_licenses(parent), id=licenses_id)
+    frame.Bind(wx.EVT_MENU, lambda e: wx.LaunchDefaultBrowser(GITHUB_URL), id=github_id)
+
+    return menu
 
 
 def show_viewer(

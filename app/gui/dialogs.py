@@ -276,13 +276,13 @@ class RenameConfirmDialog(wx.Dialog):
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         btn_sizer.AddStretchSpacer()
 
-        confirm_btn = wx.Button(self, wx.ID_OK, "Rename All")
-        confirm_btn.Bind(wx.EVT_BUTTON, self._on_confirm)
-        btn_sizer.Add(confirm_btn, 0, wx.RIGHT, _BTN_GAP)
-
         cancel_btn = wx.Button(self, wx.ID_CANCEL, "Cancel")
         cancel_btn.Bind(wx.EVT_BUTTON, self._on_cancel)
-        btn_sizer.Add(cancel_btn, 0)
+        btn_sizer.Add(cancel_btn, 0, wx.RIGHT, _BTN_GAP)
+
+        confirm_btn = wx.Button(self, wx.ID_OK, "Rename All")
+        confirm_btn.Bind(wx.EVT_BUTTON, self._on_confirm)
+        btn_sizer.Add(confirm_btn, 0)
 
         sizer.Add(btn_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
