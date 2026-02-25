@@ -106,12 +106,13 @@ class NameMatch:
     confidence: Confidence
 
 
-# Rename plan status constants
-STATUS_OK: Final = "ok"
-STATUS_SKIP_NO_NAME: Final = "skip_no_name"
-STATUS_SKIP_SAME: Final = "skip_same"
-STATUS_SKIP_ERROR: Final = "skip_error"
-STATUS_DUPLICATE: Final = "duplicate"
+# Rename plan status
+RenameStatusStr = Literal["ok", "skip_no_name", "skip_same", "skip_error", "duplicate"]
+STATUS_OK: Final[RenameStatusStr] = "ok"
+STATUS_SKIP_NO_NAME: Final[RenameStatusStr] = "skip_no_name"
+STATUS_SKIP_SAME: Final[RenameStatusStr] = "skip_same"
+STATUS_SKIP_ERROR: Final[RenameStatusStr] = "skip_error"
+STATUS_DUPLICATE: Final[RenameStatusStr] = "duplicate"
 
 
 @dataclass
@@ -120,7 +121,7 @@ class RenamePlanItem:
 
     old_path: Path
     new_path: Path
-    status: Literal["ok", "skip_no_name", "skip_same", "skip_error", "duplicate"]
+    status: RenameStatusStr
     card: CardResult | None = None  # Back-reference to source card
 
 

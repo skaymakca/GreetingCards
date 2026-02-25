@@ -484,6 +484,7 @@ class HTMLViewerWindow:
         return self._frame
 
 
+# noinspection PyTypeChecker
 def build_help_menu(frame: wx.Frame) -> wx.Menu:
     """Build a Help menu with viewer items and bind events.
 

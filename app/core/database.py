@@ -358,6 +358,7 @@ def create_or_update_card(file_hash: str, remove_family: bool = False) -> None:
             session.add(card)
 
 
+# noinspection PyTypeChecker
 def _add_candidate_inline(session: Session, file_hash: str, family_name: str, method: str, confidence: str) -> int:
     """Add a candidate within an existing session (no new session scope).
 
