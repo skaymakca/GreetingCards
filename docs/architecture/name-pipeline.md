@@ -84,7 +84,7 @@ Cleaning is applied **only when loading from DB** (in `database._clean_and_filte
 clean_family_name()        # Remove "The ", " Family", quotes, "From: ", "Sent by: "
     → deparameterize_name() # "Smiths" → "Smith" (smart plural removal)
     → sanitize_for_filename() # Replace \/:*?"<>| with "-"
-    → Filter against blocklist # "unknown", "snapfish", "shutterfly"
+    → Filter against blocklist # generic words, services, holidays
     → smart_title_case()    # Final formatting
 ```
 

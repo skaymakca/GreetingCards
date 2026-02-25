@@ -446,6 +446,29 @@ class TestCleanAndFilterNames:
         result = _clean_and_filter_names(["Snapfish"])
         assert len(result) == 0
 
+    @patch("app.core.ai_analyzer.clean_family_name", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.deparameterize_name", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.sanitize_for_filename", side_effect=lambda x: x)
+    @pytest.mark.parametrize(
+        "word",
+        ["Family", "FAMILY", "family", "Holiday", "Greeting", "Christmas", "Minted"],
+    )
+    def test_filters_generic_card_words(self, mock_sanitize, mock_depar, mock_clean, word):
+        result = _clean_and_filter_names([word, "Smith"])
+        assert len(result) == 1
+        assert result[0] == "Smith"
+
+    @patch("app.core.ai_analyzer.clean_family_name", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.deparameterize_name", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.sanitize_for_filename", side_effect=lambda x: x)
+    @pytest.mark.parametrize(
+        "phrase",
+        ["New Year", "Season's Greetings", "Chinese New Year", "Valentine's Day"],
+    )
+    def test_filters_multi_word_holiday_names(self, mock_sanitize, mock_depar, mock_clean, phrase):
+        result = _clean_and_filter_names([phrase])
+        assert len(result) == 0
+
 
 class TestEnsureSchema:
     """Tests for _ensure_schema() — schema migration logic."""

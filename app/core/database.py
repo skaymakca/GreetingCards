@@ -18,9 +18,33 @@ logger = logging.getLogger(__name__)
 
 # Names that should not be treated as family names
 _FILTER_OUT = {
-    "unknown",  # AI response when uncertain
-    "snapfish",  # Card printing service
-    "shutterfly",  # Card printing service
+    # AI fallbacks
+    "unknown",
+    # Card printing services
+    "snapfish",
+    "shutterfly",
+    "minted",
+    # Generic card words (not surnames)
+    "family",
+    "holiday",
+    "holidays",
+    "greeting",
+    "greetings",
+    "card",
+    "cards",
+    # Holiday names
+    "christmas",
+    "hanukkah",
+    "new year",
+    "thanksgiving",
+    "easter",
+    "diwali",
+    "eid",
+    "kwanzaa",
+    "chinese new year",
+    "season's greetings",
+    "valentine's day",
+    "fourth of july",
 }
 
 
