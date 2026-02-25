@@ -134,7 +134,7 @@ First release of the app.
         text = md_path.read_text(encoding="utf-8")
         result = _parse_changelog(text)
         assert len(result) >= 3
-        assert result[0].version == "0.9.1"
+        assert result[0].version == "0.10.0"
 
     def test_html_entities_escaped(self):
         md = '## 1.0.0\n\nUse <html> & "quotes".\n'

@@ -1,13 +1,19 @@
 # Changelog
 
-## 0.9.1 (in progress)
+## 0.10.0 — Dark Mode & Reliability (2026-02-25)
 
-Polish, dark mode support, and fixes to the changelog viewer and build pipeline.
+Dark mode support, database reliability, smarter API handling, and broad quality improvements.
 
 - Full dark mode support — the app automatically follows macOS appearance settings, including native UI elements, toolbar icons, and HTML viewers (Help, Changelog, Licenses)
-- Fixed changelog sidebar navigation — clicking versions now works correctly
-- Dates displayed as subheadings below version titles
-- Simplified changelog build: pre-generated at build time, no runtime generation
+- Cmd+W now closes the focused window (Help, Changelog, Licenses) instead of quitting the app
+- "AI Analyze" available in the card list right-click context menu
+- GitHub repository link added to the Help menu and help page
+- Native file/folder picker replaces the old file dialog for a more consistent macOS experience
+- Smarter API retry handling with exponential backoff and rate limit coordination across concurrent requests
+- Fixed database concurrency issues — race conditions, dangling foreign keys, and fragmented sessions
+- Auto-reload uses file modification time as a fast pre-filter, skipping unchanged files
+- Fixed changelog sidebar navigation and date display
+- Bundled Tesseract OCR data for more reliable out-of-the-box text recognition
 
 ## 0.9.0 — Stability & Developer Experience (2026-02-20)
 

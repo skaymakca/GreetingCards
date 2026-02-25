@@ -5,7 +5,6 @@ title: AI Models
 # AI Models
 
 Greeting Cards uses Claude AI to analyze card images and extract family names. You can choose which model to use based on your needs for speed, quality, and cost.
-7
 ## Available Models
 
 | Model                 | Speed    | Quality   | Est. Cost per Card |

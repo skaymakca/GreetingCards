@@ -29,9 +29,12 @@ Each card shows a colored dot indicating extraction quality:
 
 Right-click any card row to access these actions:
 
+- **AI Analyze** — Analyze the card with Claude AI to extract the family name
 - **Open** — Open the PDF in your default viewer (e.g., Preview.app)
 - **Reveal in Finder** — Show the file in a Finder window with the file selected
 - **Remove** — Remove the card from the list (non-destructive; does not delete the file)
+
+When multiple cards are selected, context menu actions apply to all selected cards (e.g., "AI Analyze 5 Cards", "Open 3 Cards"). **Reveal in Finder** is only available for single-card selections.
 
 <div class="note">
     <strong>Tip:</strong> Removing a card only removes it from the current session. You can re-add the file by dropping it onto the window again.
@@ -43,7 +46,7 @@ When the same card appears at multiple file locations (identical content), a **F
 
 ## Sidebar Filters
 
-- **All** — Show all cards
+- **All Cards** — Show all cards
 - **Manual Entry** — Cards with manually edited names
 - **High Confidence** — Cards with reliable name extraction
 - **Needs Review** — Medium and low confidence cards
