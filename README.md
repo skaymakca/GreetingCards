@@ -226,27 +226,25 @@ Output goes to `_build/script_output/` with timestamped directories (e.g., `2026
 
 ### Sample Card Generator
 
-`generate_sample_cards` creates a corpus of realistic greeting card PDFs for testing and demos. It uses Claude to generate card metadata (family names, greetings, backstories) and OpenAI's gpt-image-1.5 to generate entire card images in the style of commercial greeting cards (Shutterfly, Snapfish, Minted), with typography baked into the artwork. Generated images are temporary and cleaned up after PDF creation.
+`generate_sample_cards` creates a corpus of realistic greeting card PDFs for testing and demos. It uses a multi-phase async pipeline — unique family names, batched color schemes, LLM-generated subtitles, then per-card creative content — with Claude generating card metadata and OpenAI's gpt-image-1.5 generating entire card images in the style of commercial greeting cards (Shutterfly, Snapfish, Minted), with typography baked into the artwork. Generated images are temporary and cleaned up after PDF creation.
 
 ```bash
 # Default: 3 cards
 uv run python -m scripts.generate_sample_cards
 
-# 10 cards
-uv run python -m scripts.generate_sample_cards --count=10
-
-# Low-quality images (faster, cheaper)
-uv run python -m scripts.generate_sample_cards --count=5 --image-quality=low
+# 20 cards with capped text concurrency
+uv run python -m scripts.generate_sample_cards --count=20 --text-concurrency=15
 ```
 
-| Flag                    | Description                                                         |
-|-------------------------|---------------------------------------------------------------------|
-| `--count N`             | Number of cards to generate (default: 3)                            |
-| `--ai-model MODEL`      | Claude model for metadata generation (default: `claude-sonnet-4-6`) |
-| `--image-model MODEL`   | OpenAI image model (default: `gpt-image-1.5`)                       |
-| `--image-quality LEVEL` | `low`, `medium`, or `high` (default: `high`)                        |
-| `--seed N`              | Seed for soft reproducibility via prompt                            |
-| `--no-open`             | Don't open output folder when done                                  |
+| Flag                       | Description                                                         |
+|----------------------------|---------------------------------------------------------------------|
+| `--count N`                | Number of cards to generate (default: 3)                            |
+| `--ai-model MODEL`         | Claude model for metadata generation (default: `claude-sonnet-4-6`) |
+| `--image-model MODEL`      | OpenAI image model (default: `gpt-image-1.5`)                      |
+| `--image-concurrency N`    | Max concurrent OpenAI image requests (default: 5)                   |
+| `--text-concurrency N`     | Max concurrent Claude spec-generation requests (default: 10)        |
+| `--no-image-compression`   | Embed images as lossless PNG instead of JPEG (Q75)                  |
+| `--no-open`                | Don't open output folder when done                                  |
 
 **Required API keys:** `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`.
 

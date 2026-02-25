@@ -198,7 +198,7 @@ show-scripts: ## Show available script invocations (does not run them)
 	@echo ""
 	@echo "  \033[36mgenerate_sample_cards\033[0m        Generate sample greeting card PDFs for testing"
 	@echo "    uv run python -m scripts.generate_sample_cards --count=5"
-	@echo "    uv run python -m scripts.generate_sample_cards --count=10 --image-quality=low"
+	@echo "    uv run python -m scripts.generate_sample_cards --count=20 --text-concurrency=15"
 	@echo ""
 	@echo "  \033[36mbenchmark.ocr_configuration_quality\033[0m  Benchmark Tesseract config space (192 configs)"
 	@echo "    uv run python -m scripts.benchmark.ocr_configuration_quality ~/Desktop/Cards"

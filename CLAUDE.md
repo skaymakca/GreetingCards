@@ -161,6 +161,8 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `app/gui/main_window.py` (appearance observer, refresh)                        | `docs/architecture/dark-mode.md`                                      |
 | `content/html/common/css/viewer.css` (color variables)                         | `docs/architecture/dark-mode.md`                                      |
 | `scripts/*.py` (adding/removing/renaming scripts)                              | Update `Makefile` `show-scripts` target + `README.md` Scripts section |
+| `scripts/generate_sample_cards/**`                                             | `docs/architecture/sample-card-generator.md`                          |
+| `scripts/helpers.py`, `scripts/**/__main__.py`                                 | `docs/architecture/scripts-infrastructure.md`                         |
 | `# noinspection` comments in any `*.py` file                                   | `docs/architecture/pycharm-inspections.md`                            |
 
 ### Test Count

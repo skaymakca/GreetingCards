@@ -4,17 +4,18 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import logging
 import os
 import subprocess
 import sys
 import tempfile
 import time
-from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 
 import openai
 from rich.console import Console
 from rich.live import Live
+from rich.logging import RichHandler
 
 from scripts.generate_sample_cards.display import build_status_table
 from scripts.generate_sample_cards.image_generator import (
@@ -23,7 +24,7 @@ from scripts.generate_sample_cards.image_generator import (
 )
 from scripts.generate_sample_cards.models import CardJob, CardSpec
 from scripts.generate_sample_cards.pdf_composer import compose_pdf_from_images
-from scripts.generate_sample_cards.spec_generator import generate_card_specs
+from scripts.generate_sample_cards.spec_generator import generate_card_specs_async
 from scripts.helpers import script_output_dir
 
 
@@ -51,7 +52,6 @@ async def _process_card(
     index: int,
     tmp_path: Path,
     output_dir: Path,
-    image_quality: str,
     image_model: str,
     jpeg_quality: int,
 ) -> bool:
@@ -64,13 +64,15 @@ async def _process_card(
         spec,
         tmp_path,
         index,
-        image_quality,
         image_model=image_model,
     )
 
     if not card_images:
         job.set("error", "no images generated")
         return False
+
+    # Defensive: never compose more pages than the spec requests
+    card_images = card_images[: spec.page_count]
 
     job.set("composing")
     pdf_path = output_dir / spec.filename
@@ -89,23 +91,11 @@ async def async_main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "output_dir",
-        nargs="?",
-        default=None,
-        help="Output directory (default: _build/script_output/YYYYMMDD_HHMM-generate_sample_cards/)",
-    )
-    parser.add_argument(
         "--count",
         type=int,
         default=3,
         metavar="N",
         help="Number of cards to generate (default: 3)",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=None,
-        help="Seed for soft reproducibility via prompt (default: random)",
     )
     parser.add_argument(
         "--ai-model",
@@ -118,17 +108,18 @@ async def async_main() -> None:
         help="OpenAI image model (default: gpt-image-1.5)",
     )
     parser.add_argument(
-        "--image-quality",
-        choices=["low", "medium", "high"],
-        default="high",
-        help="OpenAI image quality (default: high)",
-    )
-    parser.add_argument(
-        "--concurrency",
+        "--image-concurrency",
         type=int,
         default=5,
         metavar="N",
         help="Max concurrent OpenAI image requests (default: 5)",
+    )
+    parser.add_argument(
+        "--text-concurrency",
+        type=int,
+        default=10,
+        metavar="N",
+        help="Max concurrent Claude spec-generation requests (default: 10)",
     )
     parser.add_argument(
         "--no-image-compression",
@@ -144,46 +135,51 @@ async def async_main() -> None:
 
     count = args.count
 
-    # Resolve output directory
-    ctx: AbstractContextManager[Path]
-    if args.output_dir:
-        custom = Path(args.output_dir)
-        custom.mkdir(parents=True, exist_ok=True)
-        ctx = nullcontext(custom)
-    else:
-        ctx = script_output_dir("generate_sample_cards")
-
     # Validate API keys
     if not validate_api_keys():
         sys.exit(1)
 
     console = Console(highlight=False)
+    logging.basicConfig(
+        level=logging.WARNING,
+        handlers=[RichHandler(console=console, show_path=False, show_time=False)],
+    )
+    # Show INFO from our modules (e.g., chatty Claude responses)
+    logging.getLogger("scripts.generate_sample_cards").setLevel(logging.INFO)
     start_time = time.time()
 
     console.print(f"Plan: {count} cards\n")
 
-    # Step 1: Generate card specs (with spinner)
-    specs = generate_card_specs(count, args.seed, args.ai_model)
+    # Step 1: Generate card specs (async concurrent Claude calls)
+    specs = await generate_card_specs_async(count, args.ai_model, args.text_concurrency)
 
-    # Concurrency: 6 concurrent OpenAI image requests, shared rate limit gate
+    # Concurrency: concurrent OpenAI image requests, shared rate limit gate
     openai_client = openai.AsyncOpenAI()
-    openai_semaphore = asyncio.Semaphore(args.concurrency)
+    openai_semaphore = asyncio.Semaphore(args.image_concurrency)
     rate_limit_gate = RateLimitGate()
 
     # Build CardJob list for the live display
     jobs: list[CardJob] = []
     for i, spec in enumerate(specs):
+        if spec.back_page_type == "photo":
+            back_page = spec.back_photo_mode or "single"
+        elif spec.back_page_type == "blurb":
+            back_page = "blurb"
+        else:
+            back_page = "none"
+
         jobs.append(
             CardJob(
                 index=i + 1,
-                filename=spec.filename,
-                pages=spec.page_count,
+                family_name=spec.family_name,
+                holiday=spec.holiday,
                 style=spec.visual_style,
+                back_page=back_page,
             )
         )
 
     # Step 2: Process cards concurrently with live status display
-    with ctx as output_dir:
+    with script_output_dir("generate_sample_cards") as output_dir:
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)
             with Live(
@@ -204,7 +200,6 @@ async def async_main() -> None:
                             i,
                             tmp_path,
                             output_dir,
-                            args.image_quality,
                             args.image_model,
                             jpeg_quality=-1 if args.no_image_compression else 75,
                         )
