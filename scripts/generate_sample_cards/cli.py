@@ -53,6 +53,7 @@ async def _process_card(
     output_dir: Path,
     image_quality: str,
     image_model: str,
+    jpeg_quality: int,
 ) -> bool:
     """Generate full card images + compose PDF. Returns True on success."""
     card_images = await generate_full_card_images_async(
@@ -74,7 +75,7 @@ async def _process_card(
     job.set("composing")
     pdf_path = output_dir / spec.filename
     try:
-        compose_pdf_from_images(card_images, pdf_path)
+        compose_pdf_from_images(card_images, pdf_path, jpeg_quality=jpeg_quality)
         job.set("done", f"{len(card_images)}p")
         return True
     except Exception as e:
@@ -128,6 +129,11 @@ async def async_main() -> None:
         default=5,
         metavar="N",
         help="Max concurrent OpenAI image requests (default: 5)",
+    )
+    parser.add_argument(
+        "--no-image-compression",
+        action="store_true",
+        help="Embed images as lossless PNG instead of JPEG (larger files)",
     )
     parser.add_argument(
         "--no-open",
@@ -200,6 +206,7 @@ async def async_main() -> None:
                             output_dir,
                             args.image_quality,
                             args.image_model,
+                            jpeg_quality=-1 if args.no_image_compression else 75,
                         )
                     )
                     async_tasks.append(task)
