@@ -82,7 +82,7 @@ Run `make help` to see all available commands.
 | `make pycharm-inspect` | Run PyCharm CLI inspections (skipped if PyCharm is not installed)                        |
 | `make loc`             | Count lines of code in project files (excludes dependencies and build artifacts)         |
 | `make show-scripts`    | Show available script invocations without running them                                   |
-| `make clean`           | Remove `build/` and `dist/` directories                                                  |
+| `make clean`           | Remove `_build/` and `dist/` directories                                                 |
 
 ## Manual setup and commands
 
@@ -222,7 +222,7 @@ The app stores OCR results, AI results, and manual name edits in a SQLite databa
 
 Utility and benchmark scripts live in `scripts/` (a Python package). Run them with `python -m scripts.<name>`. All script dependencies are included in the dev group — run `make setup-dev` first.
 
-Output goes to `_script_output/` with timestamped directories (e.g., `20260223_2011-generate_sample_cards/`) so runs don't overwrite each other. Use `-o` to specify a custom output directory instead.
+Output goes to `_build/script_output/` with timestamped directories (e.g., `20260223_2011-generate_sample_cards/`) so runs don't overwrite each other. Use `-o` to specify a custom output directory instead.
 
 ### Sample Card Generator
 
@@ -273,7 +273,7 @@ uv run python -m scripts.benchmark.ocr_concurrency ~/Desktop/Cards
 # All scripts support --help, --no-open, and custom output dirs (-o)
 ```
 
-Each benchmark generates a self-contained HTML report (with sorting, filtering, and heatmap coloring) and a CSV export in `_script_output/`.
+Each benchmark generates a self-contained HTML report (with sorting, filtering, and heatmap coloring) and a CSV export in `_build/script_output/`.
 
 ## IDE Setup (PyCharm)
 

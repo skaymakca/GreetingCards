@@ -1,9 +1,10 @@
 """License discovery and HTML generation pipeline.
 
-Reads config.toml + uv.lock + .dist-info metadata to produce:
-- registry.toml  — resolved state of all packages
-- texts/         — extracted license texts (committed)
-- html/          — generated HTML output (gitignored, bundled)
+Reads content/licenses/ (config.toml, manual/) + uv.lock + .dist-info metadata
+to produce generated output under _build/:
+- _build/licenses/registry.toml  — resolved state of all packages
+- _build/licenses/texts/         — extracted license texts
+- _build/runtime_content/html/licenses/ — generated HTML output (bundled)
 """
 
 import hashlib
@@ -59,8 +60,14 @@ def _get_project_root() -> Path:
     return Path(__file__).resolve().parent.parent.parent
 
 
-def _get_licenses_dir() -> Path:
+def _get_licenses_source_dir() -> Path:
+    """Return content/licenses/ — committed source files (config.toml, manual/)."""
     return _get_project_root() / "content" / "licenses"
+
+
+def _get_licenses_build_dir() -> Path:
+    """Return _build/licenses/ — generated files (registry.toml, texts/)."""
+    return _get_project_root() / "_build" / "licenses"
 
 
 # ---------------------------------------------------------------------------
@@ -322,10 +329,11 @@ def sync_registry() -> LicenseRegistry:
     Entry point for `make licenses-sync`.
     """
     project_root = _get_project_root()
-    licenses_dir = _get_licenses_dir()
+    source_dir = _get_licenses_source_dir()
+    build_dir = _get_licenses_build_dir()
     lock_path = project_root / "uv.lock"
 
-    config = load_config(licenses_dir)
+    config = load_config(source_dir)
     uv_lock_hash = _compute_lock_hash(lock_path)
     site_packages = _get_site_packages()
 
@@ -353,10 +361,10 @@ def sync_registry() -> LicenseRegistry:
     reverse_deps = _build_reverse_deps(packages)
 
     # Read existing registry for version comparison
-    existing_versions = _read_existing_versions(licenses_dir)
+    existing_versions = _read_existing_versions(build_dir)
 
     # Ensure texts/ directory exists
-    texts_dir = licenses_dir / "texts"
+    texts_dir = build_dir / "texts"
     texts_dir.mkdir(parents=True, exist_ok=True)
 
     # Discover packages
@@ -379,7 +387,7 @@ def sync_registry() -> LicenseRegistry:
             license_type = _extract_license_type(dist_info)
             homepage = _extract_homepage(dist_info)
             # Only re-extract text if version changed or file missing
-            text_path = licenses_dir / text_file
+            text_path = build_dir / text_file
             if not text_path.exists() or existing_versions.get(name) != pkg["version"]:
                 license_text = _find_license_file(dist_info) or ""
                 if license_text:
@@ -391,8 +399,8 @@ def sync_registry() -> LicenseRegistry:
             logger.warning("No .dist-info found for %s", name)
 
         # Fall back to manual license file if no extracted text exists
-        if not (licenses_dir / text_file).exists():
-            manual_path = licenses_dir / "manual" / f"{pkg_slug}.txt"
+        if not (build_dir / text_file).exists():
+            manual_path = source_dir / "manual" / f"{pkg_slug}.txt"
             if manual_path.exists():
                 text_file = f"manual/{pkg_slug}.txt"
 
@@ -433,7 +441,7 @@ def sync_registry() -> LicenseRegistry:
         packages=discovered,
     )
 
-    _write_registry_toml(licenses_dir, registry)
+    _write_registry_toml(build_dir, registry)
     logger.info(
         "Synced registry: %d packages, %d system deps",
         len(discovered),
@@ -536,17 +544,18 @@ def generate_licenses_html() -> None:
     """Generate licenses HTML from registry.toml + text files.
 
     Entry point for `make licenses`. Calls sync_registry() first,
-    then generates HTML output to _runtime_content/html/licenses/.
+    then generates HTML output to _build/runtime_content/html/licenses/.
     """
-    licenses_dir = _get_licenses_dir()
+    source_dir = _get_licenses_source_dir()
+    build_dir = _get_licenses_build_dir()
     project_root = _get_project_root()
 
     # Always sync first to ensure registry is up to date
     registry = sync_registry()
 
     # Generate HTML
-    html_dir = project_root / "_runtime_content" / "html" / "licenses"
-    _write_html(html_dir, licenses_dir, registry)
+    html_dir = project_root / "_build" / "runtime_content" / "html" / "licenses"
+    _write_html(html_dir, source_dir, build_dir, registry)
 
     # Write page_order.txt manifest for runtime navigation
     page_order = [item["href"] for item in _build_nav_items()]
@@ -562,10 +571,15 @@ def generate_licenses_html() -> None:
 
 def _write_html(
     html_dir: Path,
-    licenses_dir: Path,
+    source_dir: Path,
+    build_dir: Path,
     registry: LicenseRegistry,
 ) -> None:
-    """Write all HTML files to html_dir (flat structure, no pages/ subdir)."""
+    """Write all HTML files to html_dir (flat structure, no pages/ subdir).
+
+    source_dir: content/licenses/ (config.toml, manual/)
+    build_dir:  _build/licenses/ (registry.toml, texts/)
+    """
     if html_dir.exists():
         shutil.rmtree(html_dir)
     html_dir.mkdir(parents=True)
@@ -643,7 +657,7 @@ def _write_html(
     # --- System page ---
     system_entries = []
     for dep in registry.system_deps:
-        text_path = licenses_dir / "manual" / f"{dep.slug}.txt"
+        text_path = source_dir / "manual" / f"{dep.slug}.txt"
         dep_text = (
             text_path.read_text(encoding="utf-8").strip() if text_path.exists() else "License text not available."
         )
@@ -676,7 +690,11 @@ def _write_html(
         for pkg in registry.packages:
             if pkg.category not in cats:
                 continue
-            text_path = licenses_dir / pkg.text_file
+            # text_file is either "texts/slug.txt" (build_dir) or "manual/slug.txt" (source_dir)
+            if pkg.text_file.startswith("manual/"):
+                text_path = source_dir / pkg.text_file
+            else:
+                text_path = build_dir / pkg.text_file
             pkg_text = ""
             if text_path.exists():
                 pkg_text = text_path.read_text(encoding="utf-8").strip()

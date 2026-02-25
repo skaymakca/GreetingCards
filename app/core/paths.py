@@ -25,15 +25,18 @@ def get_data_dir() -> Path:
 
 # noinspection PyProtectedMember
 def get_runtime_content_path(rel_path: str = "") -> Path:
-    """Return path under _runtime_content/ (works in both dev and bundled mode).
+    """Return path under runtime content directory (works in both dev and bundled mode).
+
+    Dev mode  : project_root/_build/runtime_content/
+    Bundled   : sys._MEIPASS/_runtime_content/  (PyInstaller internal name)
 
     Args:
-        rel_path: Relative path within _runtime_content (e.g. "tessdata/fast", "html/help")
+        rel_path: Relative path within runtime content (e.g. "tessdata/fast", "html/help")
     """
     if is_bundled():
         base = Path(sys._MEIPASS) / "_runtime_content"  # type: ignore[attr-defined]
     else:
-        base = Path(__file__).resolve().parent.parent.parent / "_runtime_content"
+        base = Path(__file__).resolve().parent.parent.parent / "_build" / "runtime_content"
     return base / rel_path if rel_path else base
 
 

@@ -154,7 +154,7 @@ class TestGenerateChangelogHtmlEntryPoint:
             generate_changelog_html()
 
         # Verify output directory structure
-        output_dir = tmp_path / "_runtime_content" / "html" / "changelog"
+        output_dir = tmp_path / "_build" / "runtime_content" / "html" / "changelog"
         assert output_dir.exists()
 
     def test_creates_index_html(self, tmp_path):
@@ -165,7 +165,7 @@ class TestGenerateChangelogHtmlEntryPoint:
         with patch("app.core.changelog._get_project_root", return_value=tmp_path):
             generate_changelog_html()
 
-        output_dir = tmp_path / "_runtime_content" / "html" / "changelog"
+        output_dir = tmp_path / "_build" / "runtime_content" / "html" / "changelog"
         index_file = output_dir / "index.html"
         assert index_file.exists()
         assert index_file.stat().st_size > 0
@@ -180,7 +180,7 @@ class TestGenerateChangelogHtmlEntryPoint:
         with patch("app.core.changelog._get_project_root", return_value=tmp_path):
             generate_changelog_html()
 
-        output_dir = tmp_path / "_runtime_content" / "html" / "changelog"
+        output_dir = tmp_path / "_build" / "runtime_content" / "html" / "changelog"
         manifest_file = output_dir / "page_order.txt"
         assert manifest_file.exists()
         manifest_content = manifest_file.read_text(encoding="utf-8")
@@ -196,7 +196,7 @@ class TestGenerateChangelogHtmlEntryPoint:
         with patch("app.core.changelog._get_project_root", return_value=tmp_path):
             generate_changelog_html()
 
-        output_dir = tmp_path / "_runtime_content" / "html" / "changelog"
+        output_dir = tmp_path / "_build" / "runtime_content" / "html" / "changelog"
         pages_dir = output_dir / "pages"
         assert pages_dir.exists()
         # At least one version page should exist
@@ -215,7 +215,7 @@ class TestGenerateChangelogHtmlEntryPoint:
         with patch("app.core.changelog._get_project_root", return_value=tmp_path):
             generate_changelog_html()
 
-        output_dir = tmp_path / "_runtime_content" / "html" / "changelog"
+        output_dir = tmp_path / "_build" / "runtime_content" / "html" / "changelog"
         manifest_file = output_dir / "page_order.txt"
         manifest_content = manifest_file.read_text(encoding="utf-8")
         lines = manifest_content.strip().split("\n")
@@ -230,7 +230,7 @@ class TestGenerateChangelogHtmlEntryPoint:
         with patch("app.core.changelog._get_project_root", return_value=tmp_path):
             generate_changelog_html()
 
-        output_dir = tmp_path / "_runtime_content" / "html" / "changelog"
+        output_dir = tmp_path / "_build" / "runtime_content" / "html" / "changelog"
         index_file = output_dir / "index.html"
         index_content = index_file.read_text(encoding="utf-8")
         # Index should contain version info and content

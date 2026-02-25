@@ -132,7 +132,7 @@ class TestTessdataPath:
     """Tests for tessdata path resolution."""
 
     def test_dev_path_points_to_runtime_content(self):
-        """In dev mode, tessdata path is under project root/_runtime_content/tessdata."""
+        """In dev mode, tessdata path is under project root/_build/runtime_content/tessdata."""
         import importlib
         import sys
 
@@ -141,7 +141,7 @@ class TestTessdataPath:
             delattr(sys, "_MEIPASS")
         importlib.reload(ocr_module)
         path = ocr_module._tessdata_path
-        assert path.endswith("_runtime_content/tessdata/fast")
+        assert path.endswith("_build/runtime_content/tessdata/fast")
         assert "_MEIPASS" not in path
 
     def test_bundled_path_uses_meipass(self):

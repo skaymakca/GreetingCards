@@ -7,7 +7,7 @@ from PyInstaller.utils.hooks import collect_all
 # Paths are relative to spec file location (scripts/), so go up one level
 _root = os.path.join(SPECPATH, '..')
 
-datas = [(os.path.join(_root, '_runtime_content'), '_runtime_content')]
+datas = [(os.path.join(_root, '_build', 'runtime_content'), '_runtime_content')]
 binaries = []
 hiddenimports = []
 
@@ -67,6 +67,6 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name='Visual Test.app',
-    icon=os.path.join(_root, '_runtime_content', 'icon.icns'),
+    icon=os.path.join(_root, '_build', 'runtime_content', 'icon.icns'),
     bundle_identifier='com.greetingcards.visualtest',
 )

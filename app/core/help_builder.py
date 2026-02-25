@@ -2,7 +2,7 @@
 
 Reads .md files from content/html/help/, derives navigation order from the
 filename prefix (e.g. ``1 - index.md``), renders Markdown to HTML, and
-writes to _runtime_content/html/help/ via Jinja2 templates.
+writes to _build/runtime_content/html/help/ via Jinja2 templates.
 
 Filename convention::
 
@@ -155,7 +155,7 @@ def generate_help_html() -> None:
     """Entry point for Makefile — generate help HTML from Markdown pages."""
     project_root = Path(__file__).resolve().parent.parent.parent
     content_dir = project_root / "content" / "html"
-    output_dir = project_root / "_runtime_content" / "html" / "help"
+    output_dir = project_root / "_build" / "runtime_content" / "html" / "help"
 
     pages = _read_help_pages(content_dir)
     if not pages:

@@ -15,7 +15,8 @@ from app.core.license_discovery import (
     _extract_license_type,
     _find_dist_info,
     _find_license_file,
-    _get_licenses_dir,
+    _get_licenses_build_dir,
+    _get_licenses_source_dir,
     _parse_uv_lock,
     _slug,
     generate_licenses_html,
@@ -103,22 +104,22 @@ class TestLoadConfig:
     """Tests for config.toml loading."""
 
     def test_loads_config(self):
-        config = load_config(_get_licenses_dir())
+        config = load_config(_get_licenses_source_dir())
         assert isinstance(config, LicenseConfig)
 
     def test_has_package_overrides(self):
-        config = load_config(_get_licenses_dir())
+        config = load_config(_get_licenses_source_dir())
         assert "anthropic" in config.package_overrides
         assert config.package_overrides["anthropic"].display == "Anthropic SDK"
 
     def test_has_system_deps(self):
-        config = load_config(_get_licenses_dir())
+        config = load_config(_get_licenses_source_dir())
         slugs = {sd.slug for sd in config.system_deps}
         assert "python" in slugs
         assert "tesseract" in slugs
 
     def test_system_deps_have_urls(self):
-        config = load_config(_get_licenses_dir())
+        config = load_config(_get_licenses_source_dir())
         urls = {sd.slug: sd.url for sd in config.system_deps}
         assert urls["python"] == "https://python.org"
         assert "tesseract" in urls["tesseract"]
@@ -148,11 +149,11 @@ class TestSyncRegistry:
 
     def test_registry_toml_written(self):
         sync_registry()
-        assert (_get_licenses_dir() / "registry.toml").exists()
+        assert (_get_licenses_build_dir() / "registry.toml").exists()
 
     def test_texts_dir_has_files(self):
         sync_registry()
-        texts_dir = _get_licenses_dir() / "texts"
+        texts_dir = _get_licenses_build_dir() / "texts"
         assert texts_dir.exists()
         txt_files = list(texts_dir.glob("*.txt"))
         assert len(txt_files) > 20
@@ -176,7 +177,7 @@ class TestGenerateLicensesHtml:
     def test_shared_css_exists(self):
         """Shared viewer.css should exist in the common directory."""
         project_root = Path(__file__).resolve().parent.parent.parent
-        assert (project_root / "_runtime_content" / "html" / "common" / "css" / "viewer.css").exists()
+        assert (project_root / "_build" / "runtime_content" / "html" / "common" / "css" / "viewer.css").exists()
 
     def test_generation_creates_greeting_cards_page(self):
         base = _get_licenses_base_path()
@@ -499,13 +500,13 @@ class TestManualTextFiles:
     """Tests for committed manual license texts."""
 
     def test_python_txt_exists(self):
-        path = _get_licenses_dir() / "manual" / "python.txt"
+        path = _get_licenses_source_dir() / "manual" / "python.txt"
         assert path.exists()
         content = path.read_text()
         assert "Python Software Foundation" in content
 
     def test_tesseract_txt_exists(self):
-        path = _get_licenses_dir() / "manual" / "tesseract.txt"
+        path = _get_licenses_source_dir() / "manual" / "tesseract.txt"
         assert path.exists()
         content = path.read_text()
         assert "Apache" in content

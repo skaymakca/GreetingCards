@@ -202,7 +202,7 @@ def generate_changelog_html() -> None:
     """Entry point for Makefile — generate changelog HTML from CHANGELOG.md."""
     project_root = _get_project_root()
     md_path = project_root / "CHANGELOG.md"
-    output_dir = project_root / "_runtime_content" / "html" / "changelog"
+    output_dir = project_root / "_build" / "runtime_content" / "html" / "changelog"
 
     md_text = md_path.read_text(encoding="utf-8")
     versions = _parse_changelog(md_text)

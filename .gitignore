@@ -10,11 +10,8 @@ __pycache__/
 .DS_Store
 
 # Build artifacts
-build/
+_build/
 dist/
-_runtime_content/
-content/licenses/texts/
-content/licenses/registry.toml
 
 # Type checkers
 .mypy_cache/
@@ -31,6 +28,4 @@ htmlcov/
 .tox/
 *.log
 
-# Benchmark scripts
-_script_content/
-_script_output/
+

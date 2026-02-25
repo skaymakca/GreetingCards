@@ -24,7 +24,7 @@ setup-dev: ## Install all dependencies including dev/testing tools
 	@echo "✓ Development setup complete!"
 	@echo "  Run 'make test' to run tests."
 
-TESSDATA_DIR := _runtime_content/tessdata/fast
+TESSDATA_DIR := _build/runtime_content/tessdata/fast
 TESSDATA_ENG := $(TESSDATA_DIR)/eng.traineddata
 TESSDATA_URL := https://github.com/tesseract-ocr/tessdata_fast/raw/main/eng.traineddata
 
@@ -103,10 +103,10 @@ build: app ## Build the macOS .app bundle (alias for 'app')
 LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister
 
 html-content: ## Generate all HTML content (help, changelog, licenses)
-	@mkdir -p _runtime_content/html/common/css _runtime_content/html/common/js _runtime_content/images
-	@cp content/html/common/css/viewer.css _runtime_content/html/common/css/viewer.css
-	@cp content/html/common/js/search.js _runtime_content/html/common/js/search.js
-	@cp content/images/drop-target-background.png _runtime_content/images/drop-target-background.png
+	@mkdir -p _build/runtime_content/html/common/css _build/runtime_content/html/common/js _build/runtime_content/images
+	@cp content/html/common/css/viewer.css _build/runtime_content/html/common/css/viewer.css
+	@cp content/html/common/js/search.js _build/runtime_content/html/common/js/search.js
+	@cp content/images/drop-target-background.png _build/runtime_content/images/drop-target-background.png
 	uv run python -c "from app.core.help_builder import generate_help_html; generate_help_html()"
 	uv run python -c "from app.core.changelog import generate_changelog_html; generate_changelog_html()"
 	uv run python -c "from app.core.license_discovery import generate_licenses_html; generate_licenses_html()"
@@ -116,13 +116,14 @@ licenses-sync: ## Sync license registry from uv.lock + .dist-info
 
 app: icon html-content tessdata ## Build the macOS .app bundle
 	@$(LSREGISTER) -u "dist/Greeting Cards.app" 2>/dev/null || true
-	uv run pyinstaller -y "Greeting Cards.spec"
+	uv run pyinstaller --workpath _build/pyinstaller_build -y "Greeting Cards.spec"
+	@rm -rf "dist/Greeting Cards"
 
 app-run: app ## Build and run the .app bundle (logs visible in terminal)
 	"dist/Greeting Cards.app/Contents/MacOS/Greeting Cards"
 
 icon: content/images/icon.png ## Generate icon.icns from icon.png
-	@mkdir -p _runtime_content icon.iconset
+	@mkdir -p _build/runtime_content icon.iconset
 	@sips -z 16 16 content/images/icon.png --out icon.iconset/icon_16x16.png > /dev/null
 	@sips -z 32 32 content/images/icon.png --out icon.iconset/icon_16x16@2x.png > /dev/null
 	@sips -z 32 32 content/images/icon.png --out icon.iconset/icon_32x32.png > /dev/null
@@ -133,14 +134,14 @@ icon: content/images/icon.png ## Generate icon.icns from icon.png
 	@sips -z 512 512 content/images/icon.png --out icon.iconset/icon_256x256@2x.png > /dev/null
 	@sips -z 512 512 content/images/icon.png --out icon.iconset/icon_512x512.png > /dev/null
 	@sips -z 1024 1024 content/images/icon.png --out icon.iconset/icon_512x512@2x.png > /dev/null
-	@iconutil -c icns icon.iconset -o _runtime_content/icon.icns
+	@iconutil -c icns icon.iconset -o _build/runtime_content/icon.icns
 	@rm -rf icon.iconset
-	@echo "Generated _runtime_content/icon.icns"
+	@echo "Generated _build/runtime_content/icon.icns"
 
 loc: ## Count lines of code (excludes dependencies)
 	@echo "Lines of code (project files only):"
 	@echo ""
-	@find . -name "*.py" -not -path "./.venv/*" -not -path "./build/*" -not -path "./dist/*" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="Python:" '$(FMT_LINE)'
+	@find . -name "*.py" -not -path "./.venv/*" -not -path "./_build/*" -not -path "./dist/*" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="Python:" '$(FMT_LINE)'
 	@(find ./app -name "*.py" -not -path "*/gui/*" -not -path "*/__pycache__/*" -exec cat {} + ; cat main.py) | wc -l | awk -v lbl="  Core:" '$(FMT_LINE)'
 	@find ./app/gui -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  GUI:" '$(FMT_LINE)'
 	@find ./scripts -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  Scripts:" '$(FMT_LINE)'
@@ -151,7 +152,7 @@ loc: ## Count lines of code (excludes dependencies)
 	@echo ""
 	@wc -l Makefile "Greeting Cards.spec" 2>/dev/null | tail -1 | awk -v lbl="Config:" '$(FMT_LINE)'
 	@echo ""
-	@(find . -name "*.py" -not -path "./.venv/*" -not -path "./build/*" -not -path "./dist/*" -not -path "*/__pycache__/*" -exec cat {} + ; find ./content/html/help -name "*.md" -exec cat {} + 2>/dev/null; find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null; cat Makefile "Greeting Cards.spec") | wc -l | awk -v lbl="Total:" '$(FMT_LINE)'
+	@(find . -name "*.py" -not -path "./.venv/*" -not -path "./_build/*" -not -path "./dist/*" -not -path "*/__pycache__/*" -exec cat {} + ; find ./content/html/help -name "*.md" -exec cat {} + 2>/dev/null; find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null; cat Makefile "Greeting Cards.spec") | wc -l | awk -v lbl="Total:" '$(FMT_LINE)'
 
 version: ## Show current version
 	@uv run python -c "from app.version import __version__; print(__version__)"
@@ -188,7 +189,8 @@ visual-test: html-content ## Run visual test harness from source
 	uv run python scripts/visual_test.py
 
 visual-test-app: icon html-content tessdata ## Build visual test harness as .app bundle
-	uv run pyinstaller -y "scripts/Visual Test.spec"
+	uv run pyinstaller --workpath _build/pyinstaller_build -y "scripts/Visual Test.spec"
+	@rm -rf "dist/Visual Test"
 
 show-scripts: ## Show available script invocations (does not run them)
 	@echo "Available scripts (run with uv run python -m scripts.<name>):"
@@ -207,8 +209,8 @@ show-scripts: ## Show available script invocations (does not run them)
 	@echo "    uv run python -m scripts.benchmark.ocr_concurrency ~/Desktop/Cards"
 	@echo ""
 	@echo "  All scripts support --help, --no-open, and -o <output_dir>."
-	@echo "  Output goes to _script_output/ with timestamped directories."
+	@echo "  Output goes to _build/script_output/ with timestamped directories."
 
 clean: ## Remove build artifacts
 	@$(LSREGISTER) -u "dist/Greeting Cards.app" 2>/dev/null || true
-	rm -rf build dist _runtime_content
+	rm -rf _build dist

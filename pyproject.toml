@@ -55,7 +55,7 @@ filterwarnings = [
 
 [tool.pyright]
 include = ["app", "tests", "scripts"]
-exclude = ["dist", "build", "_runtime_content", ".venv", "content/licenses/registry.toml"]
+exclude = ["dist", "_build", ".venv"]
 reportArgumentType = false
 reportAttributeAccessIssue = false
 reportCallIssue = false
@@ -74,7 +74,7 @@ disable_error_code = ["import-untyped"]
 target-version = "py314"
 line-length = 120
 src = ["app", "scripts", "tests"]
-extend-exclude = ["dist", "build", "_runtime_content", ".venv"]
+extend-exclude = ["dist", "_build", ".venv"]
 
 [tool.ruff.lint]
 select = [
@@ -127,7 +127,7 @@ docstring-code-format = true
 
 [tool.bandit]
 targets = ["app", "scripts"]
-exclude_dirs = ["tests", "dist", "build", ".venv", "_runtime_content"]
+exclude_dirs = ["tests", "dist", "_build", ".venv"]
 skips = [
     "B108",   # hardcoded /tmp paths — mock data in visual_test.py, not real temp files
     "B310",   # urllib urlopen — downloading from known URLs (tessdata, OpenAI images)

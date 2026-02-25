@@ -6,13 +6,13 @@ from datetime import datetime
 from pathlib import Path
 
 # All script output goes under this root directory.
-SCRIPT_OUTPUT_ROOT = Path(__file__).resolve().parent.parent / "_script_output"
+SCRIPT_OUTPUT_ROOT = Path(__file__).resolve().parent.parent / "_build" / "script_output"
 
 
 def make_output_dir(folder_name: str) -> Path:
-    """Create a timestamped output directory under _script_output/.
+    """Create a timestamped output directory under _build/script_output/.
 
-    Format: _script_output/YYYYMMDD_HHMM-folder_name/
+    Format: _build/script_output/YYYYMMDD_HHMM-folder_name/
 
     The directory is created immediately and the path is returned.
     """

@@ -90,7 +90,7 @@ async def async_main() -> None:
         "output_dir",
         nargs="?",
         default=None,
-        help="Output directory (default: _script_output/YYYYMMDD_HHMM-generate_sample_cards/)",
+        help="Output directory (default: _build/script_output/YYYYMMDD_HHMM-generate_sample_cards/)",
     )
     parser.add_argument(
         "--count",

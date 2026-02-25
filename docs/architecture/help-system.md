@@ -6,7 +6,7 @@ Help pages generated from Markdown and displayed in the shared WebView viewer.
 
 ## How It Works
 
-`help_dialog.py` is a thin wrapper that calls `show_viewer()` with path resolution. `_HELP_REL_PATH = Path("_runtime_content") / "html" / "help"`.
+`help_dialog.py` is a thin wrapper that calls `show_viewer()` with path resolution. `_HELP_REL_PATH = Path("_build/runtime_content") / "html" / "help"`.
 
 `help_builder.py` generates HTML from Markdown source files using the `markdown` library and Jinja2 templates.
 
@@ -43,7 +43,7 @@ To reorder pages, rename the numeric prefixes. To add a page, insert at the desi
 ### Generated output (gitignored)
 
 ```
-_runtime_content/html/
+_build/runtime_content/html/
 ├── help/
 │   ├── index.html                ← Generated home page
 │   ├── page_order.txt            ← Navigation manifest (read at runtime)
@@ -84,9 +84,9 @@ If `title` is omitted, it defaults to the slug converted to title case.
 3. Parses YAML frontmatter for title
 4. Converts Markdown to HTML using the `markdown` library
 5. Renders through `content/html/templates/help_page.html.j2` with Jinja2
-6. Writes output to `_runtime_content/html/help/`
+6. Writes output to `_build/runtime_content/html/help/`
 7. Writes `page_order.txt` manifest for runtime toolbar navigation
-8. Copies shared CSS and JS to `_runtime_content/html/common/`
+8. Copies shared CSS and JS to `_build/runtime_content/html/common/`
 
 Every generated page has the same HTML structure:
 
@@ -115,7 +115,7 @@ Sidebar navigation is generated automatically from the filename ordering.
 - Typography, tables, code blocks, keyboard shortcuts
 - Version date and divider styles (used by changelog)
 
-The file is copied to `_runtime_content/html/common/css/viewer.css` during generation. All viewers reference it via relative path.
+The file is copied to `_build/runtime_content/html/common/css/viewer.css` during generation. All viewers reference it via relative path.
 
 ## Menu Integration
 
