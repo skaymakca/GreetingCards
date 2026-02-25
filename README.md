@@ -192,7 +192,7 @@ tests/
 
 ### Current Coverage
 
-- **1373 tests** covering core logic and GUI components
+- **1377 tests** covering core logic and GUI components
 - **Core** (17 test files): AI analysis, card model, changelog, config, database, filename sanitization, help builder, license discovery, name extraction, name formatting, OCR engine, paths, PDF rendering, PDF worker, renamer, template environment, version
 - **GUI** (14 test files): API key dialog, context menu, dialogs, filter sidebar, help system, icons, main window, preview cursor behavior, preview panel, review panel, settings, styles, utilities
 

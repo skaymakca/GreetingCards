@@ -916,6 +916,57 @@ class TestSessionScope:
             assert isinstance(result, list)
 
 
+class TestDefensiveGuards:
+    """Tests for defensive guard clauses that raise on uninitialized state."""
+
+    def test_get_engine_raises_when_none(self):
+        """_get_engine raises RuntimeError when engine is not initialized."""
+        from app.core.database import _get_engine
+
+        orig = db_mod._engine
+        try:
+            db_mod._engine = None
+            with pytest.raises(RuntimeError, match="Database not initialized"):
+                _get_engine()
+        finally:
+            db_mod._engine = orig
+
+    def test_get_session_factory_raises_when_none(self):
+        """_get_session_factory raises RuntimeError when session factory is not initialized."""
+        from app.core.database import _get_session_factory
+
+        orig = db_mod._Session
+        try:
+            db_mod._Session = None
+            with pytest.raises(RuntimeError, match="Database not initialized"):
+                _get_session_factory()
+        finally:
+            db_mod._Session = orig
+
+    def test_get_session_initializes_when_none(self):
+        """get_session() creates engine and session factory when not initialized."""
+        from app.core.database import get_session
+
+        orig_engine = db_mod._engine
+        orig_session = db_mod._Session
+        try:
+            db_mod._engine = None
+            db_mod._Session = None
+            with (
+                patch("app.core.database.get_db_path", return_value=":memory:"),
+                patch("app.core.database._ensure_schema"),
+            ):
+                session = get_session()
+                assert session is not None
+                session.close()
+                # Engine and session factory should now be set
+                assert db_mod._engine is not None
+                assert db_mod._Session is not None
+        finally:
+            db_mod._engine = orig_engine
+            db_mod._Session = orig_session
+
+
 class TestAddCandidateDuplicateRace:
     """Tests for add_candidate() handling concurrent duplicate inserts."""
 
@@ -955,6 +1006,57 @@ class TestAddCandidateDuplicateRace:
         # Still only one candidate
         candidates = get_candidates("hash1")
         assert len(candidates) == 1
+
+    @patch("app.core.database._clean_and_filter_names", return_value=["Smith"])
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_integrity_error_recovery(self, mock_title, mock_clean):
+        """When a race causes IntegrityError on flush, add_candidate recovers."""
+        create_or_update_card("hash1")
+
+        # Pre-insert candidate directly (simulating another thread winning the race)
+        with _session_scope() as session:
+            candidate = Candidate(file_hash="hash1", family_name="Smith", method="ocr", confidence="high")
+            session.add(candidate)
+            session.flush()
+            expected_id = candidate.id
+
+        # Patch the existence check to return None (simulating TOCTOU race window)
+        original_query = db_mod.Session.query
+        check_count = [0]
+
+        def query_interceptor(self, model, *args, **kwargs):
+            result = original_query(self, model, *args, **kwargs)
+            if model is Candidate:
+
+                class WrappedQuery:
+                    def __init__(self, real):
+                        self._real = real
+
+                    def __getattr__(self, name):
+                        return getattr(self._real, name)
+
+                    def filter_by(self, **kw):
+                        real_result = self._real.filter_by(**kw)
+                        # First Candidate filter_by with family_name is the existence check
+                        if "family_name" in kw and check_count[0] == 0:
+                            check_count[0] += 1
+
+                            class EmptyResult:
+                                def first(self):
+                                    return None
+
+                            return EmptyResult()
+                        return real_result
+
+                return WrappedQuery(result)
+            return result
+
+        with patch.object(db_mod.Session, "query", query_interceptor):
+            cid = add_candidate("hash1", "Smith", "ocr", "high")
+
+        # Should recover and return the existing candidate's ID
+        assert cid == expected_id
+        assert check_count[0] == 1  # Existence check was intercepted
 
 
 class TestClearAIResultsFKOrdering:
