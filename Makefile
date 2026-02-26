@@ -223,6 +223,10 @@ show-scripts: ## Show available script invocations (does not run them)
 	@echo "    uv run python -m scripts.generate_sample_cards --count=5"
 	@echo "    uv run python -m scripts.generate_sample_cards --names \"Smith,O'Brien,Van Dyke\""
 	@echo ""
+	@echo "  \033[36mprofiling\033[0m                    Profile the PDF processing pipeline (render, OCR, names)"
+	@echo "    uv run python -m scripts.profiling ~/Desktop/Cards"
+	@echo "    uv run python -m scripts.profiling ~/Desktop/Cards --limit 10 --with-ai"
+	@echo ""
 	@echo "  All scripts support --help."
 	@echo "  Output goes to _build/script_output/ with timestamped directories."
 
