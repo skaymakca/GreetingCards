@@ -163,9 +163,14 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
 class AdvancedPreferencesPage(wx.StockPreferencesPage):
     """Advanced preferences page with database controls."""
 
-    def __init__(self, on_db_reset: Callable[[], None] | None = None):
+    def __init__(
+        self,
+        on_db_reset: Callable[[], None] | None = None,
+        is_ai_running: Callable[[], bool] | None = None,
+    ):
         super().__init__(wx.StockPreferencesPage.Kind_Advanced)
         self._on_db_reset = on_db_reset
+        self._is_ai_running = is_ai_running
 
     def CreateWindow(self, parent: wx.Window) -> wx.Panel:
         """Create the preferences panel. May be called multiple times."""
@@ -204,6 +209,14 @@ class AdvancedPreferencesPage(wx.StockPreferencesPage):
 
     def _reset_card_data(self, event: wx.CommandEvent) -> None:
         """Reset all card data after confirmation."""
+        if self._is_ai_running and self._is_ai_running():
+            wx.MessageBox(
+                "Cannot reset database while AI analysis is running.\n\nWait for the current batch to finish first.",
+                "Reset Blocked",
+                wx.OK | wx.ICON_WARNING,
+            )
+            return
+
         result = wx.MessageBox(
             "This will reset all card data including manual name entries, "
             "collected candidates, cached OCR text, and cached AI results.\n\n"
@@ -225,16 +238,20 @@ class AdvancedPreferencesPage(wx.StockPreferencesPage):
             self._on_db_reset()
 
 
-def create_preferences_editor(on_db_reset: Callable[[], None] | None = None) -> wx.PreferencesEditor:
+def create_preferences_editor(
+    on_db_reset: Callable[[], None] | None = None,
+    is_ai_running: Callable[[], bool] | None = None,
+) -> wx.PreferencesEditor:
     """Create and return a wx.PreferencesEditor with all preference pages.
 
     Args:
         on_db_reset: Optional callback when database is reset
+        is_ai_running: Optional callback to check if AI batch is running
 
     Returns:
         wx.PreferencesEditor instance
     """
     editor = wx.PreferencesEditor("Greeting Cards")
     editor.AddPage(GeneralPreferencesPage())
-    editor.AddPage(AdvancedPreferencesPage(on_db_reset=on_db_reset))
+    editor.AddPage(AdvancedPreferencesPage(on_db_reset=on_db_reset, is_ai_running=is_ai_running))
     return editor

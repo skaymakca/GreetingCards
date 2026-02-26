@@ -168,9 +168,6 @@ class ProgressDialog(wx.Dialog):
         if message:
             self._label.SetLabel(message)
 
-        # Force UI update
-        wx.SafeYield()
-
     def finish(self) -> None:
         """Close the dialog."""
         self.EndModal(wx.ID_OK)

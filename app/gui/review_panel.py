@@ -245,6 +245,7 @@ class DetailPanel(wx.Panel):
         self._current_card: CardResult | None = None
         self._suppress_events = False
         self._candidate_map: dict[str, int] = {}
+        self._ai_buttons_locked = False
 
         self._build_ui()
         self.clear()
@@ -415,7 +416,7 @@ class DetailPanel(wx.Panel):
         has_error = bool(card.error)
         self._name_text.Enable(not has_error)
         self._remove_family_check.Enable(not has_error)
-        self._ai_btn.Enable(not has_error)
+        self._ai_btn.Enable(not has_error and not self._ai_buttons_locked)
         self._remove_btn.Enable(True)
 
         # Update file locations section
@@ -487,8 +488,14 @@ class DetailPanel(wx.Panel):
         self._suppress_events = False
 
     def enable_ai_button(self, enable: bool) -> None:
-        """Enable or disable the AI analyze button."""
-        self._ai_btn.Enable(enable)
+        """Enable or disable the AI analyze button. Respects the locked state."""
+        self._ai_btn.Enable(enable and not self._ai_buttons_locked)
+
+    def set_ai_buttons_locked(self, locked: bool) -> None:
+        """Lock or unlock AI buttons during batch processing."""
+        self._ai_buttons_locked = locked
+        if locked:
+            self._ai_btn.Enable(False)
 
     def _on_name_char(self, event: wx.KeyEvent) -> None:
         """Block filesystem-invalid characters from being typed."""
@@ -580,6 +587,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         self._selected_card_ids: list[int] = []
         self._cards_by_id: dict[int, CardResult] = {}
         self._drag_highlight = False
+        self._ai_buttons_locked = False
 
         self._build_ui()
         self.Bind(wx.EVT_PAINT, self._on_paint_highlight)
@@ -833,7 +841,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         else:
             remove_item.Enable(False)
 
-        if self._on_ai_analyze:
+        if self._on_ai_analyze and not self._ai_buttons_locked:
             on_ai_analyze = self._on_ai_analyze
             _captured = list(cards)
             menu.Bind(wx.EVT_MENU, lambda evt: on_ai_analyze(_captured), ai_item)
@@ -1073,3 +1081,8 @@ class ReviewPanelMasterDetail(wx.Panel):
         if self.selected_card_id == card_id:
             enable = state == "normal"
             self._detail_panel.enable_ai_button(enable)
+
+    def set_ai_buttons_locked(self, locked: bool) -> None:
+        """Lock or unlock all AI buttons during batch processing."""
+        self._ai_buttons_locked = locked
+        self._detail_panel.set_ai_buttons_locked(locked)

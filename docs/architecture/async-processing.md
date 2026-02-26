@@ -28,7 +28,7 @@ ProcessPoolExecutor for PDF rendering + OCR, asyncio for AI batch, and thread-sa
 ## PDF Processing: ProcessPoolExecutor
 
 ### Entry Point: `_start_processing()`
-1. Shows ProgressDialog, begins busy cursor
+1. Shows inline progress strip, begins busy cursor
 2. Spawns `threading.Thread(target=_process_cards)`
 
 ### Worker: `process_pdf_worker()` in `app/core/pdf_worker.py`
@@ -148,13 +148,23 @@ wx.CallAfter(lambda: wx.MessageBox(msg, "AI Error", ...))
 
 Note: Python 3.14 clears `except` variables after the block exits. If using lambdas, capture the message string before the lambda.
 
-## Progress Dialog
+## Inline Progress Strip
 
-Both PDF processing and AI batch use `ProgressDialog`:
-- Created on main thread before spawning worker
-- Updated via `wx.CallAfter` from background thread
-- `_progress.finish()` called when complete
-- Guard: `not self._progress.IsBeingDeleted()` prevents updates after dialog is destroyed
+Both PDF processing and AI batch use an inline progress strip (a thin `wx.Panel` between the toolbar and the content area):
+- Built once in `_build_progress_strip()`, hidden by default
+- `_show_progress_strip(total, title)` shows it with gauge range and title
+- `_update_progress_strip(current, message)` called via `wx.CallAfter` from background threads
+- `_hide_progress_strip()` hides and re-layouts when complete
+- The main window stays fully interactive during batch operations (non-modal)
+
+### Disabled Controls During AI Batch
+
+When `_ai_batch_running` is `True`, these controls are disabled:
+- **Toolbar:** Reload, AI Analyze, Rename, Clear (via `_enable_action_tools`)
+- **Menu items:** Mirrored automatically from toolbar state (via `_on_update_action_menu`)
+- **Detail panel AI button:** Locked via `ReviewPanelMasterDetail.set_ai_buttons_locked(True)`
+- **Context menu AI item:** Checks `_ai_buttons_locked` flag when building the menu
+- **Settings Reset DB:** Checks `is_ai_running` callback and shows a warning if running
 
 ## Gotchas
 
@@ -162,5 +172,5 @@ Both PDF processing and AI batch use `ProgressDialog`:
 - **Module-level worker:** `process_pdf_worker` is defined at module level in `app/core/pdf_worker.py`, not as a method. Methods can't be pickled for multiprocessing.
 - **Semaphore(3):** Limits concurrent API calls. Combined with `_RateLimitGate` for cross-request coordination — the gate pauses all tasks before semaphore acquisition when a rate limit is hit.
 - **asyncio.run() in thread:** Creates a new event loop in the background thread. The main thread's wx event loop is separate.
-- **Busy cursor:** `wx.BeginBusyCursor()` / `wx.EndBusyCursor()` bracket processing. Guard: `if wx.IsBusy()` prevents double-end.
+- **Busy cursor:** `wx.BeginBusyCursor()` / `wx.EndBusyCursor()` bracket PDF processing. Guard: `if wx.IsBusy()` prevents double-end. AI batch does not use busy cursor (window stays interactive).
 - **tesserocr C API:** Uses tesserocr (C++ bindings to Tesseract) instead of pytesseract (CLI wrapper). No binary path resolution needed — tesserocr links directly to libtesseract. Tessdata (`eng.traineddata`) is bundled in `_build/runtime_content/tessdata/` (dev) / `_runtime_content/tessdata/` (bundle) and the path is set deterministically via `_get_tessdata_path()` in `ocr_engine.py` (uses `sys._MEIPASS` when bundled, project root in dev).

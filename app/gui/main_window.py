@@ -27,7 +27,7 @@ from app.core.database import (
 from app.core.pdf_worker import process_pdf_worker
 from app.core.renamer import build_rename_plan, execute_rename_plan
 from app.gui.api_key_dialog import show_api_key_dialog
-from app.gui.dialogs import CompletionDialog, ErrorListDialog, ProgressDialog, RenameConfirmDialog
+from app.gui.dialogs import CompletionDialog, ErrorListDialog, RenameConfirmDialog
 from app.gui.filter_sidebar import FilterSidebar
 from app.gui.html_viewer import build_help_menu
 from app.gui.icons import load_menu_icon, load_sf_symbol
@@ -222,7 +222,7 @@ class MainWindow:
 
         # Preferences editor (lazy-init)
         self._prefs_editor: wx.PreferencesEditor | None = None
-        self._progress: ProgressDialog | None = None
+        self._ai_batch_running = False
         self._last_reload_time: float = 0.0  # monotonic timestamp for reload cooldown
 
         # Debounce timer for name edits (fires _refresh_display after user stops typing)
@@ -383,7 +383,10 @@ class MainWindow:
     def _show_preferences(self) -> None:
         """Show the native macOS Preferences editor."""
         if self._prefs_editor is None:
-            self._prefs_editor = create_preferences_editor(on_db_reset=self._clear_all)
+            self._prefs_editor = create_preferences_editor(
+                on_db_reset=self._clear_all,
+                is_ai_running=lambda: self._ai_batch_running,
+            )
         self._prefs_editor.Show(self._frame)
 
     def _show_about(self) -> None:
@@ -420,10 +423,68 @@ class MainWindow:
         self._drop_overlay = _DropOverlay(self._panel)
         main_sizer.Add(self._drop_overlay, 1, wx.EXPAND)
 
+        # Inline progress strip at the bottom (hidden by default)
+        self._build_progress_strip()
+        main_sizer.Add(self._progress_strip, 0, wx.EXPAND)
+
         # Initially show overlay, hide content
         self._content_splitter.Hide()
 
         self._panel.SetSizer(main_sizer)
+
+    def _build_progress_strip(self) -> None:
+        """Build inline progress strip (hidden by default)."""
+        strip = wx.Panel(self._panel)
+
+        outer = wx.BoxSizer(wx.VERTICAL)
+        row = wx.BoxSizer(wx.HORIZONTAL)
+
+        self._progress_label = wx.StaticText(strip, label="")
+        self._progress_label.SetFont(Font.SMALL())
+        self._progress_label.SetForegroundColour(Color.TEXT_PRIMARY)
+        row.Add(self._progress_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 12)
+
+        row.AddStretchSpacer()
+
+        self._progress_gauge = wx.Gauge(strip, range=100, size=(200, -1))
+        row.Add(self._progress_gauge, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
+
+        self._progress_count = wx.StaticText(strip, label="")
+        self._progress_count.SetFont(Font.SMALL())
+        self._progress_count.SetForegroundColour(Color.TEXT_SECONDARY)
+        row.Add(self._progress_count, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 20)
+
+        outer.Add(row, 0, wx.EXPAND | wx.TOP | wx.BOTTOM, 4)
+
+        strip.SetSizer(outer)
+        strip.Hide()
+        self._progress_strip = strip
+
+    def _show_progress_strip(self, total: int, title: str) -> None:
+        """Show progress strip with given total and title."""
+        self._progress_gauge.SetRange(total)
+        self._progress_gauge.SetValue(0)
+        self._progress_label.SetLabel(title)
+        self._progress_count.SetLabel(f"0 / {total}")
+        # Refresh colors for current appearance mode
+        self._progress_label.SetForegroundColour(Color.TEXT_PRIMARY)
+        self._progress_count.SetForegroundColour(Color.TEXT_SECONDARY)
+        self._progress_strip.Show()
+        self._panel.Layout()
+
+    def _update_progress_strip(self, current: int, message: str) -> None:
+        """Update progress strip gauge and labels."""
+        if not self._progress_strip.IsShown():
+            return
+        self._progress_gauge.SetValue(current)
+        self._progress_label.SetLabel(message)
+        total = self._progress_gauge.GetRange()
+        self._progress_count.SetLabel(f"{current} / {total}")
+
+    def _hide_progress_strip(self) -> None:
+        """Hide progress strip."""
+        self._progress_strip.Hide()
+        self._panel.Layout()
 
     # noinspection DuplicatedCode
     def _build_toolbar(self) -> None:
@@ -1003,10 +1064,9 @@ class MainWindow:
         # Don't clear existing cards (multi-load architecture - accumulate!)
         # Note: Card deduplication happens in _process_cards during processing
 
-        # Show progress dialog
+        # Show progress strip
         total = len(self._processing_files)
-        self._progress = ProgressDialog(self._frame, "Processing Cards", total)
-        self._progress.Show()
+        self._show_progress_strip(total, "Processing Cards...")
 
         # Start background thread
         thread = threading.Thread(target=self._process_cards, daemon=True)
@@ -1104,9 +1164,8 @@ class MainWindow:
         return card
 
     def _update_processing_progress(self, current: int, total: int, name: str) -> None:
-        """Update progress dialog from background thread."""
-        if self._progress is not None and not self._progress.IsBeingDeleted():
-            self._progress.update_progress(current, f"Processing: {name}")
+        """Update progress strip from background thread."""
+        self._update_progress_strip(current, f"Processing: {name}")
 
     def _derive_folders(self) -> list[Path]:
         """Derive sorted unique source folders from all loaded cards."""
@@ -1118,8 +1177,7 @@ class MainWindow:
         if wx.IsBusy():
             wx.EndBusyCursor()
 
-        if self._progress is not None and not self._progress.IsBeingDeleted():
-            self._progress.finish()
+        self._hide_progress_strip()
 
         # Update folder section FIRST (creates checkboxes before _refresh_display populates counts)
         self._sidebar.update_folders(self._derive_folders())
@@ -1302,6 +1360,8 @@ class MainWindow:
 
     def _on_ai_request(self, card_id: int) -> None:
         """Handle AI button click for single card — delegates to batch path."""
+        if self._ai_batch_running:
+            return
         card = self._get_card_by_id(card_id)
         if not card or card.error:
             return
@@ -1389,17 +1449,15 @@ class MainWindow:
             return
 
         self._ai_target_cards = cards
+        self._ai_batch_running = True
 
-        # Show busy cursor
-        wx.BeginBusyCursor()
+        # Disable toolbar tools and lock AI buttons in review panel
+        self._enable_action_tools(reload=False, ai=False, rename=False, clear=False)
+        self._review_panel.set_ai_buttons_locked(True)
 
-        # Disable toolbar tools
-        self._enable_action_tools(reload=False, ai=False, rename=False)
-
-        # Show progress
+        # Show progress strip
         total = len(cards)
-        self._progress = ProgressDialog(self._frame, title, total)
-        self._progress.Show()
+        self._show_progress_strip(total, title)
 
         # Start background thread
         thread = threading.Thread(target=self._run_ai_all, daemon=True)
@@ -1512,23 +1570,19 @@ class MainWindow:
         self, completed: int, total: int, filename: str, card_id: int, card: CardResult | None
     ) -> None:
         """Update progress during batch AI processing."""
-        if self._progress is not None and not self._progress.IsBeingDeleted():
-            self._progress.update_progress(completed, f"AI analyzing: {filename}")
+        self._update_progress_strip(completed, f"AI analyzing: {filename}")
 
         if card is not None:
             self._review_panel.update_card(card_id, card)
 
     def _ai_all_complete(self, errors: list[tuple[str, str]], auth_aborted: bool = False) -> None:
         """Called when batch AI processing completes."""
-        # End busy cursor
-        if wx.IsBusy():
-            wx.EndBusyCursor()
+        self._ai_batch_running = False
+        self._hide_progress_strip()
 
-        if self._progress is not None and not self._progress.IsBeingDeleted():
-            self._progress.finish()
-
-        # Enable toolbar tools
-        self._enable_action_tools(reload=True, ai=True, rename=True)
+        # Unlock AI buttons in review panel and re-enable toolbar tools
+        self._review_panel.set_ai_buttons_locked(False)
+        self._enable_action_tools(reload=True, ai=True, rename=True, clear=True)
 
         # Update sidebar counts and cards table (confidence levels may have changed)
         self._refresh_display()
@@ -1653,6 +1707,8 @@ class MainWindow:
         self._sidebar.refresh_colors()
         self._preview_panel.refresh_colors()
         self._review_panel.refresh_colors()
+        self._progress_label.SetForegroundColour(Color.TEXT_PRIMARY)
+        self._progress_count.SetForegroundColour(Color.TEXT_SECONDARY)
 
         # Repaint all windows; call refresh_colors() on those that support it
         # noinspection PyArgumentList
