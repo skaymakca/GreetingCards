@@ -2196,3 +2196,162 @@ class TestExtendSelection:
         panel.select_prev_card()
         panel._on_selection_changed(Mock())
         assert panel.selected_card_id == 1
+
+
+# ============================================================================
+# load_cards preserve_selection
+# ============================================================================
+
+
+class TestLoadCardsPreserveSelection:
+    """Tests for load_cards(preserve_selection=...) selection restoration."""
+
+    def test_preserve_false_clears_selection(self, parent_frame, mock_cards):
+        """Default preserve_selection=False always clears selection."""
+        on_select = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, Mock())
+        panel.load_cards(mock_cards)
+        _select_card(panel, 1)
+        on_select.reset_mock()
+
+        panel.load_cards(mock_cards, preserve_selection=False)
+
+        assert panel._selected_card_ids == []
+        assert panel.selected_card_id is None
+
+    def test_preserve_true_single_card_restored(self, parent_frame, mock_cards):
+        """Single selected card is re-selected after reload."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+        _select_card(panel, 2)
+
+        panel.load_cards(mock_cards, preserve_selection=True)
+
+        assert panel._selected_card_ids == [2]
+
+    def test_preserve_true_detail_panel_updated(self, parent_frame, mock_cards):
+        """Detail panel shows the re-selected card's data after reload."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+        _select_card(panel, 1)
+
+        panel.load_cards(mock_cards, preserve_selection=True)
+
+        # Detail panel should have the card loaded
+        assert panel._detail_panel._current_card is not None
+        assert panel._detail_panel._current_card.id == 1
+
+    def test_preserve_true_on_select_callback_fires(self, parent_frame, mock_cards):
+        """_on_select callback fires with restored card ID for single selection."""
+        on_select = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, Mock())
+        panel.load_cards(mock_cards)
+        _select_card(panel, 3)
+        on_select.reset_mock()
+
+        panel.load_cards(mock_cards, preserve_selection=True)
+
+        on_select.assert_called_with(3)
+
+    def test_preserve_true_card_removed_clears(self, parent_frame, mock_cards):
+        """If the selected card is no longer in the list, selection clears."""
+        on_select = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, Mock())
+        panel.load_cards(mock_cards)
+        _select_card(panel, 3)
+        on_select.reset_mock()
+
+        # Reload without card 3
+        remaining = [c for c in mock_cards if c.id != 3]
+        panel.load_cards(remaining, preserve_selection=True)
+
+        assert panel._selected_card_ids == []
+        on_select.assert_called_with(None)
+
+    def test_preserve_true_multi_select_restored(self, parent_frame, mock_cards):
+        """Multiple selected cards are all re-selected."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+
+        # Multi-select cards 1 and 3
+        panel._list_ctrl.UnselectAll()
+        panel._list_ctrl.Select(panel._model.get_item_by_card_id(1))
+        panel._list_ctrl.Select(panel._model.get_item_by_card_id(3))
+        panel._on_selection_changed(Mock())
+        assert len(panel._selected_card_ids) == 2
+
+        panel.load_cards(mock_cards, preserve_selection=True)
+
+        assert sorted(panel._selected_card_ids) == [1, 3]
+
+    def test_preserve_true_multi_select_clears_detail(self, parent_frame, mock_cards):
+        """Multi-select restore clears detail panel (matches existing behavior)."""
+        on_select = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, Mock())
+        panel.load_cards(mock_cards)
+
+        # Multi-select cards 1 and 2
+        panel._list_ctrl.UnselectAll()
+        panel._list_ctrl.Select(panel._model.get_item_by_card_id(1))
+        panel._list_ctrl.Select(panel._model.get_item_by_card_id(2))
+        panel._on_selection_changed(Mock())
+        on_select.reset_mock()
+
+        panel.load_cards(mock_cards, preserve_selection=True)
+
+        # Multi-select: on_select called with None (detail clears)
+        on_select.assert_called_with(None)
+
+    def test_preserve_true_partial_multi_select(self, parent_frame, mock_cards):
+        """If 2 of 3 selected cards survive, only those 2 are re-selected."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+
+        # Multi-select cards 1, 2, 3
+        panel._list_ctrl.UnselectAll()
+        panel._list_ctrl.Select(panel._model.get_item_by_card_id(1))
+        panel._list_ctrl.Select(panel._model.get_item_by_card_id(2))
+        panel._list_ctrl.Select(panel._model.get_item_by_card_id(3))
+        panel._on_selection_changed(Mock())
+
+        # Reload without card 2
+        remaining = [c for c in mock_cards if c.id != 2]
+        panel.load_cards(remaining, preserve_selection=True)
+
+        assert sorted(panel._selected_card_ids) == [1, 3]
+
+    def test_preserve_true_all_multi_gone_clears(self, parent_frame, mock_cards):
+        """If all multi-selected cards are gone, full clear."""
+        on_select = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, Mock())
+        panel.load_cards(mock_cards)
+
+        # Multi-select cards 1 and 2
+        panel._list_ctrl.UnselectAll()
+        panel._list_ctrl.Select(panel._model.get_item_by_card_id(1))
+        panel._list_ctrl.Select(panel._model.get_item_by_card_id(2))
+        panel._on_selection_changed(Mock())
+        on_select.reset_mock()
+
+        # Reload with neither card
+        remaining = [c for c in mock_cards if c.id not in (1, 2)]
+        panel.load_cards(remaining, preserve_selection=True)
+
+        assert panel._selected_card_ids == []
+        on_select.assert_called_with(None)
+
+    def test_preserve_true_empty_selection_noop(self, parent_frame, mock_cards):
+        """If nothing was selected, preserve_selection=True still clears cleanly."""
+        on_select = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, Mock())
+        panel.load_cards(mock_cards)
+
+        # Ensure nothing selected
+        panel._list_ctrl.UnselectAll()
+        panel._selected_card_ids = []
+        on_select.reset_mock()
+
+        panel.load_cards(mock_cards, preserve_selection=True)
+
+        assert panel._selected_card_ids == []
+        on_select.assert_called_with(None)

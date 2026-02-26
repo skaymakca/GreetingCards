@@ -2833,3 +2833,47 @@ class TestAiRetryBehavior:
         assert mock_analyze.call_count == 1
         assert auth_failed.is_set()
         assert len(errors) == 1
+
+
+# ============================================================================
+# _has_active_filters
+# ============================================================================
+
+
+class TestHasActiveFilters:
+    """Tests for MainWindow._has_active_filters()."""
+
+    def test_no_filters_returns_false(self, wx_app):
+        """Default state (all/all_folders, empty search) returns False."""
+        window = MainWindow()
+        try:
+            assert window._has_active_filters() is False
+        finally:
+            window._frame.Destroy()
+
+    def test_search_active_returns_true(self, wx_app):
+        """Non-empty search text returns True."""
+        window = MainWindow()
+        try:
+            window._search_ctrl.SetValue("smith")
+            assert window._has_active_filters() is True
+        finally:
+            window._frame.Destroy()
+
+    def test_category_filter_active_returns_true(self, wx_app):
+        """Category filter not 'all' returns True."""
+        window = MainWindow()
+        try:
+            window._current_category_filters = ["high"]
+            assert window._has_active_filters() is True
+        finally:
+            window._frame.Destroy()
+
+    def test_folder_filter_active_returns_true(self, wx_app):
+        """Folder filter not 'all_folders' returns True."""
+        window = MainWindow()
+        try:
+            window._current_folder_filters = ["/some/folder"]
+            assert window._has_active_filters() is True
+        finally:
+            window._frame.Destroy()

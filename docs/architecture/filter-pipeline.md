@@ -101,6 +101,17 @@ Both category and folder sections share the same click logic (`_handle_check`):
 
 Manual name edits trigger `_on_name_change` which updates the card immediately but delays `_refresh_display` by 1 second via `_edit_debounce_timer`. Each keystroke restarts the timer. This prevents expensive filter recalculation on every character.
 
+## Selection Preservation
+
+`_refresh_display()` passes `preserve_selection=not self._has_active_filters()` to `load_cards()`. When no search, category filter, or folder filter is active, the previously selected card(s) are re-selected by ID after the list reloads. This prevents the user from losing their place when editing a card triggers a debounce refresh.
+
+- **No filters active:** Selection is restored (card is guaranteed to be in the unfiltered list unless removed)
+- **Filters active:** Selection clears (the card may have moved out of the filtered set, e.g., confidence changed from HIGH to MANUAL while filtering by HIGH)
+- **Card removed:** Falls back to clearing selection
+- **Multi-select:** All surviving cards are re-selected; detail panel clears (matches existing multi-select behavior)
+
+`_has_active_filters()` checks: search text non-empty, category filter not "all", or folder filter not "all_folders".
+
 ## Gotchas
 
 - **Tests must sync both axes:** When testing filters, set both `_current_category_filters` / `_current_folder_filters` on the main window AND call `sidebar.set_category_filters()` / `set_folder_filters()` to keep checkbox state aligned.

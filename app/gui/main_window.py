@@ -654,10 +654,18 @@ class MainWindow:
             self._sidebar.update_category_counts(folder_filtered)
             self._sidebar.update_folder_counts(display_cards)
 
-        self._review_panel.load_cards(display_cards)
+        self._review_panel.load_cards(display_cards, preserve_selection=not self._has_active_filters())
 
         # Toggle overlay vs content area based on whether any cards exist at all
         self._set_empty_state(not self._cards_by_hash)
+
+    def _has_active_filters(self) -> bool:
+        """Return True if any search or filter is narrowing the view."""
+        if self._search_ctrl.GetValue().strip():
+            return True
+        if "all" not in self._current_category_filters:
+            return True
+        return "all_folders" not in self._current_folder_filters
 
     def _get_search_filtered_cards(self) -> list[CardResult]:
         """Get cards filtered by search query only."""

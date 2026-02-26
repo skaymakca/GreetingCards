@@ -917,14 +917,42 @@ class ReviewPanelMasterDetail(wx.Panel):
 
     # Public API (matches original ReviewPanel)
 
-    def load_cards(self, cards: list[CardResult]) -> None:
-        """Load cards into the panel, resetting selection."""
+    def load_cards(self, cards: list[CardResult], *, preserve_selection: bool = False) -> None:
+        """Load cards into the panel, optionally preserving selection.
+
+        Args:
+            cards: Cards to display.
+            preserve_selection: If True, re-select previously selected cards by ID
+                after reloading. Falls back to clearing if none survive.
+        """
+        prev_ids = list(self._selected_card_ids) if preserve_selection else []
+
         self._cards_by_id = {card.id: card for card in cards}
         self._model.load_cards(cards)
         n = len(cards)
         self._count_label.SetLabel(f"{n} {'Card' if n == 1 else 'Cards'} \u24d8")
 
-        # Always reset selection — list content changes invalidate prior selection
+        # Try to restore previous selection
+        if prev_ids:
+            restored = False
+            for card_id in prev_ids:
+                item = self._model.get_item_by_card_id(card_id)
+                if item.IsOk():
+                    self._list_ctrl.Select(item)
+                    restored = True
+            if restored:
+                self._selected_card_ids = [cid for cid in prev_ids if cid in self._cards_by_id]
+                if len(self._selected_card_ids) == 1:
+                    card = self._cards_by_id.get(self._selected_card_ids[0])
+                    if card:
+                        self._detail_panel.load_card(card)
+                        self._on_select(card.id)
+                        return
+                # Multi-select or edge case: clear detail, keep list selection
+                self._on_select(None)
+                return
+
+        # No preservation or no cards survived — clear everything
         self._list_ctrl.UnselectAll()
         self._selected_card_ids = []
         self._detail_panel.clear()
