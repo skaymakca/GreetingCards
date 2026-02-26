@@ -11,6 +11,7 @@ Usage (bundled):
 
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -155,6 +156,8 @@ def _mock_errors() -> list[tuple[str, str]]:
 # Launcher window
 # ---------------------------------------------------------------------------
 
+_MOCK_NAMES = ["Johnson", "Williams", "Garcia", "Smith", "(no name)", "O'Brien-Takahashi", "Van der Berg", "Davis"]
+
 
 # noinspection PyProtectedMember,PyMethodMayBeStatic
 class VisualTestFrame(wx.Frame):
@@ -163,7 +166,7 @@ class VisualTestFrame(wx.Frame):
     def __init__(self) -> None:
         Color.refresh()
         mode = "Dark" if appearance.is_dark_mode() else "Light"
-        super().__init__(None, title=f"Visual Test Harness — {mode} Mode", size=wx.Size(420, 1060))
+        super().__init__(None, title=f"Visual Test Harness — {mode} Mode", size=wx.Size(780, 700))
 
         self._cards = _mock_cards()
         self._prefs_editor: wx.PreferencesEditor | None = None
@@ -174,18 +177,105 @@ class VisualTestFrame(wx.Frame):
         # Progress demo state (set by _open_progress before use)
         self._progress_count: int = 0
 
-        panel = wx.Panel(self)
+        # Appearance auto-cycle timer
+        self._appearance_timer: wx.Timer | None = None
+
+        # Progress strip demo state
+        self._strip_timer: wx.Timer | None = None
+        self._strip_count: int = 0
+
+        root_panel = wx.Panel(self)
+        root_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Mode indicator (full width header)
+        self._mode_label = wx.StaticText(root_panel, label=f"Current Mode: {mode}")
+        self._mode_label.SetFont(Font.TITLE())
+        root_sizer.Add(self._mode_label, 0, wx.ALL, 12)
+
+        root_sizer.Add(wx.StaticLine(root_panel), 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
+
+        # Two-column layout
+        columns_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        left_panel = self._build_left_column(root_panel)
+        columns_sizer.Add(left_panel, 0, wx.EXPAND)
+
+        # Vertical divider
+        columns_sizer.Add(wx.StaticLine(root_panel, style=wx.LI_VERTICAL), 0, wx.EXPAND | wx.TOP | wx.BOTTOM, 8)
+
+        right_scrolled = self._build_right_column(root_panel)
+        columns_sizer.Add(right_scrolled, 1, wx.EXPAND)
+
+        root_sizer.Add(columns_sizer, 1, wx.EXPAND)
+
+        root_panel.SetSizer(root_sizer)
+
+        # Wire up appearance observer
+        appearance.start_observer(self._on_appearance_changed)
+        self.Bind(wx.EVT_CLOSE, self._on_close)
+        self.Centre()
+        self.Show()
+
+    # -- Layout builders --
+
+    def _build_left_column(self, parent: wx.Window) -> wx.Panel:
+        """Build the left column with test harness controls."""
+        panel = wx.Panel(parent, size=wx.Size(280, -1))
+        panel.SetMinSize(wx.Size(280, -1))
         sizer = wx.BoxSizer(wx.VERTICAL)
 
-        # Mode indicator
-        self._mode_label = wx.StaticText(panel, label=f"Current Mode: {mode}")
-        self._mode_label.SetFont(Font.TITLE())
-        sizer.Add(self._mode_label, 0, wx.ALL, 12)
+        header = wx.StaticText(panel, label="Test Harness Controls")
+        header.SetFont(Font.HEADING())
+        sizer.Add(header, 0, wx.ALL, 12)
+
+        # -- Appearance section --
+        h_app = wx.StaticText(panel, label="Appearance")
+        h_app.SetFont(Font.HEADING())
+        sizer.Add(h_app, 0, wx.LEFT | wx.RIGHT | wx.TOP, 12)
+
+        btn_toggle = wx.Button(panel, label="Toggle Light/Dark")
+        btn_toggle.Bind(wx.EVT_BUTTON, self._toggle_appearance)
+        sizer.Add(btn_toggle, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 8)
+
+        self._btn_auto_cycle = wx.Button(panel, label="Start Auto-Cycle (5s)")
+        self._btn_auto_cycle.Bind(wx.EVT_BUTTON, self._toggle_auto_cycle)
+        sizer.Add(self._btn_auto_cycle, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP | wx.BOTTOM, 8)
 
         sizer.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
 
+        # -- Progress Strip section --
+        h_strip = wx.StaticText(panel, label="Progress Strip")
+        h_strip.SetFont(Font.HEADING())
+        sizer.Add(h_strip, 0, wx.LEFT | wx.RIGHT | wx.TOP, 12)
+
+        note = wx.StaticText(panel, label="Requires Main Window with mock cards")
+        note.SetFont(Font.SMALL())
+        note.SetForegroundColour(Color.TEXT_SECONDARY)
+        sizer.Add(note, 0, wx.LEFT | wx.RIGHT | wx.TOP, 8)
+
+        btn_show = wx.Button(panel, label="Show Progress Strip")
+        btn_show.Bind(wx.EVT_BUTTON, self._show_progress)
+        sizer.Add(btn_show, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 8)
+
+        btn_cycle = wx.Button(panel, label="Cycle Progress (15s loop)")
+        btn_cycle.Bind(wx.EVT_BUTTON, self._cycle_progress)
+        sizer.Add(btn_cycle, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 8)
+
+        btn_hide = wx.Button(panel, label="Hide Progress Strip")
+        btn_hide.Bind(wx.EVT_BUTTON, self._hide_progress)
+        sizer.Add(btn_hide, 0, wx.EXPAND | wx.ALL, 8)
+
+        panel.SetSizer(sizer)
+        return panel
+
+    def _build_right_column(self, parent: wx.Window) -> wx.ScrolledWindow:
+        """Build the right scrolled column with app widget exercisers."""
+        scrolled = wx.ScrolledWindow(parent, style=wx.VSCROLL)
+        scrolled.SetScrollRate(0, 10)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
         # Section: Dialogs
-        h1 = wx.StaticText(panel, label="Dialogs")
+        h1 = wx.StaticText(scrolled, label="Dialogs")
         h1.SetFont(Font.HEADING())
         sizer.Add(h1, 0, wx.ALL, 12)
 
@@ -198,14 +288,14 @@ class VisualTestFrame(wx.Frame):
             ("Settings / Preferences", self._open_settings),
         ]
         for label, handler in buttons:
-            btn = wx.Button(panel, label=label)
+            btn = wx.Button(scrolled, label=label)
             btn.Bind(wx.EVT_BUTTON, handler)
             sizer.Add(btn, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
 
-        sizer.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
+        sizer.Add(wx.StaticLine(scrolled), 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
 
         # Section: HTML Viewers
-        h2 = wx.StaticText(panel, label="HTML Viewers")
+        h2 = wx.StaticText(scrolled, label="HTML Viewers")
         h2.SetFont(Font.HEADING())
         sizer.Add(h2, 0, wx.ALL, 12)
 
@@ -215,14 +305,14 @@ class VisualTestFrame(wx.Frame):
             ("Licenses Viewer", self._open_licenses),
         ]
         for label, handler in viewer_buttons:
-            btn = wx.Button(panel, label=label)
+            btn = wx.Button(scrolled, label=label)
             btn.Bind(wx.EVT_BUTTON, handler)
             sizer.Add(btn, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
 
-        sizer.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
+        sizer.Add(wx.StaticLine(scrolled), 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
 
         # Section: Panels (embedded in standalone frames)
-        h3 = wx.StaticText(panel, label="Panels (standalone)")
+        h3 = wx.StaticText(scrolled, label="Panels (standalone)")
         h3.SetFont(Font.HEADING())
         sizer.Add(h3, 0, wx.ALL, 12)
 
@@ -232,33 +322,33 @@ class VisualTestFrame(wx.Frame):
             ("Review Panel (with mock cards)", self._open_review_panel),
         ]
         for label, handler in panel_buttons:
-            btn = wx.Button(panel, label=label)
+            btn = wx.Button(scrolled, label=label)
             btn.Bind(wx.EVT_BUTTON, handler)
             sizer.Add(btn, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
 
-        sizer.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
+        sizer.Add(wx.StaticLine(scrolled), 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
 
         # Section: Full main window
-        h4 = wx.StaticText(panel, label="Full App")
+        h4 = wx.StaticText(scrolled, label="Full App")
         h4.SetFont(Font.HEADING())
         sizer.Add(h4, 0, wx.ALL, 12)
 
-        btn_main = wx.Button(panel, label="Main Window (empty)")
+        btn_main = wx.Button(scrolled, label="Main Window (empty)")
         btn_main.Bind(wx.EVT_BUTTON, self._open_main_window)
         sizer.Add(btn_main, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
 
-        btn_main_data = wx.Button(panel, label="Main Window (with mock cards)")
+        btn_main_data = wx.Button(scrolled, label="Main Window (with mock cards)")
         btn_main_data.Bind(wx.EVT_BUTTON, self._open_main_window_with_data)
         sizer.Add(btn_main_data, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
 
-        sizer.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
+        sizer.Add(wx.StaticLine(scrolled), 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
 
         # Section: Notifications (shown in sidebar of "with mock cards" window)
-        h5 = wx.StaticText(panel, label="Notifications")
+        h5 = wx.StaticText(scrolled, label="Notifications")
         h5.SetFont(Font.HEADING())
         sizer.Add(h5, 0, wx.ALL, 12)
 
-        note = wx.StaticText(panel, label="Opens in the last 'Main Window (with mock cards)' launched.")
+        note = wx.StaticText(scrolled, label="Opens in the last 'Main Window (with mock cards)' launched.")
         note.SetFont(Font.SMALL())
         note.SetForegroundColour(Color.TEXT_SECONDARY)
         sizer.Add(note, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
@@ -274,17 +364,12 @@ class VisualTestFrame(wx.Frame):
             ("Dismiss notification", self._notify_dismiss),
         ]
         for label, handler in notify_buttons:
-            btn = wx.Button(panel, label=label)
+            btn = wx.Button(scrolled, label=label)
             btn.Bind(wx.EVT_BUTTON, handler)
             sizer.Add(btn, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 4)
 
-        panel.SetSizer(sizer)
-
-        # Wire up appearance observer
-        appearance.start_observer(self._on_appearance_changed)
-        self.Bind(wx.EVT_CLOSE, self._on_close)
-        self.Centre()
-        self.Show()
+        scrolled.SetSizer(sizer)
+        return scrolled
 
     def _on_appearance_changed(self) -> None:
         Color.refresh()
@@ -301,8 +386,103 @@ class VisualTestFrame(wx.Frame):
             window.Update()
 
     def _on_close(self, event: wx.CloseEvent) -> None:
+        if self._appearance_timer is not None:
+            self._appearance_timer.Stop()
+        if self._strip_timer is not None:
+            self._strip_timer.Stop()
+        if hasattr(self, "_progress_timer"):
+            self._progress_timer.Stop()
         appearance.stop_observer()
         event.Skip()
+
+    # -- Appearance controls --
+
+    def _toggle_appearance(self, _evt: wx.CommandEvent) -> None:
+        subprocess.run(
+            [
+                "osascript",
+                "-e",
+                'tell application "System Events" to tell appearance preferences to set dark mode to not dark mode',
+            ],
+            check=True,
+        )
+
+    def _toggle_auto_cycle(self, _evt: wx.CommandEvent) -> None:
+        if self._appearance_timer is not None:
+            self._appearance_timer.Stop()
+            self._appearance_timer = None
+            self._btn_auto_cycle.SetLabel("Start Auto-Cycle (5s)")
+        else:
+            self._appearance_timer = wx.Timer(self)
+            self.Bind(wx.EVT_TIMER, self._on_appearance_cycle_tick, self._appearance_timer)
+            self._appearance_timer.Start(5000)
+            self._btn_auto_cycle.SetLabel("Stop Auto-Cycle")
+
+    def _on_appearance_cycle_tick(self, _evt: wx.TimerEvent) -> None:
+        subprocess.run(
+            [
+                "osascript",
+                "-e",
+                'tell application "System Events" to tell appearance preferences to set dark mode to not dark mode',
+            ],
+            check=True,
+        )
+
+    # -- Progress strip controls --
+
+    def _get_main_window(self):
+        """Return the last main window, or show a warning if None."""
+        if self._last_main_window is None:
+            wx.MessageBox(
+                "Launch 'Main Window (with mock cards)' first.",
+                "No Main Window",
+                wx.OK | wx.ICON_WARNING,
+            )
+            return None
+        return self._last_main_window
+
+    def _show_progress(self, _evt: wx.CommandEvent) -> None:
+        window = self._get_main_window()
+        if window:
+            window._show_progress_strip(8, "Processing Cards...")
+
+    def _cycle_progress(self, _evt: wx.CommandEvent) -> None:
+        window = self._get_main_window()
+        if window is None:
+            return
+        # Reset and start/restart the cycle timer
+        self._strip_count = 0
+        if self._strip_timer is not None:
+            self._strip_timer.Stop()
+        window._show_progress_strip(8, "Processing Cards...")
+        self._strip_timer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self._on_strip_tick, self._strip_timer)
+        self._strip_timer.Start(1875)  # 15s / 8 cards
+
+    def _on_strip_tick(self, _evt: wx.TimerEvent) -> None:
+        window = self._last_main_window
+        # Guard: if main window destroyed, stop timer
+        if window is None or not window:
+            if self._strip_timer is not None:
+                self._strip_timer.Stop()
+                self._strip_timer = None
+            return
+        self._strip_count += 1
+        if self._strip_count <= 8:
+            name = _MOCK_NAMES[self._strip_count - 1]
+            window._update_progress_strip(self._strip_count, f"Processing: {name}")
+        else:
+            # Loop: reset and re-show
+            self._strip_count = 0
+            window._show_progress_strip(8, "Processing Cards...")
+
+    def _hide_progress(self, _evt: wx.CommandEvent) -> None:
+        if self._strip_timer is not None:
+            self._strip_timer.Stop()
+            self._strip_timer = None
+        window = self._get_main_window()
+        if window:
+            window._hide_progress_strip()
 
     # -- Dialog launchers --
 
@@ -418,11 +598,11 @@ class VisualTestFrame(wx.Frame):
         _noop = print  # Avoid verbose lambda type issues
         panel = ReviewPanelMasterDetail(
             frame,
-            on_select=lambda card: _noop(f"Selected: {card}"),
-            on_ai_request=lambda card: _noop(f"AI request: {card}"),
-            on_name_change=lambda card, name: _noop(f"Name change: {name}"),
-            on_card_edited=lambda card: _noop(f"Card edited: {card}"),
-            on_remove=lambda card: _noop(f"Remove: {card}"),
+            on_select=lambda card_id: _noop(f"Selected: {card_id}"),
+            on_ai_request=lambda card_id: _noop(f"AI request: {card_id}"),
+            on_name_change=lambda card_id, name: _noop(f"Name change: {card_id} -> {name}"),
+            on_card_edited=lambda card_id: _noop(f"Card edited: {card_id}"),
+            on_remove=lambda file_hash: _noop(f"Remove: {file_hash}"),
         )
         panel.load_cards(self._cards)
         sizer = wx.BoxSizer(wx.VERTICAL)
