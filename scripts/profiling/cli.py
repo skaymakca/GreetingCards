@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import argparse
-import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 from rich.console import Console
+from rich.progress import BarColumn, Progress, TaskProgressColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
 
 from scripts.helpers import script_output_dir
@@ -17,6 +17,7 @@ from scripts.profiling.report import generate_report
 from scripts.profiling.stages import (
     StageResult,
     profile_ai,
+    profile_database,
     profile_full_parallel,
     profile_full_sequential,
     profile_hash,
@@ -33,8 +34,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("corpus", type=Path, help="Directory containing PDF files")
     parser.add_argument("--limit", type=int, default=None, help="Max number of PDFs to process")
-    parser.add_argument("--with-ai", action="store_true", help="Include AI analysis stage (costs API credits)")
-    parser.add_argument("--ai-only", action="store_true", help="Profile only AI analysis (skip OCR stages)")
     parser.add_argument("--no-open", action="store_true", help="Don't open output folder when done")
     return parser
 
@@ -68,14 +67,28 @@ def _check_tessdata() -> bool:
     return tessdata_path.exists()
 
 
-def _check_api_key() -> bool:
-    """Check if Anthropic API key is configured."""
-    return bool(os.environ.get("ANTHROPIC_API_KEY"))
+_PIPELINE_DESCRIPTION = """\
+Pipeline stages (each profiled independently, then as full pipeline):
+
+  Individual stages:
+    1. Hash         SHA-256 of each PDF file
+    2. Database     save_raw_ocr + reprocess_candidates + get_card_state
+    3. Render       PDF pages to images (PyMuPDF)
+    4. OCR          Tesseract on rendered images
+    5. Names        Regex/dictionary name extraction from OCR text
+    6. AI (mock)    Simulated API latency (100ms sleep x concurrency=3)
+
+  Full pipeline:
+    7. Sequential   process_pdf_worker() per PDF, one at a time
+    8. Parallel     Same, via ProcessPoolExecutor across CPU cores
+
+  AI analysis uses a mock (no API calls). The full-pipeline stages
+  use a fresh database so timings are not affected by earlier stages.\
+"""
 
 
 def _print_summary(results: list[StageResult], console: Console) -> None:
     """Print a Rich summary table to the console."""
-    # Find sequential time for speedup display
     seq_result = next((r for r in results if r.name == "Full (sequential)"), None)
     par_result = next((r for r in results if r.name == "Full (parallel)"), None)
 
@@ -114,9 +127,10 @@ def _fmt_seconds(seconds: float) -> str:
 
 
 def main(argv: list[str] | None = None) -> None:
+    invocation = " ".join(sys.argv)
     parser = build_parser()
     args = parser.parse_args(argv)
-    console = Console()
+    console = Console(highlight=False)
 
     # Validate corpus
     corpus_path: Path = args.corpus.expanduser().resolve()
@@ -130,18 +144,15 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(1)
 
     # Pre-flight checks
-    ai_mode = args.with_ai or args.ai_only
-    if not args.ai_only and not _check_tessdata():
+    if not _check_tessdata():
         console.print("[red]Error:[/red] tessdata not found. Run [bold]make tessdata[/bold] first.")
-        sys.exit(1)
-
-    if ai_mode and not _check_api_key():
-        console.print("[red]Error:[/red] ANTHROPIC_API_KEY not set. Required for --with-ai / --ai-only.")
         sys.exit(1)
 
     console.print(f"Profiling [bold]{len(pdfs)}[/bold] PDFs from {corpus_path}")
     if args.limit:
         console.print(f"[dim](limited to {args.limit} files)[/dim]")
+    console.print()
+    console.print(_PIPELINE_DESCRIPTION)
     console.print()
 
     # Database isolation
@@ -151,45 +162,53 @@ def main(argv: list[str] | None = None) -> None:
         _isolate_database(tmp_dir)
 
         with script_output_dir("profiling") as output_dir:
+            # Create subdirectories
+            profiles_dir = output_dir / "profiles"
+            data_dir = output_dir / "data"
+            profiles_dir.mkdir()
+            data_dir.mkdir()
+
             results: list[StageResult] = []
 
-            if args.ai_only:
-                # AI-only mode: render images (unprofiled) then profile AI
-                console.print("[dim]Rendering images for AI analysis...[/dim]")
-                from app.core.pdf_renderer import render_all_pages
+            progress = Progress(
+                TextColumn("  {task.description:<20s}"),
+                BarColumn(),
+                TaskProgressColumn(),
+                TimeElapsedColumn(),
+            )
 
-                images_by_path = {}
-                for pdf in pdfs:
-                    images_by_path[pdf] = render_all_pages(pdf, dpi=200)
+            with progress:
+                # Individual stage profiling
+                results.append(profile_hash(pdfs, profiles_dir, progress))
+                results.append(profile_database(pdfs, profiles_dir, progress))
 
-                results.append(profile_ai(images_by_path, output_dir))
-            else:
-                # Full profiling pipeline
-                results.append(profile_hash(pdfs, output_dir))
-
-                render_result, images_by_path = profile_render(pdfs, output_dir)
+                render_result, images_by_path = profile_render(pdfs, profiles_dir, progress)
                 results.append(render_result)
 
-                ocr_result, texts_by_path = profile_ocr(images_by_path, output_dir)
+                ocr_result, texts_by_path = profile_ocr(images_by_path, profiles_dir, progress)
                 results.append(ocr_result)
 
-                results.append(profile_names(texts_by_path, output_dir))
+                results.append(profile_names(texts_by_path, profiles_dir, progress))
+                results.append(profile_ai(images_by_path, profiles_dir, progress))
 
-                seq_result = profile_full_sequential(pdfs, output_dir)
+                # Reset DB so sequential/parallel runs do full processing
+                # (profile_database already populated entries that would cause OCR to be skipped)
+                db_path.unlink(missing_ok=True)
+                _isolate_database(tmp_dir)
+
+                # Full pipeline profiling
+                seq_result = profile_full_sequential(pdfs, profiles_dir, progress)
                 results.append(seq_result)
 
-                results.append(profile_full_parallel(pdfs, output_dir, seq_result.total_seconds, db_path))
+                results.append(profile_full_parallel(pdfs, profiles_dir, progress, seq_result.total_seconds, db_path))
 
-                if args.with_ai:
-                    results.append(profile_ai(images_by_path, output_dir))
-
-            # Generate HTML report
+            # Generate reports and data files
             report_path = generate_report(
                 results=results,
                 corpus_path=corpus_path,
                 pdf_count=len(pdfs),
                 output_dir=output_dir,
-                with_ai=ai_mode,
+                invocation=invocation,
             )
 
             # Console summary
