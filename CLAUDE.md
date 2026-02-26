@@ -143,6 +143,7 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `app/gui/review_panel.py`                                                      | `docs/architecture/review-panel.md`                                   |
 | `app/gui/main_window.py` (processing, AI, threads)                             | `docs/architecture/async-processing.md`                               |
 | `app/core/ai_analyzer.py`                                                      | `docs/architecture/async-processing.md`                               |
+| `app/core/family_name/*.py`                                                    | `docs/architecture/name-pipeline.md`                                  |
 | `app/core/name_extractor.py`, `app/core/name_formatting.py`                    | `docs/architecture/name-pipeline.md`                                  |
 | `app/core/database.py`, `app/core/renamer.py`                                  | `docs/architecture/name-pipeline.md`                                  |
 | `app/gui/help_dialog.py`, `app/core/help_builder.py`                           | `docs/architecture/help-system.md`                                    |
@@ -183,11 +184,11 @@ When adding or removing tests, update the test count in `README.md` (search for 
 - **Language:** Plain language — describe *what changed*, not *how*
 - **Grouping:** Each `major.minor` version gets its own `## ` entry with date; patch versions fold into their parent
 - **When to update:** When making user-visible changes
-- **Build step:** `make html-content` regenerates HTML from the Markdown; `make app` runs this automatically
+- **Build step:** `make content` regenerates HTML from the Markdown; `make app` runs this automatically
 
 ### License Sync
 
-After adding or updating packages with `uv add`, run `make licenses-sync` to update the license registry and extract new license texts. Then run `make html-content` to regenerate the HTML.
+After adding or updating packages with `uv add`, run `make licenses-sync` to update the license registry and extract new license texts. Then run `make content` to regenerate the HTML.
 
 ---
 

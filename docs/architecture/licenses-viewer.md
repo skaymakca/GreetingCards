@@ -87,7 +87,7 @@ Available override fields: `display`, `category`, `license_type`, `homepage`, `n
 8. Applies config overrides (display name, category, etc.)
 9. Writes `_build/licenses/registry.toml` with full resolved state
 
-**Phase 2: `generate_licenses_html()`** (entry point for `make html-content`):
+**Phase 2: `generate_licenses_html()`** (entry point for `make content`):
 
 1. Calls `sync_registry()` to ensure registry is up to date
 2. Reads app license from repo root `LICENSE` file
@@ -192,10 +192,10 @@ The viewer reads from `_build/runtime_content/html/licenses/` (dev mode) or `_ME
 
 ```makefile
 licenses-sync:  # Sync registry from uv.lock + .dist-info → _build/licenses/
-html-content:   # generates help, changelog, and licenses HTML → _build/runtime_content/html/
+content:   # generates help, changelog, and licenses HTML → _build/runtime_content/html/
 ```
 
-Both `run` and `app` targets depend on `html-content`. `make licenses-sync` still exists as a standalone target for use after `uv add`.
+Both `run` and `app` targets depend on `content`. `make licenses-sync` still exists as a standalone target for use after `uv add`.
 
 ## Gotchas
 

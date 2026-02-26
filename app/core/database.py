@@ -16,37 +16,6 @@ from app.models.card import CandidateInfo, CardState
 
 logger = logging.getLogger(__name__)
 
-# Names that should not be treated as family names
-_FILTER_OUT = {
-    # AI fallbacks
-    "unknown",
-    # Card printing services
-    "snapfish",
-    "shutterfly",
-    "minted",
-    # Generic card words (not surnames)
-    "family",
-    "holiday",
-    "holidays",
-    "greeting",
-    "greetings",
-    "card",
-    "cards",
-    # Holiday names
-    "christmas",
-    "hanukkah",
-    "new year",
-    "thanksgiving",
-    "easter",
-    "diwali",
-    "eid",
-    "kwanzaa",
-    "chinese new year",
-    "season's greetings",
-    "valentine's day",
-    "fourth of july",
-}
-
 
 class Base(DeclarativeBase):
     pass
@@ -318,32 +287,6 @@ def compute_file_hash(path: Path) -> str:
     return h.hexdigest()
 
 
-def _clean_and_filter_names(names: list[str]) -> list[str]:
-    """Apply unified cleaning and filtering to a list of names.
-
-    This is the ONLY place where cleaning/filtering is applied.
-    Raw data is persisted in the DB and cleaned on load.
-    """
-    from app.core.ai_analyzer import clean_family_name
-    from app.core.name_formatting import deparameterize_name, sanitize_for_filename
-
-    cleaned = []
-    for name in names:
-        if not name:
-            continue
-        # Apply comprehensive cleaning
-        clean_name = clean_family_name(name)
-        # Remove plural 's' (Smiths → Smith)
-        clean_name = deparameterize_name(clean_name)
-        # Replace filesystem-invalid characters (cross-platform)
-        clean_name = sanitize_for_filename(clean_name)
-        # Filter out unwanted values
-        if clean_name and clean_name.lower() not in _FILTER_OUT:
-            cleaned.append(clean_name)
-
-    return cleaned
-
-
 # --- Public API ---
 
 # Sort order for candidates dropdown
@@ -389,12 +332,12 @@ def _add_candidate_inline(session: Session, file_hash: str, family_name: str, me
     Used by reprocess_candidates_from_raw() to keep everything in one transaction.
     Returns the candidate ID, or 0 if the name is filtered out.
     """
-    from app.core.name_formatting import smart_title_case
+    from app.core.family_name import clean_and_filter_family_names, smart_title_case_family_name
 
-    cleaned = _clean_and_filter_names([family_name])
+    cleaned = clean_and_filter_family_names([family_name])
     if not cleaned:
         return 0
-    clean_name = smart_title_case(cleaned[0])
+    clean_name = smart_title_case_family_name(cleaned[0])
 
     existing = session.query(Candidate).filter_by(file_hash=file_hash, family_name=clean_name, method=method).first()
     if existing:
@@ -414,15 +357,15 @@ def add_candidate(file_hash: str, family_name: str, method: str, confidence: str
     Applies cleaning/filtering and smart title case to the name before storing.
     Returns 0 if name is filtered out.
     """
-    from app.core.name_formatting import smart_title_case
+    from app.core.family_name import clean_and_filter_family_names, smart_title_case_family_name
 
     # Clean the name first
-    cleaned = _clean_and_filter_names([family_name])
+    cleaned = clean_and_filter_family_names([family_name])
     if not cleaned:
         return 0  # Filtered out
 
     # Apply smart title case
-    clean_name = smart_title_case(cleaned[0])
+    clean_name = smart_title_case_family_name(cleaned[0])
 
     with _session_scope() as session:
         _ensure_card_exists(session, file_hash)

@@ -77,7 +77,7 @@ If `title` is omitted, it defaults to the slug converted to title case.
 
 ## Generation Pipeline
 
-`help_builder.py` generates HTML via `make html-content`:
+`help_builder.py` generates HTML via `make content`:
 
 1. Reads Markdown files from `content/html/help/`, parses numeric order from filenames
 2. Validates numbering (contiguous 1..N, no gaps, no duplicates)

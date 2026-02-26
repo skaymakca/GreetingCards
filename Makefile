@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev run app build clean icon html-content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-core test-gui tessdata pyright mypy lint lint-fix format format-check security check pycharm-inspect show-scripts visual-test visual-test-app
+.PHONY: help setup setup-dev run app build clean icon content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-core test-gui tessdata pyright mypy lint lint-fix format format-check security check pycharm-inspect show-scripts visual-test visual-test-app
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -33,7 +33,7 @@ $(TESSDATA_ENG):
 	@mkdir -p $(TESSDATA_DIR)
 	@curl -sL -o $@ $(TESSDATA_URL)
 
-run: html-content tessdata ## Run the app from source
+run: content tessdata ## Run the app from source
 	uv run python main.py
 
 test: ## Run all tests
@@ -102,11 +102,12 @@ build: app ## Build the macOS .app bundle (alias for 'app')
 
 LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister
 
-html-content: ## Generate all HTML content (help, changelog, licenses)
-	@mkdir -p _build/runtime_content/html/common/css _build/runtime_content/html/common/js _build/runtime_content/images
+content: ## Generate runtime content (HTML, data files, images)
+	@mkdir -p _build/runtime_content/html/common/css _build/runtime_content/html/common/js _build/runtime_content/images _build/runtime_content/data
 	@cp content/html/common/css/viewer.css _build/runtime_content/html/common/css/viewer.css
 	@cp content/html/common/js/search.js _build/runtime_content/html/common/js/search.js
 	@cp content/images/drop-target-background.png _build/runtime_content/images/drop-target-background.png
+	@cp content/data/preserved_family_names.txt _build/runtime_content/data/preserved_family_names.txt
 	uv run python -c "from app.core.help_builder import generate_help_html; generate_help_html()"
 	uv run python -c "from app.core.changelog import generate_changelog_html; generate_changelog_html()"
 	uv run python -c "from app.core.license_discovery import generate_licenses_html; generate_licenses_html()"
@@ -114,7 +115,7 @@ html-content: ## Generate all HTML content (help, changelog, licenses)
 licenses-sync: ## Sync license registry from uv.lock + .dist-info
 	uv run python -c "from app.core.license_discovery import sync_registry; sync_registry()"
 
-app: icon html-content tessdata ## Build the macOS .app bundle
+app: icon content tessdata ## Build the macOS .app bundle
 	@$(LSREGISTER) -u "dist/Greeting Cards.app" 2>/dev/null || true
 	uv run pyinstaller --workpath _build/pyinstaller_build -y "Greeting Cards.spec"
 	@rm -rf "dist/Greeting Cards"
@@ -185,10 +186,10 @@ tag: ## Create git tag vX.Y.Z from current version
 tag-push: ## Push all tags to remote
 	@git push --tags && echo "Tags pushed"
 
-visual-test: html-content ## Run visual test harness from source
+visual-test: content ## Run visual test harness from source
 	uv run python scripts/visual_test.py
 
-visual-test-app: icon html-content tessdata ## Build and run visual test harness as .app bundle (logs visible)
+visual-test-app: icon content tessdata ## Build and run visual test harness as .app bundle (logs visible)
 	uv run pyinstaller --workpath _build/pyinstaller_build -y "scripts/Visual Test.spec"
 	@rm -rf "dist/Visual Test"
 	"dist/Visual Test.app/Contents/MacOS/Visual Test"

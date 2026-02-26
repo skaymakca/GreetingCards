@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.core.database import _clean_and_filter_names
+from app.core.family_name import clean_and_filter_family_names
 from app.core.name_formatting import _INVALID_FS_CHARS, INVALID_FILENAME_CHARS, sanitize_for_filename
 from app.models.card import CardResult, Confidence
 
@@ -83,7 +83,7 @@ class TestCleanAndFilterIntegration:
 
     def test_slash_in_name_cleaned(self):
         """A slash from AI extraction should be replaced with dash."""
-        result = _clean_and_filter_names(["Smith/Jones"])
+        result = clean_and_filter_family_names(["Smith/Jones"])
         assert len(result) == 1
         assert "/" not in result[0]
         assert "-" in result[0]

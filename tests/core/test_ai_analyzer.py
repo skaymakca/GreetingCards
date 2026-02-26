@@ -15,79 +15,10 @@ from app.core.ai_analyzer import (
     _image_to_b64,
     _normalize_images,
     _parse_response,
-    _strip_plural,
     analyze_card_with_ai_async,
-    clean_family_name,
     format_ai_error,
     parse_retry_after,
 )
-
-
-class TestStripPlural:
-    """Tests for _strip_plural()."""
-
-    @pytest.mark.parametrize(
-        "input_name,expected",
-        [
-            ("Walshes", "Walsh"),
-            ("Marches", "March"),
-            ("Foxes", "Fox"),
-            ("Smiths", "Smith"),
-            ("Ross", "Ross"),  # Ends in 'ss' — no strip
-            ("Clarks", "Clarks"),  # -rks not in strip set
-            ("Richards", "Richard"),  # -rds: name[-3:-1]="rd" is in strip set
-            ("Stewarts", "Stewart"),  # -rts → strip
-            ("", ""),
-            ("Ab", "Ab"),  # Too short
-        ],
-    )
-    def test_strip_plural(self, input_name, expected):
-        assert _strip_plural(input_name) == expected
-
-    def test_short_names_unchanged(self):
-        assert _strip_plural("As") == "As"
-
-
-class TestCleanFamilyName:
-    """Tests for clean_family_name()."""
-
-    def test_removes_the(self):
-        assert "The" not in clean_family_name("The Smith")
-
-    def test_removes_family(self):
-        assert "Family" not in clean_family_name("Smith Family")
-
-    def test_removes_from_prefix(self):
-        assert "From:" not in clean_family_name("From: Smith")
-
-    def test_removes_quotes(self):
-        result = clean_family_name('"Smith"')
-        assert '"' not in result
-        assert result == "Smith"
-
-    def test_removes_smart_quotes(self):
-        result = clean_family_name("\u201cSmith\u201d")
-        assert result == "Smith"
-
-    def test_strips_punctuation(self):
-        result = clean_family_name("Smith.,!")
-        assert result == "Smith"
-
-    def test_removes_colon_prefix(self):
-        assert clean_family_name("Name: Smith") == "Smith"
-
-    def test_empty_string(self):
-        assert clean_family_name("") == ""
-
-    def test_strips_plural(self):
-        assert clean_family_name("Smiths") == "Smith"
-
-    def test_sent_by_prefix(self):
-        assert "Sent by:" not in clean_family_name("Sent by: Smith")
-
-    def test_full_cleanup(self):
-        result = clean_family_name('The "Smiths" Family')
-        assert result == "Smith"
 
 
 class TestFormatAiError:

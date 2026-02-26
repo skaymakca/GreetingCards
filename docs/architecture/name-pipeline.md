@@ -2,7 +2,7 @@
 
 OCR extraction through AI analysis, cleaning, formatting, database storage, and rename.
 
-**Key files:** `app/core/name_extractor.py`, `app/core/ai_analyzer.py`, `app/core/name_formatting.py`, `app/core/database.py`, `app/core/renamer.py`
+**Key files:** `app/core/family_name/` (cleaning, formatting, data lookup), `app/core/name_extractor.py`, `app/core/ai_analyzer.py`, `app/core/name_formatting.py` (filename sanitization only), `app/core/database.py`, `app/core/renamer.py`
 
 ## Pipeline Overview
 
@@ -27,10 +27,9 @@ PDF file
     ├─ Candidate processing:
     │   reprocess_candidates_from_raw(hash)
     │   └─ For each raw result:
-    │       clean_family_name() → strip quotes, prefixes, greeting words
-    │       deparameterize_name() → remove plural 's'
-    │       sanitize_for_filename() → replace invalid chars
-    │       smart_title_case() → proper capitalization
+    │       clean_and_filter_family_names()  → clean + filter pipeline
+    │       sanitize_for_filename()          → replace invalid chars
+    │       smart_title_case_family_name()   → proper capitalization
     │       → INSERT INTO candidates (deduplicated by name+method)
     │   └─ Auto-select best candidate (AI high > OCR high)
     │
@@ -75,22 +74,52 @@ Sends all page images as base64 PNG content blocks, followed by a text prompt re
 - Lines > 50 chars or containing skip words (shows, appears, page, etc.) → filtered
 - First valid line → `best_name`, remaining → `alternates`
 
-## Name Cleaning
+## Family Name Package (`app/core/family_name/`)
 
-Cleaning is applied **only when loading from DB** (in `database._clean_and_filter_names`), not at extraction time. This lets raw data be re-processed with improved logic.
+Consolidated package for all family name cleaning, formatting, and data lookup. Three submodules:
 
-### Cleaning Chain
+### Data Layer (`data.py`)
+
+Two container classes with `__contains__` support for `in` checks:
+
+**`PreservedFamilyNames`** — Census-sourced surnames ending in 's' that should not be de-pluralized (e.g., "Morales", "Williams", "Jones"). Loaded from `content/data/preserved_family_names.txt` (12,762 names).
+
+- `normalize(name)` — static method: lowercase + strip all non-alpha chars. Used for both loading and lookup so "O'Brien", "OBRIEN", "o brien" all match the same key.
+- `__contains__` — normalized lookup: `"Morales" in preserved_family_names` → `True`
+- `load()` — classmethod: reads text file via `get_runtime_content_path()`, returns empty set if file missing.
+
+**`FilteredNames`** — Blocklist of generic words that should never be a family name: card services ("snapfish", "shutterfly", "minted"), generic words ("family", "holiday", "greeting"), and holiday names ("christmas", "new year", "season's greetings"). Uses the same `normalize()` for case/punctuation-insensitive matching.
+
+Module-level singletons are created at first import:
+```python
+preserved_family_names: PreservedFamilyNames = PreservedFamilyNames.load()
+filtered_names: FilteredNames = FilteredNames()
 ```
-clean_family_name()        # Remove "The ", " Family", quotes, "From: ", "Sent by: "
-    → deparameterize_name() # "Smiths" → "Smith" (smart plural removal)
-    → sanitize_for_filename() # Replace \/:*?"<>| with "-"
-    → Filter against blocklist # generic words, services, holidays
-    → smart_title_case()    # Final formatting
-```
 
-### smart_title_case (`name_formatting.py`)
+### Cleaning (`cleaning.py`)
 
-Hierarchical formatting: split by spaces → check particles → split by apostrophes → split by hyphens → apply rules.
+**`strip_plural_family_name(name)`** — Smart de-pluralization:
+1. Check `preserved_family_names` — if present, return unchanged (Census names like "Morales")
+2. Short names (≤2 chars) or names ending in "ss" — return unchanged
+3. Sibilant endings (shes, ches, xes, zes) — strip "es"
+4. Consonant-pair endings (ths, wns, rts) — strip "s"
+5. Otherwise — return unchanged
+
+**`clean_family_name(name)`** — Remove noise:
+- Strip "The ", " Family", quotes, "From: ", "Sent by: ", colon prefixes
+- Apply `strip_plural_family_name()`
+
+**`strip_family_name_punctuation(name)`** — Clean OCR artifacts: strip leading/trailing punctuation, collapse whitespace, remove quotes.
+
+**`clean_and_filter_family_names(names)`** — Full pipeline:
+1. `clean_family_name()` on each name
+2. `sanitize_for_filename()` to replace filesystem-invalid chars
+3. Filter against `filtered_names` blocklist
+4. Drop empty results
+
+### Formatting (`formatting.py`)
+
+**`smart_title_case_family_name(name)`** — Proper capitalization with special rules:
 
 | Rule           | Example                                                |
 |----------------|--------------------------------------------------------|
@@ -100,6 +129,25 @@ Hierarchical formatting: split by spaces → check particles → split by apostr
 | Suffixes       | jr → Jr., sr → Sr., ii/iii/iv → II/III/IV              |
 | Hyphens        | smith-jones → Smith-Jones                              |
 | Apostrophes    | o'brien → O'Brien                                      |
+
+Hierarchical formatting: split by spaces → check particles → split by apostrophes → split by hyphens → apply rules.
+
+### Package `__init__.py`
+
+Re-exports all public API so callers import from `app.core.family_name`:
+```python
+from app.core.family_name import clean_and_filter_family_names
+from app.core.family_name import smart_title_case_family_name
+from app.core.family_name import preserved_family_names
+```
+
+## Filename Sanitization (`name_formatting.py`)
+
+After the family name package consolidation, `name_formatting.py` contains only:
+
+- **`sanitize_for_filename(name)`** — Replace `\/:*?"<>|` with `-`
+- **`INVALID_FILENAME_CHARS`** — frozenset of invalid chars
+- **`_INVALID_FS_CHARS`** — compiled regex for the same chars
 
 ## Database Storage (`database.py`)
 
@@ -126,6 +174,15 @@ raw_ai_results (file_hash FK, unique)
 - **`reprocess_candidates_from_raw()`:** Clears all candidates, reparses raw OCR+AI data with current cleaning logic, auto-selects best. Preserves manual entries.
 - **`get_card_state()`:** Resolves display name from either `selected_family_name` (manual) or `selected_candidate_id` (candidate lookup). Returns `CardState`.
 - **Candidate sort order:** AI results first, then OCR. Within each method: high > medium > low.
+
+### Candidate Processing
+
+When candidates are added (via `_add_candidate_inline` or `add_candidate`), the cleaning pipeline is called with lazy imports:
+```python
+from app.core.family_name import clean_and_filter_family_names, smart_title_case_family_name
+cleaned = clean_and_filter_family_names([family_name])
+clean_name = smart_title_case_family_name(cleaned[0])
+```
 
 ### Raw Data Separation
 Raw OCR text and AI responses are stored separately from cleaned candidates. This enables:
@@ -168,7 +225,9 @@ if new_path == file_path:
 
 ## Gotchas
 
-- **Raw vs cleaned:** Never apply cleaning at extraction time. Raw data goes to DB; cleaning happens in `_clean_and_filter_names` during `reprocess_candidates_from_raw`.
-- **smart_title_case order matters:** Particles must be checked before Mc/Mac rules. Suffixes must be checked before standard capitalization.
-- **`_strip_plural` in `ai_analyzer.py`:** A second plural-stripping function exists in `clean_family_name()` (conservative), separate from `deparameterize_name()` in `name_formatting.py`. Both are applied during the cleaning chain.
+- **Raw vs cleaned:** Never apply cleaning at extraction time. Raw data goes to DB; cleaning happens in `clean_and_filter_family_names` during `reprocess_candidates_from_raw`.
+- **smart_title_case_family_name order matters:** Particles must be checked before Mc/Mac rules. Suffixes must be checked before standard capitalization.
+- **Single plural-stripping path:** `strip_plural_family_name()` is the single entry point for de-pluralization, called inside `clean_family_name()`. No duplicate stripping paths.
 - **Candidate uniqueness:** `(file_hash, family_name, method)` is a unique constraint. Adding a duplicate returns the existing candidate's ID.
+- **Normalized lookup:** `PreservedFamilyNames` and `FilteredNames` both use `normalize()` (lowercase + strip non-alpha) for lookups. This means "O'Brien" matches "OBRIEN" matches "obrien" — intentional for robust matching.
+- **Mock patch paths:** Because `database.py` does `from app.core.family_name import ...`, mocks must target `app.core.family_name.clean_and_filter_family_names` (package level), not the submodule path.

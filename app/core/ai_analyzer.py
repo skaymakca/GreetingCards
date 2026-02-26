@@ -1,7 +1,6 @@
 import base64
 import io
 import logging
-import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -25,74 +24,6 @@ class AIResult:
 
     best_name: str = ""
     alternates: list[str] = field(default_factory=list)
-
-
-def _strip_plural(name: str) -> str:
-    """Strip plural 's' or 'es' from family names in obvious cases only.
-
-    Conservative approach to avoid breaking names that naturally end in 's'.
-
-    Examples:
-        "Walshes" -> "Walsh"   (strip 'es' after 'sh')
-        "Smiths" -> "Smith"     (strip 's' after 'th')
-        "Browns" -> "Brown"     (strip 's' after 'wn')
-        "Jones" -> "Jones"      (keep - natural name ending)
-        "Williams" -> "Williams" (keep - natural name ending)
-    """
-    if not name or len(name) < 3:
-        return name
-
-    # Strip "es" after sibilants (very safe plurals)
-    if name.endswith("shes") and len(name) > 4:
-        return name[:-2]  # "Walshes" -> "Walsh"
-    if name.endswith("ches") and len(name) > 4:
-        return name[:-2]  # "Marches" -> "March"
-    if name.endswith("xes") and len(name) > 3:
-        return name[:-2]  # "Foxes" -> "Fox"
-
-    # Strip single 's' after specific consonant patterns (safe plurals)
-    if (
-        len(name) >= 4
-        and name.endswith("s")
-        and not name.endswith("ss")
-        and name[-3:-1] in {"th", "wn", "ck", "rd", "rt", "nd", "nt"}
-    ):
-        return name[:-1]
-
-    return name
-
-
-def clean_family_name(name: str) -> str:
-    """Clean up a family name by removing common unwanted patterns and quotes.
-
-    This is the unified cleaning function applied AFTER loading from DB.
-    """
-    if not name:
-        return ""
-
-    name = name.strip()
-
-    # Remove common prefixes/suffixes
-    name = name.split(":", 1)[-1].strip()  # Remove "Page 1:" etc
-    name = name.replace("The ", "").replace(" Family", "")
-    name = name.replace("From: ", "").replace("Sent by: ", "")
-
-    # Remove ALL double quote variants (straight, curly, low-9, high-reversed-9)
-    # Covers: " (U+0022), \u201c (U+201C), \u201d (U+201D), \u201e (U+201E), \u201f (U+201F)
-    name = re.sub(r'["""\"\u201C\u201D\u201E\u201F]', "", name).strip()
-
-    # Remove single quotes only at the start/end (not in middle like O'Brien)
-    # Handles both straight and curly quotes: ' (U+0027), \u2018 (U+2018), \u2019 (U+2019)
-    name = re.sub(r"^[''\u2018\u2019]+", "", name).strip()  # Leading single quotes
-    name = re.sub(r"[''\u2018\u2019]+$", "", name).strip()  # Trailing single quotes
-
-    # Final aggressive strip of any remaining punctuation at the ends
-    name = name.strip('.,!;:-\u2014\u2013"\'"\u2018\u2019\u201c\u201d')
-
-    # Strip plural 's' or 'es' in obvious cases
-    name = _strip_plural(name)
-
-    return name
 
 
 def format_ai_error(error: Exception) -> str:
