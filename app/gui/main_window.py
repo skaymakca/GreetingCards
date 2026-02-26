@@ -453,8 +453,8 @@ class MainWindow:
 
             aqua = NSAppearance.appearanceNamed_("NSAppearanceNameAqua")
             self._progress_gauge.GetHandle().setAppearance_(aqua)
-        except Exception:
-            pass  # Fall back to native appearance if AppKit unavailable
+        except Exception:  # nosec B110 — intentional fallback if AppKit unavailable
+            pass
         row.Add(self._progress_gauge, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
 
         self._progress_count = wx.StaticText(strip, label="")

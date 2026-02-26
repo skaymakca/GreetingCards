@@ -61,6 +61,15 @@ class TestParseChangelog:
         versions = _parse_changelog("")
         assert versions == []
 
+    def test_list_to_paragraph_transition(self):
+        """Paragraph directly after a list item closes the <ul> (lines 99-100)."""
+        md = "## 0.1.0 (date)\n\n- Bullet item\nParagraph right after bullet.\n"
+        versions = _parse_changelog(md)
+        assert len(versions) == 1
+        assert "</ul>" in versions[0].body_html
+        assert "<p>" in versions[0].body_html
+        assert "Paragraph right after bullet." in versions[0].body_html
+
 
 class TestMinorKey:
     """Tests for _minor_key()."""

@@ -800,6 +800,52 @@ class TestClearAIResultsEdgeCases:
         assert state.confidence == "high"
 
 
+class TestClearAIResultsManualSkip:
+    """Test that clear_ai_results skips re-selection when manual name is set (line 267)."""
+
+    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    def test_manual_name_skips_ocr_reselection(self, mock_title, mock_clean):
+        """Card with both selected_family_name and AI selected_candidate_id skips re-selection."""
+        create_or_update_card("hash1")
+        ai_cid = add_candidate("hash1", "AiName", "ai", "high")
+        add_candidate("hash1", "OcrName", "ocr", "medium")
+        select_candidate("hash1", ai_cid)
+
+        # Directly set selected_family_name while keeping AI selected_candidate_id.
+        # This simulates a rare DB state where both are set.
+        with db_mod._session_scope() as session:
+            card = session.query(Card).filter_by(file_hash="hash1").first()
+            card.selected_family_name = "ManualName"
+
+        changed = clear_ai_results(["hash1"])
+
+        # Card was in affected_cards (had AI selected), but manual name skipped
+        # re-selection (line 267: continue). changed is NOT incremented for skipped cards.
+        state = get_card_state("hash1")
+        assert state.display_name == "ManualName"
+        assert state.method == "manual"
+        # selected_candidate_id should have been nulled (FK null step before delete)
+        assert state.selected_candidate_id is None
+        assert changed == 0
+
+
+class TestGetRawAiCorruptJson:
+    """Test get_raw_ai with corrupt JSON (line 558)."""
+
+    def test_corrupt_json_returns_none(self):
+        """Corrupt JSON in raw_ai_results returns None from get_raw_ai."""
+        create_or_update_card("hash1")
+        # Save valid AI result first, then corrupt the JSON directly
+        save_raw_ai("hash1", "Smith", [])
+        with db_mod._session_scope() as session:
+            ai_result = session.query(RawAIResult).filter_by(file_hash="hash1").first()
+            ai_result.raw_response = "not valid json{{"
+
+        result = get_raw_ai("hash1")
+        assert result is None
+
+
 class TestReprocessCandidatesEdgeCases:
     """Edge case tests for reprocess_candidates_from_raw()."""
 

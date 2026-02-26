@@ -85,6 +85,15 @@ class TestFamilyNameDatabase:
         assert FamilyNameDatabase.normalize("SMITH") == "smith"
         assert FamilyNameDatabase.normalize("") == ""
 
+    def test_normalize_unicode_special_chars(self):
+        """Unicode special characters (ß, ø, æ, etc.) are manually mapped (line 81)."""
+        assert FamilyNameDatabase.normalize("Straße") == "strasse"
+        assert FamilyNameDatabase.normalize("Ødegård") == "odegard"
+        assert FamilyNameDatabase.normalize("Æther") == "aether"
+        assert FamilyNameDatabase.normalize("Þorsson") == "thorsson"
+        assert FamilyNameDatabase.normalize("Đurić") == "duric"
+        assert FamilyNameDatabase.normalize("Łukasz") == "lukasz"
+
     def test_lookup_returns_entry(self):
         entries = {"obrien": _entry("O'Brien", 258, 118557, ("O Brien",))}
         db = FamilyNameDatabase(entries)
@@ -161,6 +170,13 @@ class TestFamilyNameDatabaseAlternates:
         db = FamilyNameDatabase(entries)
         assert db.related_forms("Unknown") == []
 
+    def test_related_forms_missing_entry_returns_empty(self):
+        """When display_index hits but _entries misses, return [] (line 147)."""
+        db = FamilyNameDatabase({})
+        # Manually inject a display_index entry pointing to a non-existent norm_key
+        db._display_index["ghost"] = ("Ghost", "nonexistent_norm_key")
+        assert db.related_forms("Ghost") == []
+
     def test_related_forms_empty_when_no_alternates(self):
         entries = {"smith": _entry("Smith", 1, 2442977)}
         db = FamilyNameDatabase(entries)
@@ -206,6 +222,33 @@ class TestFamilyNameDatabaseLoad:
         # O'Brien should have an alternate (e.g. "Obrien" from Census heuristic)
         obrien_alts = db.alternates("O'Brien")
         assert len(obrien_alts) > 0
+
+
+class TestFamilyNameDatabaseLoadEdgeCases:
+    """Edge case tests for FamilyNameDatabase.load()."""
+
+    def test_missing_file_returns_empty(self, tmp_path):
+        """Missing database file returns empty DB with a warning (lines 159-160)."""
+        from unittest.mock import patch
+
+        with patch("app.core.family_name.data.get_runtime_content_path", return_value=tmp_path / "nonexistent.tsv.gz"):
+            db = FamilyNameDatabase.load()
+        assert len(db) == 0
+
+    def test_malformed_lines_skipped(self, tmp_path):
+        """Lines with fewer than 4 TSV fields are skipped (line 169)."""
+        import gzip
+        from unittest.mock import patch
+
+        gz_path = tmp_path / "test.tsv.gz"
+        content = "# comment line\nmalformed\ttwo\tthree\nsmith\tSmith\t1\t2442977\n"
+        with gzip.open(gz_path, "wt", encoding="utf-8") as f:
+            f.write(content)
+
+        with patch("app.core.family_name.data.get_runtime_content_path", return_value=gz_path):
+            db = FamilyNameDatabase.load()
+        assert len(db) == 1
+        assert "Smith" in db
 
 
 class TestFamilyNameDatabaseSingleton:

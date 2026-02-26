@@ -184,3 +184,18 @@ class TestCleanAndFilterFamilyNames:
         assert len(result) == 1
         assert "/" not in result[0]
         assert "-" in result[0]
+
+    def test_known_name_with_alternates_adds_related_forms(self):
+        """Known DB name with alternates adds related forms as candidates (lines 124-125)."""
+        from app.core.family_name.data import family_name_db
+
+        # Find a name that has alternates in the production DB
+        # O'Brien is known to have alternates
+        alts = family_name_db.alternates("O'Brien")
+        if alts:
+            result = clean_and_filter_family_names(["O'Brien"])
+            assert "O'Brien" in result
+            # At least one alternate should be added
+            assert len(result) > 1
+            for alt in alts:
+                assert alt in result

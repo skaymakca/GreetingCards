@@ -38,6 +38,14 @@ class TestParseFrontmatter:
         assert metadata == {}
         assert body == ""
 
+    def test_empty_lines_in_frontmatter(self):
+        """Empty lines between metadata fields are skipped (line 63)."""
+        text = "---\ntitle: Home\n\norder: 1\n---\n\nBody text."
+        metadata, body = _parse_frontmatter(text)
+        assert metadata["title"] == "Home"
+        assert metadata["order"] == "1"
+        assert "Body text." in body
+
 
 class TestValidateNumbering:
     """Tests for _validate_numbering()."""
@@ -127,6 +135,56 @@ class TestGenerateHelpHtml:
         content_dir = tmp_path / "content" / "html"
         pages = _read_help_pages(content_dir)
         assert pages == []
+
+
+class TestGenerateHelpHtmlEntryPoint:
+    """Tests for the generate_help_html() public entry point (lines 156-228)."""
+
+    def _fake_project_root(self, tmp_path):
+        """Set up tmp_path as a fake project root and return a patcher."""
+        from unittest.mock import patch
+
+        import app.core.help_builder as hb
+
+        fake_file = str(tmp_path / "app" / "core" / "help_builder.py")
+        return patch.object(hb, "__file__", fake_file)
+
+    def test_generates_output_files(self, tmp_path):
+        """generate_help_html() creates index.html, pages/, and page_order.txt."""
+        help_dir = tmp_path / "content" / "html" / "help"
+        help_dir.mkdir(parents=True)
+        (help_dir / "1 - index.md").write_text("---\ntitle: Home\n---\n\nWelcome.", encoding="utf-8")
+        (help_dir / "2 - guide.md").write_text("---\ntitle: Guide\n---\n\nGuide text.", encoding="utf-8")
+
+        with self._fake_project_root(tmp_path):
+            generate_help_html()
+
+        output_dir = tmp_path / "_build" / "runtime_content" / "html" / "help"
+        assert output_dir.exists()
+        assert (output_dir / "index.html").exists()
+        assert (output_dir / "pages" / "guide.html").exists()
+        assert (output_dir / "page_order.txt").exists()
+
+        # Verify content
+        index_html = (output_dir / "index.html").read_text(encoding="utf-8")
+        assert "Welcome" in index_html
+
+        # Verify page_order
+        order = (output_dir / "page_order.txt").read_text(encoding="utf-8")
+        assert "index.html" in order
+        assert "pages/guide.html" in order
+
+    def test_no_pages_early_return(self, tmp_path):
+        """generate_help_html() returns early when no help pages found."""
+        help_dir = tmp_path / "content" / "html" / "help"
+        help_dir.mkdir(parents=True)
+
+        with self._fake_project_root(tmp_path):
+            generate_help_html()
+
+        # No output should be created
+        output_dir = tmp_path / "_build" / "runtime_content" / "html" / "help"
+        assert not output_dir.exists()
 
 
 class TestGenerateHelpHtmlIntegration:
