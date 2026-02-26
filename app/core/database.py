@@ -330,65 +330,87 @@ def _add_candidate_inline(session: Session, file_hash: str, family_name: str, me
     """Add a candidate within an existing session (no new session scope).
 
     Used by reprocess_candidates_from_raw() to keep everything in one transaction.
-    Returns the candidate ID, or 0 if the name is filtered out.
+    Returns the first candidate ID, or 0 if all names are filtered out.
+
+    When the cleaning pipeline returns multiple names (e.g. a recognized alternate
+    form plus its related forms), all are added as separate candidates.
     """
     from app.core.family_name import clean_and_filter_family_names, smart_title_case_family_name
 
     cleaned = clean_and_filter_family_names([family_name])
     if not cleaned:
         return 0
-    clean_name = smart_title_case_family_name(cleaned[0])
 
-    existing = session.query(Candidate).filter_by(file_hash=file_hash, family_name=clean_name, method=method).first()
-    if existing:
-        return existing.id
+    first_id = 0
+    for name in cleaned:
+        clean_name = smart_title_case_family_name(name)
 
-    candidate = Candidate(file_hash=file_hash, family_name=clean_name, method=method, confidence=confidence)
-    session.add(candidate)
-    session.flush()
-    return candidate.id
-
-
-# noinspection PyTypeChecker
-def add_candidate(file_hash: str, family_name: str, method: str, confidence: str) -> int:
-    """Add a name candidate (OCR or AI result). Returns candidate ID.
-
-    Automatically creates card if it doesn't exist.
-    Applies cleaning/filtering and smart title case to the name before storing.
-    Returns 0 if name is filtered out.
-    """
-    from app.core.family_name import clean_and_filter_family_names, smart_title_case_family_name
-
-    # Clean the name first
-    cleaned = clean_and_filter_family_names([family_name])
-    if not cleaned:
-        return 0  # Filtered out
-
-    # Apply smart title case
-    clean_name = smart_title_case_family_name(cleaned[0])
-
-    with _session_scope() as session:
-        _ensure_card_exists(session, file_hash)
-
-        # Check if candidate already exists
         existing = (
             session.query(Candidate).filter_by(file_hash=file_hash, family_name=clean_name, method=method).first()
         )
         if existing:
-            return existing.id
+            if not first_id:
+                first_id = existing.id
+            continue
 
-        # Add new candidate — catch IntegrityError from concurrent inserts
         candidate = Candidate(file_hash=file_hash, family_name=clean_name, method=method, confidence=confidence)
         session.add(candidate)
-        try:
-            session.flush()
-        except IntegrityError:
-            session.rollback()
+        session.flush()
+        if not first_id:
+            first_id = candidate.id
+
+    return first_id
+
+
+# noinspection PyTypeChecker
+def add_candidate(file_hash: str, family_name: str, method: str, confidence: str) -> int:
+    """Add a name candidate (OCR or AI result). Returns first candidate ID.
+
+    Automatically creates card if it doesn't exist.
+    Applies cleaning/filtering and smart title case to the name before storing.
+    When the cleaning pipeline returns multiple names (e.g. a recognized alternate
+    form plus its related forms), all are added as separate candidates.
+    Returns 0 if all names are filtered out.
+    """
+    from app.core.family_name import clean_and_filter_family_names, smart_title_case_family_name
+
+    cleaned = clean_and_filter_family_names([family_name])
+    if not cleaned:
+        return 0
+
+    first_id = 0
+    with _session_scope() as session:
+        _ensure_card_exists(session, file_hash)
+
+        for name in cleaned:
+            clean_name = smart_title_case_family_name(name)
+
             existing = (
                 session.query(Candidate).filter_by(file_hash=file_hash, family_name=clean_name, method=method).first()
             )
-            return existing.id if existing else 0
-        return candidate.id
+            if existing:
+                if not first_id:
+                    first_id = existing.id
+                continue
+
+            candidate = Candidate(file_hash=file_hash, family_name=clean_name, method=method, confidence=confidence)
+            session.add(candidate)
+            try:
+                session.flush()
+            except IntegrityError:
+                session.rollback()
+                existing = (
+                    session.query(Candidate)
+                    .filter_by(file_hash=file_hash, family_name=clean_name, method=method)
+                    .first()
+                )
+                if existing and not first_id:
+                    first_id = existing.id
+                continue
+            if not first_id:
+                first_id = candidate.id
+
+    return first_id
 
 
 def get_candidates(file_hash: str) -> list[CandidateInfo]:

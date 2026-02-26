@@ -2,7 +2,12 @@
 
 Handles Mc/Mac prefixes, particles (van, von, de …), apostrophes, hyphens,
 and suffixes (Jr., Sr., II, III …).
+
+When a family name database is available, database-backed display forms take
+priority over heuristic formatting.
 """
+
+from __future__ import annotations
 
 # --- Constants ---
 
@@ -151,6 +156,18 @@ def smart_title_case_family_name(name: str) -> str:
         return name
 
     words = name.split()
+
+    # Database-first: use canonical display form for single-token inputs
+    # that have no structural characters.  When the input already has
+    # apostrophes, hyphens, or spaces, it carries word-boundary info that
+    # the heuristic handles better than a DB form that may lose it
+    # (e.g. input "o'brian" → heuristic "O'Brian" > DB "Obrian").
+    if len(words) == 1 and "-" not in name and "'" not in name:
+        from app.core.family_name.data import family_name_db
+
+        display = family_name_db.display(name)
+        if display is not None:
+            return display
     result = []
 
     for i, word in enumerate(words):

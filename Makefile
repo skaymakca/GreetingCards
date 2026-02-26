@@ -107,7 +107,7 @@ content: ## Generate runtime content (HTML, data files, images)
 	@cp content/html/common/css/viewer.css _build/runtime_content/html/common/css/viewer.css
 	@cp content/html/common/js/search.js _build/runtime_content/html/common/js/search.js
 	@cp content/images/drop-target-background.png _build/runtime_content/images/drop-target-background.png
-	@cp content/data/preserved_family_names.txt _build/runtime_content/data/preserved_family_names.txt
+	@gzip -c content/data/family_name_database.tsv > _build/runtime_content/data/family_name_database.tsv.gz
 	uv run python -c "from app.core.help_builder import generate_help_html; generate_help_html()"
 	uv run python -c "from app.core.changelog import generate_changelog_html; generate_changelog_html()"
 	uv run python -c "from app.core.license_discovery import generate_licenses_html; generate_licenses_html()"
@@ -197,9 +197,8 @@ visual-test-app: icon content tessdata ## Build and run visual test harness as .
 show-scripts: ## Show available script invocations (does not run them)
 	@echo "Available scripts (run with uv run python -m scripts.<name>):"
 	@echo ""
-	@echo "  \033[36mgenerate_sample_cards\033[0m        Generate sample greeting card PDFs for testing"
-	@echo "    uv run python -m scripts.generate_sample_cards --count=5"
-	@echo "    uv run python -m scripts.generate_sample_cards --count=20 --text-concurrency=15"
+	@echo "  \033[36mbenchmark.ocr_concurrency\033[0m    Benchmark OCR concurrency (sequential/threads/processes)"
+	@echo "    uv run python -m scripts.benchmark.ocr_concurrency ~/Desktop/Cards"
 	@echo ""
 	@echo "  \033[36mbenchmark.ocr_configuration_quality\033[0m  Benchmark Tesseract config space (192 configs)"
 	@echo "    uv run python -m scripts.benchmark.ocr_configuration_quality ~/Desktop/Cards"
@@ -207,10 +206,18 @@ show-scripts: ## Show available script invocations (does not run them)
 	@echo "  \033[36mbenchmark.pre_processing_concurrency\033[0m Benchmark preprocessing concurrency models"
 	@echo "    uv run python -m scripts.benchmark.pre_processing_concurrency ~/Desktop/Cards"
 	@echo ""
-	@echo "  \033[36mbenchmark.ocr_concurrency\033[0m    Benchmark OCR concurrency (sequential/threads/processes)"
-	@echo "    uv run python -m scripts.benchmark.ocr_concurrency ~/Desktop/Cards"
+	@echo "  \033[36mbuild_family_name_db\033[0m         Build master family name database from Census + Faker + smashew"
+	@echo "    uv run python -m scripts.build_family_name_db"
+	@echo "    uv run python -m scripts.build_family_name_db --no-smashew"
 	@echo ""
-	@echo "  All scripts support --help and --no-open."
+	@echo "  \033[36mgenerate_diagnostic_cards\033[0m    Generate diagnostic PDFs with fixed family name text"
+	@echo "    uv run python -m scripts.generate_diagnostic_cards --names \"Smith,O'Brien,Van Dyke\""
+	@echo ""
+	@echo "  \033[36mgenerate_sample_cards\033[0m        Generate sample greeting card PDFs for testing"
+	@echo "    uv run python -m scripts.generate_sample_cards --count=5"
+	@echo "    uv run python -m scripts.generate_sample_cards --names \"Smith,O'Brien,Van Dyke\""
+	@echo ""
+	@echo "  All scripts support --help."
 	@echo "  Output goes to _build/script_output/ with timestamped directories."
 
 clean: ## Remove build artifacts

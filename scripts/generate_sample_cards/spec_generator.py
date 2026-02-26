@@ -34,6 +34,8 @@ async def generate_card_specs_async(
     count: int,
     model: str,
     concurrency: int = 10,
+    *,
+    fixed_names: list[str] | None = None,
 ) -> list[CardSpec]:
     """Generate card specifications using async concurrent Claude calls."""
     console = Console(highlight=False)
@@ -41,18 +43,26 @@ async def generate_card_specs_async(
     rng = random.Random()
 
     try:
+        # Override count if fixed names were provided
+        if fixed_names:
+            count = len(fixed_names)
+
         # Step 1: Deterministic field assignment
         cards = assign_deterministic_fields(count)
 
         # Phase 1a: Family names
-        with console.status("[bold cyan]Generating family names..."):
-            family_names = await generate_family_names_async(client, count, model)
+        if fixed_names:
+            family_names = list(fixed_names)
+            console.print(f"  [bold green]Using {count} provided family names[/]")
+        else:
+            with console.status("[bold cyan]Generating family names..."):
+                family_names = await generate_family_names_async(client, count, model)
 
-        # Pad if we didn't get enough
-        while len(family_names) < count:
-            family_names.append(f"Family{len(family_names) + 1}")
+            # Pad if we didn't get enough
+            while len(family_names) < count:
+                family_names.append(f"Family{len(family_names) + 1}")
 
-        console.print(f"  Generated {len(family_names)} unique family names")
+            console.print(f"  Generated {len(family_names)} unique family names")
 
         # Assign family names and filenames
         for i, card in enumerate(cards):
@@ -74,10 +84,14 @@ async def generate_card_specs_async(
             card["color_scheme"] = color_schemes[i]
 
         # Phase 1c: Subtitles / "from" lines
-        with console.status("[bold cyan]Generating subtitles..."):
-            subtitles = await generate_subtitles_async(client, cards, model)
+        if fixed_names:
+            subtitles = [f"The {name} Family" for name in family_names]
+            console.print("  [bold green]Using fixed subtitles for provided names[/]")
+        else:
+            with console.status("[bold cyan]Generating subtitles..."):
+                subtitles = await generate_subtitles_async(client, cards, model)
 
-        console.print(f"  Generated {len(subtitles)} subtitles")
+            console.print(f"  Generated {len(subtitles)} subtitles")
 
         for i, card in enumerate(cards):
             card["subtitle"] = subtitles[i]

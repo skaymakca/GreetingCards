@@ -6,7 +6,7 @@ Consolidates cleaning logic previously scattered across ``ai_analyzer.py``,
 
 import re
 
-from app.core.family_name.data import filtered_names, preserved_family_names
+from app.core.family_name.data import family_name_db, filtered_names
 
 
 def strip_plural_family_name(name: str) -> str:
@@ -27,8 +27,8 @@ def strip_plural_family_name(name: str) -> str:
     if not name or len(name) < 3:
         return name
 
-    # Data-driven: check the preserved-family-names corpus
-    if name in preserved_family_names:
+    # Data-driven: check the family name database
+    if name in family_name_db:
         return name
 
     # --- Heuristic fallbacks (conservative) ---
@@ -96,17 +96,36 @@ def strip_family_name_punctuation(name: str) -> str:
 def clean_and_filter_family_names(names: list[str]) -> list[str]:
     """Apply unified cleaning and filtering to a list of names.
 
-    Pipeline: ``clean_family_name()`` → ``sanitize_for_filename()``
-    → filter against blocklist.
+    If a name matches a known display form (primary or alternate) in the
+    family name database, it is kept as-is and all related forms (primary +
+    other alternates) are added as additional candidates. This bypasses the
+    cleaning pipeline for recognized names.
+
+    For unrecognized names, the pipeline is:
+    ``clean_family_name()`` → ``sanitize_for_filename()`` → filter against blocklist.
 
     This is the single entry point for cleaning raw name candidates.
     """
     from app.core.name_formatting import sanitize_for_filename
 
-    cleaned = []
+    cleaned: list[str] = []
     for name in names:
         if not name:
             continue
+
+        # Check if name matches a known display form (primary or alternate).
+        # Still respect the blocklist — some real surnames (e.g. "Holiday")
+        # overlap with filtered words and should not bypass cleaning.
+        matched = family_name_db.match_display(name)
+        if matched and matched not in filtered_names:
+            cleaned.append(matched)
+            # Add related forms as additional candidates
+            for related in family_name_db.related_forms(name):
+                if related not in cleaned and related not in filtered_names:
+                    cleaned.append(related)
+            continue
+
+        # Standard cleaning pipeline for unknown names
         clean_name = clean_family_name(name)
         clean_name = sanitize_for_filename(clean_name)
         if clean_name and clean_name not in filtered_names:

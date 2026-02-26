@@ -21,10 +21,16 @@ class TestStripPluralFamilyName:
     def test_preserves_census_names(self, name):
         assert strip_plural_family_name(name) == name
 
-    # Case-insensitive Census lookup
+    # Case-insensitive database lookup
     def test_preserves_census_case_insensitive(self):
         assert strip_plural_family_name("MORALES") == "MORALES"
         assert strip_plural_family_name("morales") == "morales"
+
+    # Non-Census DB names also preserved (from Faker/smashew)
+    def test_preserves_non_census_db_names(self):
+        """Names from Faker/smashew (rank=0) are still preserved."""
+        assert strip_plural_family_name("Browns") == "Browns"
+        assert strip_plural_family_name("Stewarts") == "Stewarts"
 
     # Heuristic: sibilant 'es' stripping
     @pytest.mark.parametrize(
@@ -38,13 +44,13 @@ class TestStripPluralFamilyName:
     def test_strips_sibilant_es(self, input_name, expected):
         assert strip_plural_family_name(input_name) == expected
 
-    # Heuristic: consonant-pair 's' stripping
+    # Heuristic: consonant-pair 's' stripping (names NOT in the DB)
     @pytest.mark.parametrize(
         "input_name,expected",
         [
             ("Smiths", "Smith"),
-            ("Browns", "Brown"),
-            ("Stewarts", "Stewart"),
+            ("Brockhurts", "Brockhurt"),
+            ("Wentworths", "Wentworth"),
         ],
     )
     def test_strips_consonant_pair_s(self, input_name, expected):

@@ -28,4 +28,5 @@ htmlcov/
 .tox/
 *.log
 
-
+# Build script output (.tsv is committed; .tsv.gz only in runtime_content)
+content/data/family_name_database.tsv.gz

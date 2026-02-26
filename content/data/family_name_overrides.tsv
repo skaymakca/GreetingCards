@@ -1,0 +1,42 @@
+# normalized	display	rank	count	alternates
+# Manual curations that trump all auto-generated display forms.
+# Format: normalized<TAB>display<TAB>rank<TAB>count<TAB>alternates (pipe-separated, optional)
+# rank/count of 0 preserves the auto-generated Census values.
+#
+# Spanish De La / De / Del names (Census fuses these into single tokens)
+delacruz	De La Cruz	0	0	Delacruz
+deleon	De Leon	0	0	Deleon|DeLeon
+dejesus	De Jesus	0	0	Dejesus|DeJesus
+delapaz	De La Paz	0	0	Delapaz
+delavega	De La Vega	0	0	Delavega
+delrosario	Del Rosario	0	0	Delrosario
+delvecchio	Del Vecchio	0	0	Delvecchio
+santacruz	Santa Cruz	0	0	Santacruz
+#
+# Irish O' names not covered by Faker en_IE
+oneal	O'Neal	0	0	Oneal|O'Neil
+oneil	O'Neil	0	0	Oneil|O'Neal
+#
+# St. names (Census fuses "ST" prefix)
+stclair	St. Clair	0	0	Stclair
+stjohn	St. John	0	0	Stjohn
+stpierre	St. Pierre	0	0	Stpierre
+stlaurent	St. Laurent	0	0	Stlaurent
+#
+# Italian D' names (missing apostrophe from Census)
+dangelo	D'Angelo	0	0	Dangelo
+damico	D'Amico	0	0	Damico
+damore	D'Amore	0	0	Damore
+#
+# Italian Di names (Census fuses these)
+distefano	Di Stefano	0	0	Distefano|DiStefano
+dilorenzo	Di Lorenzo	0	0	Dilorenzo|DiLorenzo
+dicaprio	DiCaprio	0	0	Dicaprio|Di Caprio
+#
+# Dutch Van names
+vandyke	Van Dyke	0	0	Vandyke|Van-Dyke
+#
+# French Le/La names (common American camelCase forms)
+leblanc	LeBlanc	0	0	Leblanc|Le Blanc
+lafleur	LaFleur	0	0	Lafleur|La Fleur
+lacroix	LaCroix	0	0	Lacroix|La Croix

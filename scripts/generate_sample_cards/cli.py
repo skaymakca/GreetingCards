@@ -127,13 +127,29 @@ async def async_main() -> None:
         help="Embed images as lossless PNG instead of JPEG (larger files)",
     )
     parser.add_argument(
+        "--names",
+        type=str,
+        default=None,
+        metavar="LIST",
+        help='Comma-separated family names (e.g. "Smith,O\'Brien,García"). '
+        "Overrides --count; skips AI name and subtitle generation.",
+    )
+    parser.add_argument(
         "--no-open",
         action="store_true",
         help="Don't open output folder when done",
     )
     args = parser.parse_args()
 
-    count = args.count
+    # Parse --names into a list, overriding --count
+    fixed_names: list[str] | None = None
+    if args.names:
+        fixed_names = [n.strip() for n in args.names.split(",") if n.strip()]
+        if not fixed_names:
+            print("Error: --names provided but no valid names found.")
+            sys.exit(1)
+
+    count = len(fixed_names) if fixed_names else args.count
 
     # Validate API keys
     if not validate_api_keys():
@@ -151,7 +167,7 @@ async def async_main() -> None:
     console.print(f"Plan: {count} cards\n")
 
     # Step 1: Generate card specs (async concurrent Claude calls)
-    specs = await generate_card_specs_async(count, args.ai_model, args.text_concurrency)
+    specs = await generate_card_specs_async(count, args.ai_model, args.text_concurrency, fixed_names=fixed_names)
 
     # Concurrency: concurrent OpenAI image requests, shared rate limit gate
     openai_client = openai.AsyncOpenAI()

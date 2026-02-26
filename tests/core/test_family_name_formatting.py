@@ -94,6 +94,17 @@ class TestSmartTitleCaseFamilyName:
         assert smart_title_case_family_name("jOhN sMiTh") == "John Smith"
         assert smart_title_case_family_name("mCdOnAlD") == "McDonald"
 
+    # DB-first display lookup (single-token names)
+    def test_db_display_obrien(self):
+        """Database provides O'Brien for OBRIEN input."""
+        assert smart_title_case_family_name("OBRIEN") == "O'Brien"
+        assert smart_title_case_family_name("obrien") == "O'Brien"
+
+    def test_db_display_does_not_override_structured_input(self):
+        """Multi-word and hyphenated inputs use heuristic, not DB."""
+        assert smart_title_case_family_name("smith-jones") == "Smith-Jones"
+        assert smart_title_case_family_name("van der berg") == "Van der Berg"
+
     # Comprehensive parametrized
     @pytest.mark.parametrize(
         "input_name,expected",

@@ -2,89 +2,217 @@
 
 import pytest
 
-from app.core.family_name.data import FilteredNames, PreservedFamilyNames
+from app.core.family_name.data import FamilyNameDatabase, FamilyNameEntry, FilteredNames, family_name_db
 
 
-class TestPreservedFamilyNames:
-    """Tests for PreservedFamilyNames container."""
+def _entry(display: str, rank: int = 0, count: int = 0, alternates: tuple[str, ...] = ()) -> FamilyNameEntry:
+    """Shorthand factory for test entries."""
+    return FamilyNameEntry(display, rank, count, alternates)
 
-    def test_contains_census_name(self):
-        names = PreservedFamilyNames(["Morales", "Jones", "Williams"])
-        assert "Morales" in names
-        assert "Jones" in names
+
+class TestFamilyNameDatabase:
+    """Tests for FamilyNameDatabase container."""
+
+    def test_contains_name(self):
+        entries = {
+            "morales": _entry("Morales", 52, 110842),
+            "jones": _entry("Jones", 5, 1425470),
+        }
+        db = FamilyNameDatabase(entries)
+        assert "Morales" in db
+        assert "Jones" in db
 
     def test_case_insensitive(self):
-        names = PreservedFamilyNames(["Morales"])
-        assert "MORALES" in names
-        assert "morales" in names
-        assert "MoRaLeS" in names
+        entries = {"morales": _entry("Morales", 52, 110842)}
+        db = FamilyNameDatabase(entries)
+        assert "MORALES" in db
+        assert "morales" in db
+        assert "MoRaLeS" in db
 
     def test_punctuation_insensitive(self):
         """Apostrophes, hyphens, and periods are stripped for lookup."""
-        names = PreservedFamilyNames(["OBriens"])
-        assert "O'Briens" in names
-        assert "O\u2019Briens" in names  # curly apostrophe
-        assert "O-Briens" in names
-        assert "O.Briens" in names
+        entries = {"obrien": _entry("O'Brien", 258, 118557)}
+        db = FamilyNameDatabase(entries)
+        assert "O'Brien" in db
+        assert "O\u2019Brien" in db  # curly apostrophe
+        assert "O-Brien" in db
+        assert "O.Brien" in db
 
     def test_space_insensitive(self):
         """Spaces are stripped for lookup."""
-        names = PreservedFamilyNames(["Delacruz"])
-        assert "De La Cruz" in names
-        assert "de la cruz" in names
-        assert "DELACRUZ" in names
+        entries = {"delacruz": _entry("Delacruz", 458, 72109)}
+        db = FamilyNameDatabase(entries)
+        assert "De La Cruz" in db
+        assert "de la cruz" in db
+        assert "DELACRUZ" in db
 
     def test_not_contains(self):
-        names = PreservedFamilyNames(["Morales"])
-        assert "Smith" not in names
-        assert "" not in names
+        entries = {"morales": _entry("Morales", 52, 110842)}
+        db = FamilyNameDatabase(entries)
+        assert "Smith" not in db
+        assert "" not in db
 
     def test_non_string_returns_false(self):
-        names = PreservedFamilyNames(["Morales"])
-        assert 42 not in names
-        assert None not in names
+        entries = {"morales": _entry("Morales", 52, 110842)}
+        db = FamilyNameDatabase(entries)
+        assert 42 not in db
+        assert None not in db
 
     def test_len(self):
-        names = PreservedFamilyNames(["A", "B", "C"])
-        assert len(names) == 3
+        entries = {
+            "a": _entry("A"),
+            "b": _entry("B"),
+            "c": _entry("C"),
+        }
+        db = FamilyNameDatabase(entries)
+        assert len(db) == 3
 
     def test_empty(self):
-        names = PreservedFamilyNames([])
-        assert len(names) == 0
-        assert not names
-        assert "anything" not in names
+        db = FamilyNameDatabase({})
+        assert len(db) == 0
+        assert not db
+        assert "anything" not in db
 
     def test_bool_true_when_populated(self):
-        names = PreservedFamilyNames(["A"])
-        assert names
-
-    def test_whitespace_only_entries_skipped(self):
-        names = PreservedFamilyNames(["Smith", "", "  ", "\n"])
-        assert len(names) == 1
+        entries = {"a": _entry("A")}
+        db = FamilyNameDatabase(entries)
+        assert db
 
     def test_normalize_static_method(self):
-        assert PreservedFamilyNames.normalize("O'Brien") == "obrien"
-        assert PreservedFamilyNames.normalize("De La Cruz") == "delacruz"
-        assert PreservedFamilyNames.normalize("St. James") == "stjames"
-        assert PreservedFamilyNames.normalize("SMITH") == "smith"
-        assert PreservedFamilyNames.normalize("") == ""
+        assert FamilyNameDatabase.normalize("O'Brien") == "obrien"
+        assert FamilyNameDatabase.normalize("De La Cruz") == "delacruz"
+        assert FamilyNameDatabase.normalize("St. James") == "stjames"
+        assert FamilyNameDatabase.normalize("SMITH") == "smith"
+        assert FamilyNameDatabase.normalize("") == ""
+
+    def test_lookup_returns_entry(self):
+        entries = {"obrien": _entry("O'Brien", 258, 118557, ("O Brien",))}
+        db = FamilyNameDatabase(entries)
+        entry = db.lookup("O'Brien")
+        assert entry is not None
+        assert entry.display_form == "O'Brien"
+        assert entry.rank == 258
+        assert entry.count == 118557
+        assert entry.alternates == ("O Brien",)
+
+    def test_lookup_returns_none_for_missing(self):
+        db = FamilyNameDatabase({})
+        assert db.lookup("Smith") is None
+
+    def test_display(self):
+        entries = {"obrien": _entry("O'Brien", 258, 118557)}
+        db = FamilyNameDatabase(entries)
+        assert db.display("OBRIEN") == "O'Brien"
+        assert db.display("o'brien") == "O'Brien"
+        assert db.display("nonexistent") is None
+
+    def test_rank_and_count(self):
+        entries = {"smith": _entry("Smith", 1, 2442977)}
+        db = FamilyNameDatabase(entries)
+        assert db.rank("Smith") == 1
+        assert db.count("Smith") == 2442977
+        assert db.rank("nonexistent") == 0
+        assert db.count("nonexistent") == 0
 
 
-class TestPreservedFamilyNamesLoad:
-    """Tests for PreservedFamilyNames.load() — loads actual data file."""
+class TestFamilyNameDatabaseAlternates:
+    """Tests for alternates support."""
+
+    def test_alternates_method(self):
+        entries = {"vandyke": _entry("Van Dyke", 1000, 500, ("Van-Dyke", "van Dyke"))}
+        db = FamilyNameDatabase(entries)
+        assert db.alternates("Van Dyke") == ("Van-Dyke", "van Dyke")
+        assert db.alternates("nonexistent") == ()
+
+    def test_match_display_primary(self):
+        entries = {"vandyke": _entry("Van Dyke", 1000, 500, ("Van-Dyke",))}
+        db = FamilyNameDatabase(entries)
+        assert db.match_display("Van Dyke") == "Van Dyke"
+
+    def test_match_display_alternate(self):
+        entries = {"vandyke": _entry("Van Dyke", 1000, 500, ("Van-Dyke",))}
+        db = FamilyNameDatabase(entries)
+        assert db.match_display("Van-Dyke") == "Van-Dyke"
+
+    def test_match_display_none_for_unknown(self):
+        entries = {"vandyke": _entry("Van Dyke", 1000, 500)}
+        db = FamilyNameDatabase(entries)
+        assert db.match_display("Totally Unknown") is None
+
+    def test_related_forms_from_primary(self):
+        entries = {"vandyke": _entry("Van Dyke", 1000, 500, ("Van-Dyke", "van Dyke"))}
+        db = FamilyNameDatabase(entries)
+        # Matching "Van Dyke" (primary) → returns alternates
+        related = db.related_forms("Van Dyke")
+        assert "Van-Dyke" in related
+        assert "van Dyke" in related
+        assert "Van Dyke" not in related
+
+    def test_related_forms_from_alternate(self):
+        entries = {"vandyke": _entry("Van Dyke", 1000, 500, ("Van-Dyke",))}
+        db = FamilyNameDatabase(entries)
+        # Matching "Van-Dyke" (alternate) → returns primary
+        related = db.related_forms("Van-Dyke")
+        assert "Van Dyke" in related
+        assert "Van-Dyke" not in related
+
+    def test_related_forms_empty_for_unknown(self):
+        entries = {"vandyke": _entry("Van Dyke", 1000, 500)}
+        db = FamilyNameDatabase(entries)
+        assert db.related_forms("Unknown") == []
+
+    def test_related_forms_empty_when_no_alternates(self):
+        entries = {"smith": _entry("Smith", 1, 2442977)}
+        db = FamilyNameDatabase(entries)
+        # Smith has no alternates, so matching primary returns empty
+        assert db.related_forms("Smith") == []
+
+    def test_entry_alternates_default_empty(self):
+        entry = _entry("Smith", 1, 2442977)
+        assert entry.alternates == ()
+
+
+class TestFamilyNameDatabaseLoad:
+    """Tests for FamilyNameDatabase.load() — loads actual data file."""
 
     def test_loads_nonempty(self):
-        """The production data file should load with thousands of names."""
-        names = PreservedFamilyNames.load()
-        assert len(names) > 10000
+        """The production data file should load with hundreds of thousands of names."""
+        db = FamilyNameDatabase.load()
+        assert len(db) > 100000
 
     def test_census_names_present(self):
-        names = PreservedFamilyNames.load()
-        assert "Morales" in names
-        assert "Jones" in names
-        assert "Williams" in names
-        assert "Torres" in names
-        assert "Adams" in names
+        db = FamilyNameDatabase.load()
+        assert "Morales" in db
+        assert "Jones" in db
+        assert "Williams" in db
+        assert "Torres" in db
+        assert "Adams" in db
+
+    def test_display_forms(self):
+        db = FamilyNameDatabase.load()
+        assert db.display("OBRIEN") == "O'Brien"
+        assert db.display("MCDONALD") == "McDonald"
+        assert db.display("MACDONALD") == "MacDonald"
+        assert db.display("SMITH") == "Smith"
+
+    def test_census_rank_data(self):
+        db = FamilyNameDatabase.load()
+        assert db.rank("Smith") == 1
+        assert db.count("Smith") > 0
+
+    def test_alternates_loaded(self):
+        """At least some entries should have alternates from source conflicts."""
+        db = FamilyNameDatabase.load()
+        # O'Brien should have an alternate (e.g. "Obrien" from Census heuristic)
+        obrien_alts = db.alternates("O'Brien")
+        assert len(obrien_alts) > 0
+
+
+class TestFamilyNameDatabaseSingleton:
+    """Tests for module-level family_name_db singleton."""
+
+    def test_singleton_loaded(self):
+        assert len(family_name_db) > 100000
 
 
 class TestFilteredNames:
