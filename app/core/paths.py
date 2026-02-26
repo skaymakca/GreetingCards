@@ -18,7 +18,7 @@ def get_data_dir() -> Path:
         data_dir = Path.home() / "Library" / "Application Support" / "GreetingCards"
     else:
         # Dev mode — .local/ subdir of project root (keeps project root clean)
-        data_dir = Path(__file__).resolve().parent.parent.parent / ".local"
+        data_dir = Path(__file__).resolve().parent.parent.parent / ".local" / "GreetingCards"
     data_dir.mkdir(parents=True, exist_ok=True)
     return data_dir
 
