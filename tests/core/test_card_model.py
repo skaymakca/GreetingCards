@@ -1,15 +1,16 @@
 """Tests for app.models.card module."""
+
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from app.models.card import (
-    Confidence,
     CandidateInfo,
-    CardState,
-    NameMatch,
     CardResult,
+    CardState,
+    Confidence,
+    NameMatch,
     RenamePlanItem,
     RenameResult,
 )
@@ -18,23 +19,29 @@ from app.models.card import (
 class TestConfidence:
     """Tests for Confidence enum."""
 
-    @pytest.mark.parametrize("member,value", [
-        (Confidence.HIGH, "high"),
-        (Confidence.MEDIUM, "medium"),
-        (Confidence.LOW, "low"),
-        (Confidence.MANUAL, "manual"),
-        (Confidence.NONE, "none"),
-    ])
+    @pytest.mark.parametrize(
+        "member,value",
+        [
+            (Confidence.HIGH, "high"),
+            (Confidence.MEDIUM, "medium"),
+            (Confidence.LOW, "low"),
+            (Confidence.MANUAL, "manual"),
+            (Confidence.NONE, "none"),
+        ],
+    )
     def test_values(self, member, value):
         assert member.value == value
 
-    @pytest.mark.parametrize("member,expected_color", [
-        (Confidence.HIGH, "#34C759"),
-        (Confidence.MEDIUM, "#FF9500"),
-        (Confidence.LOW, "#FF3B30"),
-        (Confidence.MANUAL, "#1E90FF"),
-        (Confidence.NONE, "#6E6E73"),
-    ])
+    @pytest.mark.parametrize(
+        "member,expected_color",
+        [
+            (Confidence.HIGH, "#34C759"),
+            (Confidence.MEDIUM, "#FF9500"),
+            (Confidence.LOW, "#FF3B30"),
+            (Confidence.MANUAL, "#1E90FF"),
+            (Confidence.NONE, "#6E6E73"),
+        ],
+    )
     def test_colors(self, member, expected_color):
         assert member.color() == expected_color
 
@@ -145,3 +152,52 @@ class TestCardResult:
     def test_target_filename_manual_override(self, mock_sanitize):
         card = CardResult(id=1, family_name="Smith", manual_override="Jones")
         assert card.target_filename("2025") == "Holiday Cards 2025 - Jones Family.pdf"
+
+
+class TestTargetFilenameValidation:
+    """Tests for target_filename year validation (new behavior)."""
+
+    def test_empty_year_returns_empty(self):
+        """Empty year string should return empty string."""
+        card = CardResult(id=1, family_name="Smith", confidence=Confidence.HIGH)
+        assert card.target_filename("") == ""
+
+    def test_whitespace_year_returns_empty(self):
+        """Whitespace-only year should return empty string."""
+        card = CardResult(id=1, family_name="Smith", confidence=Confidence.HIGH)
+        assert card.target_filename("   ") == ""
+
+    @patch("app.models.card.sanitize_for_filename", side_effect=lambda x: x)
+    def test_year_is_stripped(self, mock_sanitize):
+        """Year with surrounding whitespace should be stripped."""
+        card = CardResult(id=1, family_name="Smith", confidence=Confidence.HIGH)
+        result = card.target_filename(" 2024 ")
+        assert result == "Holiday Cards 2024 - Smith Family.pdf"
+
+    @patch("app.models.card.sanitize_for_filename", side_effect=lambda x: x)
+    def test_normal_year(self, mock_sanitize):
+        """Normal year produces correct filename."""
+        card = CardResult(id=1, family_name="Smith", confidence=Confidence.HIGH)
+        assert card.target_filename("2024") == "Holiday Cards 2024 - Smith Family.pdf"
+
+
+class TestPrimaryPathDefault:
+    """Tests for primary_path default value."""
+
+    def test_default_is_empty_path(self):
+        """Default primary_path should be Path(''), not current directory."""
+        card = CardResult(id=1)
+        assert card.primary_path == Path("")
+        assert card.primary_path.name == ""
+
+
+class TestPdfWorkerResultErrorDefault:
+    """Tests for PdfWorkerResult error field standardization."""
+
+    def test_error_default_is_empty_string(self):
+        """Default error should be empty string (falsy)."""
+        from app.models.card import PdfWorkerResult
+
+        result = PdfWorkerResult(pdf_path="/test.pdf")
+        assert result.error == ""
+        assert not result.error

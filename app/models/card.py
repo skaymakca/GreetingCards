@@ -3,9 +3,17 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from typing import Final, Literal
+
 from PIL import Image
 
 from app.core.name_formatting import sanitize_for_filename
+
+# Constrained value types for database-layer fields
+MethodStr = Literal["ocr", "ai", "manual", "missing"]
+ConfidenceStr = Literal["high", "medium", "low", "manual", "none"]
+CandidateMethodStr = Literal["ocr", "ai"]
+CandidateConfidenceStr = Literal["high", "medium", "low"]
 
 
 class Confidence(Enum):
@@ -29,11 +37,11 @@ class Confidence(Enum):
 
 # Class-level lookup tables (avoid dict recreation on every call)
 Confidence._COLOR_MAP = {
-    Confidence.HIGH: "#34C759",      # SUCCESS green
-    Confidence.MEDIUM: "#FF9500",    # WARNING orange
-    Confidence.LOW: "#FF3B30",       # ERROR red
-    Confidence.MANUAL: "#1E90FF",    # MANUAL_BLUE
-    Confidence.NONE: "#6E6E73",      # TEXT_SECONDARY gray
+    Confidence.HIGH: "#34C759",  # SUCCESS green
+    Confidence.MEDIUM: "#FF9500",  # WARNING orange
+    Confidence.LOW: "#FF3B30",  # ERROR red
+    Confidence.MANUAL: "#1E90FF",  # MANUAL_BLUE
+    Confidence.NONE: "#6E6E73",  # TEXT_SECONDARY gray
 }
 Confidence._TOOLTIP_MAP = {
     Confidence.HIGH: "High confidence — strong pattern match or AI result",
@@ -45,20 +53,46 @@ Confidence._TOOLTIP_MAP = {
 
 
 @dataclass
+class PdfWorkerResult:
+    """Result from PDF processing worker (subprocess → main process).
+
+    This dataclass is pickled across process boundaries by ProcessPoolExecutor.
+    If pickling overhead becomes a bottleneck, consider using a shared memory
+    approach or a more compact serialization format.
+    """
+
+    pdf_path: str
+    file_hash: str | None = None
+    family_name: str = ""
+    confidence: ConfidenceStr = "none"
+    method: MethodStr = "missing"
+    alternates: list[str] = field(default_factory=list)
+    candidates: list[CandidateInfo] = field(default_factory=list)
+    remove_family: bool = False
+    selected_candidate_id: int | None = None
+    ocr_text: str = ""
+    error: str = ""
+    preview_image_bytes: bytes | None = None
+    page_images_bytes: list[bytes] = field(default_factory=list)
+
+
+@dataclass
 class CandidateInfo:
     """Represents a candidate family name from database."""
+
     id: int
     family_name: str
-    method: str  # 'ocr' | 'ai'
-    confidence: str  # 'high' | 'medium' | 'low'
+    method: CandidateMethodStr
+    confidence: CandidateConfidenceStr
 
 
 @dataclass
 class CardState:
     """Complete card state from database for display."""
+
     display_name: str
-    method: str  # 'manual' | 'ocr' | 'ai' | 'missing'
-    confidence: str  # 'manual' | 'high' | 'medium' | 'low' | 'none'
+    method: MethodStr
+    confidence: ConfidenceStr
     candidates: list[CandidateInfo]
     remove_family: bool
     selected_candidate_id: int | None
@@ -67,30 +101,34 @@ class CardState:
 @dataclass
 class NameMatch:
     """Represents a family name extracted from OCR."""
+
     name: str
     confidence: Confidence
 
 
-# Rename plan status constants
-STATUS_OK = "ok"
-STATUS_SKIP_NO_NAME = "skip_no_name"
-STATUS_SKIP_SAME = "skip_same"
-STATUS_SKIP_ERROR = "skip_error"
-STATUS_DUPLICATE = "duplicate"
+# Rename plan status
+RenameStatusStr = Literal["ok", "skip_no_name", "skip_same", "skip_error", "duplicate"]
+STATUS_OK: Final[RenameStatusStr] = "ok"
+STATUS_SKIP_NO_NAME: Final[RenameStatusStr] = "skip_no_name"
+STATUS_SKIP_SAME: Final[RenameStatusStr] = "skip_same"
+STATUS_SKIP_ERROR: Final[RenameStatusStr] = "skip_error"
+STATUS_DUPLICATE: Final[RenameStatusStr] = "duplicate"
 
 
 @dataclass
 class RenamePlanItem:
     """Item in a rename plan."""
+
     old_path: Path
     new_path: Path
-    status: str  # STATUS_OK | STATUS_SKIP_NO_NAME | STATUS_SKIP_SAME | STATUS_SKIP_ERROR | STATUS_DUPLICATE
+    status: RenameStatusStr
     card: CardResult | None = None  # Back-reference to source card
 
 
 @dataclass
 class RenameResult:
     """Result of executing a rename operation."""
+
     old_path: Path
     new_path: Path
     success: bool
@@ -116,7 +154,7 @@ class CardResult:
     original_confidence: Confidence | None = None  # Confidence before manual override
     remove_family: bool = False  # If True, omit "Family" suffix from filename
     selected_candidate_id: int | None = None  # ID of selected candidate from DB (None if manual or missing)
-    method: str = "missing"  # 'ocr' | 'ai' | 'manual' | 'missing'
+    method: MethodStr = "missing"
     error: str = ""  # Non-empty when PDF processing failed (corrupt, encrypted, etc.)
 
     @property
@@ -135,6 +173,9 @@ class CardResult:
         return self.primary_path.name
 
     def target_filename(self, year: str) -> str:
+        year = year.strip()
+        if not year:
+            return ""
         name = self.display_name.strip() if self.display_name else ""
         if not name:
             return ""

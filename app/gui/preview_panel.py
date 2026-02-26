@@ -1,10 +1,13 @@
+# noinspection GrazieInspection
 """wxPython preview panel for displaying multi-page, zoomable, pannable PDF previews."""
 
 import wx
 from PIL import Image
+
 from app.gui import styles, utils
 
 
+# noinspection PyMethodMayBeStatic,PyUnusedLocal,PyTypeChecker,GrazieInspection
 class PreviewPanel(wx.Panel):
     """Panel that displays a multi-page, zoomable, pannable PDF preview.
 
@@ -20,7 +23,7 @@ class PreviewPanel(wx.Panel):
     MIN_ZOOM = 0.1
     MAX_ZOOM = 10.0
 
-    def __init__(self, parent, **kwargs):
+    def __init__(self, parent: wx.Window, **kwargs) -> None:
         super().__init__(parent, **kwargs)
 
         # State
@@ -31,9 +34,9 @@ class PreviewPanel(wx.Panel):
         self._is_fit = True
         self._pan_x = 0.0
         self._pan_y = 0.0
-        self._drag_start = None
+        self._drag_start: tuple[int, int] | None = None
         self._error_message = ""
-        self._bitmap_cache = None
+        self._bitmap_cache: wx.Bitmap | None = None
 
         # Timer for polling modifier keys (to update cursor without mouse movement)
         self._modifier_timer = wx.Timer(self)
@@ -42,17 +45,14 @@ class PreviewPanel(wx.Panel):
         # Load custom SF Symbol cursors (with fallback)
         try:
             from app.gui.icons import load_cursor_from_symbol
+
             self._zoom_in_cursor = load_cursor_from_symbol(
                 "plus.magnifyingglass",
                 point_size=7,
-                color_hex="#000000"  # Black for good contrast
+                color_hex="#000000",  # Black for good contrast
             )
-            self._zoom_out_cursor = load_cursor_from_symbol(
-                "minus.magnifyingglass",
-                point_size=7,
-                color_hex="#000000"
-            )
-        except Exception:
+            self._zoom_out_cursor = load_cursor_from_symbol("minus.magnifyingglass", point_size=7, color_hex="#000000")
+        except ImportError, AttributeError, OSError:
             self._zoom_in_cursor = None
             self._zoom_out_cursor = None
 
@@ -60,7 +60,7 @@ class PreviewPanel(wx.Panel):
         if not self._zoom_in_cursor:
             self._zoom_in_cursor = wx.Cursor(wx.CURSOR_MAGNIFIER)
         if not self._zoom_out_cursor:
-            self._zoom_out_cursor = wx.Cursor(wx.CURSOR_MAGNIFIER)
+            self._zoom_out_cursor = wx.Cursor(wx.CURSOR_SIZING)
 
         self._build_ui()
 
@@ -70,15 +70,13 @@ class PreviewPanel(wx.Panel):
 
         # Title
         self._title_label = utils.create_static_text(
-            self, "PREVIEW",
-            font=styles.Font.SECTION_HEADER(),
-            colour=styles.Color.TEXT_SECONDARY
+            self, "PREVIEW", font=styles.Font.SECTION_HEADER(), colour=styles.Color.TEXT_SECONDARY
         )
         sizer.Add(self._title_label, 0, wx.ALL, styles.Layout.PAD)
 
-        # Canvas panel (custom painting)
+        # Canvas panel (custom painting) — no explicit bg color; inherits system
+        # appearance so it follows dark/light mode natively.
         self._canvas = wx.Panel(self, style=wx.BORDER_NONE)
-        self._canvas.SetBackgroundColour(styles.Color.BG_PRIMARY)
         self._canvas.Bind(wx.EVT_PAINT, self._on_paint)
         self._canvas.Bind(wx.EVT_SIZE, self._on_resize)
 
@@ -99,21 +97,19 @@ class PreviewPanel(wx.Panel):
 
         # Left group: Page navigation [◀] [page] [▶]
         self._prev_btn = wx.Button(controls, label="◀", size=(28, 28))
-        self._prev_btn.Bind(wx.EVT_BUTTON, lambda e: self.prev_page())
+        self._prev_btn.Bind(wx.EVT_BUTTON, lambda _: self.prev_page())
         self._prev_btn.Enable(False)
         controls_sizer.Add(self._prev_btn, 0, wx.ALIGN_CENTER_VERTICAL)
 
         self._page_label = utils.create_static_text(
-            controls, "",
-            font=styles.Font.SMALL(),
-            colour=styles.Color.TEXT_PRIMARY
+            controls, "", font=styles.Font.SMALL(), colour=styles.Color.TEXT_PRIMARY
         )
         self._page_label.SetMinSize((50, -1))
         self._page_label.SetWindowStyleFlag(wx.ALIGN_CENTRE_HORIZONTAL | wx.ST_NO_AUTORESIZE)
         controls_sizer.Add(self._page_label, 0, wx.ALIGN_CENTER_VERTICAL)
 
         self._next_btn = wx.Button(controls, label="▶", size=(28, 28))
-        self._next_btn.Bind(wx.EVT_BUTTON, lambda e: self.next_page())
+        self._next_btn.Bind(wx.EVT_BUTTON, lambda _: self.next_page())
         self._next_btn.Enable(False)
         controls_sizer.Add(self._next_btn, 0, wx.ALIGN_CENTER_VERTICAL)
 
@@ -121,26 +117,24 @@ class PreviewPanel(wx.Panel):
 
         # Right group: [Fit] [−] [zoom%] [+]
         self._fit_btn = wx.Button(controls, label="Fit", size=(42, 28))
-        self._fit_btn.Bind(wx.EVT_BUTTON, lambda e: self._zoom_fit())
+        self._fit_btn.Bind(wx.EVT_BUTTON, lambda _: self._zoom_fit())
         self._fit_btn.Enable(False)
         controls_sizer.Add(self._fit_btn, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 4)
 
         self._zout_btn = wx.Button(controls, label="−", size=(28, 28))
-        self._zout_btn.Bind(wx.EVT_BUTTON, lambda e: self._zoom_out())
+        self._zout_btn.Bind(wx.EVT_BUTTON, lambda _: self._zoom_out())
         self._zout_btn.Enable(False)
         controls_sizer.Add(self._zout_btn, 0, wx.ALIGN_CENTER_VERTICAL)
 
         self._zoom_label = utils.create_static_text(
-            controls, "",
-            font=styles.Font.SMALL(),
-            colour=styles.Color.TEXT_PRIMARY
+            controls, "", font=styles.Font.SMALL(), colour=styles.Color.TEXT_PRIMARY
         )
         self._zoom_label.SetMinSize((40, -1))
         self._zoom_label.SetWindowStyleFlag(wx.ALIGN_CENTRE_HORIZONTAL | wx.ST_NO_AUTORESIZE)
         controls_sizer.Add(self._zoom_label, 0, wx.ALIGN_CENTER_VERTICAL)
 
         self._zin_btn = wx.Button(controls, label="+", size=(28, 28))
-        self._zin_btn.Bind(wx.EVT_BUTTON, lambda e: self._zoom_in())
+        self._zin_btn.Bind(wx.EVT_BUTTON, lambda _: self._zoom_in())
         self._zin_btn.Enable(False)
         controls_sizer.Add(self._zin_btn, 0, wx.ALIGN_CENTER_VERTICAL)
 
@@ -149,6 +143,13 @@ class PreviewPanel(wx.Panel):
         sizer.Add(controls, 0, wx.EXPAND | wx.ALL, styles.Layout.PAD)
 
         self.SetSizer(sizer)
+
+    def refresh_colors(self) -> None:
+        """Re-apply mode-dependent colors after an appearance change."""
+        self._title_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
+        self._page_label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        self._zoom_label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
+        self._canvas.Refresh()
 
     # --- Public API ---
 
@@ -259,7 +260,7 @@ class PreviewPanel(wx.Panel):
         if not has_images:
             self._zoom_label.SetLabel("")
 
-    def _reset_view(self):
+    def _reset_view(self) -> None:
         """Reset to fit mode and clear pan offsets."""
         self._is_fit = True
         self._zoom = 1.0
@@ -267,20 +268,20 @@ class PreviewPanel(wx.Panel):
         self._pan_y = 0.0
         self._zoom_label.SetLabel("Fit")
 
-    def _zoom_fit(self):
+    def _zoom_fit(self) -> None:
         """Zoom to fit mode."""
         self._reset_view()
         self._render()
 
-    def _zoom_in(self):
+    def _zoom_in(self) -> None:
         """Zoom in by ZOOM_STEP."""
         self._apply_zoom(self.ZOOM_STEP)
 
-    def _zoom_out(self):
+    def _zoom_out(self) -> None:
         """Zoom out by ZOOM_STEP."""
         self._apply_zoom(1.0 / self.ZOOM_STEP)
 
-    def _apply_zoom(self, factor: float):
+    def _apply_zoom(self, factor: float) -> None:
         """Apply a zoom factor.
 
         Args:
@@ -303,7 +304,7 @@ class PreviewPanel(wx.Panel):
 
     # --- Pan ---
 
-    def _on_left_down(self, event):
+    def _on_left_down(self, event: wx.MouseEvent) -> None:
         """Handle left mouse button down - start pan or modifier zoom.
 
         Important: Always call event.Skip() to ensure proper focus handling
@@ -340,14 +341,14 @@ class PreviewPanel(wx.Panel):
         wx.CallAfter(self._modifier_timer.Start, 50)
         event.Skip()  # Allow default processing
 
-    def _on_pan_start(self, event):
+    def _on_pan_start(self, event: wx.MouseEvent) -> None:
         """Start panning."""
         if not self._images:
             return
         self._drag_start = (event.GetX(), event.GetY())
         self._canvas.SetCursor(wx.Cursor(wx.CURSOR_SIZING))
 
-    def _on_pan_drag(self, event):
+    def _on_pan_drag(self, event: wx.MouseEvent) -> None:
         """Update pan offsets during drag."""
         if self._drag_start is None:
             return
@@ -359,14 +360,14 @@ class PreviewPanel(wx.Panel):
         self._pan_y += dy
         self._canvas.Refresh()
 
-    def _on_pan_end(self, event):
+    def _on_pan_end(self, event: wx.MouseEvent) -> None:
         """End panning."""
         self._drag_start = None
         self._canvas.SetCursor(wx.NullCursor)
 
     # --- Mouse events ---
 
-    def _on_scroll_zoom(self, event):
+    def _on_scroll_zoom(self, event: wx.MouseEvent) -> None:
         """Handle mouse wheel for zooming."""
         if not self._images:
             return
@@ -376,7 +377,7 @@ class PreviewPanel(wx.Panel):
         elif rotation < 0:
             self._apply_zoom(1.0 / self.ZOOM_STEP)
 
-    def _on_motion(self, event):
+    def _on_motion(self, event: wx.MouseEvent) -> None:
         """Update cursor based on modifiers or handle pan drag."""
         if not self._images:
             return
@@ -388,26 +389,29 @@ class PreviewPanel(wx.Panel):
         # Update cursor based on current modifiers
         self._update_cursor()
 
-    def _on_enter(self, event):
+    def _on_enter(self, event: wx.MouseEvent) -> None:
         """Update cursor when mouse enters canvas and start modifier polling."""
         if self._images and self._drag_start is None:
             self._update_cursor()
             # Start timer to poll for modifier key changes (50ms = 20 times per second)
             self._modifier_timer.Start(50)
 
-    def _on_leave(self, event):
+    def _on_leave(self, event: wx.MouseEvent) -> None:
         """Reset cursor when mouse leaves canvas and stop modifier polling."""
         if self._drag_start is None:
             self._canvas.SetCursor(wx.NullCursor)
         # Stop polling timer when mouse leaves
         self._modifier_timer.Stop()
 
-    def _on_modifier_timer(self, event):
+    def _on_modifier_timer(self, event: wx.TimerEvent) -> None:
         """Timer callback to check for modifier key changes without mouse movement."""
+        if not wx.GetApp():
+            self._modifier_timer.Stop()
+            return
         if self._images and self._drag_start is None:
             self._update_cursor()
 
-    def _update_cursor(self):
+    def _update_cursor(self) -> None:
         """Update cursor based on current modifier key state.
 
         Uses wx.GetMouseState().GetModifiers() to poll modifier keys,
@@ -433,7 +437,7 @@ class PreviewPanel(wx.Panel):
 
     # --- Rendering ---
 
-    def _on_resize(self, event):
+    def _on_resize(self, event: wx.SizeEvent | None) -> None:
         """Handle canvas resize - recompute and repaint."""
         if self._error_message:
             self._canvas.Refresh()
@@ -442,7 +446,7 @@ class PreviewPanel(wx.Panel):
         if event:
             event.Skip()
 
-    def _render(self):
+    def _render(self) -> None:
         """Prepare bitmap for current page with zoom and pan."""
         if not self._images or self._page_idx >= len(self._images):
             self._bitmap_cache = None
@@ -467,7 +471,7 @@ class PreviewPanel(wx.Panel):
         # Scale image
         new_w = max(1, int(iw * scale))
         new_h = max(1, int(ih * scale))
-        resized = img.resize((new_w, new_h), Image.LANCZOS)
+        resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
 
         # Convert to wx.Bitmap
         self._bitmap_cache = utils.pil_to_bitmap(resized)
@@ -475,7 +479,7 @@ class PreviewPanel(wx.Panel):
         # Trigger repaint
         self._canvas.Refresh()
 
-    def _on_paint(self, event):
+    def _on_paint(self, event: wx.PaintEvent) -> None:
         """Paint the cached bitmap with pan offsets."""
         dc = wx.PaintDC(self._canvas)
         dc.Clear()
@@ -499,7 +503,7 @@ class PreviewPanel(wx.Panel):
         # Draw bitmap
         dc.DrawBitmap(self._bitmap_cache, x, y, useMask=False)
 
-    def _paint_placeholder(self, dc):
+    def _paint_placeholder(self, dc: wx.PaintDC) -> None:
         """Draw placeholder text when no images are loaded."""
         dc.SetTextForeground(styles.Color.TEXT_SECONDARY)
         dc.SetFont(styles.Font.BODY())
@@ -508,7 +512,7 @@ class PreviewPanel(wx.Panel):
         cw, ch = self._canvas.GetSize()
         dc.DrawText(text, (cw - tw) // 2, (ch - th) // 2)
 
-    def _paint_error(self, dc):
+    def _paint_error(self, dc) -> None:
         """Draw error message on canvas."""
         cw, ch = self._canvas.GetSize()
         if cw < 10 or ch < 10:
@@ -545,20 +549,20 @@ class PreviewPanel(wx.Panel):
         """
         words = text.split()
         lines = []
-        current_line = []
+        current_line: list[str] = []
 
         for word in words:
-            test_line = ' '.join(current_line + [word])
+            test_line = " ".join(current_line + [word])
             tw, _ = dc.GetTextExtent(test_line)
 
             if tw <= max_width:
                 current_line.append(word)
             else:
                 if current_line:
-                    lines.append(' '.join(current_line))
+                    lines.append(" ".join(current_line))
                 current_line = [word]
 
         if current_line:
-            lines.append(' '.join(current_line))
+            lines.append(" ".join(current_line))
 
         return lines if lines else [text]

@@ -1,0 +1,12 @@
+Tesseract OCR Engine
+
+Copyright 2006 Google Inc.
+
+Licensed under the Apache License, Version 2.0.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Tesseract is bundled via tesserocr, which links to libtesseract and its
+transitive dependencies. The tessdata (eng.traineddata) is bundled in
+_runtime_content/tessdata/.

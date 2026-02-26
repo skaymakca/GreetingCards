@@ -7,23 +7,61 @@ import wx
 
 
 class Color:
-    """Color palette for the application (wx.Colour objects)."""
+    """Color palette for the application (wx.Colour objects).
 
-    # Backgrounds
-    BG_PRIMARY = wx.Colour(255, 255, 255)      # #FFFFFF
-    BG_SECONDARY = wx.Colour(245, 245, 247)    # #F5F5F7
-    BG_SELECTED = wx.Colour(212, 228, 247)     # #D4E4F7
+    Mode-dependent colors (BG_*, TEXT_*, BORDER) are updated by refresh().
+    Semantic colors (ACCENT, SUCCESS, etc.) are fixed — they work in both modes.
+    """
 
-    # Text
-    TEXT_PRIMARY = wx.Colour(29, 29, 31)       # #1D1D1F
+    # Backgrounds (light defaults — refresh() updates for dark mode)
+    BG_PRIMARY = wx.Colour(255, 255, 255)  # #FFFFFF
+    BG_SECONDARY = wx.Colour(245, 245, 247)  # #F5F5F7
+    BG_SELECTED = wx.Colour(212, 228, 247)  # #D4E4F7
+
+    # Text (light defaults)
+    TEXT_PRIMARY = wx.Colour(29, 29, 31)  # #1D1D1F
     TEXT_SECONDARY = wx.Colour(110, 110, 115)  # #6E6E73
 
-    # Semantic colors
-    ACCENT = wx.Colour(0, 122, 255)            # #007AFF
-    SUCCESS = wx.Colour(52, 199, 89)           # #34C759
-    WARNING = wx.Colour(255, 149, 0)           # #FF9500
-    ERROR = wx.Colour(255, 59, 48)             # #FF3B30
-    MANUAL_BLUE = wx.Colour(30, 144, 255)      # #1E90FF
+    # Borders (light default)
+    BORDER = wx.Colour(0xDD, 0xDD, 0xDD)  # #DDDDDD
+
+    # Semantic colors (unchanged across modes)
+    ACCENT = wx.Colour(0, 122, 255)  # #007AFF
+    SUCCESS = wx.Colour(52, 199, 89)  # #34C759
+    WARNING = wx.Colour(255, 149, 0)  # #FF9500
+    ERROR = wx.Colour(255, 59, 48)  # #FF3B30
+    MANUAL_BLUE = wx.Colour(30, 144, 255)  # #1E90FF
+
+    @classmethod
+    def refresh(cls) -> None:
+        """Reassign mode-dependent colors for current appearance.
+
+        Call at startup and whenever the system appearance changes.
+        Semantic colors are not affected.
+        """
+        from app.gui.appearance import is_dark_mode
+
+        if is_dark_mode():
+            cls.BG_PRIMARY = wx.Colour(30, 30, 30)  # #1E1E1E
+            cls.BG_SECONDARY = wx.Colour(44, 44, 46)  # #2C2C2E
+            cls.BG_SELECTED = wx.Colour(44, 62, 80)  # #2C3E50
+            cls.TEXT_PRIMARY = wx.Colour(230, 230, 230)  # #E6E6E6
+            cls.TEXT_SECONDARY = wx.Colour(152, 152, 157)  # #98989D
+            cls.BORDER = wx.Colour(56, 56, 58)  # #38383A
+        else:
+            cls.BG_PRIMARY = wx.Colour(255, 255, 255)
+            cls.BG_SECONDARY = wx.Colour(245, 245, 247)
+            cls.BG_SELECTED = wx.Colour(212, 228, 247)
+            cls.TEXT_PRIMARY = wx.Colour(29, 29, 31)
+            cls.TEXT_SECONDARY = wx.Colour(110, 110, 115)
+            cls.BORDER = wx.Colour(0xDD, 0xDD, 0xDD)
+
+    @classmethod
+    def icon_hex(cls) -> str:
+        """Return the appropriate SF Symbol icon tint for current mode."""
+        from app.gui.appearance import is_dark_mode
+
+        return "#E6E6E6" if is_dark_mode() else "#1D1D1F"
 
     @staticmethod
     def from_hex(hex_color: str) -> wx.Colour:
@@ -35,17 +73,19 @@ class Color:
         Returns:
             wx.Colour object
         """
-        hex_color = hex_color.lstrip('#')
+        hex_color = hex_color.lstrip("#")
         r = int(hex_color[0:2], 16)
         g = int(hex_color[2:4], 16)
         b = int(hex_color[4:6], 16)
         return wx.Colour(r, g, b)
 
 
+# noinspection PyPep8Naming
 class Font:
     """Font definitions for the application (factory methods).
 
     Use class methods to create fonts on demand (avoids needing wx.App at import time).
+    Uppercase method names (TITLE, HEADING, etc.) are used by convention for style factories.
     """
 
     FAMILY = "Helvetica Neue"
@@ -135,10 +175,18 @@ class Layout:
     YEAR_WIDTH = 60
     MIN_FRAME_SIZE = (800, 500)
 
+    # Splitter sash position
+    CONTENT_SASH_GRAVITY = 0.55  # Cards panel gets slightly more space
+
     # Drag highlight drawing
     HIGHLIGHT_WIDTH = 3
     HIGHLIGHT_RADIUS = 6
     HIGHLIGHT_INSET = 1.5
+
+    # Drop overlay
+    DROP_BG_SCALE = 0.5  # Background image area as fraction of overlay
+    DROP_IMG_SHIFT = 0.06  # Upward shift of background image
+    DROP_TEXT_GAP = 2  # Pixel gap between primary/secondary text
 
     # Timing (ms)
     DEBOUNCE_MS = 1000

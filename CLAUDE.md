@@ -10,6 +10,7 @@
 - ✅ ONLY commit when user explicitly says "commit X"
 - ✅ Keep track of changes to write good commit messages when asked
 - ✅ Include `Fixes #N` or `Fixes #N, #M` in commit/PR messages when the work resolves GitHub issues
+- ✅ **Always commit ALL unstaged changes** — never do partial/selective commits unless explicitly told to. Tests run against the full working tree, so partial commits can leave broken states in the history.
 
 ---
 
@@ -21,6 +22,19 @@
 - ❌ Do NOT close or modify existing issues without being asked
 - ✅ ONLY manage issues when user explicitly asks you to
 - Use `gh issue list` to view open issues
+
+---
+
+## ⚠️ CRITICAL: ALWAYS USE ABSOLUTE PATHS ⚠️
+
+**NEVER use `cd` in commands. ALWAYS use absolute paths.**
+
+- ❌ `cd /some/dir && command` — triggers manual approval for path resolution
+- ❌ `cd /some/dir; command > file` — triggers manual approval
+- ✅ `command /absolute/path/to/target` — runs without approval friction
+- ✅ `gh issue create --repo owner/repo` — no cd needed
+- The working directory is `/Users/sukru/code/GreetingCards` — use absolute paths from there
+- You have full access to the codebase. Find files with Glob/Grep, reference them by absolute path.
 
 ---
 
@@ -57,6 +71,29 @@ pip install package-name
 
 ---
 
+## LSP (Language Server Protocol)
+
+**Always use the LSP tool** for code navigation instead of guessing or grepping. It provides accurate, type-aware results.
+
+### When to use LSP
+- **`goToDefinition`** — jump to where a symbol is defined (class, function, variable)
+- **`findReferences`** — find all usages of a symbol across the codebase
+- **`hover`** — get type info and docstrings for a symbol
+- **`documentSymbol`** — list all symbols in a file (overview of a module)
+- **`goToImplementation`** — find concrete implementations of abstract methods
+- **`incomingCalls` / `outgoingCalls`** — trace call chains
+
+### When LSP is better than Grep
+- Finding all callers of a method (Grep misses aliased/dynamic calls)
+- Navigating to the actual definition (not just string matches)
+- Understanding type signatures and overloads
+- Getting a quick overview of a module's public API (`documentSymbol`)
+
+### If LSP fails
+If the LSP tool returns an error or "no server available", **tell the user immediately** so they can check their LSP configuration. Example: "LSP server is not responding for Python files — you may need to restart it. Falling back to Grep for now."
+
+---
+
 ## Project Overview
 
 Greeting Cards - macOS app for organizing and renaming greeting card PDFs using OCR and AI.
@@ -67,10 +104,29 @@ Greeting Cards - macOS app for organizing and renaming greeting card PDFs using 
 - PyMuPDF for PDF rendering
 - Anthropic Claude API for AI analysis
 
-### Key Notes
+### Notes
 - macOS native widgets: use wx widgets without explicit bg colors
 - Python 3.14: exception variables cleared after except block
 - Always test both source version and app bundle when making UI changes
+
+### High-Level Layout
+
+```
+app/
+  core/         # Business logic (OCR, AI, rename, database, PDF, config)
+  gui/          # wxPython UI (main window, panels, dialogs, styles, icons)
+  models/       # Data models (CardResult, RenamePlanItem, etc.)
+content/        # Static assets (HTML templates, CSS, JS, help markdown, licenses)
+scripts/        # Standalone scripts and benchmarks
+  benchmark/    # OCR and concurrency benchmark suite
+tests/          # Pytest suite (mirrors app/ structure)
+main.py         # Entry point
+```
+
+Key entry points:
+- `main.py` → `app.gui.main_window.MainWindow` — the app
+- `scripts/visual_test.py` — visual test harness for all dialogs/panels
+- `Greeting Cards.spec` — PyInstaller bundle config
 
 ---
 
@@ -78,21 +134,34 @@ Greeting Cards - macOS app for organizing and renaming greeting card PDFs using 
 
 When editing files in these areas, **read the corresponding doc first**, then **update the doc** if your changes alter the documented behavior.
 
-| Files Being Edited | Read First |
-|---|---|
-| `app/gui/main_window.py` (filters, `_refresh_display`) | `docs/architecture/filter-pipeline.md` |
-| `app/gui/filter_sidebar.py` | `docs/architecture/filter-pipeline.md` |
-| `app/gui/main_window.py` (card loading, state, dedup) | `docs/architecture/card-data-model.md` |
-| `app/models/card.py` | `docs/architecture/card-data-model.md` |
-| `app/gui/review_panel.py` | `docs/architecture/review-panel.md` |
-| `app/gui/main_window.py` (processing, AI, threads) | `docs/architecture/async-processing.md` |
-| `app/core/ai_analyzer.py` | `docs/architecture/async-processing.md` |
-| `app/core/name_extractor.py`, `app/core/name_formatting.py` | `docs/architecture/name-pipeline.md` |
-| `app/core/database.py`, `app/core/renamer.py` | `docs/architecture/name-pipeline.md` |
-| `app/gui/help_dialog.py` | `docs/architecture/help-system.md` |
-| `help/**/*.html` | `docs/architecture/help-system.md` |
-| `app/core/config.py`, `app/core/paths.py` | `docs/architecture/config-and-preferences.md` |
-| `app/gui/settings_dialog.py` | `docs/architecture/config-and-preferences.md` |
+| Files Being Edited                                                             | Read First                                                            |
+|--------------------------------------------------------------------------------|-----------------------------------------------------------------------|
+| `app/gui/main_window.py` (filters, `_refresh_display`)                         | `docs/architecture/filter-pipeline.md`                                |
+| `app/gui/filter_sidebar.py`                                                    | `docs/architecture/filter-pipeline.md`                                |
+| `app/gui/main_window.py` (card loading, state, dedup)                          | `docs/architecture/card-data-model.md`                                |
+| `app/models/card.py`                                                           | `docs/architecture/card-data-model.md`                                |
+| `app/gui/review_panel.py`                                                      | `docs/architecture/review-panel.md`                                   |
+| `app/gui/main_window.py` (processing, AI, threads)                             | `docs/architecture/async-processing.md`                               |
+| `app/core/ai_analyzer.py`                                                      | `docs/architecture/async-processing.md`                               |
+| `app/core/name_extractor.py`, `app/core/name_formatting.py`                    | `docs/architecture/name-pipeline.md`                                  |
+| `app/core/database.py`, `app/core/renamer.py`                                  | `docs/architecture/name-pipeline.md`                                  |
+| `app/gui/help_dialog.py`, `app/core/help_builder.py`                           | `docs/architecture/help-system.md`                                    |
+| `content/html/help/*.md`                                                       | `docs/architecture/help-system.md`                                    |
+| `app/gui/html_viewer.py`, `content/html/common/js/search.js`                   | `docs/architecture/html-viewer.md`                                    |
+| `app/core/changelog.py`, `app/core/changelog_models.py`                        | `docs/architecture/changelog-viewer.md`                               |
+| `app/gui/changelog_dialog.py`, `content/html/templates/changelog_page.html.j2` | `docs/architecture/changelog-viewer.md`                               |
+| `app/core/license_models.py`, `app/core/license_discovery.py`                  | `docs/architecture/licenses-viewer.md`                                |
+| `app/gui/licenses_dialog.py`, `content/html/templates/licenses_*.html.j2`      | `docs/architecture/licenses-viewer.md`                                |
+| `content/licenses/config.toml`, `content/licenses/manual/*`                    | `docs/architecture/licenses-viewer.md`                                |
+| `CHANGELOG.md`                                                                 | `CLAUDE.md` (changelog conventions below)                             |
+| `app/core/config.py`, `app/core/paths.py`                                      | `docs/architecture/config-and-preferences.md`                         |
+| `app/gui/settings_dialog.py`                                                   | `docs/architecture/config-and-preferences.md`                         |
+| `app/gui/appearance.py`, `app/gui/styles.py` (Color.refresh)                   | `docs/architecture/dark-mode.md`                                      |
+| `app/gui/icons.py` (clear_cache, icon tint)                                    | `docs/architecture/dark-mode.md`                                      |
+| `app/gui/main_window.py` (appearance observer, refresh)                        | `docs/architecture/dark-mode.md`                                      |
+| `content/html/common/css/viewer.css` (color variables)                         | `docs/architecture/dark-mode.md`                                      |
+| `scripts/*.py` (adding/removing/renaming scripts)                              | Update `Makefile` `show-scripts` target + `README.md` Scripts section |
+| `# noinspection` comments in any `*.py` file                                   | `docs/architecture/pycharm-inspections.md`                            |
 
 ### Test Count
 When adding or removing tests, update the test count in `README.md` (search for "tests** covering") to match the actual number from `pytest` output.
@@ -103,29 +172,66 @@ When adding or removing tests, update the test count in `README.md` (search for 
 - **If docs contradict code:** The code is the source of truth. Update the doc to match. If the code seems wrong based on the doc's described intent, flag the discrepancy to the user before changing either — it may be an out-of-date doc or a misaligned implementation that needs discussion.
 - **New subsystems:** If you add a major new subsystem (new panel, new processing pipeline, etc.), create a new doc in `docs/architecture/` and add it to the table above.
 
+### Changelog Conventions
+
+`CHANGELOG.md` is user-facing (not developer-facing). When updating it:
+
+- **Audience:** End users, not developers
+- **Format:** Summary sentence(s) first, then bullets
+- **Language:** Plain language — describe *what changed*, not *how*
+- **Grouping:** Each `major.minor` version gets its own `## ` entry with date; patch versions fold into their parent
+- **When to update:** When making user-visible changes
+- **Build step:** `make html-content` regenerates HTML from the Markdown; `make app` runs this automatically
+
+### License Sync
+
+After adding or updating packages with `uv add`, run `make licenses-sync` to update the license registry and extract new license texts. Then run `make html-content` to regenerate the HTML.
+
 ---
 
-## Code Quality Audit Checklist
+## Code Quality Audit
 
-When asked to audit the codebase, check for these categories across all files in `app/` and `tests/`:
+When asked to audit the codebase, follow the checklist in [`docs/code-quality-audit.md`](docs/code-quality-audit.md).
 
-### What to Look For
-1. **Missing tests** — public methods/functions without tests, untested error paths, shallow happy-path-only coverage
-2. **Unused code** — dead imports, unreachable code paths, unused functions/variables
-3. **Missing type annotations** — functions missing `-> None` or return types, untyped parameters
-4. **Repeated code** — duplicate logic across files that should be extracted to shared helpers
-5. **Unpythonic patterns** — `dict.__init__(self)` instead of `super().__init__()`, `lambda: Path()` instead of `Path`, `count == 0` instead of `not count`, etc.
-6. **Magic constants** — hardcoded strings, pixel values, colors, or numbers that should be named constants
-7. **Hardcoded colors** — `wx.Colour(...)` literals that duplicate values in `app/gui/styles.py`
-8. **print() instead of logging** — use `logging.getLogger(__name__)` instead
-9. **Incomplete logic** — missing else branches, unhandled empty/None cases, no input validation
-10. **Bugs and logic errors** — race conditions, off-by-one errors, unbounded loops, case-sensitivity mismatches, stale state after mutations, silent exception swallowing that hides real failures
-11. **Stale Makefile** — targets referencing outdated paths, wrong Python versions, missing new entry points, or commands that no longer match the project structure
+---
 
-### How to Run
-Launch parallel Explore agents for each area:
-- `app/core/` — all core modules
-- `app/gui/main_window.py` — largest file, audit separately
-- `app/gui/` (excluding main_window) — all other GUI modules
-- `app/models/card.py` — data model
-- `tests/` — coverage gap analysis (compare test files against source modules)
+## Pre-Commit Checks
+
+Before committing, run these checks and fix any issues:
+
+| Command                   | Purpose                                                 | Expected             |
+|---------------------------|---------------------------------------------------------|----------------------|
+| `make check`              | **All static checks** (type + lint + format + security) | 0 errors             |
+| `make pyright`            | Static type checking (strict structural types)          | 0 errors, 0 warnings |
+| `make mypy`               | Static type checking (nominal types, plugin-based)      | 0 errors             |
+| `make lint`               | Ruff linting (code quality, bug patterns, imports)      | 0 errors             |
+| `make format-check`       | Ruff formatting check                                   | 0 reformatted        |
+| `make security`           | Bandit security scan (app + scripts)                    | 0 issues             |
+| `uv run pytest tests/ -x` | Run all tests                                           | All pass             |
+
+**Quick pre-commit:** `make check && uv run pytest tests/ -x`
+
+**pyright** (`pyrightconfig.json`): Catches structural type errors, unused imports, unreachable code. Zero-warning baseline.
+
+**mypy** (`[tool.mypy]` in `pyproject.toml`): Catches nominal type mismatches, SQLAlchemy plugin issues. `import-untyped` errors are suppressed globally for stubless third-party libs (wx, AppKit, Foundation, tesserocr, fitz).
+
+**ruff** (`[tool.ruff]` in `pyproject.toml`): Linting (pyflakes, pycodestyle, isort, bugbear, simplify, etc.) and formatting. Use `make lint-fix` for auto-fixes, `make format` to reformat.
+
+**bandit** (`[tool.bandit]` in `pyproject.toml`): Security scanning for app/ and scripts/. Subprocess and known false positives are pre-configured as skips.
+
+---
+
+## PyCharm Inspections (MCP)
+
+When the JetBrains MCP server is available, use PyCharm inspections for deeper semantic analysis beyond what CLI tools catch.
+
+**"Check with PyCharm"** — When asked to check files with PyCharm, inspect all Python files in these directories:
+- `main.py`
+- `app/**/*.py`
+- `scripts/*.py`
+
+Use `mcp__jetbrains__get_file_problems` on each file. **Batch all files in a single parallel call** — PyCharm handles them quickly.
+
+**Expected:** 0 errors, 0 warnings (excluding intentional `# noinspection` suppressions).
+
+**When to use:** As a supplementary check alongside `make check`. PyCharm catches things CLI tools miss (e.g., framework-specific issues, unresolved references in dynamic code, wxPython API misuse).

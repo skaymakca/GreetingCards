@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="{{ css_path }}">
+{% if js_path %}
+    <script src="{{ js_path }}"></script>
+{% endif %}
+</head>
+<body>
+    {% block sidebar %}{% endblock %}
+    <div class="content">
+{% block content %}{% endblock %}
+    </div>
+</body>
+</html>

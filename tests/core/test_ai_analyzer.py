@@ -1,39 +1,46 @@
 """Tests for app.core.ai_analyzer module."""
+
 import base64
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from PIL import Image
 
 from app.core.ai_analyzer import (
+    _MAX_LINE_LENGTH,
+    _MAX_RETRIES,
+    AIResult,
+    _build_content_blocks,
+    _get_validated_api_key,
+    _image_to_b64,
+    _normalize_images,
+    _parse_response,
     _strip_plural,
+    analyze_card_with_ai_async,
     clean_family_name,
     format_ai_error,
-    _image_to_b64,
-    _parse_response,
-    _build_content_blocks,
-    _normalize_images,
-    _get_validated_api_key,
-    AIResult,
-    analyze_card_with_ai_async,
+    parse_retry_after,
 )
 
 
 class TestStripPlural:
     """Tests for _strip_plural()."""
 
-    @pytest.mark.parametrize("input_name,expected", [
-        ("Walshes", "Walsh"),
-        ("Marches", "March"),
-        ("Foxes", "Fox"),
-        ("Smiths", "Smith"),
-        ("Ross", "Ross"),       # Ends in 'ss' — no strip
-        ("Clarks", "Clarks"),   # -rks not in strip set
-        ("Richards", "Richard"),  # -rds: name[-3:-1]="rd" is in strip set
-        ("Stewarts", "Stewart"), # -rts → strip
-        ("", ""),
-        ("Ab", "Ab"),           # Too short
-    ])
+    @pytest.mark.parametrize(
+        "input_name,expected",
+        [
+            ("Walshes", "Walsh"),
+            ("Marches", "March"),
+            ("Foxes", "Fox"),
+            ("Smiths", "Smith"),
+            ("Ross", "Ross"),  # Ends in 'ss' — no strip
+            ("Clarks", "Clarks"),  # -rks not in strip set
+            ("Richards", "Richard"),  # -rds: name[-3:-1]="rd" is in strip set
+            ("Stewarts", "Stewart"),  # -rts → strip
+            ("", ""),
+            ("Ab", "Ab"),  # Too short
+        ],
+    )
     def test_strip_plural(self, input_name, expected):
         assert _strip_plural(input_name) == expected
 
@@ -59,7 +66,7 @@ class TestCleanFamilyName:
         assert result == "Smith"
 
     def test_removes_smart_quotes(self):
-        result = clean_family_name("\u201CSmith\u201D")
+        result = clean_family_name("\u201cSmith\u201d")
         assert result == "Smith"
 
     def test_strips_punctuation(self):
@@ -88,6 +95,7 @@ class TestFormatAiError:
 
     def test_auth_error(self):
         import anthropic
+
         err = anthropic.AuthenticationError(
             message="invalid key",
             response=MagicMock(status_code=401),
@@ -97,6 +105,7 @@ class TestFormatAiError:
 
     def test_rate_limit_error(self):
         import anthropic
+
         err = anthropic.RateLimitError(
             message="rate limited",
             response=MagicMock(status_code=429),
@@ -107,16 +116,19 @@ class TestFormatAiError:
     def test_timeout_error(self):
         """APITimeoutError should be caught before APIConnectionError."""
         import anthropic
+
         err = anthropic.APITimeoutError(request=MagicMock())
         assert "timed out" in format_ai_error(err).lower()
 
     def test_connection_error(self):
         import anthropic
+
         err = anthropic.APIConnectionError(request=MagicMock())
         assert "connection" in format_ai_error(err).lower()
 
     def test_status_error(self):
         import anthropic
+
         err = anthropic.APIStatusError(
             message="server error",
             response=MagicMock(status_code=500),
@@ -199,6 +211,7 @@ class TestAnalyzeCardWithAi:
     @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
     async def test_calls_anthropic(self, mock_key, mock_model):
         import anthropic
+
         mock_msg = MagicMock()
         mock_msg.content = [MagicMock(text="Smith")]
         mock_client = MagicMock()
@@ -213,6 +226,7 @@ class TestAnalyzeCardWithAi:
     @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
     async def test_accepts_single_image(self, mock_key, mock_model):
         import anthropic
+
         mock_msg = MagicMock()
         mock_msg.content = [MagicMock(text="Jones")]
         mock_client = MagicMock()
@@ -227,6 +241,7 @@ class TestAnalyzeCardWithAi:
     @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
     async def test_accepts_image_list(self, mock_key, mock_model):
         import anthropic
+
         mock_msg = MagicMock()
         mock_msg.content = [MagicMock(text="Smith")]
         mock_client = MagicMock()
@@ -243,6 +258,7 @@ class TestAnalyzeCardWithAi:
     async def test_uses_configured_model(self, mock_key, mock_model):
         """Verifies the configured model is passed to the API."""
         import anthropic
+
         mock_msg = MagicMock()
         mock_msg.content = [MagicMock(text="Smith")]
         mock_client = MagicMock()
@@ -336,3 +352,231 @@ class TestParseResponseEdgeCases:
         result = _parse_response("  Smith  \n\n  \n  Jones  \n\n")
         assert result.best_name == "Smith"
         assert result.alternates == ["Jones"]
+
+    def test_boundary_line_length_50_included(self):
+        """Line exactly at _MAX_LINE_LENGTH (50) is included."""
+        line = "A" * _MAX_LINE_LENGTH
+        assert len(line) == 50
+        result = _parse_response(line)
+        assert result.best_name == line
+
+    def test_boundary_line_length_51_excluded(self):
+        """Line at _MAX_LINE_LENGTH + 1 (51) is excluded."""
+        line = "A" * (_MAX_LINE_LENGTH + 1)
+        assert len(line) == 51
+        result = _parse_response(line)
+        assert result.best_name == ""
+
+    def test_all_skip_word_lines(self):
+        """When all lines contain skip words, result is empty."""
+        text = "The card shows a family\nThis page appears to have writing"
+        result = _parse_response(text)
+        assert result.best_name == ""
+        assert result.alternates == []
+
+    def test_mixed_case_unknown(self):
+        """Mixed-case 'UnKnOwN' is treated as UNKNOWN."""
+        result = _parse_response("UnKnOwN")
+        assert result.best_name == ""
+        assert result.alternates == []
+
+
+class TestAnalyzeCardWithAiErrors:
+    """Tests for API error propagation in analyze_card_with_ai_async()."""
+
+    @pytest.mark.asyncio
+    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    async def test_timeout_error_propagates(self, mock_key, mock_model):
+        """APITimeoutError propagates from the async client."""
+        import anthropic
+
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(side_effect=anthropic.APITimeoutError(request=MagicMock()))
+        with (
+            patch.object(anthropic, "AsyncAnthropic", return_value=mock_client),
+            pytest.raises(anthropic.APITimeoutError),
+        ):
+            await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
+
+    @pytest.mark.asyncio
+    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    async def test_rate_limit_error_propagates(self, mock_key, mock_model):
+        """RateLimitError propagates from the async client."""
+        import anthropic
+
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(
+            side_effect=anthropic.RateLimitError(message="rate limited", response=MagicMock(status_code=429), body=None)
+        )
+        with (
+            patch.object(anthropic, "AsyncAnthropic", return_value=mock_client),
+            pytest.raises(anthropic.RateLimitError),
+        ):
+            await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
+
+    @pytest.mark.asyncio
+    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    async def test_auth_error_propagates(self, mock_key, mock_model):
+        """AuthenticationError propagates from the async client."""
+        import anthropic
+
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(
+            side_effect=anthropic.AuthenticationError(
+                message="invalid key", response=MagicMock(status_code=401), body=None
+            )
+        )
+        with (
+            patch.object(anthropic, "AsyncAnthropic", return_value=mock_client),
+            pytest.raises(anthropic.AuthenticationError),
+        ):
+            await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
+
+    @pytest.mark.asyncio
+    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    async def test_connection_error_propagates(self, mock_key, mock_model):
+        """APIConnectionError propagates from the async client."""
+        import anthropic
+
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(side_effect=anthropic.APIConnectionError(request=MagicMock()))
+        with (
+            patch.object(anthropic, "AsyncAnthropic", return_value=mock_client),
+            pytest.raises(anthropic.APIConnectionError),
+        ):
+            await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
+
+    @pytest.mark.asyncio
+    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    async def test_status_error_propagates(self, mock_key, mock_model):
+        """APIStatusError propagates from the async client."""
+        import anthropic
+
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(
+            side_effect=anthropic.APIStatusError(message="server error", response=MagicMock(status_code=500), body=None)
+        )
+        with (
+            patch.object(anthropic, "AsyncAnthropic", return_value=mock_client),
+            pytest.raises(anthropic.APIStatusError),
+        ):
+            await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
+
+    @pytest.mark.asyncio
+    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    async def test_empty_content_list(self, mock_key, mock_model):
+        """Empty message.content list returns empty AIResult."""
+        import anthropic
+
+        mock_msg = MagicMock()
+        mock_msg.content = []
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(return_value=mock_msg)
+
+        with patch.object(anthropic, "AsyncAnthropic", return_value=mock_client):
+            result = await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
+            assert result.best_name == ""
+            assert result.alternates == []
+
+    @pytest.mark.asyncio
+    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    async def test_empty_content_block(self, mock_key, mock_model):
+        """Empty response content returns empty AIResult."""
+        import anthropic
+
+        mock_msg = MagicMock()
+        mock_msg.content = [MagicMock(text="")]
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(return_value=mock_msg)
+
+        with patch.object(anthropic, "AsyncAnthropic", return_value=mock_client):
+            result = await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
+            assert result.best_name == ""
+            assert result.alternates == []
+
+    @pytest.mark.asyncio
+    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    async def test_block_without_text_attribute(self, mock_key, mock_model):
+        """Block without text attribute returns empty AIResult."""
+        import anthropic
+
+        mock_block = MagicMock(spec=[])  # No attributes at all
+        mock_msg = MagicMock()
+        mock_msg.content = [mock_block]
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(return_value=mock_msg)
+
+        with patch.object(anthropic, "AsyncAnthropic", return_value=mock_client):
+            result = await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
+            assert result.best_name == ""
+
+
+class TestParseRetryAfter:
+    """Tests for parse_retry_after()."""
+
+    def test_retry_after_ms_header(self):
+        """Extracts delay from retry-after-ms header."""
+        exc = MagicMock()
+        exc.response.headers = {"retry-after-ms": "5000"}
+        assert parse_retry_after(exc) == 5.0
+
+    def test_retry_after_header(self):
+        """Extracts delay from retry-after header."""
+        exc = MagicMock()
+        exc.response.headers = {"retry-after": "15"}
+        assert parse_retry_after(exc) == 15.0
+
+    def test_retry_after_ms_takes_precedence(self):
+        """retry-after-ms is preferred over retry-after."""
+        exc = MagicMock()
+        exc.response.headers = {"retry-after-ms": "3000", "retry-after": "60"}
+        assert parse_retry_after(exc) == 3.0
+
+    def test_missing_headers_returns_default(self):
+        """Falls back to 10s when no retry-after headers present."""
+        exc = MagicMock()
+        exc.response.headers = {}
+        assert parse_retry_after(exc) == 10.0
+
+    def test_no_response_attribute(self):
+        """Falls back to 10s when exception has no response."""
+        exc = Exception("plain error")
+        assert parse_retry_after(exc) == 10.0
+
+    def test_malformed_value(self):
+        """Falls back to 10s when header value is not a number."""
+        exc = MagicMock()
+        exc.response.headers = {"retry-after-ms": "not-a-number", "retry-after": "also-bad"}
+        assert parse_retry_after(exc) == 10.0
+
+
+class TestMaxRetriesConfig:
+    """Tests for SDK retry configuration."""
+
+    @pytest.mark.asyncio
+    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    async def test_max_retries_passed_to_client(self, mock_key, mock_model):
+        """Verifies max_retries=4 is passed to AsyncAnthropic constructor."""
+        import anthropic
+
+        mock_msg = MagicMock()
+        mock_msg.content = [MagicMock(text="Smith")]
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(return_value=mock_msg)
+
+        with patch.object(anthropic, "AsyncAnthropic", return_value=mock_client) as mock_ctor:
+            await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
+            mock_ctor.assert_called_once_with(api_key="sk-test", max_retries=_MAX_RETRIES)
+
+    def test_max_retries_value(self):
+        """_MAX_RETRIES is set to 4."""
+        assert _MAX_RETRIES == 4

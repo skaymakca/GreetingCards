@@ -1,8 +1,9 @@
 """Tests for app.gui.api_key_dialog module."""
-from unittest.mock import patch, MagicMock
 
-import wx
+from unittest.mock import MagicMock, patch
+
 import pytest
+import wx
 
 from app.gui.api_key_dialog import show_api_key_dialog
 

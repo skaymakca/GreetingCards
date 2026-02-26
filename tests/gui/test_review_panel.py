@@ -1,17 +1,19 @@
 """Tests for review_panel.py - Master-Detail Review Panel."""
 
+from pathlib import Path
+from unittest.mock import MagicMock, Mock, call, patch
+
+import pytest
 import wx
 import wx.dataview as dv
-import pytest
-from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch, call
+
 from app.gui.review_panel import (
     CardListModel,
     DetailPanel,
     ReviewPanelMasterDetail,
 )
 from app.gui.styles import Color
-from app.models.card import CardResult, Confidence, CandidateInfo
+from app.models.card import CandidateInfo, CardResult, Confidence
 
 
 def _select_card(panel, card_id):
@@ -20,14 +22,6 @@ def _select_card(panel, card_id):
     item = panel._model.get_item_by_card_id(card_id)
     panel._list_ctrl.Select(item)
     panel._on_selection_changed(Mock())
-
-
-@pytest.fixture
-def wx_app():
-    """Create wx.App for tests that need it."""
-    app = wx.App()
-    yield app
-    app.Destroy()
 
 
 @pytest.fixture
@@ -46,7 +40,8 @@ def mock_cards():
     # Card 1: High confidence with candidates
     card1 = CardResult(
         id=1,
-        file_paths=[Path("card-001.pdf")], primary_path=Path("card-001.pdf"),
+        file_paths=[Path("card-001.pdf")],
+        primary_path=Path("card-001.pdf"),
         family_name="Smith",
         confidence=Confidence.HIGH,
         method="ocr",
@@ -62,7 +57,8 @@ def mock_cards():
     # Card 2: Medium confidence
     card2 = CardResult(
         id=2,
-        file_paths=[Path("card-002.pdf")], primary_path=Path("card-002.pdf"),
+        file_paths=[Path("card-002.pdf")],
+        primary_path=Path("card-002.pdf"),
         family_name="Johnson",
         confidence=Confidence.MEDIUM,
         method="ai",
@@ -77,7 +73,8 @@ def mock_cards():
     # Card 3: Low confidence
     card3 = CardResult(
         id=3,
-        file_paths=[Path("card-003.pdf")], primary_path=Path("card-003.pdf"),
+        file_paths=[Path("card-003.pdf")],
+        primary_path=Path("card-003.pdf"),
         family_name="Williams",
         confidence=Confidence.LOW,
         method="ocr",
@@ -89,7 +86,8 @@ def mock_cards():
     # Card 4: NONE confidence (no name extracted)
     card4 = CardResult(
         id=4,
-        file_paths=[Path("card-004.pdf")], primary_path=Path("card-004.pdf"),
+        file_paths=[Path("card-004.pdf")],
+        primary_path=Path("card-004.pdf"),
         family_name="",
         confidence=Confidence.NONE,
         method="missing",
@@ -101,7 +99,8 @@ def mock_cards():
     # Card 5: Manual entry
     card5 = CardResult(
         id=5,
-        file_paths=[Path("card-005.pdf")], primary_path=Path("card-005.pdf"),
+        file_paths=[Path("card-005.pdf")],
+        primary_path=Path("card-005.pdf"),
         family_name="Brown",
         confidence=Confidence.MANUAL,
         method="manual",
@@ -113,7 +112,8 @@ def mock_cards():
     # Card 6: Error card
     card6 = CardResult(
         id=6,
-        file_paths=[Path("card-006.pdf")], primary_path=Path("card-006.pdf"),
+        file_paths=[Path("card-006.pdf")],
+        primary_path=Path("card-006.pdf"),
         family_name="",
         confidence=Confidence.NONE,
         method="missing",
@@ -380,9 +380,7 @@ class TestReviewPanelInit:
         on_select = Mock()
         on_ai = Mock()
         on_name_change = Mock()
-        panel = ReviewPanelMasterDetail(
-            parent_frame, on_select, on_ai, on_name_change
-        )
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai, on_name_change)
         assert panel._on_select is on_select
         assert panel._on_ai_request is on_ai
         assert panel._on_name_change is on_name_change
@@ -414,7 +412,7 @@ class TestLoadCards:
         panel.load_cards(mock_cards)
 
         label_text = panel._count_label.GetLabel()
-        assert label_text == "6 Cards \u24D8"
+        assert label_text == "6 Cards \u24d8"
 
     def test_load_cards_stores_card_data(self, parent_frame, mock_cards):
         """load_cards stores cards by ID."""
@@ -459,7 +457,7 @@ class TestLoadCards:
         panel.load_cards([])
 
         assert len(panel._cards_by_id) == 0
-        assert panel._count_label.GetLabel() == "0 Cards \u24D8"
+        assert panel._count_label.GetLabel() == "0 Cards \u24d8"
 
 
 # ============================================================================
@@ -607,9 +605,7 @@ class TestDetailPanel:
         assert detail._candidates_choice.GetCount() == 3
         assert "Select from 2" in detail._candidates_choice.GetString(0)
 
-    def test_detail_panel_no_candidates_disables_dropdown(
-        self, parent_frame, mock_cards
-    ):
+    def test_detail_panel_no_candidates_disables_dropdown(self, parent_frame, mock_cards):
         """load_card disables dropdown when no candidates."""
         detail = DetailPanel(parent_frame, None, None, None, None)
         detail.load_card(mock_cards[2])  # No candidates
@@ -636,9 +632,7 @@ class TestEventHandlers:
         on_select = Mock()
         on_ai = Mock()
         on_name_change = Mock()
-        panel = ReviewPanelMasterDetail(
-            parent_frame, on_select, on_ai, on_name_change
-        )
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai, on_name_change)
         panel.load_cards(mock_cards)
         _select_card(panel, 1)
 
@@ -759,6 +753,27 @@ class TestUpdateMethods:
         cards = panel.get_cards()
         assert cards[0].family_name == "Edited"
 
+    def test_get_cards_by_ids(self, parent_frame, mock_cards):
+        """get_cards_by_ids returns only requested cards, skipping missing."""
+        on_select = Mock()
+        on_ai = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
+        panel.load_cards(mock_cards)
+
+        cards = panel.get_cards_by_ids([1, 3, 999])
+        assert len(cards) == 2
+        assert cards[0].id == 1
+        assert cards[1].id == 3
+
+    def test_get_cards_by_ids_empty(self, parent_frame, mock_cards):
+        """get_cards_by_ids with empty list returns empty."""
+        on_select = Mock()
+        on_ai = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
+        panel.load_cards(mock_cards)
+
+        assert panel.get_cards_by_ids([]) == []
+
 
 # ============================================================================
 # Input Validation Tests
@@ -777,7 +792,7 @@ class TestNameCharFiltering:
             event = Mock(spec=wx.KeyEvent)
             event.GetUnicodeKey.return_value = ord(char)
             detail._on_name_char(event)
-            event.Skip.assert_not_called(), f"Should block '{char}'"
+            event.Skip.assert_not_called()
 
     def test_allows_normal_letters(self, parent_frame):
         """_on_name_char allows regular letters through."""
@@ -1163,9 +1178,7 @@ class TestMultiPathCardDisplay:
         on_select = Mock()
         on_ai = Mock()
         on_card_edited = Mock()
-        panel = ReviewPanelMasterDetail(
-            parent_frame, on_select, on_ai, on_card_edited=on_card_edited
-        )
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai, on_card_edited=on_card_edited)
         panel.load_cards(mock_cards)
 
         # Card 1 has candidates — set up hash so _handle_candidate works
@@ -1290,17 +1303,13 @@ class TestContextMenu:
     def test_on_remove_callback_stored(self, parent_frame):
         """ReviewPanelMasterDetail stores on_remove callback."""
         on_remove = Mock()
-        panel = ReviewPanelMasterDetail(
-            parent_frame, Mock(), Mock(), on_remove=on_remove
-        )
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=on_remove)
         assert panel._on_remove is on_remove
 
     def test_on_remove_passed_to_detail_panel(self, parent_frame):
         """on_remove callback is passed through to DetailPanel."""
         on_remove = Mock()
-        panel = ReviewPanelMasterDetail(
-            parent_frame, Mock(), Mock(), on_remove=on_remove
-        )
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=on_remove)
         assert panel._detail_panel._on_remove is on_remove
 
     def test_context_menu_no_card_does_nothing(self, parent_frame, mock_cards):
@@ -1317,10 +1326,14 @@ class TestContextMenu:
             panel._on_context_menu(event)
 
     def test_context_menu_has_correct_items(self, parent_frame, mock_cards):
-        """Context menu has Open, Reveal in Finder, separator, and Remove."""
+        """Context menu has AI Analyze, separator, Open, Reveal in Finder, separator, and Remove."""
         on_remove = Mock()
         panel = ReviewPanelMasterDetail(
-            parent_frame, Mock(), Mock(), on_remove=on_remove
+            parent_frame,
+            Mock(),
+            Mock(),
+            on_remove=on_remove,
+            on_ai_analyze=Mock(),
         )
         mock_cards[0].file_hash = "test_hash"
         panel.load_cards(mock_cards)
@@ -1335,16 +1348,138 @@ class TestContextMenu:
             # Inspect before it gets destroyed
             items = list(menu.GetMenuItems())
             captured_menu["count"] = len(items)
-            captured_menu["labels"] = [
-                "---" if it.IsSeparator() else it.GetItemLabelText()
-                for it in items
-            ]
+            captured_menu["labels"] = ["---" if it.IsSeparator() else it.GetItemLabelText() for it in items]
 
         with patch.object(panel._list_ctrl, "PopupMenu", side_effect=capture_menu):
             panel._on_context_menu(event)
 
-        assert captured_menu["count"] == 4
-        assert captured_menu["labels"] == ["Open", "Reveal in Finder", "---", "Remove"]
+        assert captured_menu["count"] == 6
+        assert captured_menu["labels"] == ["AI Analyze", "---", "Open", "Reveal in Finder", "---", "Remove"]
+
+    def test_on_ai_analyze_callback_stored(self, parent_frame):
+        """ReviewPanelMasterDetail stores on_ai_analyze callback."""
+        on_ai_analyze = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_ai_analyze=on_ai_analyze)
+        assert panel._on_ai_analyze is on_ai_analyze
+
+    def test_ai_analyze_disabled_without_callback(self, parent_frame, mock_cards):
+        """AI Analyze menu item is disabled when no on_ai_analyze callback is provided."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock())
+        mock_cards[0].file_hash = "test_hash"
+        panel.load_cards(mock_cards)
+
+        menu = panel._build_context_menu([mock_cards[0]])
+        ai_item = list(menu.GetMenuItems())[0]  # First item is AI Analyze
+        assert ai_item.GetItemLabelText() == "AI Analyze"
+        assert not ai_item.IsEnabled()
+        menu.Destroy()
+
+    def test_ai_analyze_enabled_with_callback(self, parent_frame, mock_cards):
+        """AI Analyze menu item is enabled when on_ai_analyze callback is provided."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock(), on_ai_analyze=Mock())
+        mock_cards[0].file_hash = "test_hash"
+        panel.load_cards(mock_cards)
+
+        menu = panel._build_context_menu([mock_cards[0]])
+        ai_item = list(menu.GetMenuItems())[0]
+        assert ai_item.GetItemLabelText() == "AI Analyze"
+        assert ai_item.IsEnabled()
+        menu.Destroy()
+
+    def test_ai_analyze_invokes_callback_single(self, parent_frame, mock_cards):
+        """AI Analyze invokes callback with single card list."""
+        on_ai_analyze = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock(), on_ai_analyze=on_ai_analyze)
+        mock_cards[0].file_hash = "test_hash"
+        panel.load_cards(mock_cards)
+
+        menu = panel._build_context_menu([mock_cards[0]])
+        ai_item = list(menu.GetMenuItems())[0]
+
+        # Simulate clicking the menu item
+        event = wx.CommandEvent(wx.wxEVT_MENU, ai_item.GetId())
+        menu.ProcessEvent(event)
+
+        on_ai_analyze.assert_called_once_with([mock_cards[0]])
+        menu.Destroy()
+
+    def test_ai_analyze_invokes_callback_multi(self, parent_frame, mock_cards):
+        """AI Analyze invokes callback with multiple cards."""
+        on_ai_analyze = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock(), on_ai_analyze=on_ai_analyze)
+        mock_cards[0].file_hash = "hash1"
+        mock_cards[1].file_hash = "hash2"
+        panel.load_cards(mock_cards)
+
+        cards = [mock_cards[0], mock_cards[1]]
+        menu = panel._build_context_menu(cards)
+        ai_item = list(menu.GetMenuItems())[0]
+        assert ai_item.GetItemLabelText() == "AI Analyze 2 Cards"
+
+        event = wx.CommandEvent(wx.wxEVT_MENU, ai_item.GetId())
+        menu.ProcessEvent(event)
+
+        on_ai_analyze.assert_called_once_with(cards)
+        menu.Destroy()
+
+    def test_open_opens_all_file_paths(self, parent_frame, mock_cards):
+        """Open menu item opens all file paths, including duplicates."""
+        card = mock_cards[0]
+        card.file_paths = [Path("/a/card1.pdf"), Path("/b/card1.pdf")]
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock())
+        panel.load_cards(mock_cards)
+
+        menu = panel._build_context_menu([card])
+        # Open is after AI Analyze + separator
+        open_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Open"][0]
+
+        with patch("app.gui.review_panel.subprocess.Popen") as mock_popen:
+            event = wx.CommandEvent(wx.wxEVT_MENU, open_item.GetId())
+            menu.ProcessEvent(event)
+
+        assert mock_popen.call_count == 2
+        mock_popen.assert_any_call(["open", "/a/card1.pdf"])
+        mock_popen.assert_any_call(["open", "/b/card1.pdf"])
+        menu.Destroy()
+
+    def test_reveal_reveals_all_file_paths(self, parent_frame, mock_cards):
+        """Reveal in Finder reveals all file paths for a single card with duplicates."""
+        card = mock_cards[0]
+        card.file_paths = [Path("/a/card1.pdf"), Path("/b/card1.pdf")]
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock())
+        panel.load_cards(mock_cards)
+
+        menu = panel._build_context_menu([card])
+        reveal_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Reveal in Finder"][0]
+
+        with patch("app.gui.review_panel.subprocess.Popen") as mock_popen:
+            event = wx.CommandEvent(wx.wxEVT_MENU, reveal_item.GetId())
+            menu.ProcessEvent(event)
+
+        assert mock_popen.call_count == 2
+        mock_popen.assert_any_call(["open", "-R", "/a/card1.pdf"])
+        mock_popen.assert_any_call(["open", "-R", "/b/card1.pdf"])
+        menu.Destroy()
+
+    def test_open_multi_card_opens_all_paths(self, parent_frame, mock_cards):
+        """Open on multi-select opens all file paths across all selected cards."""
+        mock_cards[0].file_paths = [Path("/a/card1.pdf"), Path("/b/card1.pdf")]
+        mock_cards[1].file_paths = [Path("/c/card2.pdf")]
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock())
+        panel.load_cards(mock_cards)
+
+        menu = panel._build_context_menu([mock_cards[0], mock_cards[1]])
+        open_item = [it for it in menu.GetMenuItems() if "Open" in it.GetItemLabelText()][0]
+
+        with patch("app.gui.review_panel.subprocess.Popen") as mock_popen:
+            event = wx.CommandEvent(wx.wxEVT_MENU, open_item.GetId())
+            menu.ProcessEvent(event)
+
+        assert mock_popen.call_count == 3
+        mock_popen.assert_any_call(["open", "/a/card1.pdf"])
+        mock_popen.assert_any_call(["open", "/b/card1.pdf"])
+        mock_popen.assert_any_call(["open", "/c/card2.pdf"])
+        menu.Destroy()
 
 
 # ============================================================================
@@ -1459,10 +1594,11 @@ class TestCardListModelEdgeCases:
         """GetAttr sets correct color for each confidence level (lines 151-164)."""
         model = CardListModel()
 
-        for conf in [Confidence.HIGH, Confidence.MEDIUM, Confidence.LOW,
-                     Confidence.MANUAL, Confidence.NONE]:
+        for conf in [Confidence.HIGH, Confidence.MEDIUM, Confidence.LOW, Confidence.MANUAL, Confidence.NONE]:
             card = CardResult(
-                id=1, file_paths=[Path("test.pdf")], primary_path=Path("test.pdf"),
+                id=1,
+                file_paths=[Path("test.pdf")],
+                primary_path=Path("test.pdf"),
                 confidence=conf,
             )
             model.load_cards([card])
@@ -1487,7 +1623,9 @@ class TestCardListModelEdgeCases:
         """GetAttr returns False for filename column on single-path card (line 175)."""
         model = CardListModel()
         card = CardResult(
-            id=1, file_paths=[Path("test.pdf")], primary_path=Path("test.pdf"),
+            id=1,
+            file_paths=[Path("test.pdf")],
+            primary_path=Path("test.pdf"),
             confidence=Confidence.HIGH,
         )
         model.load_cards([card])
@@ -1623,7 +1761,7 @@ class TestReviewPanelKeyboard:
         """_on_key calls event.Skip() for unhandled keys (line 640)."""
         panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
         event = Mock(spec=wx.KeyEvent)
-        event.GetKeyCode.return_value = ord('A')
+        event.GetKeyCode.return_value = ord("A")
         event.ShiftDown.return_value = False
         panel._on_key(event)
         event.Skip.assert_called_once()
@@ -1715,7 +1853,9 @@ class TestHandleCheckboxCandidate:
         panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
 
         card = CardResult(
-            id=1, file_paths=[Path("test.pdf")], primary_path=Path("test.pdf"),
+            id=1,
+            file_paths=[Path("test.pdf")],
+            primary_path=Path("test.pdf"),
             file_hash="abc123",
             confidence=Confidence.LOW,
             original_confidence=None,  # No original to restore
@@ -1774,34 +1914,28 @@ class TestMultiselect:
         on_select.assert_called_with(None)
 
     def test_context_menu_single_has_reveal(self, parent_frame, mock_cards):
-        """Single card context menu has Open, Reveal in Finder, Remove."""
-        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock())
+        """Single card context menu has AI Analyze, Open, Reveal in Finder, Remove."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock(), on_ai_analyze=Mock())
         mock_cards[0].file_hash = "test_hash"
         panel.load_cards(mock_cards)
 
         menu = panel._build_context_menu([mock_cards[0]])
         items = list(menu.GetMenuItems())
-        labels = [
-            "---" if it.IsSeparator() else it.GetItemLabelText()
-            for it in items
-        ]
-        assert labels == ["Open", "Reveal in Finder", "---", "Remove"]
+        labels = ["---" if it.IsSeparator() else it.GetItemLabelText() for it in items]
+        assert labels == ["AI Analyze", "---", "Open", "Reveal in Finder", "---", "Remove"]
         menu.Destroy()
 
     def test_context_menu_multi_no_reveal(self, parent_frame, mock_cards):
-        """Multi card context menu has Open N Cards, Remove N Cards (no Reveal)."""
-        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock())
+        """Multi card context menu has AI Analyze N Cards, Open N Cards, Remove N Cards (no Reveal)."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock(), on_ai_analyze=Mock())
         mock_cards[0].file_hash = "hash1"
         mock_cards[1].file_hash = "hash2"
         panel.load_cards(mock_cards)
 
         menu = panel._build_context_menu([mock_cards[0], mock_cards[1]])
         items = list(menu.GetMenuItems())
-        labels = [
-            "---" if it.IsSeparator() else it.GetItemLabelText()
-            for it in items
-        ]
-        assert labels == ["Open 2 Cards", "---", "Remove 2 Cards"]
+        labels = ["---" if it.IsSeparator() else it.GetItemLabelText() for it in items]
+        assert labels == ["AI Analyze 2 Cards", "---", "Open 2 Cards", "---", "Remove 2 Cards"]
         menu.Destroy()
 
     def test_right_click_unselected_selects_only_that(self, parent_frame, mock_cards):

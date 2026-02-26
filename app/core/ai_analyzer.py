@@ -3,20 +3,26 @@ import io
 import logging
 import re
 from dataclasses import dataclass, field
+from typing import Any
 
 from PIL import Image
 
-from app.core.config import get_api_key, get_ai_model
+from app.core.config import get_ai_model, get_api_key
 
 logger = logging.getLogger(__name__)
 
+# Generous for up to 5 name lines in the response
 _MAX_TOKENS = 256
+# SDK-level retries with exponential backoff + jitter + retry-after header parsing
+_MAX_RETRIES = 4
+# Lines longer than this are likely OCR garbage, not family names
 _MAX_LINE_LENGTH = 50
 
 
 @dataclass
 class AIResult:
     """Result from AI analysis of a greeting card."""
+
     best_name: str = ""
     alternates: list[str] = field(default_factory=list)
 
@@ -45,9 +51,13 @@ def _strip_plural(name: str) -> str:
         return name[:-2]  # "Foxes" -> "Fox"
 
     # Strip single 's' after specific consonant patterns (safe plurals)
-    if len(name) >= 4 and name.endswith("s") and not name.endswith("ss"):
-        if name[-3:-1] in {"th", "wn", "ck", "rd", "rt", "nd", "nt"}:
-            return name[:-1]
+    if (
+        len(name) >= 4
+        and name.endswith("s")
+        and not name.endswith("ss")
+        and name[-3:-1] in {"th", "wn", "ck", "rd", "rt", "nd", "nt"}
+    ):
+        return name[:-1]
 
     return name
 
@@ -69,7 +79,7 @@ def clean_family_name(name: str) -> str:
 
     # Remove ALL double quote variants (straight, curly, low-9, high-reversed-9)
     # Covers: " (U+0022), \u201c (U+201C), \u201d (U+201D), \u201e (U+201E), \u201f (U+201F)
-    name = re.sub(r'["""\"\u201C\u201D\u201E\u201F]', '', name).strip()
+    name = re.sub(r'["""\"\u201C\u201D\u201E\u201F]', "", name).strip()
 
     # Remove single quotes only at the start/end (not in middle like O'Brien)
     # Handles both straight and curly quotes: ' (U+0027), \u2018 (U+2018), \u2019 (U+2019)
@@ -89,17 +99,32 @@ def format_ai_error(error: Exception) -> str:
     """Format an AI API error into a clean user-facing message."""
     import anthropic
 
-    if isinstance(error, anthropic.AuthenticationError):
-        return "Invalid API key"
-    if isinstance(error, anthropic.RateLimitError):
-        return "Rate limit exceeded — try again later"
-    if isinstance(error, anthropic.APITimeoutError):
-        return "Request timed out"
-    if isinstance(error, anthropic.APIConnectionError):
-        return "Network connection error"
-    if isinstance(error, anthropic.APIStatusError):
-        return f"API error (HTTP {error.status_code})"
-    return str(error)
+    match error:
+        case anthropic.AuthenticationError():
+            return "Invalid API key"
+        case anthropic.RateLimitError():
+            return "Rate limit exceeded — try again later"
+        case anthropic.APITimeoutError():
+            return "Request timed out"
+        case anthropic.APIConnectionError():
+            return "Network connection error"
+        case anthropic.APIStatusError(status_code=code):
+            return f"API error (HTTP {code})"
+        case _:
+            return str(error)
+
+
+def parse_retry_after(exc: Exception) -> float:
+    """Extract retry-after delay from a rate limit exception. Falls back to 10s."""
+    headers = getattr(getattr(exc, "response", None), "headers", {})
+    for key, divisor in [("retry-after-ms", 1000), ("retry-after", 1)]:
+        val = headers.get(key)
+        if val:
+            try:
+                return float(val) / divisor
+            except ValueError:
+                pass
+    return 10.0
 
 
 def _image_to_b64(image: Image.Image) -> str:
@@ -136,9 +161,9 @@ def _parse_response(response_text: str) -> AIResult:
     # Basic filtering to catch obvious non-name responses
     # NOTE: Comprehensive cleaning is applied AFTER loading from DB, not here
     lines = [
-        line for line in (raw.strip() for raw in response_text.split("\n"))
-        if line and len(line) <= _MAX_LINE_LENGTH
-        and not any(w in line.lower() for w in _SKIP_WORDS)
+        line
+        for line in (raw.strip() for raw in response_text.split("\n"))
+        if line and len(line) <= _MAX_LINE_LENGTH and not any(w in line.lower() for w in _SKIP_WORDS)
     ]
 
     return AIResult(
@@ -147,25 +172,29 @@ def _parse_response(response_text: str) -> AIResult:
     )
 
 
-def _build_content_blocks(images: list[Image.Image]) -> list[dict]:
+def _build_content_blocks(images: list[Image.Image]) -> list[dict[str, Any]]:
     """Build the content blocks for the Claude API request."""
-    content: list[dict] = []
+    content: list[dict[str, Any]] = []
     for image in images:
         img_b64 = _image_to_b64(image)
-        content.append({
-            "type": "image",
-            "source": {
-                "type": "base64",
-                "media_type": "image/png",
-                "data": img_b64,
-            },
-        })
+        content.append(
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": "image/png",
+                    "data": img_b64,
+                },
+            }
+        )
 
     page_word = "page" if len(images) == 1 else "pages"
-    content.append({
-        "type": "text",
-        "text": _PROMPT_TEMPLATE.format(count=len(images), page_word=page_word),
-    })
+    content.append(
+        {
+            "type": "text",
+            "text": _PROMPT_TEMPLATE.format(count=len(images), page_word=page_word),
+        }
+    )
     return content
 
 
@@ -190,16 +219,17 @@ async def analyze_card_with_ai_async(images: list[Image.Image] | Image.Image) ->
 
     images = _normalize_images(images)
     api_key = _get_validated_api_key()
-    client = anthropic.AsyncAnthropic(api_key=api_key)
+    client = anthropic.AsyncAnthropic(api_key=api_key, max_retries=_MAX_RETRIES)
     content = _build_content_blocks(images)
 
     message = await client.messages.create(
         model=get_ai_model(),
         max_tokens=_MAX_TOKENS,
-        messages=[{"role": "user", "content": content}],
+        messages=[{"role": "user", "content": content}],  # type: ignore[typeddict-item]  # pyright: ignore[reportArgumentType]  # dict matches MessageParam
     )
 
-    response_text = message.content[0].text.strip()
+    if not message.content:
+        return _parse_response("")
+    block = message.content[0]
+    response_text = block.text.strip() if hasattr(block, "text") else ""  # pyright: ignore[reportAttributeAccessIssue]
     return _parse_response(response_text)
-
-

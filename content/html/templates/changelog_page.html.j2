@@ -1,0 +1,23 @@
+{% extends "base.html.j2" %}
+{% block sidebar %}
+<div class="sidebar">
+    <h2>Versions</h2>
+    <ul>
+{% for g in groups %}
+        <li><a href="{{ g.filename if from_index else g.basename }}"{% if g.filename == active_page %} class="active"{% endif %}>{{ g.label }}</a></li>
+{% endfor %}
+    </ul>
+</div>
+{% endblock %}
+{% block content %}
+{% for v in versions %}
+{% if not loop.first %}
+        <hr class="version-divider">
+{% endif %}
+        <h1>{{ v.title }}</h1>
+{% if v.date %}
+        <p class="version-date">{{ v.date }}</p>
+{% endif %}
+        {{ v.body_html|safe }}
+{% endfor %}
+{% endblock %}

@@ -3,9 +3,37 @@
 Common helpers for image conversion, widget creation, and other UI operations.
 """
 
-import wx
-from PIL import Image
 from collections.abc import Callable
+from pathlib import Path
+
+import wx
+from AppKit import NSModalResponseOK, NSOpenPanel  # type: ignore[import-untyped]
+from PIL import Image
+
+
+def open_files_and_folders(message: str, file_types: list[str]) -> list[Path]:
+    """Show a native macOS open panel that can select both files and folders.
+
+    Uses NSOpenPanel directly via pyobjc to allow unified file/folder selection,
+    which wx.FileDialog cannot do on macOS.
+
+    Args:
+        message: Message displayed in the dialog
+        file_types: List of allowed file extensions (e.g. ["pdf"])
+
+    Returns:
+        List of selected paths (empty if canceled)
+    """
+    panel = NSOpenPanel.openPanel()
+    panel.setCanChooseFiles_(True)
+    panel.setCanChooseDirectories_(True)
+    panel.setAllowsMultipleSelection_(True)
+    panel.setAllowedFileTypes_(file_types)
+    panel.setMessage_(message)
+
+    if panel.runModal() == NSModalResponseOK:
+        return [Path(url.path()) for url in panel.URLs()]
+    return []
 
 
 def pil_to_bitmap(pil_image: Image.Image) -> wx.Bitmap:
@@ -32,8 +60,8 @@ def pil_to_image(pil_image: Image.Image) -> wx.Image:
     width, height = pil_image.size
 
     # Ensure image is in RGB mode
-    if pil_image.mode != 'RGB':
-        pil_image = pil_image.convert('RGB')
+    if pil_image.mode != "RGB":
+        pil_image = pil_image.convert("RGB")
 
     # Get image data as bytes
     data = pil_image.tobytes()
@@ -74,6 +102,7 @@ def hex_to_colour(hex_color: str) -> wx.Colour:
         wx.Colour object
     """
     from app.gui.styles import Color
+
     return Color.from_hex(hex_color)
 
 
@@ -89,8 +118,9 @@ def colour_to_hex(colour: wx.Colour) -> str:
     return f"#{colour.Red():02X}{colour.Green():02X}{colour.Blue():02X}"
 
 
-def create_button(parent: wx.Window, label: str, callback: Callable[[], None] | None = None,
-                 tooltip: str = "") -> wx.Button:
+def create_button(
+    parent: wx.Window, label: str, callback: Callable[[], None] | None = None, tooltip: str = ""
+) -> wx.Button:
     """Create a button with common settings.
 
     Args:
@@ -113,8 +143,9 @@ def create_button(parent: wx.Window, label: str, callback: Callable[[], None] | 
     return btn
 
 
-def create_text_ctrl(parent: wx.Window, value: str = "",
-                    callback: Callable[[str], None] | None = None, style: int = 0) -> wx.TextCtrl:
+def create_text_ctrl(
+    parent: wx.Window, value: str = "", callback: Callable[[str], None] | None = None, style: int = 0
+) -> wx.TextCtrl:
     """Create a text control with common settings.
 
     Args:
@@ -134,9 +165,9 @@ def create_text_ctrl(parent: wx.Window, value: str = "",
     return text
 
 
-def create_static_text(parent: wx.Window, label: str,
-                      font: wx.Font | None = None,
-                      colour: wx.Colour | None = None) -> wx.StaticText:
+def create_static_text(
+    parent: wx.Window, label: str, font: wx.Font | None = None, colour: wx.Colour | None = None
+) -> wx.StaticText:
     """Create a static text label with common settings.
 
     Args:

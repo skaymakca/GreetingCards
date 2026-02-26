@@ -1,15 +1,23 @@
 # -*- mode: python ; coding: utf-8 -*-
+# noinspection PyAll
 from PyInstaller.utils.hooks import collect_all
 import re, subprocess
 __version__ = re.search(r'"(.+?)"', open('app/version.py').read()).group(1)
 __commit__ = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode().strip()
 
-datas = [('icon.png', '.'), ('help', 'help'), ('Drop Target Background.png', '.')]
+datas = [('_runtime_content', '_runtime_content')]
 binaries = []
 hiddenimports = []
 
 # Collect wxPython dependencies
 tmp_ret = collect_all('wx')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
+# Collect tesserocr shared library and its cysignals dependency
+tmp_ret = collect_all('tesserocr')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
+tmp_ret = collect_all('cysignals')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
@@ -57,7 +65,7 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name='Greeting Cards.app',
-    icon='icon.icns',
+    icon='_runtime_content/icon.icns',
     bundle_identifier='com.greetingcards.app',
     info_plist={
         'CFBundleShortVersionString': __version__,

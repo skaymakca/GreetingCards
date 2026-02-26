@@ -1,0 +1,9 @@
+PSF LICENSE AGREEMENT FOR PYTHON 3.14
+
+Python and its standard library are distributed under the
+Python Software Foundation License Version 2.
+
+See https://docs.python.org/3/license.html for the full license text.
+
+Copyright (c) 2001-2026 Python Software Foundation.
+All Rights Reserved.

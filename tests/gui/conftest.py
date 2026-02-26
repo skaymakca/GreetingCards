@@ -4,12 +4,12 @@ import pytest
 import wx
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def wx_app():
-    """Create wxPython app for testing.
+    """Create a wx.App for the entire test session.
 
-    This fixture provides a wx.App instance required for all wx GUI operations.
-    The app is automatically destroyed after the test completes.
+    wxPython only supports one wx.App at a time. This session-scoped
+    fixture ensures a single instance is shared across all GUI tests.
     """
     app = wx.App()
     yield app
@@ -18,12 +18,11 @@ def wx_app():
 
 @pytest.fixture
 def wx_frame(wx_app):
-    """Create test frame.
+    """Create a temporary frame for testing widgets.
 
-    This fixture provides a wx.Frame for testing widget creation and layout.
-    The frame is automatically destroyed after the test completes.
-    Requires wx_app fixture.
+    The frame is not shown during tests, but provides a parent
+    for widgets that require one.
     """
-    frame = wx.Frame(None)
+    frame = wx.Frame(None, title="Test Frame")
     yield frame
     frame.Destroy()

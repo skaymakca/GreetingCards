@@ -1,18 +1,12 @@
 """Tests for wxPython filter sidebar."""
 
+from pathlib import Path
+
 import pytest
 import wx
-from pathlib import Path
+
 from app.gui.filter_sidebar import FilterSidebar
 from app.models.card import CardResult, Confidence
-
-
-@pytest.fixture
-def wx_app():
-    """Create wx.App for testing."""
-    app = wx.App()
-    yield app
-    app.Destroy()
 
 
 def test_sidebar_creation(wx_app):
@@ -567,7 +561,7 @@ def test_zero_count_folder_disabled(wx_app):
 
     sidebar.update_folder_counts(cards)
 
-    assert sidebar._folder_checkboxes[1].IsEnabled() is True   # folder1 has cards
+    assert sidebar._folder_checkboxes[1].IsEnabled() is True  # folder1 has cards
     assert sidebar._folder_checkboxes[2].IsEnabled() is False  # folder2 has 0 cards
     assert str(folder2) in sidebar._folder_disabled_keys
 
@@ -768,6 +762,7 @@ def test_notification_info_colour(wx_app):
     sidebar = FilterSidebar(parent, on_category_filter=lambda k: None)
 
     from app.gui import styles
+
     sidebar.show_notification("Info", icon=wx.ICON_INFORMATION)
     assert sidebar._notify_label.GetForegroundColour() == styles.Color.TEXT_SECONDARY
 
@@ -780,6 +775,7 @@ def test_notification_error_colour(wx_app):
     sidebar = FilterSidebar(parent, on_category_filter=lambda k: None)
 
     from app.gui import styles
+
     sidebar.show_notification("Error!", icon=wx.ICON_ERROR)
     assert sidebar._notify_label.GetForegroundColour() == styles.Color.ERROR
 
@@ -792,6 +788,7 @@ def test_notification_warning_colour(wx_app):
     sidebar = FilterSidebar(parent, on_category_filter=lambda k: None)
 
     from app.gui import styles
+
     sidebar.show_notification("Warning!", icon=wx.ICON_WARNING)
     assert sidebar._notify_label.GetForegroundColour() == styles.Color.ERROR
 

@@ -2,10 +2,10 @@
 
 import pytest
 import wx
-from app.gui.icons import load_sf_symbol, load_menu_icon, _hex_to_rgb
+
+from app.gui.icons import _cache, _hex_to_rgb, clear_cache, load_menu_icon, load_sf_symbol
 
 
-@pytest.mark.gui
 class TestSFSymbolLoading:
     """Tests for SF Symbol loading and caching.
 
@@ -58,13 +58,16 @@ class TestSFSymbolLoading:
         if bitmap_red:
             assert bitmap_red.IsOk()
 
-    @pytest.mark.parametrize("symbol_name", [
-        "scissors",
-        "doc.on.doc",
-        "doc.on.clipboard",
-        "textformat.abc",
-        "xmark.circle",
-    ])
+    @pytest.mark.parametrize(
+        "symbol_name",
+        [
+            "scissors",
+            "doc.on.doc",
+            "doc.on.clipboard",
+            "textformat.abc",
+            "xmark.circle",
+        ],
+    )
     def test_context_menu_symbols_load(self, wx_app, symbol_name):
         """Test that all context menu SF Symbols load successfully."""
         bitmap = load_sf_symbol(symbol_name, 12, "#1D1D1F")
@@ -75,7 +78,6 @@ class TestSFSymbolLoading:
             assert bitmap.IsOk()
 
 
-@pytest.mark.gui
 class TestCaching:
     """Tests for icon caching behavior."""
 
@@ -125,8 +127,15 @@ class TestCaching:
         assert result1 is None
         assert result2 is None
 
+    def test_clear_cache_empties(self, wx_app):
+        """clear_cache() should empty the icon cache."""
+        # Load something to populate cache
+        load_sf_symbol("scissors", 12, "#000000")
+        assert len(_cache) > 0
+        clear_cache()
+        assert len(_cache) == 0
 
-@pytest.mark.gui
+
 class TestColorHandling:
     """Tests for hex color string handling."""
 
@@ -145,14 +154,17 @@ class TestColorHandling:
         # May fail due to missing # - that's OK, test documents it
         assert bitmap is None or isinstance(bitmap, wx.Bitmap)
 
-    @pytest.mark.parametrize("color_hex", [
-        "#000000",  # Black
-        "#FFFFFF",  # White
-        "#FF0000",  # Red
-        "#00FF00",  # Green
-        "#0000FF",  # Blue
-        "#1D1D1F",  # Near-black (our default)
-    ])
+    @pytest.mark.parametrize(
+        "color_hex",
+        [
+            "#000000",  # Black
+            "#FFFFFF",  # White
+            "#FF0000",  # Red
+            "#00FF00",  # Green
+            "#0000FF",  # Blue
+            "#1D1D1F",  # Near-black (our default)
+        ],
+    )
     def test_various_colors(self, wx_app, color_hex):
         """Test loading with various hex colors."""
         bitmap = load_sf_symbol("scissors", 12, color_hex)
@@ -162,7 +174,6 @@ class TestColorHandling:
             assert bitmap.IsOk()
 
 
-@pytest.mark.gui
 class TestEdgeCases:
     """Tests for edge cases and error handling.
 
@@ -186,7 +197,6 @@ class TestEdgeCases:
         assert bitmap is None
 
 
-@pytest.mark.gui
 class TestIconDialogIntegration:
     """Level 3: Structural validation tests for icon display in dialogs.
 
@@ -271,7 +281,6 @@ class TestIconDialogIntegration:
             dialog.Destroy()
 
 
-@pytest.mark.gui
 class TestHexToRgb:
     """Tests for _hex_to_rgb() utility function."""
 
@@ -334,7 +343,6 @@ class TestHexToRgb:
             assert 0.0 <= b <= 1.0
 
 
-@pytest.mark.gui
 class TestLoadMenuIcon:
     """Tests for load_menu_icon() wrapper function."""
 
@@ -380,13 +388,16 @@ class TestLoadMenuIcon:
         # Should load with default color
         assert bitmap is None or isinstance(bitmap, wx.Bitmap)
 
-    @pytest.mark.parametrize("symbol_name", [
-        "scissors",
-        "doc.on.doc",
-        "doc.on.clipboard",
-        "textformat.abc",
-        "xmark.circle",
-    ])
+    @pytest.mark.parametrize(
+        "symbol_name",
+        [
+            "scissors",
+            "doc.on.doc",
+            "doc.on.clipboard",
+            "textformat.abc",
+            "xmark.circle",
+        ],
+    )
     def test_load_menu_icon_common_symbols(self, wx_app, symbol_name):
         """Should load common menu symbols."""
         bitmap = load_menu_icon(symbol_name)

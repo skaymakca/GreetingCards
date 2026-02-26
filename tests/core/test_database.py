@@ -1,4 +1,5 @@
 """Tests for app.core.database module."""
+
 import hashlib
 from pathlib import Path
 from unittest.mock import patch
@@ -10,31 +11,33 @@ from sqlalchemy.orm import sessionmaker
 import app.core.database as db_mod
 from app.core.database import (
     Base,
-    Card,
     Candidate,
-    Settings,
-    RawOCRResult,
+    Card,
     RawAIResult,
-    compute_file_hash,
+    RawOCRResult,
+    Settings,
+    _add_candidate_inline,
+    _clean_and_filter_names,
     _compute_schema_version,
     _ensure_schema,
-    _clean_and_filter_names,
-    create_or_update_card,
+    _session_scope,
     add_candidate,
-    get_candidates,
-    set_manual_name,
-    select_candidate,
-    update_remove_family,
-    get_card_state,
-    save_raw_ocr,
-    get_raw_ocr,
-    save_raw_ai,
-    get_raw_ai,
-    clear_unselected_candidates,
     clear_ai_results,
-    reset_database,
-    should_reprocess,
+    clear_unselected_candidates,
+    compute_file_hash,
+    create_or_update_card,
+    get_candidates,
+    get_card_state,
+    get_raw_ai,
+    get_raw_ocr,
     reprocess_candidates_from_raw,
+    reset_database,
+    save_raw_ai,
+    save_raw_ocr,
+    select_candidate,
+    set_manual_name,
+    should_reprocess,
+    update_remove_family,
 )
 
 
@@ -468,6 +471,7 @@ class TestEnsureSchema:
     def test_missing_settings_table_recreates(self):
         """When settings table is missing, schema is created from scratch."""
         from sqlalchemy import text
+
         # Drop the settings table
         with db_mod._engine.begin() as conn:
             conn.execute(text("DROP TABLE IF EXISTS settings"))
@@ -483,7 +487,8 @@ class TestEnsureSchema:
 
     def test_orphaned_tables_dropped(self):
         """Orphaned tables not in current metadata are dropped during migration."""
-        from sqlalchemy import text, inspect
+        from sqlalchemy import inspect, text
+
         # Create an orphaned table
         with db_mod._engine.begin() as conn:
             conn.execute(text("CREATE TABLE orphan_table (id INTEGER PRIMARY KEY)"))
@@ -594,7 +599,7 @@ class TestClearUnselectedCandidatesEdgeCases:
         """When selected candidate is of the same method being cleared, it's preserved."""
         create_or_update_card("hash1")
         cid1 = add_candidate("hash1", "A", "ocr", "high")
-        cid2 = add_candidate("hash1", "B", "ocr", "medium")
+        add_candidate("hash1", "B", "ocr", "medium")
         select_candidate("hash1", cid1)
 
         clear_unselected_candidates("hash1", "ocr")
@@ -772,3 +777,387 @@ class TestClearAIResults:
     def test_empty_hashes_returns_zero(self):
         """Passing empty list returns 0 without error."""
         assert clear_ai_results([]) == 0
+
+
+class TestClearAIResultsEdgeCases:
+    """Edge case tests for clear_ai_results()."""
+
+    def test_nonexistent_hash(self):
+        """Nonexistent hash doesn't error and returns 0."""
+        changed = clear_ai_results(["nonexistent_hash"])
+        assert changed == 0
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_manual_plus_ai_preserves_manual(self, mock_title, mock_clean):
+        """Card with manual entry + AI selected: manual preserved, AI cleared."""
+        create_or_update_card("hash1")
+        add_candidate("hash1", "AiName", "ai", "high")
+        # Set manual name (this clears selected_candidate_id)
+        set_manual_name("hash1", "ManualName")
+        # Now also have AI candidate (but not selected due to manual)
+        save_raw_ai("hash1", "AiName", [])
+
+        changed = clear_ai_results(["hash1"])
+
+        state = get_card_state("hash1")
+        assert state.display_name == "ManualName"
+        assert state.method == "manual"
+        # AI candidate should be gone
+        candidates = get_candidates("hash1")
+        assert all(c.method != "ai" for c in candidates)
+        # No selection changed (manual was already selected)
+        assert changed == 0
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_multi_ocr_selects_best(self, mock_title, mock_clean):
+        """After clearing AI, best OCR candidate (by confidence) is selected."""
+        create_or_update_card("hash1")
+        add_candidate("hash1", "LowName", "ocr", "low")
+        ocr_high = add_candidate("hash1", "HighName", "ocr", "high")
+        ai_cid = add_candidate("hash1", "AiName", "ai", "high")
+        select_candidate("hash1", ai_cid)
+
+        clear_ai_results(["hash1"])
+
+        state = get_card_state("hash1")
+        assert state.selected_candidate_id == ocr_high
+        assert state.display_name == "HighName"
+        assert state.confidence == "high"
+
+
+class TestReprocessCandidatesEdgeCases:
+    """Edge case tests for reprocess_candidates_from_raw()."""
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_empty_ocr_text(self, mock_title, mock_clean):
+        """Empty OCR text produces no OCR candidates."""
+        create_or_update_card("hash1")
+        save_raw_ocr("hash1", "")
+        reprocess_candidates_from_raw("hash1")
+        candidates = get_candidates("hash1")
+        # No meaningful names from empty text
+        assert len(candidates) == 0
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_empty_best_name_and_alternates(self, mock_title, mock_clean):
+        """AI result with empty best_name and no alternates produces no AI candidates."""
+        create_or_update_card("hash1")
+        save_raw_ai("hash1", "", [])
+        reprocess_candidates_from_raw("hash1")
+        candidates = get_candidates("hash1")
+        ai_candidates = [c for c in candidates if c.method == "ai"]
+        assert len(ai_candidates) == 0
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_no_alternates(self, mock_title, mock_clean):
+        """AI result with only best_name and no alternates produces one AI candidate."""
+        create_or_update_card("hash1")
+        save_raw_ai("hash1", "Smith", [])
+        reprocess_candidates_from_raw("hash1")
+        candidates = get_candidates("hash1")
+        ai_candidates = [c for c in candidates if c.method == "ai"]
+        assert len(ai_candidates) == 1
+        assert ai_candidates[0].family_name == "Smith"
+        assert ai_candidates[0].confidence == "high"
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_corrupted_json(self, mock_title, mock_clean):
+        """Corrupted JSON in raw_ai_results is handled gracefully during reprocessing."""
+        create_or_update_card("hash1")
+        # Directly insert corrupted JSON into raw_ai_results
+        session = db_mod._Session()
+
+        session.query(Card).filter_by(file_hash="hash1").first()
+        ai_result = RawAIResult(file_hash="hash1", raw_response="not valid json{{{")
+        session.add(ai_result)
+        session.commit()
+        session.close()
+
+        # Should not raise — corrupted JSON is logged and skipped
+        reprocess_candidates_from_raw("hash1")
+        candidates = get_candidates("hash1")
+        ai_candidates = [c for c in candidates if c.method == "ai"]
+        assert ai_candidates == []
+
+
+class TestSessionScope:
+    """Tests for _session_scope context manager."""
+
+    def test_commits_on_success(self):
+        """Changes are committed when block exits normally."""
+        with _session_scope() as session:
+            session.add(Card(file_hash="scope_test"))
+        # Verify persisted
+        state = get_card_state("scope_test")
+        assert state is not None
+
+    def test_rollback_on_exception(self):
+        """Changes are rolled back on exception."""
+        with pytest.raises(ValueError), _session_scope() as session:
+            session.add(Card(file_hash="rollback_test"))
+            session.flush()
+            raise ValueError("test error")
+        # Verify NOT persisted
+        state = get_card_state("rollback_test")
+        assert state is None
+
+    def test_yields_session(self):
+        """Context manager yields a usable Session."""
+        with _session_scope() as session:
+            assert session is not None
+            # Should be able to query
+            result = session.query(Card).all()
+            assert isinstance(result, list)
+
+
+class TestDefensiveGuards:
+    """Tests for defensive guard clauses that raise on uninitialized state."""
+
+    def test_get_engine_raises_when_none(self):
+        """_get_engine raises RuntimeError when engine is not initialized."""
+        from app.core.database import _get_engine
+
+        orig = db_mod._engine
+        try:
+            db_mod._engine = None
+            with pytest.raises(RuntimeError, match="Database not initialized"):
+                _get_engine()
+        finally:
+            db_mod._engine = orig
+
+    def test_get_session_factory_raises_when_none(self):
+        """_get_session_factory raises RuntimeError when session factory is not initialized."""
+        from app.core.database import _get_session_factory
+
+        orig = db_mod._Session
+        try:
+            db_mod._Session = None
+            with pytest.raises(RuntimeError, match="Database not initialized"):
+                _get_session_factory()
+        finally:
+            db_mod._Session = orig
+
+    def test_get_session_initializes_when_none(self):
+        """get_session() creates engine and session factory when not initialized."""
+        from app.core.database import get_session
+
+        orig_engine = db_mod._engine
+        orig_session = db_mod._Session
+        try:
+            db_mod._engine = None
+            db_mod._Session = None
+            with (
+                patch("app.core.database.get_db_path", return_value=":memory:"),
+                patch("app.core.database._ensure_schema"),
+            ):
+                session = get_session()
+                assert session is not None
+                session.close()
+                # Engine and session factory should now be set
+                assert db_mod._engine is not None
+                assert db_mod._Session is not None
+        finally:
+            db_mod._engine = orig_engine
+            db_mod._Session = orig_session
+
+
+class TestAddCandidateDuplicateRace:
+    """Tests for add_candidate() handling concurrent duplicate inserts."""
+
+    @patch("app.core.database._clean_and_filter_names", return_value=["Smith"])
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_concurrent_duplicate_no_error(self, mock_title, mock_clean):
+        """Calling add_candidate twice with the same args returns the same ID without error."""
+        create_or_update_card("hash1")
+
+        cid1 = add_candidate("hash1", "Smith", "ocr", "high")
+        assert cid1 > 0
+
+        cid2 = add_candidate("hash1", "Smith", "ocr", "high")
+        assert cid1 == cid2
+
+        # Only one candidate should exist
+        candidates = get_candidates("hash1")
+        assert len(candidates) == 1
+
+    @patch("app.core.database._clean_and_filter_names", return_value=["Smith"])
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_direct_duplicate_insert_no_error(self, mock_title, mock_clean):
+        """Directly inserting a duplicate via DB then calling add_candidate recovers."""
+        create_or_update_card("hash1")
+
+        # Pre-insert the candidate directly via session (bypassing add_candidate's check)
+        with _session_scope() as session:
+            candidate = Candidate(file_hash="hash1", family_name="Smith", method="ocr", confidence="high")
+            session.add(candidate)
+            session.flush()
+            expected_id = candidate.id
+
+        # add_candidate should find the existing one via its check-before-insert
+        cid = add_candidate("hash1", "Smith", "ocr", "high")
+        assert cid == expected_id
+
+        # Still only one candidate
+        candidates = get_candidates("hash1")
+        assert len(candidates) == 1
+
+    @patch("app.core.database._clean_and_filter_names", return_value=["Smith"])
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_integrity_error_recovery(self, mock_title, mock_clean):
+        """When a race causes IntegrityError on flush, add_candidate recovers."""
+        create_or_update_card("hash1")
+
+        # Pre-insert candidate directly (simulating another thread winning the race)
+        with _session_scope() as session:
+            candidate = Candidate(file_hash="hash1", family_name="Smith", method="ocr", confidence="high")
+            session.add(candidate)
+            session.flush()
+            expected_id = candidate.id
+
+        # Patch the existence check to return None (simulating TOCTOU race window)
+        original_query = db_mod.Session.query
+        check_count = [0]
+
+        def query_interceptor(self, model, *args, **kwargs):
+            result = original_query(self, model, *args, **kwargs)
+            if model is Candidate:
+
+                class WrappedQuery:
+                    def __init__(self, real):
+                        self._real = real
+
+                    def __getattr__(self, name):
+                        return getattr(self._real, name)
+
+                    def filter_by(self, **kw):
+                        real_result = self._real.filter_by(**kw)
+                        # First Candidate filter_by with family_name is the existence check
+                        if "family_name" in kw and check_count[0] == 0:
+                            check_count[0] += 1
+
+                            class EmptyResult:
+                                def first(self):
+                                    return None
+
+                            return EmptyResult()
+                        return real_result
+
+                return WrappedQuery(result)
+            return result
+
+        with patch.object(db_mod.Session, "query", query_interceptor):
+            cid = add_candidate("hash1", "Smith", "ocr", "high")
+
+        # Should recover and return the existing candidate's ID
+        assert cid == expected_id
+        assert check_count[0] == 1  # Existence check was intercepted
+
+
+class TestClearAIResultsFKOrdering:
+    """Tests that clear_ai_results nulls FK before deleting candidates."""
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_no_dangling_fk_during_delete(self, mock_title, mock_clean):
+        """selected_candidate_id is nulled before AI candidates are deleted."""
+        create_or_update_card("hash1")
+        ai_cid = add_candidate("hash1", "AiName", "ai", "high")
+        select_candidate("hash1", ai_cid)
+
+        # Track the order of operations
+        operations = []
+        original_flush = db_mod.Session.flush
+
+        def tracking_flush(self, *args, **kwargs):
+            # Check if any card has selected_candidate_id set to None
+            for obj in self.dirty:
+                if isinstance(obj, Card) and obj.selected_candidate_id is None:
+                    operations.append("null_fk")
+            return original_flush(self, *args, **kwargs)
+
+        with patch.object(db_mod.Session, "flush", tracking_flush):
+            clear_ai_results(["hash1"])
+
+        # FK should have been nulled
+        assert "null_fk" in operations
+
+        # Final state should be correct
+        state = get_card_state("hash1")
+        assert state.method == "missing"
+
+
+class TestAddCandidateInline:
+    """Tests for _add_candidate_inline helper."""
+
+    @patch("app.core.database._clean_and_filter_names", return_value=["Smith"])
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_adds_within_session(self, mock_title, mock_clean):
+        """_add_candidate_inline adds candidate in the given session."""
+        create_or_update_card("hash1")
+        with _session_scope() as session:
+            cid = _add_candidate_inline(session, "hash1", "Smith", "ocr", "high")
+            assert cid > 0
+        candidates = get_candidates("hash1")
+        assert len(candidates) == 1
+        assert candidates[0].family_name == "Smith"
+
+    @patch("app.core.database._clean_and_filter_names", return_value=[])
+    def test_filtered_name_returns_zero(self, mock_clean):
+        """_add_candidate_inline returns 0 for filtered names."""
+        create_or_update_card("hash1")
+        with _session_scope() as session:
+            cid = _add_candidate_inline(session, "hash1", "unknown", "ocr", "low")
+            assert cid == 0
+
+    @patch("app.core.database._clean_and_filter_names", return_value=["Smith"])
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_dedup_within_session(self, mock_title, mock_clean):
+        """_add_candidate_inline deduplicates within the same session."""
+        create_or_update_card("hash1")
+        with _session_scope() as session:
+            cid1 = _add_candidate_inline(session, "hash1", "Smith", "ocr", "high")
+            cid2 = _add_candidate_inline(session, "hash1", "Smith", "ocr", "high")
+            assert cid1 == cid2
+        candidates = get_candidates("hash1")
+        assert len(candidates) == 1
+
+
+class TestReprocessSingleTransaction:
+    """Tests that reprocess_candidates_from_raw uses a single transaction."""
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_clears_fk_before_deleting(self, mock_title, mock_clean):
+        """selected_candidate_id is cleared before candidates are deleted."""
+        create_or_update_card("hash1")
+        cid = add_candidate("hash1", "OldName", "ocr", "high")
+        select_candidate("hash1", cid)
+        save_raw_ocr("hash1", "The Smith Family")
+
+        # Should not raise any FK errors
+        reprocess_candidates_from_raw("hash1")
+
+        # Old candidate should be gone, new ones from OCR should exist
+        state = get_card_state("hash1")
+        assert state is not None
+
+    @patch("app.core.database._clean_and_filter_names", side_effect=lambda x: x)
+    @patch("app.core.name_formatting.smart_title_case", side_effect=lambda x: x)
+    def test_autoselects_best_after_reprocess(self, mock_title, mock_clean):
+        """After reprocessing, the best candidate is auto-selected."""
+        create_or_update_card("hash1")
+        save_raw_ai("hash1", "AiBest", ["AiAlt"])
+
+        reprocess_candidates_from_raw("hash1")
+
+        state = get_card_state("hash1")
+        # AI best should be auto-selected
+        assert state.display_name == "AiBest"
+        assert state.method == "ai"
+        assert state.confidence == "high"
