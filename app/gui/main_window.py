@@ -447,14 +447,6 @@ class MainWindow:
         row.AddStretchSpacer()
 
         self._progress_gauge = wx.Gauge(strip, range=100, size=(200, -1))
-        # Force light mode appearance so the gauge is always blue
-        try:
-            from AppKit import NSAppearance  # type: ignore[import-untyped]
-
-            aqua = NSAppearance.appearanceNamed_("NSAppearanceNameAqua")
-            self._progress_gauge.GetHandle().setAppearance_(aqua)
-        except Exception:  # nosec B110 — intentional fallback if AppKit unavailable
-            pass
         row.Add(self._progress_gauge, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
 
         self._progress_count = wx.StaticText(strip, label="")
@@ -1725,6 +1717,7 @@ class MainWindow:
         self._review_panel.refresh_colors()
         self._progress_label.SetForegroundColour(Color.TEXT_PRIMARY)
         self._progress_count.SetForegroundColour(Color.TEXT_SECONDARY)
+        self._progress_gauge.Refresh()
 
         # Repaint all windows; call refresh_colors() on those that support it
         # noinspection PyArgumentList

@@ -156,31 +156,34 @@ loc: ## Count lines of code (excludes dependencies)
 	@(find . -name "*.py" -not -path "./.venv/*" -not -path "./_build/*" -not -path "./dist/*" -not -path "*/__pycache__/*" -exec cat {} + ; find ./content/html/help -name "*.md" -exec cat {} + 2>/dev/null; find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null; cat Makefile "Greeting Cards.spec") | wc -l | awk -v lbl="Total:" '$(FMT_LINE)'
 
 version: ## Show current version
-	@uv run python -c "from app.version import __version__; print(__version__)"
+	@uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
 
 bump-patch: ## Bump patch version (0.5.0 → 0.5.1)
 	@uv run python -c "\
-	p='app/version.py'; v=open(p).read().split('\"')[1].split('.'); \
+	import tomllib; p='pyproject.toml'; \
+	v=tomllib.load(open(p,'rb'))['project']['version'].split('.'); \
 	v=[int(x) for x in v]; v[2]+=1; nv='.'.join(map(str,v)); \
-	open(p,'w').write(f'__version__ = \"{nv}\"\n'); print(nv)"
-	@sed -i '' 's/^version = ".*"/version = "'$$(uv run python -c "from app.version import __version__; print(__version__)")'"/' pyproject.toml
+	t=open(p).read().replace('version = \"'+'.'.join(map(str,[v[0],v[1],v[2]-1]))+'\"\n','version = \"'+nv+'\"\n',1); \
+	open(p,'w').write(t); print(nv)"
 
 bump-minor: ## Bump minor version (0.5.1 → 0.6.0)
 	@uv run python -c "\
-	p='app/version.py'; v=open(p).read().split('\"')[1].split('.'); \
-	v=[int(x) for x in v]; v[1]+=1; v[2]=0; nv='.'.join(map(str,v)); \
-	open(p,'w').write(f'__version__ = \"{nv}\"\n'); print(nv)"
-	@sed -i '' 's/^version = ".*"/version = "'$$(uv run python -c "from app.version import __version__; print(__version__)")'"/' pyproject.toml
+	import tomllib; p='pyproject.toml'; \
+	old=tomllib.load(open(p,'rb'))['project']['version']; \
+	v=[int(x) for x in old.split('.')]; v[1]+=1; v[2]=0; nv='.'.join(map(str,v)); \
+	t=open(p).read().replace('version = \"'+old+'\"','version = \"'+nv+'\"',1); \
+	open(p,'w').write(t); print(nv)"
 
 bump-major: ## Bump major version (0.6.0 → 1.0.0)
 	@uv run python -c "\
-	p='app/version.py'; v=open(p).read().split('\"')[1].split('.'); \
-	v=[int(x) for x in v]; v[0]+=1; v[1]=0; v[2]=0; nv='.'.join(map(str,v)); \
-	open(p,'w').write(f'__version__ = \"{nv}\"\n'); print(nv)"
-	@sed -i '' 's/^version = ".*"/version = "'$$(uv run python -c "from app.version import __version__; print(__version__)")'"/' pyproject.toml
+	import tomllib; p='pyproject.toml'; \
+	old=tomllib.load(open(p,'rb'))['project']['version']; \
+	v=[int(x) for x in old.split('.')]; v[0]+=1; v[1]=0; v[2]=0; nv='.'.join(map(str,v)); \
+	t=open(p).read().replace('version = \"'+old+'\"','version = \"'+nv+'\"',1); \
+	open(p,'w').write(t); print(nv)"
 
 tag: ## Create git tag vX.Y.Z from current version
-	@v=$$(uv run python -c "from app.version import __version__; print(__version__)"); \
+	@v=$$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"); \
 	git tag "v$$v" && echo "Tagged v$$v"
 
 tag-push: ## Push all tags to remote
@@ -209,6 +212,9 @@ show-scripts: ## Show available script invocations (does not run them)
 	@echo "  \033[36mbuild_family_name_db\033[0m         Build master family name database from Census + Faker + smashew"
 	@echo "    uv run python -m scripts.build_family_name_db"
 	@echo "    uv run python -m scripts.build_family_name_db --no-smashew"
+	@echo ""
+	@echo "  \033[36mdark_mode_cycler\033[0m             Toggle macOS dark/light mode every 5s (Ctrl-C to stop)"
+	@echo "    uv run python -m scripts.dark_mode_cycler"
 	@echo ""
 	@echo "  \033[36mgenerate_diagnostic_cards\033[0m    Generate diagnostic PDFs with fixed family name text"
 	@echo "    uv run python -m scripts.generate_diagnostic_cards --names \"Smith,O'Brien,Van Dyke\""

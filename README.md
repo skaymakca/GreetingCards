@@ -311,6 +311,15 @@ uv run python -m scripts.benchmark.ocr_concurrency ~/Desktop/Cards
 Each benchmark generates a self-contained HTML report (with sorting, filtering, and heatmap coloring) and a CSV export
 in `_build/script_output/`.
 
+### Appearance Toggle
+
+`toggle_appearance.py` switches macOS between dark and light mode every 7.5 seconds until interrupted with Ctrl-C.
+Useful for testing live appearance change handling in the app.
+
+```bash
+uv run python -m scripts.dark_mode_cycler
+```
+
 ## IDE Setup (PyCharm)
 
 The `.idea/` directory is committed with shared project settings:
