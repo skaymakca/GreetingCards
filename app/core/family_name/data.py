@@ -2,7 +2,7 @@
 
 Provides three public containers:
 
-- ``FamilyNameDatabase`` — master database of 200K+ family names with Census
+- ``FamilyNameDatabase`` — master database of 213K+ family names with Census
   frequency data, proper display forms, and accepted alternate forms. Supports
   ``in`` checks, display lookup, rank/count queries, and display form matching.
 - ``FilteredNames`` — generic words that should never become family-name
