@@ -76,7 +76,8 @@ pip install package-name
 **Follow these rules for ALL bash commands to avoid permission prompts.**
 
 ### No command substitution
-- ❌ `git commit -m "$(date)"`
+- ❌ `git commit -m "$(date)"` — `$(...)` triggers approval
+- ❌ `` git commit -m "`date`" `` — backtick substitution also triggers approval
 - ✅ Split into two commands: first run `date`, then use the result
 
 ### No complex quoting in flag values
@@ -215,6 +216,8 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `scripts/generate_sample_cards/**`                                              | `docs/architecture/sample-card-generator.md`                          |
 | `scripts/helpers.py`, `scripts/**/__main__.py`                                  | `docs/architecture/scripts-infrastructure.md`                         |
 | `# noinspection` comments in any `*.py` file                                    | `docs/architecture/pycharm-inspections.md`                            |
+| `scripts/dmg/**` (including `dmgbuild_settings.py`)                              | `docs/architecture/dmg-creation.md`                                   |
+| `content/dmg/readme.md`, `content/dmg/Sample Cards/`                           | `docs/architecture/dmg-creation.md`                                   |
 
 ### Test Count
 When adding or removing tests, update the test count in `README.md` (search for "tests** covering") to match the actual number from `pytest` output.
