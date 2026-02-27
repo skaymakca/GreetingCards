@@ -40,9 +40,9 @@ test: ## Run all tests
 	uv run pytest -v
 
 test-cov: ## Run tests with coverage report
-	uv run pytest --cov=app --cov-report=html --cov-report=term-missing
+	uv run pytest --cov=app --cov-report=html:_build/htmlcov --cov-report=term-missing
 	@echo ""
-	@echo "Coverage report generated: htmlcov/index.html"
+	@echo "Coverage report generated: _build/htmlcov/index.html"
 
 test-core: ## Run core (non-GUI) tests only
 	uv run pytest tests/core/ -v

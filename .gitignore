@@ -23,7 +23,6 @@ dist/
 # Testing
 .pytest_cache/
 .coverage
-htmlcov/
 *.cover
 .tox/
 *.log

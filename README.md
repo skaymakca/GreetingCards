@@ -79,7 +79,7 @@ Run `make help` to see all available commands.
 | `make setup-dev`       | Install all dependencies including dev/testing tools                                     |
 | `make run`             | Run the app from source                                                                  |
 | `make test`            | Run all tests                                                                            |
-| `make test-cov`        | Run tests with coverage report (generates `htmlcov/index.html`)                          |
+| `make test-cov`        | Run tests with coverage report (generates `_build/htmlcov/index.html`)                   |
 | `make test-core`       | Run core (non-GUI) tests only                                                            |
 | `make test-gui`        | Run GUI tests only                                                                       |
 | `make build`           | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`) — alias for `make app` |
@@ -159,7 +159,7 @@ make test
 
 # Run with coverage report
 make test-cov
-open htmlcov/index.html
+open _build/htmlcov/index.html
 ```
 
 ### Test Organization
@@ -212,7 +212,7 @@ tests/
 
 ### Current Coverage
 
-- **1536 tests** covering core logic and GUI components
+- **1703 tests** covering core logic and GUI components
 - **Core** (22 test files): AI analysis, card model, changelog, changelog models, config, database, family name cleaning,
   family name data, family name formatting, filename sanitization, help builder, license discovery, license models,
   name extraction, name formatting, OCR engine, paths, PDF rendering, PDF worker, renamer, template environment, version
