@@ -3,8 +3,9 @@
 Generates comprehensive license HTML from a layered system: config files, `uv.lock`, `.dist-info` metadata, and committed license texts.
 
 **Key files:**
-- `app/core/license_models.py` — dataclasses (PackageCategory, SystemDep, PackageOverride, LicenseConfig, DiscoveredPackage, LicenseRegistry)
-- `app/core/license_discovery.py` — discovery + HTML generation logic
+- `app/core/content/license_models.py` — dataclasses (PackageCategory, SystemDep, PackageOverride, LicenseConfig, DiscoveredPackage, LicenseRegistry)
+- `app/core/content/license_sync.py` — registry sync: reads `uv.lock` + `.dist-info` → writes `registry.toml`
+- `app/core/content/license_html.py` — HTML generation: reads `registry.toml` → generates HTML via Jinja2
 - `app/gui/licenses_dialog.py` — viewer only (~30 lines)
 - `content/licenses/config.toml` — manual configuration: `[[system]]` seeds and `[[package]]` overrides
 - `content/licenses/manual/` — handwritten license texts (committed, never auto-modified)
@@ -125,7 +126,7 @@ Licenses are grouped into **category pages** (6 files). Each category page conta
 
 ## Dataclasses
 
-All data structures use Python dataclasses from `app/core/license_models.py`:
+All data structures use Python dataclasses from `app/core/content/license_models.py`:
 
 | Class               | Purpose                                                                          |
 |---------------------|----------------------------------------------------------------------------------|

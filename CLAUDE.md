@@ -190,17 +190,19 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `app/models/card.py`                                                           | `docs/architecture/card-data-model.md`                                |
 | `app/gui/review_panel.py`                                                      | `docs/architecture/review-panel.md`                                   |
 | `app/gui/main_window.py` (processing, AI, threads)                             | `docs/architecture/async-processing.md`                               |
-| `app/core/ai_analyzer.py`                                                      | `docs/architecture/async-processing.md`                               |
-| `app/core/family_name/*.py`                                                    | `docs/architecture/name-pipeline.md`                                  |
-| `app/core/name_extractor.py`, `app/core/name_formatting.py`                    | `docs/architecture/name-pipeline.md`                                  |
-| `app/core/database.py`, `app/core/renamer.py`                                  | `docs/architecture/name-pipeline.md`                                  |
-| `app/gui/help_dialog.py`, `app/core/help_builder.py`                           | `docs/architecture/help-system.md`                                    |
+| `app/core/pipeline/ai_analyzer.py`, `app/core/pipeline/ai_batch.py`            | `docs/architecture/async-processing.md`                               |
+| `app/core/pipeline/pdf_worker.py`, `app/core/pipeline/rate_limit.py`           | `docs/architecture/async-processing.md`                               |
+| `app/core/naming/family_name/*.py`                                             | `docs/architecture/name-pipeline.md`                                  |
+| `app/core/naming/extractor.py`, `app/core/naming/filename_safety.py`           | `docs/architecture/name-pipeline.md`                                  |
+| `app/core/database.py`, `app/core/naming/renamer.py`                           | `docs/architecture/name-pipeline.md`                                  |
+| `app/gui/dialogs/help.py`, `app/core/content/help_builder.py`                   | `docs/architecture/help-system.md`                                    |
 | `content/html/help/*.md`                                                       | `docs/architecture/help-system.md`                                    |
 | `app/gui/html_viewer.py`, `content/html/common/js/search.js`                   | `docs/architecture/html-viewer.md`                                    |
-| `app/core/changelog.py`, `app/core/changelog_models.py`                        | `docs/architecture/changelog-viewer.md`                               |
+| `app/core/content/changelog.py`, `app/core/content/changelog_models.py`        | `docs/architecture/changelog-viewer.md`                               |
 | `app/gui/changelog_dialog.py`, `content/html/templates/changelog_page.html.j2` | `docs/architecture/changelog-viewer.md`                               |
-| `app/core/license_models.py`, `app/core/license_discovery.py`                  | `docs/architecture/licenses-viewer.md`                                |
-| `app/gui/licenses_dialog.py`, `content/html/templates/licenses_*.html.j2`      | `docs/architecture/licenses-viewer.md`                                |
+| `app/core/content/license_models.py`, `app/core/content/license_sync.py`       | `docs/architecture/licenses-viewer.md`                                |
+| `app/core/content/license_html.py`, `app/gui/licenses_dialog.py`               | `docs/architecture/licenses-viewer.md`                                |
+| `content/html/templates/licenses_*.html.j2`                                    | `docs/architecture/licenses-viewer.md`                                |
 | `content/licenses/config.toml`, `content/licenses/manual/*`                    | `docs/architecture/licenses-viewer.md`                                |
 | `CHANGELOG.md`                                                                 | `CLAUDE.md` (changelog conventions below)                             |
 | `app/core/config.py`, `app/core/paths.py`                                      | `docs/architecture/config-and-preferences.md`                         |

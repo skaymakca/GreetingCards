@@ -3,8 +3,8 @@
 Parses `CHANGELOG.md` and generates HTML pages for the "What's New" viewer.
 
 **Key files:**
-- `app/core/changelog_models.py` — dataclasses (`ChangelogVersion`, `ChangelogGroup`)
-- `app/core/changelog.py` — parsing and HTML generation logic
+- `app/core/content/changelog_models.py` — dataclasses (`ChangelogVersion`, `ChangelogGroup`)
+- `app/core/content/changelog.py` — parsing and HTML generation logic
 - `app/gui/changelog_dialog.py` — viewer only (GUI shell)
 
 ## How It Works
@@ -49,7 +49,7 @@ Each page has sidebar + content HTML structure matching help pages. Sidebar href
 
 ## Page Navigation
 
-`get_page_order(base_path)` in `changelog.py` reads `page_order.txt` from the generated output directory. This manifest is written during generation with version pages in descending order. See `docs/architecture/html-viewer.md` for the shared manifest pattern.
+`get_page_order(base_path)` in `content/changelog.py` reads `page_order.txt` from the generated output directory. This manifest is written during generation with version pages in descending order. See `docs/architecture/html-viewer.md` for the shared manifest pattern.
 
 ## Menu Integration
 

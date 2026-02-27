@@ -2,7 +2,7 @@
 
 OCR extraction through AI analysis, cleaning, formatting, database storage, and rename.
 
-**Key files:** `app/core/family_name/` (cleaning, formatting, data lookup), `app/core/name_extractor.py`, `app/core/ai_analyzer.py`, `app/core/name_formatting.py` (filename sanitization only), `app/core/database.py`, `app/core/renamer.py`
+**Key files:** `app/core/naming/family_name/` (cleaning, formatting, data lookup), `app/core/naming/extractor.py`, `app/core/pipeline/ai_analyzer.py`, `app/core/naming/filename_safety.py` (filename sanitization only), `app/core/database.py`, `app/core/naming/renamer.py`
 
 ## Pipeline Overview
 
@@ -39,7 +39,7 @@ PDF file
         execute_rename_plan() → actual file renames
 ```
 
-## OCR Extraction (`name_extractor.py`)
+## OCR Extraction (`naming/extractor.py`)
 
 Regex-based pattern matching at three confidence levels:
 
@@ -74,7 +74,7 @@ Sends all page images as base64 PNG content blocks, followed by a text prompt re
 - Lines > 50 chars or containing skip words (shows, appears, page, etc.) → filtered
 - First valid line → `best_name`, remaining → `alternates`
 
-## Family Name Package (`app/core/family_name/`)
+## Family Name Package (`app/core/naming/family_name/`)
 
 Consolidated package for all family name cleaning, formatting, and data lookup. Three submodules:
 
@@ -152,17 +152,17 @@ DB lookup is skipped for multi-word and structured inputs (spaces, hyphens, apos
 
 ### Package `__init__.py`
 
-Re-exports all public API so callers import from `app.core.family_name`:
+Re-exports all public API so callers import from `app.core.naming.family_name`:
 ```python
-from app.core.family_name import clean_and_filter_family_names
-from app.core.family_name import smart_title_case_family_name
-from app.core.family_name import family_name_db, filtered_names
-from app.core.family_name import FamilyNameDatabase, FamilyNameEntry
+from app.core.naming.family_name import clean_and_filter_family_names
+from app.core.naming.family_name import smart_title_case_family_name
+from app.core.naming.family_name import family_name_db, filtered_names
+from app.core.naming.family_name import FamilyNameDatabase, FamilyNameEntry
 ```
 
-## Filename Sanitization (`name_formatting.py`)
+## Filename Sanitization (`naming/filename_safety.py`)
 
-After the family name package consolidation, `name_formatting.py` contains only:
+`naming/filename_safety.py` contains only:
 
 - **`sanitize_for_filename(name)`** — Replace `\/:*?"<>|` with `-`
 - **`INVALID_FILENAME_CHARS`** — frozenset of invalid chars
@@ -209,7 +209,7 @@ Raw OCR text and AI responses are stored separately from cleaned candidates. Thi
 2. Debugging AI responses
 3. Comparing raw vs cleaned results
 
-## Rename (`renamer.py`)
+## Rename (`naming/renamer.py`)
 
 ### Plan Building
 `build_rename_plan()` generates a list of `RenamePlanItem` with status:
@@ -252,7 +252,7 @@ if new_path == file_path:
 - **Unicode alternates:** The build script auto-generates ASCII alternates for Unicode display forms (Müller→Muller, Núñez→Nunez) via `ascii_fold()`. Faker locale cross-references also generate alternates when different locales provide Unicode vs ASCII forms of the same name.
 - **DB-first formatting guard:** `smart_title_case_family_name()` only uses the DB display for single-token inputs without hyphens/apostrophes. Structured inputs (e.g., "smith-jones", "o'brien") already carry word boundary info and use heuristics instead.
 - **Build script chicken-and-egg:** The build script (`scripts/build_family_name_db/`) uses internal formatting functions (`_format_particle`, `_format_word_with_structure`) directly, not `smart_title_case_family_name()`, to avoid depending on the DB it's building.
-- **Mock patch paths:** Because `database.py` does `from app.core.family_name import ...`, mocks must target `app.core.family_name.clean_and_filter_family_names` (package level), not the submodule path.
+- **Mock patch paths:** Because `database.py` does `from app.core.naming.family_name import ...`, mocks must target `app.core.naming.family_name.clean_and_filter_family_names` (package level), not the submodule path.
 - **Display form bypass + blocklist:** The `match_display()` bypass in `clean_and_filter_family_names()` still checks the `filtered_names` blocklist. Some real surnames (e.g., "Holiday") overlap with filtered words and must not bypass cleaning.
 - **Display index vs normalize:** `match_display()` uses case-insensitive but punctuation-preserving matching (`.lower()`), NOT `normalize()`. This is intentional: "Van-Dyke" and "Van Dyke" must remain distinct matches, but `normalize()` strips both to "vandyke".
 - **Multiple candidates from alternates:** When `clean_and_filter_family_names()` matches a known display form, it returns the matched form PLUS all related forms. `_add_candidate_inline()` and `add_candidate()` iterate over all cleaned results, creating a candidate for each. The unique constraint handles dedup.

@@ -2,13 +2,13 @@
 
 Help pages generated from Markdown and displayed in the shared WebView viewer.
 
-**Key files:** `app/gui/help_dialog.py` (thin wrapper), `app/core/help_builder.py` (Markdown → HTML generation), `app/gui/html_viewer.py` (shared viewer — see `docs/architecture/html-viewer.md`)
+**Key files:** `app/gui/dialogs/help.py` (thin wrapper), `app/core/content/help_builder.py` (Markdown → HTML generation), `app/gui/html_viewer.py` (shared viewer — see `docs/architecture/html-viewer.md`)
 
 ## How It Works
 
-`help_dialog.py` is a thin wrapper that calls `show_viewer()` with path resolution. `_HELP_REL_PATH = Path("_build/runtime_content") / "html" / "help"`.
+`app/gui/dialogs/help.py` is a thin wrapper that calls `show_viewer()` with path resolution. `_HELP_REL_PATH = Path("_build/runtime_content") / "html" / "help"`.
 
-`help_builder.py` generates HTML from Markdown source files using the `markdown` library and Jinja2 templates.
+`content/help_builder.py` generates HTML from Markdown source files using the `markdown` library and Jinja2 templates.
 
 ## Content Structure
 
@@ -104,7 +104,7 @@ Sidebar navigation is generated automatically from the filename ordering.
 
 ## Page Navigation
 
-`get_page_order(base_path)` in `help_builder.py` reads `page_order.txt` from the generated output directory. This manifest is written during generation and preserves the numeric filename ordering. The shared viewer toolbar provides Home, Previous, Next navigation. See `docs/architecture/html-viewer.md` for toolbar, search, and manifest details.
+`get_page_order(base_path)` in `content/help_builder.py` reads `page_order.txt` from the generated output directory. This manifest is written during generation and preserves the numeric filename ordering. The shared viewer toolbar provides Home, Previous, Next navigation. See `docs/architecture/html-viewer.md` for toolbar, search, and manifest details.
 
 ## CSS
 
