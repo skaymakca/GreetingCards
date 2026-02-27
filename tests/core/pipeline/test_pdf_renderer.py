@@ -1,4 +1,4 @@
-"""Tests for app.core.pdf_renderer module."""
+"""Tests for app.core.pipeline.pdf_renderer module."""
 
 import io
 from pathlib import Path
@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from PIL import Image
 
-from app.core.pdf_renderer import _capped_zoom, autocrop_whitespace, get_page_count, render_all_pages, render_pdf_page
+from app.core.pipeline.pdf_renderer import _capped_zoom, autocrop_whitespace, get_page_count, render_all_pages, render_pdf_page
 
 
 class TestCappedZoom:
@@ -140,21 +140,21 @@ def _make_mock_doc(num_pages=1):
 class TestRenderPdfPage:
     """Tests for render_pdf_page()."""
 
-    @patch("app.core.pdf_renderer.fitz.open")
+    @patch("app.core.pipeline.pdf_renderer.fitz.open")
     def test_returns_image(self, mock_fitz_open):
         doc = _make_mock_doc(1)
         mock_fitz_open.return_value = doc
         result = render_pdf_page(Path("/fake.pdf"))
         assert isinstance(result, Image.Image)
 
-    @patch("app.core.pdf_renderer.fitz.open")
+    @patch("app.core.pipeline.pdf_renderer.fitz.open")
     def test_closes_document(self, mock_fitz_open):
         doc = _make_mock_doc(1)
         mock_fitz_open.return_value = doc
         render_pdf_page(Path("/fake.pdf"))
         doc.close.assert_called_once()
 
-    @patch("app.core.pdf_renderer.fitz.open")
+    @patch("app.core.pipeline.pdf_renderer.fitz.open")
     def test_closes_on_error(self, mock_fitz_open):
         doc = MagicMock()
         doc.__getitem__ = MagicMock(side_effect=RuntimeError("bad page"))
@@ -168,7 +168,7 @@ class TestRenderPdfPage:
 class TestRenderAllPages:
     """Tests for render_all_pages()."""
 
-    @patch("app.core.pdf_renderer.fitz.open")
+    @patch("app.core.pipeline.pdf_renderer.fitz.open")
     def test_returns_list_of_images(self, mock_fitz_open):
         doc = _make_mock_doc(3)
         mock_fitz_open.return_value = doc
@@ -176,7 +176,7 @@ class TestRenderAllPages:
         assert len(result) == 3
         assert all(isinstance(img, Image.Image) for img in result)
 
-    @patch("app.core.pdf_renderer.fitz.open")
+    @patch("app.core.pipeline.pdf_renderer.fitz.open")
     def test_closes_document(self, mock_fitz_open):
         doc = _make_mock_doc(2)
         mock_fitz_open.return_value = doc
@@ -187,13 +187,13 @@ class TestRenderAllPages:
 class TestGetPageCount:
     """Tests for get_page_count()."""
 
-    @patch("app.core.pdf_renderer.fitz.open")
+    @patch("app.core.pipeline.pdf_renderer.fitz.open")
     def test_returns_count(self, mock_fitz_open):
         doc = _make_mock_doc(5)
         mock_fitz_open.return_value = doc
         assert get_page_count(Path("/fake.pdf")) == 5
 
-    @patch("app.core.pdf_renderer.fitz.open")
+    @patch("app.core.pipeline.pdf_renderer.fitz.open")
     def test_closes_document(self, mock_fitz_open):
         doc = _make_mock_doc(1)
         mock_fitz_open.return_value = doc

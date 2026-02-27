@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import pytest
 import wx
 
-from app.core.card_processor import derive_folders, load_card_state_from_db, scan_for_pdfs, worker_result_to_card
+from app.core.pipeline.card_processor import derive_folders, load_card_state_from_db, scan_for_pdfs, worker_result_to_card
 from app.gui.main_window import FileDropTarget, MainWindow
 
 
@@ -1514,7 +1514,7 @@ def test_on_name_change_revert_to_original(wx_app):
 
     with (
         patch("app.gui.main_window.set_manual_name"),
-        patch("app.core.card_processor.get_card_state", return_value=mock_state),
+        patch("app.core.pipeline.card_processor.get_card_state", return_value=mock_state),
     ):
         window._on_name_change(0, "")
 
@@ -1556,7 +1556,7 @@ def test_on_name_change_revert_ai_analyzed(wx_app):
 
     with (
         patch("app.gui.main_window.set_manual_name"),
-        patch("app.core.card_processor.get_card_state", return_value=mock_state),
+        patch("app.core.pipeline.card_processor.get_card_state", return_value=mock_state),
     ):
         window._on_name_change(0, "")
 
@@ -1584,7 +1584,7 @@ def test_on_name_change_revert_no_original_confidence(wx_app):
 
     with (
         patch("app.gui.main_window.set_manual_name"),
-        patch("app.core.card_processor.get_card_state", return_value=None),
+        patch("app.core.pipeline.card_processor.get_card_state", return_value=None),
     ):
         window._on_name_change(0, "")
 
@@ -1768,7 +1768,7 @@ def test_load_card_state_from_db_with_state():
         selected_candidate_id=1,
     )
 
-    with patch("app.core.card_processor.get_card_state", return_value=mock_state):
+    with patch("app.core.pipeline.card_processor.get_card_state", return_value=mock_state):
         load_card_state_from_db(card)
 
     assert card.family_name == "Smith"
@@ -1788,7 +1788,7 @@ def test_load_card_state_from_db_no_state():
     card = CardResult(id=0, file_paths=[Path("/test.pdf")], primary_path=Path("/test.pdf"))
     card.file_hash = "abc123"
 
-    with patch("app.core.card_processor.get_card_state", return_value=None):
+    with patch("app.core.pipeline.card_processor.get_card_state", return_value=None):
         load_card_state_from_db(card)
 
     assert card.ai_analyzed is True
@@ -2588,7 +2588,7 @@ class TestRateLimitGate:
         """Gate does not block when no pause has been set."""
         import time
 
-        from app.core.rate_limit import RateLimitGate as _RateLimitGate
+        from app.core.pipeline.rate_limit import RateLimitGate as _RateLimitGate
 
         gate = _RateLimitGate()
         before = time.monotonic()
@@ -2601,7 +2601,7 @@ class TestRateLimitGate:
         """Gate waits for the paused duration."""
         import time
 
-        from app.core.rate_limit import RateLimitGate as _RateLimitGate
+        from app.core.pipeline.rate_limit import RateLimitGate as _RateLimitGate
 
         gate = _RateLimitGate()
         gate.pause(0.2)
@@ -2615,7 +2615,7 @@ class TestRateLimitGate:
         """Multiple pauses keep the longest remaining duration."""
         import time
 
-        from app.core.rate_limit import RateLimitGate as _RateLimitGate
+        from app.core.pipeline.rate_limit import RateLimitGate as _RateLimitGate
 
         gate = _RateLimitGate()
         gate.pause(0.1)
@@ -2655,8 +2655,8 @@ class TestAiRetryBehavior:
 
         import anthropic
 
-        from app.core.ai_analyzer import AIResult
-        from app.core.rate_limit import RateLimitGate as _RateLimitGate
+        from app.core.pipeline.ai_analyzer import AIResult
+        from app.core.pipeline.rate_limit import RateLimitGate as _RateLimitGate
 
         card = self._make_card()
 
@@ -2673,11 +2673,11 @@ class TestAiRetryBehavior:
         errors: list[tuple[str, str]] = []
 
         with (
-            patch("app.core.ai_batch.analyze_card_with_ai_async", mock_analyze),
-            patch("app.core.card_processor.get_card_state", return_value=None),
-            patch("app.core.ai_batch.save_raw_ai"),
-            patch("app.core.ai_batch.reprocess_candidates_from_raw"),
-            patch("app.core.ai_batch.parse_retry_after", return_value=0.05),
+            patch("app.core.pipeline.ai_batch.analyze_card_with_ai_async", mock_analyze),
+            patch("app.core.pipeline.card_processor.get_card_state", return_value=None),
+            patch("app.core.pipeline.ai_batch.save_raw_ai"),
+            patch("app.core.pipeline.ai_batch.reprocess_candidates_from_raw"),
+            patch("app.core.pipeline.ai_batch.parse_retry_after", return_value=0.05),
         ):
             for attempt in range(2):
                 await gate.wait_if_paused()
@@ -2687,7 +2687,7 @@ class TestAiRetryBehavior:
                         break
                     except anthropic.RateLimitError as e:
                         if attempt == 0:
-                            from app.core.ai_analyzer import parse_retry_after
+                            from app.core.pipeline.ai_analyzer import parse_retry_after
 
                             delay = parse_retry_after(e)
                             gate.pause(delay)
@@ -2705,8 +2705,8 @@ class TestAiRetryBehavior:
 
         import anthropic
 
-        from app.core.ai_analyzer import AIResult
-        from app.core.rate_limit import RateLimitGate as _RateLimitGate
+        from app.core.pipeline.ai_analyzer import AIResult
+        from app.core.pipeline.rate_limit import RateLimitGate as _RateLimitGate
 
         card = self._make_card()
 
@@ -2738,7 +2738,7 @@ class TestAiRetryBehavior:
         import asyncio
         from unittest.mock import AsyncMock, patch
 
-        from app.core.rate_limit import RateLimitGate as _RateLimitGate
+        from app.core.pipeline.rate_limit import RateLimitGate as _RateLimitGate
 
         card = self._make_card()
 
@@ -2769,7 +2769,7 @@ class TestAiRetryBehavior:
 
         import anthropic
 
-        from app.core.rate_limit import RateLimitGate as _RateLimitGate
+        from app.core.pipeline.rate_limit import RateLimitGate as _RateLimitGate
 
         card = self._make_card()
 

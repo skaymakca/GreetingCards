@@ -1,4 +1,4 @@
-"""Tests for app.core.ai_analyzer module."""
+"""Tests for app.core.pipeline.ai_analyzer module."""
 
 import base64
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from PIL import Image
 
-from app.core.ai_analyzer import (
+from app.core.pipeline.ai_analyzer import (
     _MAX_LINE_LENGTH,
     _MAX_RETRIES,
     AIResult,
@@ -131,15 +131,15 @@ class TestAnalyzeCardWithAi:
     """Tests for analyze_card_with_ai_async() (unified async path)."""
 
     @pytest.mark.asyncio
-    @patch("app.core.ai_analyzer.get_api_key", return_value=None)
+    @patch("app.core.pipeline.ai_analyzer.get_api_key", return_value=None)
     async def test_no_api_key_raises(self, mock_key):
         img = Image.new("RGB", (10, 10))
         with pytest.raises(ValueError, match="not configured"):
             await analyze_card_with_ai_async(img)
 
     @pytest.mark.asyncio
-    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
-    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    @patch("app.core.pipeline.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.pipeline.ai_analyzer.get_api_key", return_value="sk-test")
     async def test_calls_anthropic(self, mock_key, mock_model):
         import anthropic
 
@@ -153,8 +153,8 @@ class TestAnalyzeCardWithAi:
             assert result.best_name == "Smith"
 
     @pytest.mark.asyncio
-    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
-    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    @patch("app.core.pipeline.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.pipeline.ai_analyzer.get_api_key", return_value="sk-test")
     async def test_accepts_single_image(self, mock_key, mock_model):
         import anthropic
 
@@ -168,8 +168,8 @@ class TestAnalyzeCardWithAi:
             assert result.best_name == "Jones"
 
     @pytest.mark.asyncio
-    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
-    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    @patch("app.core.pipeline.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.pipeline.ai_analyzer.get_api_key", return_value="sk-test")
     async def test_accepts_image_list(self, mock_key, mock_model):
         import anthropic
 
@@ -184,8 +184,8 @@ class TestAnalyzeCardWithAi:
             assert result.best_name == "Smith"
 
     @pytest.mark.asyncio
-    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
-    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    @patch("app.core.pipeline.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.pipeline.ai_analyzer.get_api_key", return_value="sk-test")
     async def test_uses_configured_model(self, mock_key, mock_model):
         """Verifies the configured model is passed to the API."""
         import anthropic
@@ -240,12 +240,12 @@ class TestNormalizeImages:
 class TestGetValidatedApiKey:
     """Tests for _get_validated_api_key()."""
 
-    @patch("app.core.ai_analyzer.get_api_key", return_value=None)
+    @patch("app.core.pipeline.ai_analyzer.get_api_key", return_value=None)
     def test_no_key_raises(self, mock_key):
         with pytest.raises(ValueError, match="not configured"):
             _get_validated_api_key()
 
-    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    @patch("app.core.pipeline.ai_analyzer.get_api_key", return_value="sk-test")
     def test_returns_key(self, mock_key):
         assert _get_validated_api_key() == "sk-test"
 
@@ -316,8 +316,8 @@ class TestAnalyzeCardWithAiErrors:
     """Tests for API error propagation in analyze_card_with_ai_async()."""
 
     @pytest.mark.asyncio
-    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
-    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    @patch("app.core.pipeline.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.pipeline.ai_analyzer.get_api_key", return_value="sk-test")
     async def test_timeout_error_propagates(self, mock_key, mock_model):
         """APITimeoutError propagates from the async client."""
         import anthropic
@@ -331,8 +331,8 @@ class TestAnalyzeCardWithAiErrors:
             await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
 
     @pytest.mark.asyncio
-    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
-    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    @patch("app.core.pipeline.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.pipeline.ai_analyzer.get_api_key", return_value="sk-test")
     async def test_rate_limit_error_propagates(self, mock_key, mock_model):
         """RateLimitError propagates from the async client."""
         import anthropic
@@ -348,8 +348,8 @@ class TestAnalyzeCardWithAiErrors:
             await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
 
     @pytest.mark.asyncio
-    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
-    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    @patch("app.core.pipeline.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.pipeline.ai_analyzer.get_api_key", return_value="sk-test")
     async def test_auth_error_propagates(self, mock_key, mock_model):
         """AuthenticationError propagates from the async client."""
         import anthropic
@@ -367,8 +367,8 @@ class TestAnalyzeCardWithAiErrors:
             await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
 
     @pytest.mark.asyncio
-    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
-    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    @patch("app.core.pipeline.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.pipeline.ai_analyzer.get_api_key", return_value="sk-test")
     async def test_connection_error_propagates(self, mock_key, mock_model):
         """APIConnectionError propagates from the async client."""
         import anthropic
@@ -382,8 +382,8 @@ class TestAnalyzeCardWithAiErrors:
             await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
 
     @pytest.mark.asyncio
-    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
-    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    @patch("app.core.pipeline.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.pipeline.ai_analyzer.get_api_key", return_value="sk-test")
     async def test_status_error_propagates(self, mock_key, mock_model):
         """APIStatusError propagates from the async client."""
         import anthropic
@@ -399,8 +399,8 @@ class TestAnalyzeCardWithAiErrors:
             await analyze_card_with_ai_async(Image.new("RGB", (10, 10)))
 
     @pytest.mark.asyncio
-    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
-    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    @patch("app.core.pipeline.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.pipeline.ai_analyzer.get_api_key", return_value="sk-test")
     async def test_empty_content_list(self, mock_key, mock_model):
         """Empty message.content list returns empty AIResult."""
         import anthropic
@@ -416,8 +416,8 @@ class TestAnalyzeCardWithAiErrors:
             assert result.alternates == []
 
     @pytest.mark.asyncio
-    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
-    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    @patch("app.core.pipeline.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.pipeline.ai_analyzer.get_api_key", return_value="sk-test")
     async def test_empty_content_block(self, mock_key, mock_model):
         """Empty response content returns empty AIResult."""
         import anthropic
@@ -433,8 +433,8 @@ class TestAnalyzeCardWithAiErrors:
             assert result.alternates == []
 
     @pytest.mark.asyncio
-    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
-    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    @patch("app.core.pipeline.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.pipeline.ai_analyzer.get_api_key", return_value="sk-test")
     async def test_block_without_text_attribute(self, mock_key, mock_model):
         """Block without text attribute returns empty AIResult."""
         import anthropic
@@ -493,8 +493,8 @@ class TestMaxRetriesConfig:
     """Tests for SDK retry configuration."""
 
     @pytest.mark.asyncio
-    @patch("app.core.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
-    @patch("app.core.ai_analyzer.get_api_key", return_value="sk-test")
+    @patch("app.core.pipeline.ai_analyzer.get_ai_model", return_value="claude-sonnet-4-6")
+    @patch("app.core.pipeline.ai_analyzer.get_api_key", return_value="sk-test")
     async def test_max_retries_passed_to_client(self, mock_key, mock_model):
         """Verifies max_retries=4 is passed to AsyncAnthropic constructor."""
         import anthropic

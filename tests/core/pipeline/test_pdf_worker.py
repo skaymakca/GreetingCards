@@ -1,11 +1,11 @@
-"""Tests for app.core.pdf_worker module."""
+"""Tests for app.core.pipeline.pdf_worker module."""
 
 from dataclasses import fields
 from unittest.mock import patch
 
 from PIL import Image
 
-from app.core.pdf_worker import process_pdf_worker
+from app.core.pipeline.pdf_worker import process_pdf_worker
 from app.models.card import CandidateInfo, CardState, PdfWorkerResult
 
 
@@ -17,12 +17,12 @@ def _make_test_image(width=10, height=10, color="red"):
 class TestProcessPdfWorkerSuccess:
     """Tests for successful PDF processing paths."""
 
-    @patch("app.core.pdf_worker.reprocess_candidates_from_raw")
-    @patch("app.core.pdf_worker.save_raw_ocr")
-    @patch("app.core.pdf_worker.extract_text_all_pages", return_value="OCR text here")
-    @patch("app.core.pdf_worker.render_all_pages")
-    @patch("app.core.pdf_worker.get_card_state")
-    @patch("app.core.pdf_worker.compute_file_hash", return_value="abc123")
+    @patch("app.core.pipeline.pdf_worker.reprocess_candidates_from_raw")
+    @patch("app.core.pipeline.pdf_worker.save_raw_ocr")
+    @patch("app.core.pipeline.pdf_worker.extract_text_all_pages", return_value="OCR text here")
+    @patch("app.core.pipeline.pdf_worker.render_all_pages")
+    @patch("app.core.pipeline.pdf_worker.get_card_state")
+    @patch("app.core.pipeline.pdf_worker.compute_file_hash", return_value="abc123")
     def test_new_pdf_runs_ocr_and_saves(self, mock_hash, mock_state, mock_render, mock_ocr, mock_save, mock_reprocess):
         """New PDF (no cached state) runs OCR, saves raw, and reprocesses."""
         mock_render.return_value = [_make_test_image()]
@@ -48,12 +48,12 @@ class TestProcessPdfWorkerSuccess:
         mock_save.assert_called_once_with("abc123", "OCR text here")
         assert mock_reprocess.call_count == 1
 
-    @patch("app.core.pdf_worker.reprocess_candidates_from_raw")
-    @patch("app.core.pdf_worker.save_raw_ocr")
-    @patch("app.core.pdf_worker.extract_text_all_pages")
-    @patch("app.core.pdf_worker.render_all_pages")
-    @patch("app.core.pdf_worker.get_card_state")
-    @patch("app.core.pdf_worker.compute_file_hash", return_value="abc123")
+    @patch("app.core.pipeline.pdf_worker.reprocess_candidates_from_raw")
+    @patch("app.core.pipeline.pdf_worker.save_raw_ocr")
+    @patch("app.core.pipeline.pdf_worker.extract_text_all_pages")
+    @patch("app.core.pipeline.pdf_worker.render_all_pages")
+    @patch("app.core.pipeline.pdf_worker.get_card_state")
+    @patch("app.core.pipeline.pdf_worker.compute_file_hash", return_value="abc123")
     def test_cached_pdf_skips_ocr(self, mock_hash, mock_state, mock_render, mock_ocr, mock_save, mock_reprocess):
         """Cached PDF (existing state) skips OCR, only reprocesses candidates."""
         mock_render.return_value = [_make_test_image()]
@@ -74,12 +74,12 @@ class TestProcessPdfWorkerSuccess:
         mock_save.assert_not_called()
         mock_reprocess.assert_called_once_with("abc123")
 
-    @patch("app.core.pdf_worker.reprocess_candidates_from_raw")
-    @patch("app.core.pdf_worker.save_raw_ocr")
-    @patch("app.core.pdf_worker.extract_text_all_pages", return_value="text")
-    @patch("app.core.pdf_worker.render_all_pages")
-    @patch("app.core.pdf_worker.get_card_state")
-    @patch("app.core.pdf_worker.compute_file_hash", return_value="abc123")
+    @patch("app.core.pipeline.pdf_worker.reprocess_candidates_from_raw")
+    @patch("app.core.pipeline.pdf_worker.save_raw_ocr")
+    @patch("app.core.pipeline.pdf_worker.extract_text_all_pages", return_value="text")
+    @patch("app.core.pipeline.pdf_worker.render_all_pages")
+    @patch("app.core.pipeline.pdf_worker.get_card_state")
+    @patch("app.core.pipeline.pdf_worker.compute_file_hash", return_value="abc123")
     def test_result_is_dataclass_with_expected_fields(
         self, mock_hash, mock_state, mock_render, mock_ocr, mock_save, mock_reprocess
     ):
@@ -98,12 +98,12 @@ class TestProcessPdfWorkerSuccess:
 class TestProcessPdfWorkerImageHandling:
     """Tests for image serialization in the worker."""
 
-    @patch("app.core.pdf_worker.reprocess_candidates_from_raw")
-    @patch("app.core.pdf_worker.save_raw_ocr")
-    @patch("app.core.pdf_worker.extract_text_all_pages", return_value="")
-    @patch("app.core.pdf_worker.render_all_pages", return_value=[])
-    @patch("app.core.pdf_worker.get_card_state", return_value=None)
-    @patch("app.core.pdf_worker.compute_file_hash", return_value="abc123")
+    @patch("app.core.pipeline.pdf_worker.reprocess_candidates_from_raw")
+    @patch("app.core.pipeline.pdf_worker.save_raw_ocr")
+    @patch("app.core.pipeline.pdf_worker.extract_text_all_pages", return_value="")
+    @patch("app.core.pipeline.pdf_worker.render_all_pages", return_value=[])
+    @patch("app.core.pipeline.pdf_worker.get_card_state", return_value=None)
+    @patch("app.core.pipeline.pdf_worker.compute_file_hash", return_value="abc123")
     def test_empty_images_no_preview(self, mock_hash, mock_state, mock_render, mock_ocr, mock_save, mock_reprocess):
         """When render returns empty list, preview and page bytes are None/empty."""
         result = process_pdf_worker("/fake/card.pdf")
@@ -113,12 +113,12 @@ class TestProcessPdfWorkerImageHandling:
         # No OCR should be called since no images
         mock_ocr.assert_not_called()
 
-    @patch("app.core.pdf_worker.reprocess_candidates_from_raw")
-    @patch("app.core.pdf_worker.save_raw_ocr")
-    @patch("app.core.pdf_worker.extract_text_all_pages", return_value="text")
-    @patch("app.core.pdf_worker.render_all_pages")
-    @patch("app.core.pdf_worker.get_card_state")
-    @patch("app.core.pdf_worker.compute_file_hash", return_value="abc123")
+    @patch("app.core.pipeline.pdf_worker.reprocess_candidates_from_raw")
+    @patch("app.core.pipeline.pdf_worker.save_raw_ocr")
+    @patch("app.core.pipeline.pdf_worker.extract_text_all_pages", return_value="text")
+    @patch("app.core.pipeline.pdf_worker.render_all_pages")
+    @patch("app.core.pipeline.pdf_worker.get_card_state")
+    @patch("app.core.pipeline.pdf_worker.compute_file_hash", return_value="abc123")
     def test_single_image_as_png_bytes(self, mock_hash, mock_state, mock_render, mock_ocr, mock_save, mock_reprocess):
         """Single image is serialized as PNG bytes."""
         mock_render.return_value = [_make_test_image()]
@@ -132,12 +132,12 @@ class TestProcessPdfWorkerImageHandling:
         assert len(result.page_images_bytes) == 1
         assert result.page_images_bytes[0][:4] == b"\x89PNG"
 
-    @patch("app.core.pdf_worker.reprocess_candidates_from_raw")
-    @patch("app.core.pdf_worker.save_raw_ocr")
-    @patch("app.core.pdf_worker.extract_text_all_pages", return_value="text")
-    @patch("app.core.pdf_worker.render_all_pages")
-    @patch("app.core.pdf_worker.get_card_state")
-    @patch("app.core.pdf_worker.compute_file_hash", return_value="abc123")
+    @patch("app.core.pipeline.pdf_worker.reprocess_candidates_from_raw")
+    @patch("app.core.pipeline.pdf_worker.save_raw_ocr")
+    @patch("app.core.pipeline.pdf_worker.extract_text_all_pages", return_value="text")
+    @patch("app.core.pipeline.pdf_worker.render_all_pages")
+    @patch("app.core.pipeline.pdf_worker.get_card_state")
+    @patch("app.core.pipeline.pdf_worker.compute_file_hash", return_value="abc123")
     def test_multiple_images_as_png_bytes(
         self, mock_hash, mock_state, mock_render, mock_ocr, mock_save, mock_reprocess
     ):
@@ -155,7 +155,7 @@ class TestProcessPdfWorkerImageHandling:
 class TestProcessPdfWorkerErrors:
     """Tests for error handling in the worker."""
 
-    @patch("app.core.pdf_worker.compute_file_hash", side_effect=OSError("disk error"))
+    @patch("app.core.pipeline.pdf_worker.compute_file_hash", side_effect=OSError("disk error"))
     def test_hash_error(self, mock_hash):
         """Hash computation error is captured in result."""
         result = process_pdf_worker("/fake/card.pdf")
@@ -163,9 +163,9 @@ class TestProcessPdfWorkerErrors:
         assert result.error == "disk error"
         assert result.file_hash is None
 
-    @patch("app.core.pdf_worker.render_all_pages", side_effect=RuntimeError("render failed"))
-    @patch("app.core.pdf_worker.get_card_state", return_value=None)
-    @patch("app.core.pdf_worker.compute_file_hash", return_value="abc123")
+    @patch("app.core.pipeline.pdf_worker.render_all_pages", side_effect=RuntimeError("render failed"))
+    @patch("app.core.pipeline.pdf_worker.get_card_state", return_value=None)
+    @patch("app.core.pipeline.pdf_worker.compute_file_hash", return_value="abc123")
     def test_render_error(self, mock_hash, mock_state, mock_render):
         """Render error is captured in result."""
         result = process_pdf_worker("/fake/card.pdf")
@@ -173,10 +173,10 @@ class TestProcessPdfWorkerErrors:
         assert result.error == "render failed"
         assert result.file_hash == "abc123"
 
-    @patch("app.core.pdf_worker.extract_text_all_pages", side_effect=RuntimeError("OCR failed"))
-    @patch("app.core.pdf_worker.render_all_pages")
-    @patch("app.core.pdf_worker.get_card_state", return_value=None)
-    @patch("app.core.pdf_worker.compute_file_hash", return_value="abc123")
+    @patch("app.core.pipeline.pdf_worker.extract_text_all_pages", side_effect=RuntimeError("OCR failed"))
+    @patch("app.core.pipeline.pdf_worker.render_all_pages")
+    @patch("app.core.pipeline.pdf_worker.get_card_state", return_value=None)
+    @patch("app.core.pipeline.pdf_worker.compute_file_hash", return_value="abc123")
     def test_ocr_error(self, mock_hash, mock_state, mock_render, mock_ocr):
         """OCR error is captured in result."""
         mock_render.return_value = [_make_test_image()]
@@ -185,10 +185,10 @@ class TestProcessPdfWorkerErrors:
 
         assert result.error == "OCR failed"
 
-    @patch("app.core.pdf_worker.reprocess_candidates_from_raw", side_effect=RuntimeError("reprocess failed"))
-    @patch("app.core.pdf_worker.render_all_pages")
-    @patch("app.core.pdf_worker.get_card_state")
-    @patch("app.core.pdf_worker.compute_file_hash", return_value="abc123")
+    @patch("app.core.pipeline.pdf_worker.reprocess_candidates_from_raw", side_effect=RuntimeError("reprocess failed"))
+    @patch("app.core.pipeline.pdf_worker.render_all_pages")
+    @patch("app.core.pipeline.pdf_worker.get_card_state")
+    @patch("app.core.pipeline.pdf_worker.compute_file_hash", return_value="abc123")
     def test_reprocess_error(self, mock_hash, mock_state, mock_render, mock_reprocess):
         """Reprocess error for cached card is captured in result."""
         mock_render.return_value = [_make_test_image()]
@@ -210,12 +210,12 @@ class TestProcessPdfWorkerErrors:
 class TestProcessPdfWorkerCardState:
     """Tests for card state mapping in results."""
 
-    @patch("app.core.pdf_worker.reprocess_candidates_from_raw")
-    @patch("app.core.pdf_worker.save_raw_ocr")
-    @patch("app.core.pdf_worker.extract_text_all_pages", return_value="text")
-    @patch("app.core.pdf_worker.render_all_pages")
-    @patch("app.core.pdf_worker.get_card_state")
-    @patch("app.core.pdf_worker.compute_file_hash", return_value="abc123")
+    @patch("app.core.pipeline.pdf_worker.reprocess_candidates_from_raw")
+    @patch("app.core.pipeline.pdf_worker.save_raw_ocr")
+    @patch("app.core.pipeline.pdf_worker.extract_text_all_pages", return_value="text")
+    @patch("app.core.pipeline.pdf_worker.render_all_pages")
+    @patch("app.core.pipeline.pdf_worker.get_card_state")
+    @patch("app.core.pipeline.pdf_worker.compute_file_hash", return_value="abc123")
     def test_card_state_maps_to_result(self, mock_hash, mock_state, mock_render, mock_ocr, mock_save, mock_reprocess):
         """CardState fields are correctly mapped to result."""
         mock_render.return_value = [_make_test_image()]
@@ -240,12 +240,12 @@ class TestProcessPdfWorkerCardState:
         assert result.remove_family is True
         assert result.selected_candidate_id == 42
 
-    @patch("app.core.pdf_worker.reprocess_candidates_from_raw")
-    @patch("app.core.pdf_worker.save_raw_ocr")
-    @patch("app.core.pdf_worker.extract_text_all_pages", return_value="text")
-    @patch("app.core.pdf_worker.render_all_pages")
-    @patch("app.core.pdf_worker.get_card_state")
-    @patch("app.core.pdf_worker.compute_file_hash", return_value="abc123")
+    @patch("app.core.pipeline.pdf_worker.reprocess_candidates_from_raw")
+    @patch("app.core.pipeline.pdf_worker.save_raw_ocr")
+    @patch("app.core.pipeline.pdf_worker.extract_text_all_pages", return_value="text")
+    @patch("app.core.pipeline.pdf_worker.render_all_pages")
+    @patch("app.core.pipeline.pdf_worker.get_card_state")
+    @patch("app.core.pipeline.pdf_worker.compute_file_hash", return_value="abc123")
     def test_none_state_gives_defaults(self, mock_hash, mock_state, mock_render, mock_ocr, mock_save, mock_reprocess):
         """When get_card_state returns None after processing, defaults are kept."""
         mock_render.return_value = [_make_test_image()]

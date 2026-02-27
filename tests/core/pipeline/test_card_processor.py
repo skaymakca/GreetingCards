@@ -1,4 +1,4 @@
-"""Tests for app.core.card_processor standalone functions."""
+"""Tests for app.core.pipeline.card_processor standalone functions."""
 
 import io
 from pathlib import Path
@@ -12,7 +12,7 @@ class TestScanForPdfs:
 
     def test_file_pdf(self, tmp_path):
         """Returns a single PDF file."""
-        from app.core.card_processor import scan_for_pdfs
+        from app.core.pipeline.card_processor import scan_for_pdfs
 
         pdf = tmp_path / "test.pdf"
         pdf.write_text("fake pdf")
@@ -22,7 +22,7 @@ class TestScanForPdfs:
 
     def test_file_non_pdf(self, tmp_path):
         """Returns empty list for non-PDF file."""
-        from app.core.card_processor import scan_for_pdfs
+        from app.core.pipeline.card_processor import scan_for_pdfs
 
         txt = tmp_path / "test.txt"
         txt.write_text("not a pdf")
@@ -30,7 +30,7 @@ class TestScanForPdfs:
 
     def test_directory_recursive(self, tmp_path):
         """Recursively scans directory for PDFs."""
-        from app.core.card_processor import scan_for_pdfs
+        from app.core.pipeline.card_processor import scan_for_pdfs
 
         sub = tmp_path / "subdir"
         sub.mkdir()
@@ -46,7 +46,7 @@ class TestScanForPdfs:
 
     def test_case_insensitive(self, tmp_path):
         """Finds .PDF files case-insensitively."""
-        from app.core.card_processor import scan_for_pdfs
+        from app.core.pipeline.card_processor import scan_for_pdfs
 
         (tmp_path / "upper.PDF").write_text("fake")
         result = scan_for_pdfs(tmp_path)
@@ -54,7 +54,7 @@ class TestScanForPdfs:
 
     def test_directory_sorted(self, tmp_path):
         """Results are sorted."""
-        from app.core.card_processor import scan_for_pdfs
+        from app.core.pipeline.card_processor import scan_for_pdfs
 
         (tmp_path / "z.pdf").write_text("fake")
         (tmp_path / "a.pdf").write_text("fake")
@@ -82,7 +82,7 @@ class TestWorkerResultToCard:
         """Converts PdfWorkerResult to CardResult correctly."""
         from PIL import Image
 
-        from app.core.card_processor import worker_result_to_card
+        from app.core.pipeline.card_processor import worker_result_to_card
         from app.models.card import Confidence
 
         img = Image.new("RGB", (10, 10))
@@ -107,7 +107,7 @@ class TestWorkerResultToCard:
 
     def test_invalid_confidence_falls_back(self):
         """Invalid confidence string falls back to NONE."""
-        from app.core.card_processor import worker_result_to_card
+        from app.core.pipeline.card_processor import worker_result_to_card
         from app.models.card import Confidence
 
         wr = self._make_worker_result(confidence="invalid_value")
@@ -116,7 +116,7 @@ class TestWorkerResultToCard:
 
     def test_error_sets_none_confidence(self):
         """Error field sets confidence=NONE and preserves error message."""
-        from app.core.card_processor import worker_result_to_card
+        from app.core.pipeline.card_processor import worker_result_to_card
         from app.models.card import Confidence
 
         wr = self._make_worker_result(error="Something broke", confidence="high")
@@ -126,7 +126,7 @@ class TestWorkerResultToCard:
 
     def test_null_hash_becomes_empty_string(self):
         """None file_hash becomes empty string."""
-        from app.core.card_processor import worker_result_to_card
+        from app.core.pipeline.card_processor import worker_result_to_card
 
         wr = self._make_worker_result(file_hash=None, error="Failed")
         card = worker_result_to_card(wr, card_id=1)
@@ -138,7 +138,7 @@ class TestDeriveFolders:
 
     def test_sorted_unique(self):
         """Returns sorted unique parent directories."""
-        from app.core.card_processor import derive_folders
+        from app.core.pipeline.card_processor import derive_folders
         from app.models.card import CardResult
 
         folder_a = Path("/test/aaa")
@@ -153,7 +153,7 @@ class TestDeriveFolders:
 
     def test_empty(self):
         """Returns empty list for no cards."""
-        from app.core.card_processor import derive_folders
+        from app.core.pipeline.card_processor import derive_folders
 
         assert derive_folders([]) == []
 
@@ -163,7 +163,7 @@ class TestLoadCardStateFromDb:
 
     def test_no_hash_sets_none_confidence(self):
         """Sets NONE confidence and ai_analyzed=True when no hash."""
-        from app.core.card_processor import load_card_state_from_db
+        from app.core.pipeline.card_processor import load_card_state_from_db
         from app.models.card import CardResult, Confidence
 
         card = CardResult(id=0, file_paths=[Path("/test.pdf")], primary_path=Path("/test.pdf"))
@@ -175,7 +175,7 @@ class TestLoadCardStateFromDb:
 
     def test_with_state_populates_card(self):
         """Populates card fields from DB state."""
-        from app.core.card_processor import load_card_state_from_db
+        from app.core.pipeline.card_processor import load_card_state_from_db
         from app.models.card import CandidateInfo, CardResult, CardState, Confidence
 
         card = CardResult(id=0, file_paths=[Path("/test.pdf")], primary_path=Path("/test.pdf"))
@@ -190,7 +190,7 @@ class TestLoadCardStateFromDb:
             selected_candidate_id=1,
         )
 
-        with patch("app.core.card_processor.get_card_state", return_value=mock_state):
+        with patch("app.core.pipeline.card_processor.get_card_state", return_value=mock_state):
             load_card_state_from_db(card)
 
         assert card.family_name == "Smith"
@@ -202,13 +202,13 @@ class TestLoadCardStateFromDb:
 
     def test_no_state_resets_card(self):
         """Resets card to clean state when no DB record found."""
-        from app.core.card_processor import load_card_state_from_db
+        from app.core.pipeline.card_processor import load_card_state_from_db
         from app.models.card import CardResult, Confidence
 
         card = CardResult(id=0, file_paths=[Path("/test.pdf")], primary_path=Path("/test.pdf"))
         card.file_hash = "abc123"
 
-        with patch("app.core.card_processor.get_card_state", return_value=None):
+        with patch("app.core.pipeline.card_processor.get_card_state", return_value=None):
             load_card_state_from_db(card)
 
         assert card.ai_analyzed is True

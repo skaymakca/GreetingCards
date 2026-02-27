@@ -1,12 +1,12 @@
-"""Tests for app.core.ocr_engine module."""
+"""Tests for app.core.pipeline.ocr_engine module."""
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 from PIL import Image
 
-import app.core.ocr_engine as ocr_module
-from app.core.ocr_engine import (
+import app.core.pipeline.ocr_engine as ocr_module
+from app.core.pipeline.ocr_engine import (
     extract_text,
     extract_text_all_pages,
     preprocess_image,
@@ -46,7 +46,7 @@ class TestPreprocessImage:
 class TestExtractText:
     """Tests for extract_text()."""
 
-    @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI")
+    @patch("app.core.pipeline.ocr_engine.tesserocr.PyTessBaseAPI")
     def test_calls_tesserocr(self, mock_api_cls):
         mock_api = MagicMock()
         mock_api.__enter__ = MagicMock(return_value=mock_api)
@@ -59,7 +59,7 @@ class TestExtractText:
         mock_api.SetImage.assert_called_once()
         mock_api.GetUTF8Text.assert_called_once()
 
-    @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI")
+    @patch("app.core.pipeline.ocr_engine.tesserocr.PyTessBaseAPI")
     def test_sets_psm_auto(self, mock_api_cls):
         mock_api = MagicMock()
         mock_api.__enter__ = MagicMock(return_value=mock_api)
@@ -70,7 +70,7 @@ class TestExtractText:
         extract_text(img)
         mock_api.SetPageSegMode.assert_called_once()
 
-    @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI")
+    @patch("app.core.pipeline.ocr_engine.tesserocr.PyTessBaseAPI")
     def test_sets_dict_penalty(self, mock_api_cls):
         mock_api = MagicMock()
         mock_api.__enter__ = MagicMock(return_value=mock_api)
@@ -81,7 +81,7 @@ class TestExtractText:
         extract_text(img)
         mock_api.SetVariable.assert_called_once_with("language_model_penalty_non_dict_word", "0.15")
 
-    @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI")
+    @patch("app.core.pipeline.ocr_engine.tesserocr.PyTessBaseAPI")
     def test_strips_result(self, mock_api_cls):
         mock_api = MagicMock()
         mock_api.__enter__ = MagicMock(return_value=mock_api)
@@ -95,7 +95,7 @@ class TestExtractText:
 class TestExtractTextAllPages:
     """Tests for extract_text_all_pages()."""
 
-    @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI")
+    @patch("app.core.pipeline.ocr_engine.tesserocr.PyTessBaseAPI")
     def test_combines_pages(self, mock_api_cls):
         texts = iter(["Page 1 text", "Page 2 text"])
         mock_api = MagicMock()
@@ -109,13 +109,13 @@ class TestExtractTextAllPages:
         assert "Page 2 text" in result
         assert "\n\n" in result
 
-    @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI")
+    @patch("app.core.pipeline.ocr_engine.tesserocr.PyTessBaseAPI")
     def test_empty_list(self, mock_api_cls):
         result = extract_text_all_pages([])
         assert result == ""
         mock_api_cls.assert_not_called()
 
-    @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI")
+    @patch("app.core.pipeline.ocr_engine.tesserocr.PyTessBaseAPI")
     def test_skips_empty_pages(self, mock_api_cls):
         texts = iter(["Page 1", "", "Page 3"])
         mock_api = MagicMock()
@@ -186,13 +186,13 @@ class TestPreprocessImageModes:
 class TestExtractTextErrors:
     """Tests for extract_text() error handling."""
 
-    @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI", side_effect=RuntimeError("init failed"))
+    @patch("app.core.pipeline.ocr_engine.tesserocr.PyTessBaseAPI", side_effect=RuntimeError("init failed"))
     def test_tesseract_init_failure(self, mock_api_cls):
         """Tesseract initialization failure raises RuntimeError."""
         with pytest.raises(RuntimeError, match="init failed"):
             extract_text(_make_test_image())
 
-    @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI")
+    @patch("app.core.pipeline.ocr_engine.tesserocr.PyTessBaseAPI")
     def test_get_utf8_text_exception(self, mock_api_cls):
         """GetUTF8Text exception propagates."""
         mock_api = MagicMock()
@@ -208,7 +208,7 @@ class TestExtractTextErrors:
 class TestExtractTextAllPagesEdgeCases:
     """Edge case tests for extract_text_all_pages()."""
 
-    @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI")
+    @patch("app.core.pipeline.ocr_engine.tesserocr.PyTessBaseAPI")
     def test_single_page_no_separator(self, mock_api_cls):
         """Single page result has no separator."""
         mock_api = MagicMock()
@@ -221,7 +221,7 @@ class TestExtractTextAllPagesEdgeCases:
         assert result == "Single page text"
         assert "\n\n" not in result
 
-    @patch("app.core.ocr_engine.tesserocr.PyTessBaseAPI")
+    @patch("app.core.pipeline.ocr_engine.tesserocr.PyTessBaseAPI")
     def test_all_pages_empty(self, mock_api_cls):
         """All pages returning empty text gives empty result."""
         mock_api = MagicMock()

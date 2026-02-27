@@ -121,7 +121,7 @@ def profile_render(
     pdfs: list[Path], output_dir: Path, progress: Progress
 ) -> tuple[StageResult, dict[Path, list[Image.Image]]]:
     """Profile render_all_pages() on all PDFs. Returns images for downstream stages."""
-    from app.core.pdf_renderer import render_all_pages
+    from app.core.pipeline.pdf_renderer import render_all_pages
 
     images_by_path: dict[Path, list[Image.Image]] = {}
     profiler = Profiler()
@@ -157,7 +157,7 @@ def profile_ocr(
     images_by_path: dict[Path, list[Image.Image]], output_dir: Path, progress: Progress
 ) -> tuple[StageResult, dict[Path, str]]:
     """Profile extract_text_all_pages() on pre-rendered images."""
-    from app.core.ocr_engine import extract_text_all_pages
+    from app.core.pipeline.ocr_engine import extract_text_all_pages
 
     texts_by_path: dict[Path, str] = {}
     profiler = Profiler()
@@ -225,7 +225,7 @@ def profile_names(texts_by_path: dict[Path, str], output_dir: Path, progress: Pr
 
 def profile_full_sequential(pdfs: list[Path], output_dir: Path, progress: Progress) -> StageResult:
     """Profile process_pdf_worker() sequentially under pyinstrument."""
-    from app.core.pdf_worker import process_pdf_worker
+    from app.core.pipeline.pdf_worker import process_pdf_worker
 
     profiler = Profiler()
 
@@ -289,7 +289,7 @@ def profile_full_parallel(
 
 def process_pdf_worker_str(pdf_path_str: str) -> None:
     """Thin wrapper for ProcessPoolExecutor — imports inside worker process."""
-    from app.core.pdf_worker import process_pdf_worker
+    from app.core.pipeline.pdf_worker import process_pdf_worker
 
     process_pdf_worker(pdf_path_str)
 

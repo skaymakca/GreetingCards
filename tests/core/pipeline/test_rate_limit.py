@@ -1,4 +1,4 @@
-"""Tests for app.core.rate_limit.RateLimitGate."""
+"""Tests for app.core.pipeline.rate_limit.RateLimitGate."""
 
 import pytest
 
@@ -11,7 +11,7 @@ class TestRateLimitGate:
         """Gate does not block when no pause has been set."""
         import time
 
-        from app.core.rate_limit import RateLimitGate
+        from app.core.pipeline.rate_limit import RateLimitGate
 
         gate = RateLimitGate()
         before = time.monotonic()
@@ -24,7 +24,7 @@ class TestRateLimitGate:
         """Gate waits for the paused duration."""
         import time
 
-        from app.core.rate_limit import RateLimitGate
+        from app.core.pipeline.rate_limit import RateLimitGate
 
         gate = RateLimitGate()
         gate.pause(0.2)
@@ -38,7 +38,7 @@ class TestRateLimitGate:
         """Multiple pauses keep the longest remaining duration."""
         import time
 
-        from app.core.rate_limit import RateLimitGate
+        from app.core.pipeline.rate_limit import RateLimitGate
 
         gate = RateLimitGate()
         gate.pause(0.1)

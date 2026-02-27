@@ -16,8 +16,8 @@ from app.core.database import (
     reprocess_candidates_from_raw,
     save_raw_ocr,
 )
-from app.core.ocr_engine import extract_text_all_pages
-from app.core.pdf_renderer import render_all_pages
+from app.core.pipeline.ocr_engine import extract_text_all_pages
+from app.core.pipeline.pdf_renderer import render_all_pages
 from app.models.card import PdfWorkerResult
 
 
