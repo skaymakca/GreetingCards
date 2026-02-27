@@ -21,7 +21,7 @@ from pathlib import Path
 
 import markdown
 
-from app.core.template_env import jinja_env as _jinja_env
+from app.core.content.template_env import jinja_env as _jinja_env
 
 logger = logging.getLogger(__name__)
 
@@ -230,4 +230,4 @@ def generate_help_html() -> None:
 
 # noinspection PyUnusedImports
 # Re-export for consumers that import from here
-from app.core.template_env import get_page_order  # noqa: E402
+from app.core.content.template_env import get_page_order  # noqa: E402

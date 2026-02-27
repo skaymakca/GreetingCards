@@ -1,6 +1,6 @@
 """Tests for app.core.license_models module."""
 
-from app.core.license_models import (
+from app.core.content.license_models import (
     DiscoveredPackage,
     LicenseConfig,
     LicenseRegistry,

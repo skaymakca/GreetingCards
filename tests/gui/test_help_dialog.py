@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import wx
 
-from app.core.help_builder import (
+from app.core.content.help_builder import (
     _parse_frontmatter,
     _read_help_pages,
     _validate_numbering,

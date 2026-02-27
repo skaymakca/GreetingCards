@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from app.core.help_builder import (
+from app.core.content.help_builder import (
     _parse_frontmatter,
     _read_help_pages,
     _validate_numbering,
@@ -192,7 +192,7 @@ class TestGenerateHelpHtmlIntegration:
 
     def test_full_pipeline(self, tmp_path):
         """Generate HTML from Markdown help pages and verify output files."""
-        from app.core.template_env import jinja_env
+        from app.core.content.template_env import jinja_env
 
         # Create help pages directory and files
         help_dir = tmp_path / "help"
@@ -299,7 +299,7 @@ class TestGenerateHelpHtmlIntegration:
 
     def test_path_references_in_nav(self, tmp_path):
         """Verify correct CSS/JS and nav href paths for index vs pages."""
-        from app.core.template_env import jinja_env
+        from app.core.content.template_env import jinja_env
 
         help_dir = tmp_path / "help"
         help_dir.mkdir()

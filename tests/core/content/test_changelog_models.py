@@ -1,6 +1,6 @@
 """Tests for app.core.changelog_models module."""
 
-from app.core.changelog_models import ChangelogGroup, ChangelogVersion
+from app.core.content.changelog_models import ChangelogGroup, ChangelogVersion
 
 
 class TestChangelogVersion:

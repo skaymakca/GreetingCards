@@ -108,12 +108,12 @@ content: ## Generate runtime content (HTML, data files, images)
 	@cp content/html/common/js/search.js _build/runtime_content/html/common/js/search.js
 	@cp content/images/drop-target-background.png _build/runtime_content/images/drop-target-background.png
 	@gzip -c content/data/family_name_database.tsv > _build/runtime_content/data/family_name_database.tsv.gz
-	uv run python -c "from app.core.help_builder import generate_help_html; generate_help_html()"
-	uv run python -c "from app.core.changelog import generate_changelog_html; generate_changelog_html()"
-	uv run python -c "from app.core.license_discovery import generate_licenses_html; generate_licenses_html()"
+	uv run python -c "from app.core.content.help_builder import generate_help_html; generate_help_html()"
+	uv run python -c "from app.core.content.changelog import generate_changelog_html; generate_changelog_html()"
+	uv run python -c "from app.core.content.license_html import generate_licenses_html; generate_licenses_html()"
 
 licenses-sync: ## Sync license registry from uv.lock + .dist-info
-	uv run python -c "from app.core.license_discovery import sync_registry; sync_registry()"
+	uv run python -c "from app.core.content.license_sync import sync_registry; sync_registry()"
 
 app: icon content tessdata ## Build the macOS .app bundle
 	@$(LSREGISTER) -u "dist/Greeting Cards.app" 2>/dev/null || true

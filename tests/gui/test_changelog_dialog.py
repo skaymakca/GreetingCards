@@ -5,12 +5,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.core.changelog import (
+from app.core.content.changelog import (
     _generate_changelog_html,
     _group_by_minor,
     _parse_changelog,
 )
-from app.core.changelog_models import ChangelogGroup, ChangelogVersion
+from app.core.content.changelog_models import ChangelogGroup, ChangelogVersion
 
 
 # --- show_changelog dialog tests ---

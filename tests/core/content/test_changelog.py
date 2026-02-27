@@ -5,14 +5,14 @@ from unittest.mock import patch
 
 import pytest
 
-from app.core.changelog import (
+from app.core.content.changelog import (
     _generate_changelog_html,
     _group_by_minor,
     _minor_key,
     _parse_changelog,
     generate_changelog_html,
 )
-from app.core.changelog_models import ChangelogVersion
+from app.core.content.changelog_models import ChangelogVersion
 
 
 class TestParseChangelog:

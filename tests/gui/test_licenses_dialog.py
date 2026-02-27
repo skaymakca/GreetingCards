@@ -6,10 +6,14 @@ from unittest.mock import patch
 import pytest
 import wx
 
-from app.core.license_discovery import (
+from app.core.content.license_html import (
+    _category_page_for,
+    generate_licenses_html,
+    get_page_order,
+)
+from app.core.content.license_sync import (
     _build_reverse_deps,
     _categorize_packages,
-    _category_page_for,
     _display_name,
     _extract_homepage,
     _extract_license_type,
@@ -19,12 +23,10 @@ from app.core.license_discovery import (
     _get_licenses_source_dir,
     _parse_uv_lock,
     _slug,
-    generate_licenses_html,
-    get_page_order,
     load_config,
     sync_registry,
 )
-from app.core.license_models import (
+from app.core.content.license_models import (
     DiscoveredPackage,
     LicenseConfig,
     LicenseRegistry,
