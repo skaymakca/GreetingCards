@@ -57,6 +57,7 @@ class MainWindow:
         # State - Content-based deduplication (multi-load architecture)
         self._next_card_id = 0  # Monotonically increasing ID counter
         self._cards_by_hash: dict[str, CardResult] = {}  # hash → Card (1:1)
+        self._id_to_card: dict[int, CardResult] = {}  # id → Card (mirror of _cards_by_hash)
         self._hash_by_path: dict[Path, str] = {}  # path → hash (many:1)
         self._mtime_by_path: dict[Path, float] = {}  # path → st_mtime (for fast pre-filter)
         self._pdf_files: set[Path] = set()
@@ -113,7 +114,11 @@ class MainWindow:
         self._frame.Bind(wx.EVT_ACTIVATE, self._on_frame_activate)
 
     def _get_card_by_id(self, card_id: int) -> CardResult | None:
-        """Get card by ID (searches through hash-based storage).
+        """Get card by ID.
+
+        O(1) via _id_to_card mirror in production (populated by _process_cards).
+        Falls back to a linear scan only when _id_to_card is out of sync (e.g.
+        in tests that assign _cards_by_hash directly).
 
         Args:
             card_id: Card ID to find
@@ -121,9 +126,12 @@ class MainWindow:
         Returns:
             CardResult if found, None otherwise
         """
-        for card in self._cards_by_hash.values():
-            if card.id == card_id:
-                return card
+        card = self._id_to_card.get(card_id)
+        if card is not None:
+            return card
+        for c in self._cards_by_hash.values():
+            if c is not None and c.id == card_id:
+                return c
         return None
 
     def _on_select_all(self, event: wx.CommandEvent) -> None:
@@ -547,6 +555,7 @@ class MainWindow:
         """Clear all loaded cards (from all sources) and reset UI."""
         # Clear all state (multi-load architecture)
         self._cards_by_hash.clear()
+        self._id_to_card.clear()
         self._hash_by_path.clear()
         self._mtime_by_path.clear()
         self._pdf_files = set()
@@ -588,6 +597,7 @@ class MainWindow:
                 card.file_paths.remove(path)
             if not card.file_paths:
                 del self._cards_by_hash[file_hash]
+                self._id_to_card.pop(card.id, None)
 
     def _reload_cards(self, *, mtime_only: bool = False) -> None:
         """Re-check all loaded paths for modifications and deletions.
@@ -647,6 +657,7 @@ class MainWindow:
                             card.file_paths.remove(path)
                         if not card.file_paths:
                             del self._cards_by_hash[old_hash]
+                            self._id_to_card.pop(card.id, None)
                     needs_processing.append(path)
 
         if needs_processing:
@@ -787,6 +798,7 @@ class MainWindow:
                         card = worker_result_to_card(worker_result, card_id)
                         if file_hash is not None:
                             self._cards_by_hash[file_hash] = card
+                            self._id_to_card[card.id] = card
 
                     # Always update path → hash mapping
                     if file_hash is not None:
@@ -915,11 +927,9 @@ class MainWindow:
         """Handle Edit > Remove — remove all selected cards."""
         for card_id in list(self._review_panel.selected_card_ids):
             card = self._get_card_by_id(card_id)
-            if card and card.file_hash:
-                card_obj = self._cards_by_hash.get(card.file_hash)
-                if card_obj:
-                    for path in list(card_obj.file_paths):
-                        self._unlink_path(path)
+            if card:
+                for path in list(card.file_paths):
+                    self._unlink_path(path)
         self._refresh_display()
 
     def _on_update_remove_menu(self, event: wx.UpdateUIEvent) -> None:
@@ -1042,6 +1052,10 @@ class MainWindow:
             error_msg = str(e)
             logger.error("AI batch processing failed: %s", error_msg)
             wx.CallAfter(self._ai_all_complete, [("Batch", error_msg)])
+        except BaseException:
+            # Ensure flag is always cleared (e.g. KeyboardInterrupt, SystemExit)
+            wx.CallAfter(self._ai_all_complete, [])
+            raise
 
     def _update_ai_all_progress(
         self, completed: int, total: int, filename: str, card_id: int, card: CardResult | None

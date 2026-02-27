@@ -159,16 +159,16 @@ def _extract_license_type(dist_info: Path) -> str:
     if not metadata_path.exists():
         return "Unknown"
 
-    text = metadata_path.read_text(encoding="utf-8", errors="replace")
-    for line in text.splitlines():
+    lines = metadata_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    classifier_fallback: str | None = None
+    for line in lines:
         if line.startswith("License:") and len(line) > 10:
             lic = line[8:].strip()
             if lic and lic.lower() != "unknown":
                 return lic
-    for line in text.splitlines():
-        if "Classifier: License :: OSI Approved ::" in line:
-            return line.split("::")[-1].strip()
-    return "See LICENSE file"
+        if classifier_fallback is None and "Classifier: License :: OSI Approved ::" in line:
+            classifier_fallback = line.split("::")[-1].strip()
+    return classifier_fallback or "See LICENSE file"
 
 
 def _extract_homepage(dist_info: Path) -> str:
@@ -177,10 +177,11 @@ def _extract_homepage(dist_info: Path) -> str:
     if not metadata_path.exists():
         return ""
 
-    text = metadata_path.read_text(encoding="utf-8", errors="replace")
-    # Check Project-URL fields first (modern format)
-    for line in text.splitlines():
+    lines = metadata_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    home_page_fallback: str | None = None
+    for line in lines:
         low = line.lower()
+        # Check Project-URL fields first (modern format)
         if low.startswith("project-url:"):
             parts = line[12:].split(",", 1)
             if len(parts) == 2:
@@ -188,13 +189,12 @@ def _extract_homepage(dist_info: Path) -> str:
                 url = parts[1].strip()
                 if label in ("homepage", "home", "repository", "source"):
                     return url
-    # Fall back to Home-page field
-    for line in text.splitlines():
-        if line.startswith("Home-page:"):
+        # Capture Home-page field as fallback
+        if home_page_fallback is None and line.startswith("Home-page:"):
             url = line[10:].strip()
             if url and url.lower() != "unknown":
-                return url
-    return ""
+                home_page_fallback = url
+    return home_page_fallback or ""
 
 
 # ---------------------------------------------------------------------------
