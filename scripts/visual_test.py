@@ -268,6 +268,7 @@ class VisualTestFrame(wx.Frame):
         panel.SetSizer(sizer)
         return panel
 
+    # noinspection DuplicatedCode
     def _build_right_column(self, parent: wx.Window) -> wx.ScrolledWindow:
         """Build the right scrolled column with app widget exercisers."""
         scrolled = wx.ScrolledWindow(parent, style=wx.VSCROLL)

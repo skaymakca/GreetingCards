@@ -212,7 +212,7 @@ tests/
 
 ### Current Coverage
 
-- **1693 tests** covering core logic and GUI components
+- **1694 tests** covering core logic and GUI components
 - **Core** (pipeline/, naming/, content/ sub-packages + top-level): AI analysis, card model, changelog, changelog models,
   config, database, family name cleaning, family name data, family name formatting, filename safety, help builder,
   license HTML, license models, license sync, name extraction, OCR engine, paths, PDF rendering, PDF worker, renamer,
@@ -314,11 +314,35 @@ in `_build/script_output/`.
 
 ### Appearance Toggle
 
-`toggle_appearance.py` switches macOS between dark and light mode every 7.5 seconds until interrupted with Ctrl-C.
+`dark_mode_cycler` switches macOS between dark and light mode every 5 seconds until interrupted with Ctrl-C.
 Useful for testing live appearance change handling in the app.
 
 ```bash
 uv run python -m scripts.dark_mode_cycler
+```
+
+### Diagnostic Card Generator
+
+`generate_diagnostic_cards` generates PDF cards with specific family names for testing OCR accuracy.
+
+```bash
+uv run python -m scripts.generate_diagnostic_cards
+```
+
+### Profiling
+
+`profiling` profiles the PDF processing pipeline and generates performance reports.
+
+```bash
+uv run python -m scripts.profiling ~/Desktop/Cards
+```
+
+### Family Name Database Builder
+
+`build_family_name_db` builds the family name database from multiple sources (Census, Faker, Smashew).
+
+```bash
+uv run python -m scripts.build_family_name_db
 ```
 
 ## IDE Setup (PyCharm)

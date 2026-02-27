@@ -20,6 +20,8 @@ import unicodedata
 
 from rich.console import Console
 
+from scripts.build_family_name_db._unicode import UNICODE_SPECIAL as _UNICODE_SPECIAL
+
 # Locales to extract, in priority order (earlier = higher priority for display form)
 FAKER_LOCALES = [
     "en_IE",
@@ -31,9 +33,6 @@ FAKER_LOCALES = [
     "de_DE",
     "en_US",
 ]
-
-# Characters that NFKD decomposition doesn't handle — map to ASCII equivalents.
-_UNICODE_SPECIAL: dict[str, str] = {"ß": "ss", "ø": "o", "æ": "ae", "ð": "d", "þ": "th", "đ": "d", "ł": "l"}
 
 
 def normalize(name: str) -> str:

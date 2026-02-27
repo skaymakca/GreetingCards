@@ -2,7 +2,7 @@
 
 Cross-filtering, re-entrancy prevention, and auto-reset logic for the three-column layout.
 
-**Key files:** `app/gui/main_window.py`, `app/gui/filter_sidebar.py`
+**Key files:** `app/gui/main_window.py`, `app/gui/components/filter_sidebar.py`
 
 ## Layout Overview
 

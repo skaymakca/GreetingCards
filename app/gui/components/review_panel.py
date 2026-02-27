@@ -27,7 +27,6 @@ Benefits:
 import logging
 import subprocess
 from collections.abc import Callable
-from pathlib import Path
 
 import wx
 import wx.dataview as dv

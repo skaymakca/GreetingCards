@@ -19,6 +19,8 @@ from urllib.request import urlopen
 
 from rich.console import Console
 
+from scripts.build_family_name_db._unicode import UNICODE_SPECIAL as _UNICODE_SPECIAL
+
 CENSUS_URL = "https://www2.census.gov/topics/genealogy/2010surnames/names.zip"
 CENSUS_CSV_NAME = "Names_2010Census.csv"
 
@@ -30,10 +32,6 @@ class CensusEntry:
     name: str  # Original ALL-CAPS name from Census
     rank: int
     count: int
-
-
-# Characters that NFKD decomposition doesn't handle — map to ASCII equivalents.
-_UNICODE_SPECIAL: dict[str, str] = {"ß": "ss", "ø": "o", "æ": "ae", "ð": "d", "þ": "th", "đ": "d", "ł": "l"}
 
 
 def normalize(name: str) -> str:

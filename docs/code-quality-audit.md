@@ -27,13 +27,13 @@ Run the full static analysis suite and verify zero issues across all tools:
 make check   # runs all of the below in sequence
 ```
 
-| Tool | Command | Scope | Expected |
-|------|---------|-------|----------|
-| pyright | `pyright app/ scripts/ main.py` | Type checking (structural) | 0 errors, 0 warnings |
-| mypy | `uv run mypy app/ scripts/ main.py` | Type checking (nominal, SQLAlchemy plugin) | 0 errors |
-| ruff check | `uv run ruff check app/ scripts/ tests/ main.py` | Linting (pyflakes, pycodestyle, isort, bugbear, etc.) | 0 errors |
-| ruff format | `uv run ruff format --check app/ scripts/ tests/ main.py` | Formatting | 0 reformatted |
-| bandit | `uv run bandit -r app/ scripts/ -c pyproject.toml` | Security scan | 0 issues |
+| Tool        | Command                                                   | Scope                                                 | Expected             |
+|-------------|-----------------------------------------------------------|-------------------------------------------------------|----------------------|
+| pyright     | `pyright app/ scripts/ main.py`                           | Type checking (structural)                            | 0 errors, 0 warnings |
+| mypy        | `uv run mypy app/ scripts/ main.py`                       | Type checking (nominal, SQLAlchemy plugin)            | 0 errors             |
+| ruff check  | `uv run ruff check app/ scripts/ tests/ main.py`          | Linting (pyflakes, pycodestyle, isort, bugbear, etc.) | 0 errors             |
+| ruff format | `uv run ruff format --check app/ scripts/ tests/ main.py` | Formatting                                            | 0 reformatted        |
+| bandit      | `uv run bandit -r app/ scripts/ -c pyproject.toml`        | Security scan                                         | 0 issues             |
 
 For each diagnostic, determine whether to:
 - **Fix the code** — if the checker found a real bug or a type that should be tightened

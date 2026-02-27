@@ -72,27 +72,27 @@ Place **before a statement** (line-level) or **before a class/function** (scope-
 #### PyTypeChecker — wxPython and SQLAlchemy stub gaps
 wxPython stubs mistype `tuple[int,int]` vs `wx.Size`, `Bitmap` vs `BitmapBundle`, and similar. SQLAlchemy `InstrumentedAttribute[T]` vs `T` causes false positives in query expressions. pyright catches real type errors in CI.
 
-**Files:** `app/gui/main_window.py`, `app/gui/review_panel.py`, `app/gui/filter_sidebar.py`, `app/gui/preview_panel.py`, `app/gui/dialogs.py`, `app/gui/icons.py`, `app/gui/context_menu.py`, `app/gui/html_viewer.py` (`build_help_menu` — `Bitmap` vs `BitmapBundle`), `app/core/database.py` (`add_candidate`, `_add_candidate_inline` — `InstrumentedAttribute[int]` vs `int`), `scripts/benchmark/ocr_concurrency.py`, `scripts/benchmark/ocr_configuration_quality.py`, `scripts/benchmark/pre_processing_concurrency.py`, `scripts/generate_sample_cards/cli.py`, `scripts/generate_sample_cards/image_generator.py`, `scripts/generate_sample_cards/spec_generator.py` (benchmark/cli files: `@contextmanager` return type not recognized as `AbstractContextManager`)
+**Files:** `app/gui/main_window.py`, `app/gui/components/review_panel.py`, `app/gui/components/filter_sidebar.py`, `app/gui/components/preview_panel.py`, `app/gui/dialogs/common.py`, `app/gui/icons.py`, `app/gui/context_menu.py`, `app/gui/components/html_viewer.py` (`build_help_menu` — `Bitmap` vs `BitmapBundle`), `app/core/database.py` (`add_candidate`, `_add_candidate_inline` — `InstrumentedAttribute[int]` vs `int`), `app/gui/components/toolbar.py` (class-level `# noinspection PyProtectedMember,PyTypeChecker` — `Bitmap` vs `BitmapBundle`, `tuple[int,int]` vs `wx.Size`, and protected `MainWindow` member access by design), `scripts/helpers.py` (`script_output_dir` — `@contextmanager` transforms `Generator[Path]` into `AbstractContextManager[Path]` at runtime; PyCharm can't see through the decorator), `scripts/benchmark/ocr_concurrency.py`, `scripts/benchmark/ocr_configuration_quality.py`, `scripts/benchmark/pre_processing_concurrency.py`, `scripts/generate_sample_cards/cli.py`, `scripts/generate_sample_cards/image_generator.py`, `scripts/generate_sample_cards/spec_generator.py`
 
 #### PyUnusedLocal — wxPython callback `event` parameters
 All wxPython event callbacks require an `event` parameter by signature even when unused. pyright catches real unused variables in CI.
 
-**Files:** `app/gui/main_window.py`, `app/gui/review_panel.py`, `app/gui/filter_sidebar.py`, `app/gui/settings_dialog.py`, `app/gui/dialogs.py`, `app/gui/context_menu.py`, `app/gui/html_viewer.py`, `app/core/license_discovery.py`, `scripts/benchmark/ocr_configuration_quality.py`
+**Files:** `app/gui/main_window.py`, `app/gui/components/review_panel.py`, `app/gui/components/filter_sidebar.py`, `app/gui/dialogs/settings.py`, `app/gui/dialogs/common.py`, `app/gui/context_menu.py`, `app/gui/components/html_viewer.py`, `scripts/benchmark/ocr_configuration_quality.py`
 
-#### PyUnresolvedReferences — macOS framework imports
-`app/gui/icons.py` imports Foundation classes (`NSImage`, `NSColor`, etc.) and `app/gui/appearance.py` uses `objc.ivar`. These resolve at runtime on macOS but have no type stubs.
+#### PyUnresolvedReferences — macOS framework imports and dynamic attributes
+`app/gui/icons.py` imports Foundation classes (`NSImage`, `NSColor`, etc.) and `app/gui/appearance.py` uses `objc.ivar`. These resolve at runtime on macOS but have no type stubs. `app/gui/main_window.py` has dynamic attributes (`_toolbar`, `_search_ctrl`, `_year_ctrl`, `_reload_id`) set by `ToolbarManager` at init time; suppressed at class level.
 
-**Files:** `app/gui/icons.py`, `app/gui/appearance.py`
+**Files:** `app/gui/icons.py`, `app/gui/appearance.py`, `app/gui/main_window.py`
 
 #### PyBroadException — intentional broad catches
-Appearance observer and app startup catch `Exception` broadly because failures in these paths must not crash the app.
+Appearance observer, app startup, and process-pool worker error handling catch `Exception` broadly because failures in these paths must not crash the app.
 
-**Files:** `app/gui/appearance.py`, `app/gui/main_window.py`
+**Files:** `app/gui/appearance.py`, `app/gui/main_window.py` (class-level)
 
 #### PyPep8Naming — wxPython/ObjC API overrides
 wxPython requires CamelCase method names for `DataViewModel` overrides (`GetColumnCount`, `GetColumnType`). ObjC bridge methods use Objective-C naming. Style factory methods (`TITLE`, `HEADING`, etc.) use uppercase by convention.
 
-**Files:** `app/gui/review_panel.py`, `app/gui/dialogs.py`, `app/gui/appearance.py`, `app/gui/styles.py`, `app/gui/main_window.py`
+**Files:** `app/gui/components/review_panel.py`, `app/gui/dialogs/common.py`, `app/gui/appearance.py`, `app/gui/styles.py`, `app/gui/main_window.py`
 
 #### PyProtectedMember — PyInstaller and test internals
 `sys._MEIPASS` is the standard PyInstaller API for detecting bundled mode. `scripts/visual_test.py` accesses `MainWindow` internals intentionally for the visual test harness.
@@ -107,17 +107,17 @@ Benchmark scripts use parenthesized return tuples for readability.
 #### PyAttributeOutsideInit — wxPython widget creation pattern
 Complex wxPython UIs build widgets in helper methods (`_build_key_section`, etc.) called from `__init__`, not directly in `__init__` itself. PyCharm doesn't trace this pattern.
 
-**Files:** `app/gui/filter_sidebar.py`, `app/gui/review_panel.py`, `app/gui/settings_dialog.py`
+**Files:** `app/gui/components/filter_sidebar.py`, `app/gui/components/review_panel.py`, `app/gui/dialogs/settings.py`
 
 #### PyUnusedImports — intentional re-exports and optional dependencies
 `get_page_order` is re-exported from `changelog.py` and `help_builder.py` for consumer convenience. `cv2` and `numpy` in `scripts/benchmark/common.py` are optional imports used conditionally.
 
-**Files:** `app/core/changelog.py`, `app/core/help_builder.py`, `scripts/benchmark/common.py`
+**Files:** `app/core/content/changelog.py`, `app/core/content/help_builder.py`, `scripts/benchmark/common.py`
 
 #### PyMethodMayBeStatic — callbacks and overrides
 Methods flagged as "may be static" are wxPython callbacks, DataViewModel overrides, or methods that logically belong to the instance even if they don't currently use `self`.
 
-**Files:** `app/gui/filter_sidebar.py`, `app/gui/main_window.py`, `app/gui/preview_panel.py`, `app/gui/review_panel.py`, `scripts/visual_test.py`
+**Files:** `app/gui/components/filter_sidebar.py`, `app/gui/main_window.py`, `app/gui/components/preview_panel.py`, `app/gui/components/review_panel.py`, `scripts/visual_test.py`
 
 #### PyArgumentList — dynamic dispatch false positives
 `wx.GetTopLevelWindows()` and PyObjC dynamic calls trigger false argument-count warnings.
@@ -127,7 +127,7 @@ Methods flagged as "may be static" are wxPython callbacks, DataViewModel overrid
 #### PyShadowingNames — benchmark loop variables
 Benchmark scripts reuse variable names in isolated loop iterations and helper functions. Harmless in context.
 
-**Files:** `scripts/benchmark/ocr_concurrency.py`, `scripts/benchmark/pre_processing_concurrency.py`, `scripts/benchmark/ocr_configuration_quality.py`, `app/gui/html_viewer.py`
+**Files:** `scripts/benchmark/ocr_concurrency.py`, `scripts/benchmark/pre_processing_concurrency.py`, `scripts/benchmark/ocr_configuration_quality.py`, `app/gui/components/html_viewer.py`
 
 #### PyListCreation — deliberate multistep list building
 Benchmark report generation builds lists incrementally for readability.
@@ -137,9 +137,9 @@ Benchmark report generation builds lists incrementally for readability.
 #### GrazieInspection — technical prose false positives
 False positives on technical terms, range notation (`1..N`), code values (`'ai'`), and hyphenated compounds in docstrings and comments.
 
-**Files:** `app/gui/filter_sidebar.py`, `app/gui/preview_panel.py`, `app/core/database.py`, `app/core/license_discovery.py`, `app/core/name_formatting.py`, `app/core/help_builder.py`, `scripts/benchmark/ocr_concurrency.py`, `scripts/benchmark/pre_processing_concurrency.py`
+**Files:** `app/gui/components/filter_sidebar.py`, `app/gui/components/preview_panel.py`, `app/core/database.py`, `app/core/content/help_builder.py`, `scripts/benchmark/ocr_concurrency.py`, `scripts/benchmark/pre_processing_concurrency.py`
 
 #### DuplicatedCode — similar-but-distinct patterns
 Benchmark scripts share structural patterns (report generation, result tables) that are intentionally not abstracted. Database CRUD methods have similar shapes by nature.
 
-**Files:** `app/gui/main_window.py`, `app/core/database.py`, `app/core/pdf_renderer.py`, `app/core/license_discovery.py`, `scripts/benchmark/ocr_concurrency.py`, `scripts/benchmark/pre_processing_concurrency.py`, `scripts/benchmark/ocr_configuration_quality.py`
+**Files:** `app/gui/main_window.py`, `app/gui/components/toolbar.py` (`build_menu_bar` — event binding patterns mirror `build_toolbar`), `app/core/database.py`, `app/core/pipeline/pdf_renderer.py`, `scripts/benchmark/ocr_concurrency.py`, `scripts/benchmark/pre_processing_concurrency.py`, `scripts/benchmark/ocr_configuration_quality.py`, `scripts/visual_test.py` (`_build_right_column` — three identical button-creation loops)

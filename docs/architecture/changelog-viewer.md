@@ -5,7 +5,7 @@ Parses `CHANGELOG.md` and generates HTML pages for the "What's New" viewer.
 **Key files:**
 - `app/core/content/changelog_models.py` — dataclasses (`ChangelogVersion`, `ChangelogGroup`)
 - `app/core/content/changelog.py` — parsing and HTML generation logic
-- `app/gui/changelog_dialog.py` — viewer only (GUI shell)
+- `app/gui/dialogs/changelog.py` — viewer only (GUI shell)
 
 ## How It Works
 

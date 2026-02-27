@@ -97,6 +97,7 @@ def main() -> None:
     console = Console(highlight=False)
     console.print(f"Generating {len(names)} diagnostic card(s)\n")
 
+    # noinspection PyTypeChecker
     with script_output_dir("diagnostic_cards") as output_dir:
         for i, name in enumerate(names, 1):
             filename = f"The {name} Family.pdf"

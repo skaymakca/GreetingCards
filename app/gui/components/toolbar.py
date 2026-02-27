@@ -17,6 +17,7 @@ from app.gui.icons import load_menu_icon, load_sf_symbol
 from app.gui.styles import Font, Layout
 
 
+# noinspection PyProtectedMember,PyTypeChecker
 class ToolbarManager:
     """Creates and manages the toolbar and menu bar for MainWindow.
 
@@ -32,6 +33,7 @@ class ToolbarManager:
     # Menu bar
     # ------------------------------------------------------------------
 
+    # noinspection DuplicatedCode
     def build_menu_bar(self) -> None:
         """Create the native macOS menu bar and bind events on window."""
         w = self._w

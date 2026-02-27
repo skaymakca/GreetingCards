@@ -15,6 +15,8 @@ from urllib.request import urlopen
 
 from rich.console import Console
 
+from scripts.build_family_name_db._unicode import UNICODE_SPECIAL as _UNICODE_SPECIAL
+
 # Raw GitHub URLs for surname files
 SMASHEW_BASE = "https://raw.githubusercontent.com/smashew/NameDatabases/master/NamesDatabases/surnames"
 
@@ -30,10 +32,6 @@ SMASHEW_FILES = [
     "nl.txt",  # Dutch
     "in.txt",  # Indian
 ]
-
-
-# Characters that NFKD decomposition doesn't handle — map to ASCII equivalents.
-_UNICODE_SPECIAL: dict[str, str] = {"ß": "ss", "ø": "o", "æ": "ae", "ð": "d", "þ": "th", "đ": "d", "ł": "l"}
 
 
 def normalize(name: str) -> str:

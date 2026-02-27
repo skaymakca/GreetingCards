@@ -100,7 +100,7 @@ Each entry is a `FamilyNameEntry(display_form, rank, count, alternates)` datacla
 
 **Build script:** `uv run python -m scripts.build_family_name_db` merges Census + Faker + smashew, applies overrides, writes TSV. Non-winning display forms from source conflicts become alternates.
 
-**`FilteredNames`** — Blocklist of generic words that should never be a family name: card services ("snapfish", "shutterfly", "minted"), generic words ("family", "holiday", "greeting"), and holiday names ("christmas", "new year", "season's greetings"). Uses the same `normalize()` for case/punctuation-insensitive matching.
+**`FilteredNames`** — Blocklist of generic words that should never be a family name: card services ("snapfish", "shutterfly", "minted"), generic words ("family", "holiday", "greeting"), and holiday names ("Christmas", "new year", "season's greetings"). Uses the same `normalize()` for case/punctuation-insensitive matching.
 
 Module-level singletons are created at first import:
 ```python
@@ -115,7 +115,7 @@ filtered_names: FilteredNames = FilteredNames()
 2. Short names (≤2 chars) or names ending in "ss" — return unchanged
 3. Sibilant endings (shes, ches, xes, zes) — strip "es"
 4. Consonant-pair endings (ths, wns, rts) — strip "s"
-5. Otherwise — return unchanged
+5. Otherwise, return unchanged
 
 **`clean_family_name(name)`** — Remove noise:
 - Strip "The ", " Family", quotes, "From: ", "Sent by: ", colon prefixes
@@ -140,7 +140,7 @@ For single-token inputs without apostrophes or hyphens, the database display for
 
 | Rule           | Example                                                |
 |----------------|--------------------------------------------------------|
-| DB display     | OBRIEN → O'Brien, MCDONALD → McDonald                 |
+| DB display     | OBRIEN → O'Brien, MCDONALD → McDonald                  |
 | Mc/Mac prefix  | mcdonald → McDonald, macdonald → MacDonald             |
 | Mac exceptions | macintosh → Macintosh (not MacIntosh)                  |
 | Particles      | van, von, de, del, der → lowercase (unless first word) |

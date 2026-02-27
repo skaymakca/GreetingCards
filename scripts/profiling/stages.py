@@ -256,7 +256,7 @@ def profile_full_sequential(pdfs: list[Path], output_dir: Path, progress: Progre
 
 
 def profile_full_parallel(
-    pdfs: list[Path], output_dir: Path, progress: Progress, sequential_seconds: float, db_path: Path
+    pdfs: list[Path], _output_dir: Path, progress: Progress, sequential_seconds: float, db_path: Path
 ) -> StageResult:
     """Profile process_pdf_worker() with ProcessPoolExecutor. Wall time only."""
     workers = min(len(pdfs), multiprocessing.cpu_count())

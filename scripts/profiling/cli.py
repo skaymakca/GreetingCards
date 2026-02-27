@@ -13,6 +13,7 @@ from rich.progress import BarColumn, Progress, TaskProgressColumn, TextColumn, T
 from rich.table import Table
 
 from scripts.helpers import script_output_dir
+from scripts.profiling.report import _fmt_time as _fmt_seconds
 from scripts.profiling.report import generate_report
 from scripts.profiling.stages import (
     StageResult,
@@ -113,19 +114,6 @@ def _print_summary(results: list[StageResult], console: Console) -> None:
         console.print(f"Parallel speedup: [bold]{speedup:.1f}x[/bold] ({workers} workers)")
 
 
-def _fmt_seconds(seconds: float) -> str:
-    """Format seconds for console display."""
-    if seconds < 0.001:
-        return f"{seconds * 1_000_000:.0f}\u00b5s"
-    if seconds < 1:
-        return f"{seconds * 1000:.1f}ms"
-    if seconds < 60:
-        return f"{seconds:.2f}s"
-    minutes = int(seconds // 60)
-    secs = seconds % 60
-    return f"{minutes}m {secs:.1f}s"
-
-
 def main(argv: list[str] | None = None) -> None:
     invocation = " ".join(sys.argv)
     parser = build_parser()
@@ -161,6 +149,7 @@ def main(argv: list[str] | None = None) -> None:
         db_path = tmp_dir / "profiling.sqlite"
         _isolate_database(tmp_dir)
 
+        # noinspection PyTypeChecker
         with script_output_dir("profiling") as output_dir:
             # Create subdirectories
             profiles_dir = output_dir / "profiles"

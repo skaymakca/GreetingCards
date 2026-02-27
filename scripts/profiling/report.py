@@ -41,7 +41,7 @@ def _macos_version() -> str:
     try:
         result = subprocess.run(["sw_vers", "-productVersion"], capture_output=True, text=True, check=True)
         return f"macOS {result.stdout.strip()}"
-    except Exception:
+    except OSError, subprocess.CalledProcessError:
         return f"{platform.system()} {platform.release()}"
 
 
@@ -50,7 +50,7 @@ def _ram_gb() -> float:
     try:
         result = subprocess.run(["sysctl", "-n", "hw.memsize"], capture_output=True, text=True, check=True)
         return int(result.stdout.strip()) / (1024**3)
-    except Exception:
+    except OSError, subprocess.CalledProcessError, ValueError:
         return 0
 
 
@@ -106,7 +106,7 @@ def _write_summary_json(sys_info: dict, results: list[StageResult], output_dir: 
             "profile_file": f"profiles/{r.profile_filename}" if r.profile_filename else None,
         }
         if r.extra:
-            stage["extra"] = r.extra
+            stage["extra"] = r.extra  # type: ignore[assignment]
         stages.append(stage)
 
     data: dict = {

@@ -2,36 +2,36 @@
 
 ## Test Setup
 
-| Parameter | Value |
-|-----------|-------|
-| Corpus | 207 greeting card PDFs |
-| Machine | Apple Silicon (arm64), 16 cores, 64 GB RAM |
-| OS | macOS 26.3 |
-| Python | 3.14.3 |
-| Date | 2026-02-26 |
+| Parameter | Value                                      |
+|-----------|--------------------------------------------|
+| Corpus    | 207 greeting card PDFs                     |
+| Machine   | Apple Silicon (arm64), 16 cores, 64 GB RAM |
+| OS        | macOS 26.3                                 |
+| Python    | 3.14.3                                     |
+| Date      | 2026-02-26                                 |
 
 ## Results Overview
 
-| # | Stage | Total | Per Card | Throughput | % of Total |
-|---|-------|------:|--------:|-----------:|-----------:|
-| 1 | Hash | 43ms | 208µs | 4,797/s | 0.1% |
-| 2 | Database | 445ms | 2.2ms | 465/s | 1.1% |
-| 3 | Render | 12.39s | 59.9ms | 16.7/s | 29.6% |
-| 4 | OCR | 28.96s | 139.9ms | 7.1/s | 69.2% |
-| 5 | Name extraction | 17ms | 83µs | 12,113/s | 0.0% |
-| 6 | AI (mock) | 7.02s | 33.9ms | 29.5/s | — |
-| 7 | Full (sequential) | 19.28s | 93.2ms | 10.7/s | — |
-| 8 | Full (parallel) | 2.14s | 10.4ms | 96.6/s | — |
+| # | Stage             |   Total |  Per Card | Throughput | % of Total |
+|---|-------------------|--------:|----------:|-----------:|-----------:|
+| 1 | Hash              |    43ms |     208µs |    4,797/s |       0.1% |
+| 2 | Database          |   445ms |     2.2ms |      465/s |       1.1% |
+| 3 | Render            |  12.39s |    59.9ms |     16.7/s |      29.6% |
+| 4 | OCR               |  28.96s |   139.9ms |      7.1/s |      69.2% |
+| 5 | Name extraction   |    17ms |      83µs |   12,113/s |       0.0% |
+| 6 | AI (mock)         |   7.02s |    33.9ms |     29.5/s |          — |
+| 7 | Full (sequential) |  19.28s |    93.2ms |     10.7/s |          — |
+| 8 | Full (parallel)   |   2.14s |    10.4ms |     96.6/s |          — |
 
 ### Parallelism
 
-| Metric | Value |
-|--------|------:|
+| Metric          |  Value |
+|-----------------|-------:|
 | Sequential time | 19.28s |
-| Parallel time | 2.14s |
-| Speedup | 9.0x |
-| Workers | 16 |
-| Efficiency | 56% |
+| Parallel time   |  2.14s |
+| Speedup         |   9.0x |
+| Workers         |     16 |
+| Efficiency      |    56% |
 
 ## Analysis
 

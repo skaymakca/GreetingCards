@@ -45,7 +45,7 @@ from app.models.card import CardResult, Confidence, RenameResult
 _RESOLVED_MESSAGES = RESOLVED_MESSAGES
 
 
-# noinspection PyMethodMayBeStatic,PyUnusedLocal,PyTypeChecker
+# noinspection PyMethodMayBeStatic,PyUnusedLocal,PyTypeChecker,PyUnresolvedReferences,PyBroadException
 class MainWindow:
     """Main application window with toolbar and content panels."""
 

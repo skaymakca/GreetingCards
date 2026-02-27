@@ -9,14 +9,11 @@ from pathlib import Path
 
 from rich.console import Console
 
+from scripts.build_family_name_db._unicode import UNICODE_SPECIAL as _UNICODE_SPECIAL
 from scripts.build_family_name_db.sources.census import CensusEntry
 
 # Row format: (normalized, display, rank, count, alternates)
 type MergedRow = tuple[str, str, int, int, list[str]]
-
-
-# Characters that NFKD decomposition doesn't handle — map to ASCII equivalents.
-_UNICODE_SPECIAL: dict[str, str] = {"ß": "ss", "ø": "o", "æ": "ae", "ð": "d", "þ": "th", "đ": "d", "ł": "l"}
 
 
 def normalize(name: str) -> str:
@@ -69,6 +66,7 @@ def _heuristic_display(raw_name: str) -> str:
     dependency: the build script *generates* the DB, so it can't rely
     on the DB for formatting during the build.
     """
+    # noinspection PyProtectedMember
     from app.core.naming.family_name.formatting import _format_particle, _format_word_with_structure
 
     words = raw_name.split()

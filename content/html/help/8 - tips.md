@@ -12,3 +12,4 @@ title: Tips
 - Right-click a name field and choose **Title Case** to fix capitalization
 - Use **Reset All Card Data** in **Settings** &rsaquo; **Advanced** to erase all manual entries, candidates, cached OCR, and cached AI results
 - You can load cards from multiple folders — they accumulate rather than replace
+- The app follows your macOS appearance setting — switching between light and dark mode happens instantly when you change the system appearance in **System Settings** &rsaquo; **Appearance**

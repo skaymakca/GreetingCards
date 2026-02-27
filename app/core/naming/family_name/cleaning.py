@@ -87,7 +87,7 @@ def clean_family_name(name: str) -> str:
 
 
 def strip_family_name_punctuation(name: str) -> str:
-    """Clean up an extracted name by stripping OCR punctuation artefacts."""
+    """Clean up an extracted name by stripping OCR punctuation artifacts."""
     name = name.strip().strip(".,!;:-—–\"'''")
     name = re.sub(r"\s+", " ", name)
     return name.strip()

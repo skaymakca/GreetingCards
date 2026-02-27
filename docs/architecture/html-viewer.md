@@ -2,7 +2,7 @@
 
 Shared WebView-based viewer used by the Help system, Changelog viewer, and Licenses viewer. Provides toolbar navigation (Home/Prev/Next), cross-page search with JavaScript highlighting, singleton window management, and external link interception.
 
-**Key file:** `app/gui/html_viewer.py`
+**Key file:** `app/gui/components/html_viewer.py`
 
 ## Architecture
 
@@ -25,11 +25,11 @@ This benefits all three consumers — help pages, changelog, and license pages c
 
 ## Consumers
 
-| Consumer  | Key file              | Singleton key | Content                                 |
-|-----------|-----------------------|---------------|-----------------------------------------|
-| Help      | `help_dialog.py`      | `"help"`      | Generated from markdown                 |
-| Changelog | `changelog_dialog.py` | `"changelog"` | Generated from `CHANGELOG.md`           |
-| Licenses  | `licenses_dialog.py`  | `"licenses"`  | Generated from `uv.lock` + `.dist-info` |
+| Consumer  | Key file                       | Singleton key | Content                                 |
+|-----------|--------------------------------|---------------|-----------------------------------------|
+| Help      | `app/gui/dialogs/help.py`      | `"help"`      | Generated from markdown                 |
+| Changelog | `app/gui/dialogs/changelog.py` | `"changelog"` | Generated from `CHANGELOG.md`           |
+| Licenses  | `app/gui/dialogs/licenses.py`  | `"licenses"`  | Generated from `uv.lock` + `.dist-info` |
 
 See per-consumer docs:
 - `docs/architecture/help-system.md`
