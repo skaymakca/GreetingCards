@@ -71,6 +71,54 @@ pip install package-name
 
 ---
 
+## ⚠️ Shell Command Rules ⚠️
+
+**Follow these rules for ALL bash commands to avoid permission prompts.**
+
+### No command substitution
+- ❌ `git commit -m "$(date)"`
+- ✅ Split into two commands: first run `date`, then use the result
+
+### No complex quoting in flag values
+- ❌ `grep --include="*.py" pattern`
+- ✅ `grep --include='*.py' pattern` or `grep -r pattern --include=\*.py`
+
+### No command chaining (&&, ||, ;)
+- ❌ `mkdir build && cmake ..`
+- ✅ Issue each command separately, one per Bash tool call
+- Exception: simple read-only pipes are fine (e.g., `git log --oneline | head -5`)
+
+### No multiline constructs or heredocs
+- ❌ Multi-line bash strings or heredocs in a single command
+- ✅ Use the Write tool to create a file, then execute it
+- ✅ Or break into sequential single-line commands
+- For git commits: use `git commit -m 'single line message'` or write message to a temp file and use `git commit -F /tmp/msg.txt`
+
+### No output redirection for writing files
+- ❌ `echo "text" > file.txt` or `command >> file.txt`
+- ✅ Use the Write or Edit tool instead
+
+### No inline environment variables
+- ❌ `VAR=value command`
+- ✅ Use `env VAR=value command` or set variables separately
+
+### No process substitution
+- ❌ `diff <(cmd1) <(cmd2)`
+- ✅ Write outputs to temp files first, then diff
+
+### No background operators
+- ❌ `command &`
+- ✅ Use the `run_in_background` parameter on the Bash tool
+
+### Prefer make targets and dedicated tools
+- Use `make check`, `make lint`, `make build` etc. — single simple commands
+- Use Read/Write/Edit/Grep/Glob tools instead of cat/echo/sed/grep/find
+
+### General principle
+When in doubt, break complex shell operations into multiple simple sequential commands. Prefer clarity over cleverness. One command per Bash tool call.
+
+---
+
 ## LSP (Language Server Protocol)
 
 **Always use the LSP tool** for code navigation instead of guessing or grepping. It provides accurate, type-aware results.
