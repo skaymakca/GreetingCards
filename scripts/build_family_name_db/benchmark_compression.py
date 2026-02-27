@@ -15,16 +15,19 @@ import gzip
 import lzma
 import tempfile
 import time
+from collections.abc import Callable
+from functools import partial
 from pathlib import Path
+from typing import IO
 
 TSV_PATH = Path(__file__).resolve().parent.parent.parent / "content" / "data" / "family_name_database.tsv"
 ITERATIONS = 5
 
 
-def _load_raw_tsv(path: Path) -> int:
-    """Load from raw TSV, return entry count."""
+def _load_tsv(path: Path, open_fn: Callable[..., IO[str]]) -> int:
+    """Load TSV entries using the given open function, return entry count."""
     count = 0
-    with path.open(encoding="utf-8") as f:
+    with open_fn(path) as f:
         for line in f:
             if line.startswith("#"):
                 continue
@@ -34,46 +37,7 @@ def _load_raw_tsv(path: Path) -> int:
     return count
 
 
-def _load_gzip(path: Path) -> int:
-    """Load from gzip-compressed TSV."""
-    count = 0
-    with gzip.open(path, "rt", encoding="utf-8") as f:
-        for line in f:
-            if line.startswith("#"):
-                continue
-            parts = line.rstrip("\n").split("\t")
-            if len(parts) >= 4:
-                count += 1
-    return count
-
-
-def _load_lzma(path: Path) -> int:
-    """Load from lzma-compressed TSV."""
-    count = 0
-    with lzma.open(path, "rt", encoding="utf-8") as f:
-        for line in f:
-            if line.startswith("#"):
-                continue
-            parts = line.rstrip("\n").split("\t")
-            if len(parts) >= 4:
-                count += 1
-    return count
-
-
-def _load_bz2(path: Path) -> int:
-    """Load from bz2-compressed TSV."""
-    count = 0
-    with bz2.open(path, "rt", encoding="utf-8") as f:
-        for line in f:
-            if line.startswith("#"):
-                continue
-            parts = line.rstrip("\n").split("\t")
-            if len(parts) >= 4:
-                count += 1
-    return count
-
-
-def _benchmark(path: Path, loader: object) -> tuple[float, int, int]:
+def _benchmark(path: Path, loader: Callable[[Path], int]) -> tuple[float, int, int]:
     """Run benchmark: returns (median_ms, file_size_bytes, entry_count)."""
     file_size = path.stat().st_size
     times: list[float] = []
@@ -81,7 +45,7 @@ def _benchmark(path: Path, loader: object) -> tuple[float, int, int]:
 
     for _i in range(ITERATIONS):
         start = time.perf_counter()
-        count = loader(path)  # type: ignore[operator]
+        count = loader(path)
         elapsed = (time.perf_counter() - start) * 1000
         times.append(elapsed)
 
@@ -131,12 +95,13 @@ def main() -> None:
 
         results: list[tuple[str, float, int, int]] = []
 
-        for name, path, loader in [
-            ("Raw TSV", raw_path, _load_raw_tsv),
-            ("gzip", gz_path, _load_gzip),
-            ("lzma", xz_path, _load_lzma),
-            ("bz2", bz2_path, _load_bz2),
+        for name, path, open_fn in [
+            ("Raw TSV", raw_path, lambda p: p.open(encoding="utf-8")),
+            ("gzip", gz_path, lambda p: gzip.open(p, "rt", encoding="utf-8")),  # noqa: SIM115
+            ("lzma", xz_path, lambda p: lzma.open(p, "rt", encoding="utf-8")),  # noqa: SIM115
+            ("bz2", bz2_path, lambda p: bz2.open(p, "rt", encoding="utf-8")),  # noqa: SIM115
         ]:
+            loader = partial(_load_tsv, open_fn=open_fn)
             median, size, count = _benchmark(path, loader)
             ratio = size / len(raw_data)
             results.append((name, median, size, count))
