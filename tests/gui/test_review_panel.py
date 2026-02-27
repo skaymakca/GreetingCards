@@ -786,7 +786,7 @@ class TestNameCharFiltering:
 
     def test_blocks_all_invalid_chars(self, parent_frame):
         """_on_name_char blocks every filesystem-invalid character."""
-        from app.core.name_formatting import INVALID_FILENAME_CHARS
+        from app.core.naming.filename_safety import INVALID_FILENAME_CHARS
 
         detail = DetailPanel(parent_frame, None, None, None, None)
         for char in INVALID_FILENAME_CHARS:

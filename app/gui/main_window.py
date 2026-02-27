@@ -21,8 +21,8 @@ from app.core.database import (
     set_manual_name,
 )
 from app.core.pipeline.pdf_worker import process_pdf_worker
-from app.core.rename_executor import RESOLVED_MESSAGES, filter_completed_renames
-from app.core.renamer import build_rename_plan, execute_rename_plan
+from app.core.naming.rename_filter import RESOLVED_MESSAGES, filter_completed_renames
+from app.core.naming.renamer import build_rename_plan, execute_rename_plan
 from app.gui.components.drop_target import DropOverlay as _DropOverlay
 from app.gui.components.drop_target import FileDropTarget
 from app.gui.components.filter_sidebar import FilterSidebar

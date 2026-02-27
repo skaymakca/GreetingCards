@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.core.family_name.cleaning import (
+from app.core.naming.family_name.cleaning import (
     clean_and_filter_family_names,
     clean_family_name,
     strip_family_name_punctuation,
@@ -187,7 +187,7 @@ class TestCleanAndFilterFamilyNames:
 
     def test_known_name_with_alternates_adds_related_forms(self):
         """Known DB name with alternates adds related forms as candidates (lines 124-125)."""
-        from app.core.family_name.data import family_name_db
+        from app.core.naming.family_name.data import family_name_db
 
         # Find a name that has alternates in the production DB
         # O'Brien is known to have alternates

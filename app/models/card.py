@@ -7,7 +7,7 @@ from typing import Final, Literal
 
 from PIL import Image
 
-from app.core.name_formatting import sanitize_for_filename
+from app.core.naming.filename_safety import sanitize_for_filename
 
 # Constrained value types for database-layer fields
 MethodStr = Literal["ocr", "ai", "manual", "missing"]

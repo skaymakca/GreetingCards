@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from app.core.renamer import (
+from app.core.naming.renamer import (
     _find_available_name,
     _read_directory_names,
     build_rename_plan,

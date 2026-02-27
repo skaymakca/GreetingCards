@@ -500,7 +500,7 @@ class DetailPanel(wx.Panel):
 
     def _on_name_char(self, event: wx.KeyEvent) -> None:
         """Block filesystem-invalid characters from being typed."""
-        from app.core.name_formatting import INVALID_FILENAME_CHARS
+        from app.core.naming.filename_safety import INVALID_FILENAME_CHARS
 
         key = event.GetUnicodeKey()
         if key != wx.WXK_NONE and chr(key) in INVALID_FILENAME_CHARS:

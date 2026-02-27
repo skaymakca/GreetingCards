@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.core.name_extractor import (
+from app.core.naming.extractor import (
     GREETING_WORDS,
     _clean_name,
     _is_valid_name,

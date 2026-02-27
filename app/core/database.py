@@ -335,7 +335,7 @@ def _add_candidate_inline(session: Session, file_hash: str, family_name: str, me
     When the cleaning pipeline returns multiple names (e.g. a recognized alternate
     form plus its related forms), all are added as separate candidates.
     """
-    from app.core.family_name import clean_and_filter_family_names, smart_title_case_family_name
+    from app.core.naming.family_name import clean_and_filter_family_names, smart_title_case_family_name
 
     cleaned = clean_and_filter_family_names([family_name])
     if not cleaned:
@@ -372,7 +372,7 @@ def add_candidate(file_hash: str, family_name: str, method: str, confidence: str
     form plus its related forms), all are added as separate candidates.
     Returns 0 if all names are filtered out.
     """
-    from app.core.family_name import clean_and_filter_family_names, smart_title_case_family_name
+    from app.core.naming.family_name import clean_and_filter_family_names, smart_title_case_family_name
 
     cleaned = clean_and_filter_family_names([family_name])
     if not cleaned:
@@ -613,7 +613,7 @@ def reprocess_candidates_from_raw(file_hash: str) -> None:
     All work happens in a single transaction to prevent dangling FKs
     and inconsistent intermediate states.
     """
-    from app.core.name_extractor import extract_family_names
+    from app.core.naming.extractor import extract_family_names
 
     with _session_scope() as session:
         card = session.query(Card).filter_by(file_hash=file_hash).first()

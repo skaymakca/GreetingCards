@@ -69,7 +69,7 @@ def _heuristic_display(raw_name: str) -> str:
     dependency: the build script *generates* the DB, so it can't rely
     on the DB for formatting during the build.
     """
-    from app.core.family_name.formatting import _format_particle, _format_word_with_structure
+    from app.core.naming.family_name.formatting import _format_particle, _format_word_with_structure
 
     words = raw_name.split()
     result = []

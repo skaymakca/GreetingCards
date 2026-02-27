@@ -1,9 +1,9 @@
-"""Tests for filename sanitization in the name cleaning pipeline."""
+"""Tests for filename safety utilities (sanitize_for_filename and related constants)."""
 
 import pytest
 
-from app.core.family_name import clean_and_filter_family_names
-from app.core.name_formatting import _INVALID_FS_CHARS, INVALID_FILENAME_CHARS, sanitize_for_filename
+from app.core.naming.family_name import clean_and_filter_family_names
+from app.core.naming.filename_safety import _INVALID_FS_CHARS, INVALID_FILENAME_CHARS, sanitize_for_filename
 from app.models.card import CardResult, Confidence
 
 
@@ -42,6 +42,61 @@ class TestSanitizeForFilename:
 
     def test_empty_string(self):
         assert sanitize_for_filename("") == ""
+
+    def test_strips_leading_whitespace(self):
+        """Should strip leading whitespace."""
+        assert sanitize_for_filename("   test") == "test"
+        assert sanitize_for_filename("\ttest") == "test"
+        assert sanitize_for_filename("\ntest") == "test"
+
+    def test_strips_trailing_whitespace(self):
+        """Should strip trailing whitespace."""
+        assert sanitize_for_filename("test   ") == "test"
+        assert sanitize_for_filename("test\t") == "test"
+        assert sanitize_for_filename("test\n") == "test"
+
+    def test_strips_leading_and_trailing_whitespace(self):
+        """Should strip both leading and trailing whitespace."""
+        assert sanitize_for_filename("   test name   ") == "test name"
+        assert sanitize_for_filename("\t  test  \n") == "test"
+
+    def test_clean_name_unchanged(self):
+        """Should leave clean names unchanged."""
+        assert sanitize_for_filename("test_file") == "test_file"
+        assert sanitize_for_filename("test-file") == "test-file"
+        assert sanitize_for_filename("test.file") == "test.file"
+        assert sanitize_for_filename("TestFile") == "TestFile"
+
+    def test_clean_name_with_numbers(self):
+        """Should preserve numbers and alphanumeric names."""
+        assert sanitize_for_filename("test123") == "test123"
+        assert sanitize_for_filename("123test") == "123test"
+        assert sanitize_for_filename("test_file_123") == "test_file_123"
+
+    def test_whitespace_only_string(self):
+        """Should return empty string for whitespace-only input."""
+        assert sanitize_for_filename("   ") == ""
+        assert sanitize_for_filename("\t\n") == ""
+
+    def test_only_invalid_chars(self):
+        """Should replace all invalid chars with dashes."""
+        assert sanitize_for_filename("*?<>") == "----"
+        assert sanitize_for_filename('\\/:*?"<>|') == "---------"
+
+    @pytest.mark.parametrize(
+        "input_str,expected",
+        [
+            ("My File*", "My File-"),
+            ("C:\\Users\\test", "C--Users-test"),
+            ("Report?Q1", "Report-Q1"),
+            ('Invoice "2024"', "Invoice -2024-"),
+            ("Important|Urgent", "Important-Urgent"),
+            ("  Trim  Me  ", "Trim  Me"),
+        ],
+    )
+    def test_sanitize_various_cases(self, input_str, expected):
+        """Parameterized test for various sanitization cases."""
+        assert sanitize_for_filename(input_str) == expected
 
 
 class TestInvalidFilenameCharsConsistency:

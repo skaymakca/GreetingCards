@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.core.family_name.formatting import smart_title_case_family_name
+from app.core.naming.family_name.formatting import smart_title_case_family_name
 
 
 class TestSmartTitleCaseFamilyName:

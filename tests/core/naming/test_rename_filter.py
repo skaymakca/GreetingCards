@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from app.core.rename_executor import RESOLVED_MESSAGES, filter_completed_renames
+from app.core.naming.rename_filter import RESOLVED_MESSAGES, filter_completed_renames
 from app.models.card import RenameResult
 
 

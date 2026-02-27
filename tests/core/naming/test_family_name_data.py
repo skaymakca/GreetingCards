@@ -1,8 +1,8 @@
-"""Tests for app.core.family_name.data module — normalized lookup."""
+"""Tests for app.core.naming.family_name.data module — normalized lookup."""
 
 import pytest
 
-from app.core.family_name.data import FamilyNameDatabase, FamilyNameEntry, FilteredNames, family_name_db
+from app.core.naming.family_name.data import FamilyNameDatabase, FamilyNameEntry, FilteredNames, family_name_db
 
 
 def _entry(display: str, rank: int = 0, count: int = 0, alternates: tuple[str, ...] = ()) -> FamilyNameEntry:
@@ -231,7 +231,7 @@ class TestFamilyNameDatabaseLoadEdgeCases:
         """Missing database file returns empty DB with a warning (lines 159-160)."""
         from unittest.mock import patch
 
-        with patch("app.core.family_name.data.get_runtime_content_path", return_value=tmp_path / "nonexistent.tsv.gz"):
+        with patch("app.core.naming.family_name.data.get_runtime_content_path", return_value=tmp_path / "nonexistent.tsv.gz"):
             db = FamilyNameDatabase.load()
         assert len(db) == 0
 
@@ -245,7 +245,7 @@ class TestFamilyNameDatabaseLoadEdgeCases:
         with gzip.open(gz_path, "wt", encoding="utf-8") as f:
             f.write(content)
 
-        with patch("app.core.family_name.data.get_runtime_content_path", return_value=gz_path):
+        with patch("app.core.naming.family_name.data.get_runtime_content_path", return_value=gz_path):
             db = FamilyNameDatabase.load()
         assert len(db) == 1
         assert "Smith" in db

@@ -110,8 +110,8 @@ class TestCreateOrUpdateCard:
 class TestAddCandidate:
     """Tests for add_candidate()."""
 
-    @patch("app.core.family_name.clean_and_filter_family_names", return_value=["Smith"])
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=["Smith"])
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_adds_candidate(self, mock_title, mock_clean):
         cid = add_candidate("hash1", "Smith", "ocr", "high")
         assert cid > 0
@@ -119,8 +119,8 @@ class TestAddCandidate:
         assert len(candidates) == 1
         assert candidates[0].family_name == "Smith"
 
-    @patch("app.core.family_name.clean_and_filter_family_names", return_value=["Smith"])
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=["Smith"])
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_dedup_same_name_method(self, mock_title, mock_clean):
         cid1 = add_candidate("hash1", "Smith", "ocr", "high")
         cid2 = add_candidate("hash1", "Smith", "ocr", "high")
@@ -128,13 +128,13 @@ class TestAddCandidate:
         candidates = get_candidates("hash1")
         assert len(candidates) == 1
 
-    @patch("app.core.family_name.clean_and_filter_family_names", return_value=[])
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=[])
     def test_filtered_name_returns_zero(self, mock_clean):
         cid = add_candidate("hash1", "unknown", "ocr", "low")
         assert cid == 0
 
-    @patch("app.core.family_name.clean_and_filter_family_names", return_value=["Smith"])
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=["Smith"])
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_auto_creates_card(self, mock_title, mock_clean):
         """Card is auto-created if it doesn't exist."""
         add_candidate("newhash", "Smith", "ai", "high")
@@ -145,8 +145,8 @@ class TestAddCandidate:
 class TestGetCandidates:
     """Tests for get_candidates()."""
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_sorted_by_method_then_confidence(self, mock_title, mock_clean):
         create_or_update_card("hash1")
         add_candidate("hash1", "OcrLow", "ocr", "low")
@@ -188,8 +188,8 @@ class TestSetManualName:
 class TestSelectCandidate:
     """Tests for select_candidate()."""
 
-    @patch("app.core.family_name.clean_and_filter_family_names", return_value=["Smith"])
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=["Smith"])
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_selects_candidate(self, mock_title, mock_clean):
         create_or_update_card("hash1")
         cid = add_candidate("hash1", "Smith", "ocr", "high")
@@ -198,8 +198,8 @@ class TestSelectCandidate:
         assert state.display_name == "Smith"
         assert state.selected_candidate_id == cid
 
-    @patch("app.core.family_name.clean_and_filter_family_names", return_value=["Smith"])
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=["Smith"])
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_clears_manual_name(self, mock_title, mock_clean):
         create_or_update_card("hash1")
         set_manual_name("hash1", "Manual")
@@ -244,8 +244,8 @@ class TestGetCardState:
         assert state.confidence == "manual"
         assert state.display_name == "Smith"
 
-    @patch("app.core.family_name.clean_and_filter_family_names", return_value=["Jones"])
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=["Jones"])
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_candidate_state(self, mock_title, mock_clean):
         create_or_update_card("hash1")
         cid = add_candidate("hash1", "Jones", "ai", "high")
@@ -304,8 +304,8 @@ class TestRawAi:
 class TestClearUnselectedCandidates:
     """Tests for clear_unselected_candidates()."""
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_clears_unselected(self, mock_title, mock_clean):
         create_or_update_card("hash1")
         add_candidate("hash1", "A", "ocr", "high")
@@ -327,15 +327,15 @@ class TestShouldReprocess:
         create_or_update_card("hash1")
         assert should_reprocess("hash1", "ocr") is True
 
-    @patch("app.core.family_name.clean_and_filter_family_names", return_value=["Smith"])
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=["Smith"])
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_false_when_candidates_exist(self, mock_title, mock_clean):
         create_or_update_card("hash1")
         add_candidate("hash1", "Smith", "ocr", "high")
         assert should_reprocess("hash1", "ocr") is False
 
-    @patch("app.core.family_name.clean_and_filter_family_names", return_value=["Smith"])
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=["Smith"])
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_method_specific(self, mock_title, mock_clean):
         create_or_update_card("hash1")
         add_candidate("hash1", "Smith", "ocr", "high")
@@ -345,8 +345,8 @@ class TestShouldReprocess:
 class TestReprocessCandidatesFromRaw:
     """Tests for reprocess_candidates_from_raw()."""
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_reprocesses_ocr(self, mock_title, mock_clean):
         create_or_update_card("hash1")
         save_raw_ocr("hash1", "The Smith Family")
@@ -354,8 +354,8 @@ class TestReprocessCandidatesFromRaw:
         candidates = get_candidates("hash1")
         assert len(candidates) > 0
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_reprocesses_ai(self, mock_title, mock_clean):
         create_or_update_card("hash1")
         save_raw_ai("hash1", "Johnson", ["Williams"])
@@ -364,8 +364,8 @@ class TestReprocessCandidatesFromRaw:
         names = [c.family_name for c in candidates]
         assert "Johnson" in names
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_preserves_manual_entry(self, mock_title, mock_clean):
         create_or_update_card("hash1")
         set_manual_name("hash1", "Manual")
@@ -376,8 +376,8 @@ class TestReprocessCandidatesFromRaw:
         assert state.display_name == "Manual"
         assert state.method == "manual"
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_reprocesses_both_ocr_and_ai(self, mock_title, mock_clean):
         """When both OCR and AI raw data exist, both are processed as candidates."""
         create_or_update_card("hash1")
@@ -521,8 +521,8 @@ class TestResetDatabase:
 class TestSelectCandidateNewCard:
     """Tests for select_candidate() when card doesn't exist yet."""
 
-    @patch("app.core.family_name.clean_and_filter_family_names", return_value=["Smith"])
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=["Smith"])
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_creates_card_on_select(self, mock_title, mock_clean):
         """select_candidate creates a Card row if one doesn't exist."""
         # Add a candidate (auto-creates card)
@@ -543,8 +543,8 @@ class TestSelectCandidateNewCard:
 class TestGetCardStateDeletedCandidate:
     """Tests for get_card_state() when selected candidate was deleted."""
 
-    @patch("app.core.family_name.clean_and_filter_family_names", return_value=["Smith"])
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=["Smith"])
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_missing_candidate_returns_missing(self, mock_title, mock_clean):
         """When selected candidate no longer exists, state shows missing."""
         create_or_update_card("hash1")
@@ -566,8 +566,8 @@ class TestGetCardStateDeletedCandidate:
 class TestClearUnselectedCandidatesEdgeCases:
     """Tests for clear_unselected_candidates() edge cases."""
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_selected_candidate_same_method_preserved(self, mock_title, mock_clean):
         """When selected candidate is of the same method being cleared, it's preserved."""
         create_or_update_card("hash1")
@@ -581,8 +581,8 @@ class TestClearUnselectedCandidatesEdgeCases:
         assert len(candidates) == 1
         assert candidates[0].id == cid1
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_selected_candidate_different_method_deletes_all(self, mock_title, mock_clean):
         """When selected candidate is of a different method, all of target method are deleted."""
         create_or_update_card("hash1")
@@ -598,8 +598,8 @@ class TestClearUnselectedCandidatesEdgeCases:
         assert "ocr" not in methods
         assert "ai" in methods
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_no_selection_deletes_all_of_method(self, mock_title, mock_clean):
         """When no candidate is selected, all candidates of the method are deleted."""
         create_or_update_card("hash1")
@@ -617,8 +617,8 @@ class TestClearUnselectedCandidatesEdgeCases:
 class TestClearAIResults:
     """Tests for clear_ai_results()."""
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_deletes_ai_candidates_and_raw(self, mock_title, mock_clean):
         """AI candidates and raw_ai_results are deleted for given hashes."""
         create_or_update_card("hash1")
@@ -631,8 +631,8 @@ class TestClearAIResults:
         assert all(c.method != "ai" for c in candidates)
         assert get_raw_ai("hash1") is None
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_preserves_ocr_candidates(self, mock_title, mock_clean):
         """OCR candidates and raw_ocr_results survive clearing."""
         create_or_update_card("hash1")
@@ -649,8 +649,8 @@ class TestClearAIResults:
         assert candidates[0].method == "ocr"
         assert get_raw_ocr("hash1") == "OCR text"
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_reselects_ocr_after_ai_cleared(self, mock_title, mock_clean):
         """Card with selected AI candidate reverts to best OCR candidate."""
         create_or_update_card("hash1")
@@ -665,8 +665,8 @@ class TestClearAIResults:
         assert state.method == "ocr"
         assert state.selected_candidate_id == ocr_cid
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_clears_selection_when_no_ocr(self, mock_title, mock_clean):
         """Card with only AI candidates gets empty selection after clearing."""
         create_or_update_card("hash1")
@@ -680,8 +680,8 @@ class TestClearAIResults:
         assert state.method == "missing"
         assert state.selected_candidate_id is None
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_preserves_manual_entries(self, mock_title, mock_clean):
         """Manual entries (selected_family_name) are untouched."""
         create_or_update_card("hash1")
@@ -694,8 +694,8 @@ class TestClearAIResults:
         assert state.display_name == "ManualName"
         assert state.method == "manual"
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_preserves_remove_family(self, mock_title, mock_clean):
         """remove_family flag survives clearing."""
         create_or_update_card("hash1")
@@ -707,8 +707,8 @@ class TestClearAIResults:
         state = get_card_state("hash1")
         assert state.remove_family is True
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_returns_affected_count(self, mock_title, mock_clean):
         """Returns count of cards whose selection changed."""
         create_or_update_card("hash1")
@@ -720,8 +720,8 @@ class TestClearAIResults:
         changed = clear_ai_results(["hash1", "hash2"])
         assert changed == 1  # Only hash1 had AI selected
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_scoped_to_given_hashes(self, mock_title, mock_clean):
         """Cards NOT in the list are untouched."""
         create_or_update_card("hash1")
@@ -760,8 +760,8 @@ class TestClearAIResultsEdgeCases:
         changed = clear_ai_results(["nonexistent_hash"])
         assert changed == 0
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_manual_plus_ai_preserves_manual(self, mock_title, mock_clean):
         """Card with manual entry + AI selected: manual preserved, AI cleared."""
         create_or_update_card("hash1")
@@ -782,8 +782,8 @@ class TestClearAIResultsEdgeCases:
         # No selection changed (manual was already selected)
         assert changed == 0
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_multi_ocr_selects_best(self, mock_title, mock_clean):
         """After clearing AI, best OCR candidate (by confidence) is selected."""
         create_or_update_card("hash1")
@@ -803,8 +803,8 @@ class TestClearAIResultsEdgeCases:
 class TestClearAIResultsManualSkip:
     """Test that clear_ai_results skips re-selection when manual name is set (line 267)."""
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_manual_name_skips_ocr_reselection(self, mock_title, mock_clean):
         """Card with both selected_family_name and AI selected_candidate_id skips re-selection."""
         create_or_update_card("hash1")
@@ -849,8 +849,8 @@ class TestGetRawAiCorruptJson:
 class TestReprocessCandidatesEdgeCases:
     """Edge case tests for reprocess_candidates_from_raw()."""
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_empty_ocr_text(self, mock_title, mock_clean):
         """Empty OCR text produces no OCR candidates."""
         create_or_update_card("hash1")
@@ -860,8 +860,8 @@ class TestReprocessCandidatesEdgeCases:
         # No meaningful names from empty text
         assert len(candidates) == 0
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_empty_best_name_and_alternates(self, mock_title, mock_clean):
         """AI result with empty best_name and no alternates produces no AI candidates."""
         create_or_update_card("hash1")
@@ -871,8 +871,8 @@ class TestReprocessCandidatesEdgeCases:
         ai_candidates = [c for c in candidates if c.method == "ai"]
         assert len(ai_candidates) == 0
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_no_alternates(self, mock_title, mock_clean):
         """AI result with only best_name and no alternates produces one AI candidate."""
         create_or_update_card("hash1")
@@ -884,8 +884,8 @@ class TestReprocessCandidatesEdgeCases:
         assert ai_candidates[0].family_name == "Smith"
         assert ai_candidates[0].confidence == "high"
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_corrupted_json(self, mock_title, mock_clean):
         """Corrupted JSON in raw_ai_results is handled gracefully during reprocessing."""
         create_or_update_card("hash1")
@@ -989,8 +989,8 @@ class TestDefensiveGuards:
 class TestAddCandidateDuplicateRace:
     """Tests for add_candidate() handling concurrent duplicate inserts."""
 
-    @patch("app.core.family_name.clean_and_filter_family_names", return_value=["Smith"])
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=["Smith"])
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_concurrent_duplicate_no_error(self, mock_title, mock_clean):
         """Calling add_candidate twice with the same args returns the same ID without error."""
         create_or_update_card("hash1")
@@ -1005,8 +1005,8 @@ class TestAddCandidateDuplicateRace:
         candidates = get_candidates("hash1")
         assert len(candidates) == 1
 
-    @patch("app.core.family_name.clean_and_filter_family_names", return_value=["Smith"])
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=["Smith"])
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_direct_duplicate_insert_no_error(self, mock_title, mock_clean):
         """Directly inserting a duplicate via DB then calling add_candidate recovers."""
         create_or_update_card("hash1")
@@ -1026,8 +1026,8 @@ class TestAddCandidateDuplicateRace:
         candidates = get_candidates("hash1")
         assert len(candidates) == 1
 
-    @patch("app.core.family_name.clean_and_filter_family_names", return_value=["Smith"])
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=["Smith"])
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_integrity_error_recovery(self, mock_title, mock_clean):
         """When a race causes IntegrityError on flush, add_candidate recovers."""
         create_or_update_card("hash1")
@@ -1081,8 +1081,8 @@ class TestAddCandidateDuplicateRace:
 class TestClearAIResultsFKOrdering:
     """Tests that clear_ai_results nulls FK before deleting candidates."""
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_no_dangling_fk_during_delete(self, mock_title, mock_clean):
         """selected_candidate_id is nulled before AI candidates are deleted."""
         create_or_update_card("hash1")
@@ -1114,8 +1114,8 @@ class TestClearAIResultsFKOrdering:
 class TestAddCandidateInline:
     """Tests for _add_candidate_inline helper."""
 
-    @patch("app.core.family_name.clean_and_filter_family_names", return_value=["Smith"])
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=["Smith"])
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_adds_within_session(self, mock_title, mock_clean):
         """_add_candidate_inline adds candidate in the given session."""
         create_or_update_card("hash1")
@@ -1126,7 +1126,7 @@ class TestAddCandidateInline:
         assert len(candidates) == 1
         assert candidates[0].family_name == "Smith"
 
-    @patch("app.core.family_name.clean_and_filter_family_names", return_value=[])
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=[])
     def test_filtered_name_returns_zero(self, mock_clean):
         """_add_candidate_inline returns 0 for filtered names."""
         create_or_update_card("hash1")
@@ -1134,8 +1134,8 @@ class TestAddCandidateInline:
             cid = _add_candidate_inline(session, "hash1", "unknown", "ocr", "low")
             assert cid == 0
 
-    @patch("app.core.family_name.clean_and_filter_family_names", return_value=["Smith"])
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=["Smith"])
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_dedup_within_session(self, mock_title, mock_clean):
         """_add_candidate_inline deduplicates within the same session."""
         create_or_update_card("hash1")
@@ -1150,8 +1150,8 @@ class TestAddCandidateInline:
 class TestReprocessSingleTransaction:
     """Tests that reprocess_candidates_from_raw uses a single transaction."""
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_clears_fk_before_deleting(self, mock_title, mock_clean):
         """selected_candidate_id is cleared before candidates are deleted."""
         create_or_update_card("hash1")
@@ -1166,8 +1166,8 @@ class TestReprocessSingleTransaction:
         state = get_card_state("hash1")
         assert state is not None
 
-    @patch("app.core.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
-    @patch("app.core.family_name.smart_title_case_family_name", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.clean_and_filter_family_names", side_effect=lambda x: x)
+    @patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x)
     def test_autoselects_best_after_reprocess(self, mock_title, mock_clean):
         """After reprocessing, the best candidate is auto-selected."""
         create_or_update_card("hash1")

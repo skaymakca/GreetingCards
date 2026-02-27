@@ -192,7 +192,7 @@ def profile_ocr(
 
 def profile_names(texts_by_path: dict[Path, str], output_dir: Path, progress: Progress) -> StageResult:
     """Profile extract_family_names() on pre-extracted OCR text."""
-    from app.core.name_extractor import extract_family_names
+    from app.core.naming.extractor import extract_family_names
 
     profiler = Profiler()
     count = len(texts_by_path)
