@@ -6,18 +6,63 @@
 scripts/
   __init__.py              # Empty (makes scripts/ a Python package)
   helpers.py               # Shared utilities: output dirs, API key validation
+  dark_mode_cycler.py      # Standalone: toggles macOS dark/light mode every 5s
   visual_test.py           # Visual test harness (standalone, not a package)
 
-scripts/<name>/            # Each script is a sub-package
-  __init__.py              # Empty
-  __main__.py              # Entry point: enables `python -m scripts.<name>`
-
 scripts/benchmark/
-  __init__.py              # Empty
+  __init__.py
   common.py                # Shared benchmark infrastructure (Config, OCR, HTML reports)
   ocr_concurrency.py       # OCR concurrency model comparison
   ocr_configuration_quality.py  # Tesseract config space exhaustive search
   pre_processing_concurrency.py # Preprocessing pipeline benchmarking
+
+scripts/build_family_name_db/
+  __init__.py
+  __main__.py              # Entry point
+  cli.py                   # Orchestration: download sources → merge → write TSV
+  merger.py                # Normalize, merge, apply overrides, write TSV
+  _unicode.py              # Unicode → ASCII mapping table
+  sources/
+    census.py              # US Census surname data downloader
+    faker_names.py         # Faker library name extractor
+    smashew.py             # smashew/NameDatabases GitHub downloader
+  benchmark_compression.py # Benchmarks file format/compression options (not tested)
+
+scripts/dmg/
+  __init__.py
+  __main__.py              # Entry point
+  cli.py                   # Orchestration: build app → create DMG via dmgbuild
+  background.py            # Generates gradient PNG background for DMG window
+  readme.py                # Generates RTF readme for DMG (RTFD package)
+  dmgbuild_settings.py     # dmgbuild configuration (window layout, icons)
+
+scripts/generate_diagnostic_cards/
+  __init__.py
+  __main__.py              # Entry point
+  cli.py                   # CLI: create PDFs with fixed family name text for OCR testing
+
+scripts/generate_sample_cards/
+  __init__.py
+  __main__.py              # Entry point
+  cli.py                   # CLI: top-level orchestration and argument parsing
+  models.py                # Dataclasses: CardSpec, ImageSpec, GenerationJob
+  display.py               # Rich live-table progress display
+  pdf_composer.py          # Assembles final PDF from generated image + metadata
+  image_generator.py       # OpenAI image API calls with rate limiting and retry
+  spec_generator.py        # Multiphase async pipeline: names → schemes → subtitles → content
+  spec_generators/
+    card_content.py        # Claude: per-card creative content generation
+    color_schemes.py       # Claude: batched color scheme generation
+    constants.py           # Static lists (themes, styles, occasions)
+    family_names.py        # Claude: unique family name selection
+    formatting.py          # Deterministic field assignment from spec
+    subtitles.py           # Claude: batched subtitle generation
+    utils.py               # JSON extraction from LLM responses
+
+scripts/profiling/
+  __init__.py
+  __main__.py              # Entry point
+  cli.py                   # Profiles PDF processing pipeline with pyinstrument
 ```
 
 ## Package Structure

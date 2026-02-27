@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev run app build clean icon content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-cov-open test-core test-gui test-scripts tessdata pyright mypy lint lint-fix format format-check security check pycharm-inspect show-scripts visual-test visual-test-app dmg
+.PHONY: help setup setup-dev run app app-run build clean icon content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-cov-open test-core test-gui test-scripts tessdata pyright mypy lint lint-fix format format-check security check pycharm-inspect show-scripts visual-test visual-test-app dmg
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'

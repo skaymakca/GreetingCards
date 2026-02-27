@@ -84,6 +84,13 @@ Run `make help` to see all available commands.
 | `make test-cov-open`   | Run coverage and open HTML reports in browser                                                          |
 | `make test-core`       | Run core (non-GUI) tests only                                                            |
 | `make test-gui`        | Run GUI tests only                                                                       |
+| `make test-scripts`    | Run script tests only                                                                    |
+| `make tessdata`        | Download tessdata (eng.traineddata) for OCR                                              |
+| `make content`         | Generate runtime content (HTML, data files, images)                                      |
+| `make licenses-sync`   | Sync license registry from uv.lock + .dist-info                                          |
+| `make visual-test`     | Run visual test harness from source                                                      |
+| `make visual-test-app` | Build and run visual test harness as `.app` bundle (logs visible)                        |
+| `make dmg`             | Build the distributable DMG installer (→ `dist/Greeting Cards - X.Y.Z.dmg`)             |
 | `make build`           | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`) — alias for `make app` |
 | `make app`             | Build the macOS `.app` bundle (same as `make build`)                                     |
 | `make app-run`         | Build and run the `.app` bundle with logs visible in terminal                            |
@@ -171,33 +178,47 @@ Tests are organized by component:
 tests/
 ├── conftest.py                      # Shared fixtures (wx.App, mock frames)
 ├── core/
-│   ├── test_ai_analyzer.py          # AI analysis and error handling
+│   ├── conftest.py                  # Core-specific fixtures
 │   ├── test_card_model.py           # Card data model
 │   ├── test_config.py               # Configuration and API key management
 │   ├── test_database.py             # SQLite database operations
-│   ├── test_filename_sanitization.py # Filename safety checks
-│   ├── test_name_extractor.py       # OCR text → name extraction
-│   ├── test_name_formatting.py      # Name parsing and formatting logic
-│   ├── test_ocr_engine.py           # OCR engine integration
 │   ├── test_paths.py                # Path resolution (dev vs bundle)
-│   ├── test_pdf_renderer.py         # PDF rendering
-│   ├── test_renamer.py              # Rename plan and execution
-│   └── test_version.py              # Version string
-└── gui/
-    ├── conftest.py                  # GUI-specific fixtures
-    ├── test_api_key_dialog.py       # API key prompt dialog
-    ├── test_context_menu.py         # Right-click context menu
-    ├── test_dialogs.py              # Progress, rename, completion dialogs
-    ├── test_filter_sidebar.py       # Sidebar filters and multi-select
-    ├── test_help_dialog.py          # Help viewer and cross-page search
-    ├── test_icons.py                # SF Symbol icon loading
-    ├── test_main_window.py          # Main window integration
-    ├── test_preview_cursor_behavior.py # Preview cursor and modifier keys
-    ├── test_preview_panel.py        # Preview panel and zoom/pan
-    ├── test_review_panel.py         # Card list and detail panel
-    ├── test_settings_dialog.py      # Preferences editor
-    ├── test_styles.py               # Style constants
-    └── test_utils.py                # wxPython utility functions
+│   ├── test_version.py              # Version string
+│   ├── content/                     # 7 files: changelog, changelog_models, help_builder,
+│   │                                #   license_html, license_models, license_sync, template_env
+│   ├── naming/                      # 6 files: extractor, family_name_cleaning, family_name_data,
+│   │                                #   family_name_formatting, filename_safety, rename_filter, renamer
+│   └── pipeline/                    # 7 files: ai_analyzer, ai_batch, card_processor, ocr_engine,
+│                                    #   pdf_renderer, pdf_worker, rate_limit
+├── gui/                             # 20 test files
+│   ├── conftest.py                  # GUI-specific fixtures
+│   ├── test_api_key_dialog.py       # API key prompt dialog
+│   ├── test_appearance.py           # Dark/light mode appearance
+│   ├── test_changelog_dialog.py     # Changelog viewer dialog
+│   ├── test_context_menu.py         # Right-click context menu
+│   ├── test_cursors.py              # Cursor state management
+│   ├── test_dialogs.py              # Progress, rename, completion dialogs
+│   ├── test_drop_target.py          # Drag-and-drop target
+│   ├── test_filter_sidebar.py       # Sidebar filters and multi-select
+│   ├── test_help_dialog.py          # Help viewer and cross-page search
+│   ├── test_html_viewer.py          # WebView HTML viewer component
+│   ├── test_icons.py                # SF Symbol icon loading
+│   ├── test_licenses_dialog.py      # Licenses viewer dialog
+│   ├── test_main_window.py          # Main window integration
+│   ├── test_preview_cursor_behavior.py # Preview cursor and modifier keys
+│   ├── test_preview_panel.py        # Preview panel and zoom/pan
+│   ├── test_review_panel.py         # Card list and detail panel
+│   ├── test_settings_dialog.py      # Preferences editor
+│   ├── test_styles.py               # Style constants
+│   ├── test_toolbar.py              # Native toolbar buttons and state
+│   └── test_utils.py                # wxPython utility functions
+└── scripts/
+    ├── test_helpers.py              # script_output_dir lifecycle
+    ├── build_family_name_db/        # merger, unicode, Census/Faker/Smashew sources
+    ├── dmg/                         # readme RTF, background PNG, dmgbuild orchestration
+    ├── generate_diagnostic_cards/   # CLI argument parsing, PDF creation
+    └── generate_sample_cards/       # models, display, pdf_composer, image_generator,
+                                     #   spec_generator, cli; spec_generators/ sub-package
 ```
 
 ### Running Tests
@@ -215,13 +236,16 @@ tests/
 ### Current Coverage
 
 - **1970 tests** covering core logic, GUI components, and scripts
-- **Core** (pipeline/, naming/, content/ sub-packages + top-level): AI analysis, card model, changelog, changelog models,
-  config, database, family name cleaning, family name data, family name formatting, filename safety, help builder,
-  license HTML, license models, license sync, name extraction, OCR engine, paths, PDF rendering, PDF worker, renamer,
-  rename filter, template environment, version
-- **GUI** (18 test files): API key dialog, appearance, changelog dialog, context menu, cursors, dialogs, filter sidebar,
-  help dialog, HTML viewer, icons, licenses dialog, main window, preview cursor behavior, preview panel, review panel,
-  settings, styles, utilities
+- **Core** (pipeline/, naming/, content/ sub-packages + top-level): AI analysis, AI batch, card model, card processor,
+  changelog, changelog models, config, database, family name cleaning, family name data, family name formatting,
+  filename safety, help builder, license HTML, license models, license sync, name extraction, OCR engine, paths,
+  PDF rendering, PDF worker, rate limit, renamer, rename filter, template environment, version
+- **GUI** (20 test files): API key dialog, appearance, changelog dialog, context menu, cursors, dialogs, drop target,
+  filter sidebar, help dialog, HTML viewer, icons, licenses dialog, main window, preview cursor behavior, preview panel,
+  review panel, settings, styles, toolbar, utilities
+- **Scripts** (tests/scripts/): helpers, build_family_name_db (merger, unicode, Census/Faker/Smashew sources), dmg
+  (readme RTF, background PNG, dmgbuild orchestration), generate_diagnostic_cards (CLI), generate_sample_cards
+  (models, display, pdf_composer, image_generator, spec_generator, cli, spec_generators/ sub-package)
 
 ### Adding Tests
 
@@ -346,6 +370,16 @@ uv run python -m scripts.profiling ~/Desktop/Cards
 ```bash
 uv run python -m scripts.build_family_name_db
 ```
+
+### DMG Installer
+
+`dmg` builds the distributable macOS DMG installer from the current `.app` bundle.
+
+```bash
+uv run python -m scripts.dmg
+```
+
+This is also available as `make dmg`, which builds the `.app` bundle first if needed.
 
 ## IDE Setup (PyCharm)
 
