@@ -32,6 +32,13 @@ notes = "Bundled via tesserocr (library, data files, and transitive dependencies
 url = "https://github.com/tesseract-ocr/tesseract"
 
 [[system]]
+slug = "tzdata"
+display = "tzdata"
+license_type = "Apache 2.0"
+notes = "IANA time zone database for Python"
+url = "https://github.com/python/tzdata"
+
+[[system]]
 slug = "leptonica"
 display = "Leptonica"
 license_type = "BSD-2-Clause"
