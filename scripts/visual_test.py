@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 import wx
 
 if TYPE_CHECKING:
-    from app.gui.filter_sidebar import FilterSidebar
+    from app.gui.components.filter_sidebar import FilterSidebar
 
 from app.gui import appearance  # type: ignore[attr-defined]
 from app.gui.icons import clear_cache
@@ -530,7 +530,7 @@ class VisualTestFrame(wx.Frame):
             self._progress_dlg.Destroy()
 
     def _open_api_key(self, _evt: wx.CommandEvent) -> None:
-        from app.gui.api_key_dialog import show_api_key_dialog
+        from app.gui.dialogs.api_key import show_api_key_dialog
 
         result = show_api_key_dialog(self)
         if result:
@@ -539,7 +539,7 @@ class VisualTestFrame(wx.Frame):
             wx.MessageBox("Cancelled", "API Key Result")
 
     def _open_settings(self, _evt: wx.CommandEvent) -> None:
-        from app.gui.settings_dialog import create_preferences_editor
+        from app.gui.dialogs.settings import create_preferences_editor
 
         if self._prefs_editor is None:
             self._prefs_editor = create_preferences_editor(on_db_reset=lambda: None)
@@ -548,24 +548,24 @@ class VisualTestFrame(wx.Frame):
     # -- HTML Viewer launchers --
 
     def _open_help(self, _evt: wx.CommandEvent) -> None:
-        from app.gui.help_dialog import show_help
+        from app.gui.dialogs.help import show_help
 
         show_help(self)
 
     def _open_changelog(self, _evt: wx.CommandEvent) -> None:
-        from app.gui.changelog_dialog import show_changelog
+        from app.gui.dialogs.changelog import show_changelog
 
         show_changelog(self)
 
     def _open_licenses(self, _evt: wx.CommandEvent) -> None:
-        from app.gui.licenses_dialog import show_licenses
+        from app.gui.dialogs.licenses import show_licenses
 
         show_licenses(self)
 
     # -- Panel launchers (in standalone frames) --
 
     def _open_filter_sidebar(self, _evt: wx.CommandEvent) -> None:
-        from app.gui.filter_sidebar import FilterSidebar
+        from app.gui.components.filter_sidebar import FilterSidebar
 
         frame = wx.Frame(self, title="Filter Sidebar", size=wx.Size(250, 500))
         sidebar = FilterSidebar(
@@ -582,7 +582,7 @@ class VisualTestFrame(wx.Frame):
         frame.Show()
 
     def _open_preview_panel(self, _evt: wx.CommandEvent) -> None:
-        from app.gui.preview_panel import PreviewPanel
+        from app.gui.components.preview_panel import PreviewPanel
 
         frame = wx.Frame(self, title="Preview Panel", size=wx.Size(500, 600))
         panel = PreviewPanel(frame)
@@ -592,7 +592,7 @@ class VisualTestFrame(wx.Frame):
         frame.Show()
 
     def _open_review_panel(self, _evt: wx.CommandEvent) -> None:
-        from app.gui.review_panel import ReviewPanelMasterDetail
+        from app.gui.components.review_panel import ReviewPanelMasterDetail
 
         frame = wx.Frame(self, title="Review Panel", size=wx.Size(700, 500))
         _noop = print  # Avoid verbose lambda type issues

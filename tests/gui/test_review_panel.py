@@ -7,7 +7,7 @@ import pytest
 import wx
 import wx.dataview as dv
 
-from app.gui.review_panel import (
+from app.gui.components.review_panel import (
     CardListModel,
     DetailPanel,
     ReviewPanelMasterDetail,
@@ -1433,7 +1433,7 @@ class TestContextMenu:
         # Open is after AI Analyze + separator
         open_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Open"][0]
 
-        with patch("app.gui.review_panel.subprocess.Popen") as mock_popen:
+        with patch("app.gui.components.review_panel.subprocess.Popen") as mock_popen:
             event = wx.CommandEvent(wx.wxEVT_MENU, open_item.GetId())
             menu.ProcessEvent(event)
 
@@ -1452,7 +1452,7 @@ class TestContextMenu:
         menu = panel._build_context_menu([card])
         reveal_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Reveal in Finder"][0]
 
-        with patch("app.gui.review_panel.subprocess.Popen") as mock_popen:
+        with patch("app.gui.components.review_panel.subprocess.Popen") as mock_popen:
             event = wx.CommandEvent(wx.wxEVT_MENU, reveal_item.GetId())
             menu.ProcessEvent(event)
 
@@ -1471,7 +1471,7 @@ class TestContextMenu:
         menu = panel._build_context_menu([mock_cards[0], mock_cards[1]])
         open_item = [it for it in menu.GetMenuItems() if "Open" in it.GetItemLabelText()][0]
 
-        with patch("app.gui.review_panel.subprocess.Popen") as mock_popen:
+        with patch("app.gui.components.review_panel.subprocess.Popen") as mock_popen:
             event = wx.CommandEvent(wx.wxEVT_MENU, open_item.GetId())
             menu.ProcessEvent(event)
 
@@ -1682,7 +1682,7 @@ class TestDetailPanelEdgeCases:
     def test_make_action_button_without_icon(self, parent_frame):
         """_make_action_button falls back to text-only button when icon is None (line 213)."""
         detail = DetailPanel(parent_frame, None, None, None, None)
-        with patch("app.gui.review_panel.load_sf_symbol", return_value=None):
+        with patch("app.gui.components.review_panel.load_sf_symbol", return_value=None):
             btn = detail._make_action_button("nonexistent.icon", "Test", lambda e: None)
         assert btn.GetLabel() == "Test"
 

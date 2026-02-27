@@ -12,14 +12,14 @@ from app.core.help_builder import (
     get_page_order,
 )
 from app.core.paths import get_runtime_content_path
-from app.gui.help_dialog import show_help
-from app.gui.html_viewer import (
+from app.gui.components.html_viewer import (
     _build_page_index,
     _count_occurrences,
     _PageMatch,
     _TextExtractor,
     _viewer_refs,
 )
+from app.gui.dialogs.help import show_help
 
 
 def _get_help_base_path() -> Path:

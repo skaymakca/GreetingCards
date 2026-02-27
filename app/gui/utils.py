@@ -11,6 +11,11 @@ from AppKit import NSModalResponseOK, NSOpenPanel  # type: ignore[import-untyped
 from PIL import Image
 
 
+def plural(count: int, word: str) -> str:
+    """Return e.g. '3 cards' or '1 card'."""
+    return f"{count} {word}{'s' if count != 1 else ''}"
+
+
 def open_files_and_folders(message: str, file_types: list[str]) -> list[Path]:
     """Show a native macOS open panel that can select both files and folders.
 

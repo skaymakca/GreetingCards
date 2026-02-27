@@ -6,7 +6,7 @@ import pytest
 import wx
 from PIL import Image
 
-from app.gui.preview_panel import PreviewPanel
+from app.gui.components.preview_panel import PreviewPanel
 
 
 @pytest.fixture

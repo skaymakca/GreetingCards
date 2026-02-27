@@ -4,7 +4,7 @@ import wx
 
 from app.core.license_discovery import get_page_order
 from app.core.paths import get_runtime_content_path
-from app.gui.html_viewer import show_viewer
+from app.gui.components.html_viewer import show_viewer
 
 
 def show_licenses(parent: wx.Window) -> None:

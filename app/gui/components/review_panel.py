@@ -32,12 +32,13 @@ from pathlib import Path
 import wx
 import wx.dataview as dv
 
-logger = logging.getLogger(__name__)
 from app.gui.context_menu import add_entry_context_menu
 from app.gui.icons import load_menu_icon, load_sf_symbol
 from app.gui.styles import Color, Font, Layout
 from app.gui.utils import create_static_text
 from app.models.card import CardResult, Confidence
+
+logger = logging.getLogger(__name__)
 
 
 class _ConfidenceLegendPopup(wx.PopupWindow):

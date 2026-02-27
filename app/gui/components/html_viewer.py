@@ -493,10 +493,10 @@ def build_help_menu(frame: wx.Frame) -> wx.Menu:
     are parented correctly.
     """
     from app.core.config import GITHUB_URL
-    from app.gui.changelog_dialog import show_changelog
-    from app.gui.help_dialog import show_help
+    from app.gui.dialogs.changelog import show_changelog
+    from app.gui.dialogs.help import show_help
+    from app.gui.dialogs.licenses import show_licenses
     from app.gui.icons import load_menu_icon
-    from app.gui.licenses_dialog import show_licenses
 
     parent = frame.GetParent() or frame
 

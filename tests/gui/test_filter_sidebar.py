@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import wx
 
-from app.gui.filter_sidebar import FilterSidebar
+from app.gui.components.filter_sidebar import FilterSidebar
 from app.models.card import CardResult, Confidence
 
 

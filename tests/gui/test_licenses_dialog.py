@@ -33,8 +33,8 @@ from app.core.license_models import (
     SystemDep,
 )
 from app.core.paths import get_runtime_content_path
-from app.gui.html_viewer import _viewer_refs
-from app.gui.licenses_dialog import show_licenses
+from app.gui.components.html_viewer import _viewer_refs
+from app.gui.dialogs.licenses import show_licenses
 
 # --- Shared fixtures ---
 

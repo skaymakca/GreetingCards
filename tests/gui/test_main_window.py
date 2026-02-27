@@ -6,6 +6,7 @@ from unittest.mock import Mock
 import pytest
 import wx
 
+from app.core.card_processor import derive_folders, load_card_state_from_db, scan_for_pdfs, worker_result_to_card
 from app.gui.main_window import FileDropTarget, MainWindow
 
 
@@ -250,15 +251,13 @@ def test_processing_progress_without_dialog(wx_app):
     window._frame.Destroy()
 
 
-def test_worker_result_to_card_conversion(wx_app):
+def test_worker_result_to_card_conversion():
     """Test conversion of PdfWorkerResult to CardResult."""
     import io
 
     from PIL import Image
 
     from app.models.card import PdfWorkerResult
-
-    window = MainWindow()
 
     # Create test image bytes
     img = Image.new("RGB", (100, 100), color="white")
@@ -282,7 +281,7 @@ def test_worker_result_to_card_conversion(wx_app):
         page_images_bytes=[img_bytes],
     )
 
-    card = window._worker_result_to_card(worker_result, card_id=1)
+    card = worker_result_to_card(worker_result, card_id=1)
 
     assert card.id == 1
     assert card.filename == "card.pdf"
@@ -291,14 +290,10 @@ def test_worker_result_to_card_conversion(wx_app):
     assert card.preview_image is not None
     assert len(card.page_images) == 1
 
-    window._frame.Destroy()
 
-
-def test_worker_result_to_card_error_preserves_fields(wx_app):
+def test_worker_result_to_card_error_preserves_fields():
     """Test conversion handles error cards with null hash."""
     from app.models.card import PdfWorkerResult
-
-    window = MainWindow()
 
     worker_result = PdfWorkerResult(
         pdf_path="/test/card.pdf",
@@ -309,13 +304,11 @@ def test_worker_result_to_card_error_preserves_fields(wx_app):
         error="Failed to process",
     )
 
-    card = window._worker_result_to_card(worker_result, card_id=1)
+    card = worker_result_to_card(worker_result, card_id=1)
 
     assert card.error == "Failed to process"
     assert card.confidence.value == "none"
     assert card.file_hash == ""
-
-    window._frame.Destroy()
 
 
 def test_search_control_exists(wx_app):
@@ -574,7 +567,7 @@ def test_viewer_frame_has_close_and_find_menus(wx_app):
     """Viewer frames have their own menu bar with Close (Cmd+W) and Find (Cmd+F)."""
     import tempfile
 
-    from app.gui.html_viewer import HTMLViewerWindow
+    from app.gui.components.html_viewer import HTMLViewerWindow
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmppath = Path(tmpdir)
@@ -900,28 +893,19 @@ def test_both_filters_intersection(wx_app):
     window._frame.Destroy()
 
 
-def test_derive_folders(wx_app):
-    """Test _derive_folders returns sorted unique parent paths."""
+def test_derive_folders():
+    """Test derive_folders returns sorted unique parent paths."""
     from app.models.card import CardResult
-
-    window = MainWindow()
 
     folder_a = Path("/test/aaa")
     folder_b = Path("/test/bbb")
 
     card1 = CardResult(id=0, file_paths=[folder_b / "x.pdf"], primary_path=folder_b / "x.pdf")
-    card1.file_hash = "h1"
     card2 = CardResult(id=1, file_paths=[folder_a / "y.pdf"], primary_path=folder_a / "y.pdf")
-    card2.file_hash = "h2"
     card3 = CardResult(id=2, file_paths=[folder_b / "z.pdf"], primary_path=folder_b / "z.pdf")
-    card3.file_hash = "h3"
 
-    window._cards_by_hash = {"h1": card1, "h2": card2, "h3": card3}
-
-    folders = window._derive_folders()
+    folders = derive_folders([card1, card2, card3])
     assert folders == [folder_a, folder_b]  # sorted, unique
-
-    window._frame.Destroy()
 
 
 def test_clear_all_hides_folders(wx_app):
@@ -1530,7 +1514,7 @@ def test_on_name_change_revert_to_original(wx_app):
 
     with (
         patch("app.gui.main_window.set_manual_name"),
-        patch("app.gui.main_window.get_card_state", return_value=mock_state),
+        patch("app.core.card_processor.get_card_state", return_value=mock_state),
     ):
         window._on_name_change(0, "")
 
@@ -1572,7 +1556,7 @@ def test_on_name_change_revert_ai_analyzed(wx_app):
 
     with (
         patch("app.gui.main_window.set_manual_name"),
-        patch("app.gui.main_window.get_card_state", return_value=mock_state),
+        patch("app.core.card_processor.get_card_state", return_value=mock_state),
     ):
         window._on_name_change(0, "")
 
@@ -1598,7 +1582,10 @@ def test_on_name_change_revert_no_original_confidence(wx_app):
     window._cards_by_hash = {"h1": card}
     window._hash_by_path = {Path("/test/card.pdf"): "h1"}
 
-    with patch("app.gui.main_window.set_manual_name"), patch("app.gui.main_window.get_card_state", return_value=None):
+    with (
+        patch("app.gui.main_window.set_manual_name"),
+        patch("app.core.card_processor.get_card_state", return_value=None),
+    ):
         window._on_name_change(0, "")
 
     assert card.confidence == Confidence.NONE
@@ -1661,74 +1648,61 @@ def test_year_validation_accepts_valid(wx_app):
 
 
 # ============================================================================
-# _scan_for_pdfs Tests (lines 704-718)
+# scan_for_pdfs Tests
 # ============================================================================
 
 
-def test_scan_for_pdfs_file(wx_app, tmp_path):
-    """_scan_for_pdfs returns a single PDF file."""
-    window = MainWindow()
+def test_scan_for_pdfs_file(tmp_path):
+    """scan_for_pdfs returns a single PDF file."""
     pdf = tmp_path / "test.pdf"
     pdf.write_text("fake pdf")
 
-    result = window._scan_for_pdfs(pdf)
+    result = scan_for_pdfs(pdf)
     assert len(result) == 1
     assert result[0] == pdf.resolve()
 
-    window._frame.Destroy()
 
-
-def test_scan_for_pdfs_non_pdf_file(wx_app, tmp_path):
-    """_scan_for_pdfs returns empty for non-PDF files."""
-    window = MainWindow()
+def test_scan_for_pdfs_non_pdf_file(tmp_path):
+    """scan_for_pdfs returns empty for non-PDF files."""
     txt = tmp_path / "test.txt"
     txt.write_text("not a pdf")
 
-    result = window._scan_for_pdfs(txt)
+    result = scan_for_pdfs(txt)
     assert result == []
 
-    window._frame.Destroy()
 
-
-def test_scan_for_pdfs_directory(wx_app, tmp_path):
-    """_scan_for_pdfs recursively scans directory for PDFs."""
-    window = MainWindow()
+def test_scan_for_pdfs_directory(tmp_path):
+    """scan_for_pdfs recursively scans directory for PDFs."""
     sub = tmp_path / "subdir"
     sub.mkdir()
     (tmp_path / "a.pdf").write_text("fake")
     (sub / "b.pdf").write_text("fake")
     (sub / "c.txt").write_text("not pdf")
 
-    result = window._scan_for_pdfs(tmp_path)
+    result = scan_for_pdfs(tmp_path)
     assert len(result) == 2
     names = [p.name for p in result]
     assert "a.pdf" in names
     assert "b.pdf" in names
 
-    window._frame.Destroy()
 
-
-def test_scan_for_pdfs_case_insensitive(wx_app, tmp_path):
-    """_scan_for_pdfs finds .PDF files (case insensitive)."""
-    window = MainWindow()
+def test_scan_for_pdfs_case_insensitive(tmp_path):
+    """scan_for_pdfs finds .PDF files (case insensitive)."""
     (tmp_path / "upper.PDF").write_text("fake")
 
-    result = window._scan_for_pdfs(tmp_path)
+    result = scan_for_pdfs(tmp_path)
     assert len(result) == 1
 
-    window._frame.Destroy()
-
 
 # ============================================================================
-# _worker_result_to_card Tests
+# worker_result_to_card Tests
 # ============================================================================
 
 
-def test_worker_result_to_card_invalid_confidence(wx_app):
-    """_worker_result_to_card falls back to NONE for invalid confidence."""
+def test_worker_result_to_card_invalid_confidence():
+    """worker_result_to_card falls back to NONE for invalid confidence."""
     from app.models.card import Confidence, PdfWorkerResult
 
-    window = MainWindow()
     worker_result = PdfWorkerResult(
         pdf_path="/test.pdf",
         file_hash="abc123",
@@ -1737,17 +1711,14 @@ def test_worker_result_to_card_invalid_confidence(wx_app):
         method="ocr",
     )
 
-    card = window._worker_result_to_card(worker_result, 0)
+    card = worker_result_to_card(worker_result, 0)
     assert card.confidence == Confidence.NONE
 
-    window._frame.Destroy()
 
-
-def test_worker_result_to_card_with_error(wx_app):
-    """_worker_result_to_card sets error and confidence=NONE when error is present."""
+def test_worker_result_to_card_with_error():
+    """worker_result_to_card sets error and confidence=NONE when error is present."""
     from app.models.card import Confidence, PdfWorkerResult
 
-    window = MainWindow()
     worker_result = PdfWorkerResult(
         pdf_path="/test.pdf",
         file_hash="abc123",
@@ -1756,37 +1727,33 @@ def test_worker_result_to_card_with_error(wx_app):
         error="Something broke",
     )
 
-    card = window._worker_result_to_card(worker_result, 0)
+    card = worker_result_to_card(worker_result, 0)
     assert card.error == "Something broke"
     assert card.confidence == Confidence.NONE
 
-    window._frame.Destroy()
-
 
 # ============================================================================
-# _load_card_state_from_db Tests (lines 1218-1238)
+# load_card_state_from_db Tests
 # ============================================================================
 
 
-def test_load_card_state_from_db_no_hash(wx_app):
-    """_load_card_state_from_db sets NONE confidence when no hash (lines 1218-1221)."""
-    from app.gui.main_window import MainWindow
+def test_load_card_state_from_db_no_hash():
+    """load_card_state_from_db sets NONE confidence when no hash."""
     from app.models.card import CardResult, Confidence
 
     card = CardResult(id=0, file_paths=[Path("/test.pdf")], primary_path=Path("/test.pdf"))
     card.file_hash = ""
 
-    MainWindow._load_card_state_from_db(card)
+    load_card_state_from_db(card)
 
     assert card.confidence == Confidence.NONE
     assert card.ai_analyzed is True
 
 
-def test_load_card_state_from_db_with_state(wx_app):
-    """_load_card_state_from_db populates card from DB state (lines 1224-1235)."""
+def test_load_card_state_from_db_with_state():
+    """load_card_state_from_db populates card from DB state."""
     from unittest.mock import patch
 
-    from app.gui.main_window import MainWindow
     from app.models.card import CandidateInfo, CardResult, CardState, Confidence
 
     card = CardResult(id=0, file_paths=[Path("/test.pdf")], primary_path=Path("/test.pdf"))
@@ -1801,8 +1768,8 @@ def test_load_card_state_from_db_with_state(wx_app):
         selected_candidate_id=1,
     )
 
-    with patch("app.gui.main_window.get_card_state", return_value=mock_state):
-        MainWindow._load_card_state_from_db(card)
+    with patch("app.core.card_processor.get_card_state", return_value=mock_state):
+        load_card_state_from_db(card)
 
     assert card.family_name == "Smith"
     assert card.confidence == Confidence.HIGH
@@ -1812,18 +1779,17 @@ def test_load_card_state_from_db_with_state(wx_app):
     assert card.manual_override == ""
 
 
-def test_load_card_state_from_db_no_state(wx_app):
-    """_load_card_state_from_db sets ai_analyzed when no state found (line 1237)."""
+def test_load_card_state_from_db_no_state():
+    """load_card_state_from_db sets ai_analyzed when no state found."""
     from unittest.mock import patch
 
-    from app.gui.main_window import MainWindow
     from app.models.card import CardResult
 
     card = CardResult(id=0, file_paths=[Path("/test.pdf")], primary_path=Path("/test.pdf"))
     card.file_hash = "abc123"
 
-    with patch("app.gui.main_window.get_card_state", return_value=None):
-        MainWindow._load_card_state_from_db(card)
+    with patch("app.core.card_processor.get_card_state", return_value=None):
+        load_card_state_from_db(card)
 
     assert card.ai_analyzed is True
 
@@ -2477,7 +2443,7 @@ def test_reload_toolbar_in_icon_map(wx_app):
     # Verify _reload_id is in the icon map (tested via _refresh_toolbar_icons)
     from unittest.mock import patch
 
-    with patch("app.gui.main_window.load_sf_symbol", return_value=None) as mock_load:
+    with patch("app.gui.components.toolbar.load_sf_symbol", return_value=None) as mock_load:
         window._refresh_toolbar_icons()
         # Check arrow.clockwise was requested
         symbol_names = [call.args[0] for call in mock_load.call_args_list]
@@ -2622,7 +2588,7 @@ class TestRateLimitGate:
         """Gate does not block when no pause has been set."""
         import time
 
-        from app.gui.main_window import _RateLimitGate
+        from app.core.rate_limit import RateLimitGate as _RateLimitGate
 
         gate = _RateLimitGate()
         before = time.monotonic()
@@ -2635,7 +2601,7 @@ class TestRateLimitGate:
         """Gate waits for the paused duration."""
         import time
 
-        from app.gui.main_window import _RateLimitGate
+        from app.core.rate_limit import RateLimitGate as _RateLimitGate
 
         gate = _RateLimitGate()
         gate.pause(0.2)
@@ -2649,7 +2615,7 @@ class TestRateLimitGate:
         """Multiple pauses keep the longest remaining duration."""
         import time
 
-        from app.gui.main_window import _RateLimitGate
+        from app.core.rate_limit import RateLimitGate as _RateLimitGate
 
         gate = _RateLimitGate()
         gate.pause(0.1)
@@ -2690,7 +2656,7 @@ class TestAiRetryBehavior:
         import anthropic
 
         from app.core.ai_analyzer import AIResult
-        from app.gui.main_window import _RateLimitGate
+        from app.core.rate_limit import RateLimitGate as _RateLimitGate
 
         card = self._make_card()
 
@@ -2707,11 +2673,11 @@ class TestAiRetryBehavior:
         errors: list[tuple[str, str]] = []
 
         with (
-            patch("app.gui.main_window.analyze_card_with_ai_async", mock_analyze),
-            patch("app.gui.main_window.get_card_state", return_value=None),
-            patch("app.gui.main_window.save_raw_ai"),
-            patch("app.gui.main_window.reprocess_candidates_from_raw"),
-            patch("app.gui.main_window.parse_retry_after", return_value=0.05),
+            patch("app.core.ai_batch.analyze_card_with_ai_async", mock_analyze),
+            patch("app.core.card_processor.get_card_state", return_value=None),
+            patch("app.core.ai_batch.save_raw_ai"),
+            patch("app.core.ai_batch.reprocess_candidates_from_raw"),
+            patch("app.core.ai_batch.parse_retry_after", return_value=0.05),
         ):
             for attempt in range(2):
                 await gate.wait_if_paused()
@@ -2740,7 +2706,7 @@ class TestAiRetryBehavior:
         import anthropic
 
         from app.core.ai_analyzer import AIResult
-        from app.gui.main_window import _RateLimitGate
+        from app.core.rate_limit import RateLimitGate as _RateLimitGate
 
         card = self._make_card()
 
@@ -2772,7 +2738,7 @@ class TestAiRetryBehavior:
         import asyncio
         from unittest.mock import AsyncMock, patch
 
-        from app.gui.main_window import _RateLimitGate
+        from app.core.rate_limit import RateLimitGate as _RateLimitGate
 
         card = self._make_card()
 
@@ -2803,7 +2769,7 @@ class TestAiRetryBehavior:
 
         import anthropic
 
-        from app.gui.main_window import _RateLimitGate
+        from app.core.rate_limit import RateLimitGate as _RateLimitGate
 
         card = self._make_card()
 

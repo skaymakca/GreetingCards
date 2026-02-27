@@ -6,8 +6,7 @@ from unittest.mock import patch
 import pytest
 import wx
 
-from app.gui import html_viewer
-from app.gui.html_viewer import (
+from app.gui.components.html_viewer import (
     _MIN_SEARCH_LEN,
     HTMLViewerWindow,
     _build_page_index,

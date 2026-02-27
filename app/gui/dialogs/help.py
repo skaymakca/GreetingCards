@@ -4,7 +4,7 @@ import wx
 
 from app.core.help_builder import get_page_order
 from app.core.paths import get_runtime_content_path
-from app.gui.html_viewer import show_viewer
+from app.gui.components.html_viewer import show_viewer
 
 
 def show_help(parent: wx.Window) -> None:
