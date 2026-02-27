@@ -20,7 +20,7 @@ class TestDeduplicateEmptyName:
         # The possessive pattern captures single-char 'A' from "A's" which
         # _is_valid_name rejects (len < 2), so we need a different approach.
         # Instead, test directly: if a match somehow has name="" it gets filtered.
-        from app.core.name_extractor import extract_family_names
+        from app.core.naming.extractor import extract_family_names
 
         # "The Family" -> pattern captures group(1) which is empty/greeting
         # after _clean_name. The easiest trigger is text with no valid names.

@@ -144,9 +144,9 @@ class TestGenerateHelpHtmlEntryPoint:
         """Set up tmp_path as a fake project root and return a patcher."""
         from unittest.mock import patch
 
-        import app.core.help_builder as hb
+        import app.core.content.help_builder as hb
 
-        fake_file = str(tmp_path / "app" / "core" / "help_builder.py")
+        fake_file = str(tmp_path / "app" / "core" / "content" / "help_builder.py")
         return patch.object(hb, "__file__", fake_file)
 
     def test_generates_output_files(self, tmp_path):

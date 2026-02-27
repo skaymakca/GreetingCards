@@ -514,7 +514,7 @@ class TestFindAvailableNameSafetyLimit:
 
     def test_safety_limit(self):
         """When all numbered slots are taken, raises RuntimeError."""
-        from app.core.renamer import _MAX_DUPLICATE_NUMBER, _find_available_name
+        from app.core.naming.renamer import _MAX_DUPLICATE_NUMBER, _find_available_name
 
         # Create a set with all numbered slots taken
         existing = {f"smith ({n}).pdf" for n in range(2, _MAX_DUPLICATE_NUMBER + 1)}

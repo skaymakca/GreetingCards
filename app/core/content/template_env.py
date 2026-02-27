@@ -9,7 +9,7 @@ from pathlib import Path
 
 import jinja2
 
-_TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "content" / "html" / "templates"
+_TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent.parent / "content" / "html" / "templates"
 
 jinja_env = jinja2.Environment(
     loader=jinja2.FileSystemLoader(str(_TEMPLATES_DIR)),

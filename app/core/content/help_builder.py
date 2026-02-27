@@ -153,7 +153,7 @@ def _read_help_pages(content_dir: Path) -> list[_HelpPage]:
 
 def generate_help_html() -> None:
     """Entry point for Makefile — generate help HTML from Markdown pages."""
-    project_root = Path(__file__).resolve().parent.parent.parent
+    project_root = Path(__file__).resolve().parent.parent.parent.parent
     content_dir = project_root / "content" / "html"
     output_dir = project_root / "_build" / "runtime_content" / "html" / "help"
 

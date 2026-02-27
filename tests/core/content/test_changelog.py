@@ -159,7 +159,7 @@ class TestGenerateChangelogHtmlEntryPoint:
         (tmp_path / "CHANGELOG.md").write_text(changelog_content, encoding="utf-8")
 
         # Mock _get_project_root to return tmp_path
-        with patch("app.core.changelog._get_project_root", return_value=tmp_path):
+        with patch("app.core.content.changelog._get_project_root", return_value=tmp_path):
             generate_changelog_html()
 
         # Verify output directory structure
@@ -171,7 +171,7 @@ class TestGenerateChangelogHtmlEntryPoint:
         changelog_content = "## 0.9.0 — Initial (2026-02-01)\n\n- Feature A\n"
         (tmp_path / "CHANGELOG.md").write_text(changelog_content, encoding="utf-8")
 
-        with patch("app.core.changelog._get_project_root", return_value=tmp_path):
+        with patch("app.core.content.changelog._get_project_root", return_value=tmp_path):
             generate_changelog_html()
 
         output_dir = tmp_path / "_build" / "runtime_content" / "html" / "changelog"
@@ -186,7 +186,7 @@ class TestGenerateChangelogHtmlEntryPoint:
         )
         (tmp_path / "CHANGELOG.md").write_text(changelog_content, encoding="utf-8")
 
-        with patch("app.core.changelog._get_project_root", return_value=tmp_path):
+        with patch("app.core.content.changelog._get_project_root", return_value=tmp_path):
             generate_changelog_html()
 
         output_dir = tmp_path / "_build" / "runtime_content" / "html" / "changelog"
@@ -202,7 +202,7 @@ class TestGenerateChangelogHtmlEntryPoint:
         )
         (tmp_path / "CHANGELOG.md").write_text(changelog_content, encoding="utf-8")
 
-        with patch("app.core.changelog._get_project_root", return_value=tmp_path):
+        with patch("app.core.content.changelog._get_project_root", return_value=tmp_path):
             generate_changelog_html()
 
         output_dir = tmp_path / "_build" / "runtime_content" / "html" / "changelog"
@@ -221,7 +221,7 @@ class TestGenerateChangelogHtmlEntryPoint:
         )
         (tmp_path / "CHANGELOG.md").write_text(changelog_content, encoding="utf-8")
 
-        with patch("app.core.changelog._get_project_root", return_value=tmp_path):
+        with patch("app.core.content.changelog._get_project_root", return_value=tmp_path):
             generate_changelog_html()
 
         output_dir = tmp_path / "_build" / "runtime_content" / "html" / "changelog"
@@ -236,7 +236,7 @@ class TestGenerateChangelogHtmlEntryPoint:
         changelog_content = "## 0.9.0 — Test Version (2026-02-01)\n\n- Important feature here\n"
         (tmp_path / "CHANGELOG.md").write_text(changelog_content, encoding="utf-8")
 
-        with patch("app.core.changelog._get_project_root", return_value=tmp_path):
+        with patch("app.core.content.changelog._get_project_root", return_value=tmp_path):
             generate_changelog_html()
 
         output_dir = tmp_path / "_build" / "runtime_content" / "html" / "changelog"

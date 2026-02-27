@@ -195,7 +195,7 @@ from app.core.content.template_env import get_page_order  # noqa: E402
 
 def _get_project_root() -> Path:
     """Return project root directory."""
-    return Path(__file__).resolve().parent.parent.parent
+    return Path(__file__).resolve().parent.parent.parent.parent
 
 
 def generate_changelog_html() -> None:
