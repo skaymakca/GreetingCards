@@ -555,7 +555,7 @@ class TestSearchChanged:
         """After debounce timer fires, search should execute."""
         frame = viewer_window.frame
         search_ctrl = _get_search_ctrl(frame)
-        webview = _get_webview(frame)
+        _get_webview(frame)
 
         # Simulate page loaded so page_ready is True
         _fire_page_loaded(frame)
@@ -866,7 +866,7 @@ class TestPageLoadPendingMarkFocus:
         frame = viewer_window.frame
         search_ctrl = _get_search_ctrl(frame)
         webview = _get_webview(frame)
-        tools = _get_named_tools(frame)
+        _get_named_tools(frame)
 
         # First, get page ready
         _fire_page_loaded(frame)
@@ -973,9 +973,7 @@ class TestTimerCleanup:
         frame.Destroy()
         _viewer_refs.pop(key, None)
 
-    def test_close_prevents_runscript_on_dead_webview(
-        self, wx_app, wx_frame, sample_html_dir, sample_page_order
-    ):
+    def test_close_prevents_runscript_on_dead_webview(self, wx_app, wx_frame, sample_html_dir, sample_page_order):
         """After close, page_ready should be False preventing RunScript calls."""
         key = "test-timer-pageready"
         _viewer_refs.pop(key, None)

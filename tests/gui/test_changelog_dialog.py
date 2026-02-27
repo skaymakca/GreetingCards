@@ -12,7 +12,6 @@ from app.core.content.changelog import (
 )
 from app.core.content.changelog_models import ChangelogGroup, ChangelogVersion
 
-
 # --- show_changelog dialog tests ---
 
 
@@ -74,6 +73,7 @@ class TestShowChangelog:
             show_changelog(mock_parent)
 
             mock_order.assert_called_once_with(sentinel_path)
+
 
 # --- CHANGELOG.md file tests ---
 

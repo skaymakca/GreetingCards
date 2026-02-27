@@ -2496,11 +2496,13 @@ class TestRefreshColors:
         panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
         panel.load_cards(mock_cards)
 
-        with patch.object(panel._detail_panel, "refresh_colors") as mock_detail_refresh:
-            with patch.object(panel._list_ctrl, "Refresh") as mock_list_refresh:
-                panel.refresh_colors()
-                mock_detail_refresh.assert_called_once()
-                mock_list_refresh.assert_called_once()
+        with (
+            patch.object(panel._detail_panel, "refresh_colors") as mock_detail_refresh,
+            patch.object(panel._list_ctrl, "Refresh") as mock_list_refresh,
+        ):
+            panel.refresh_colors()
+            mock_detail_refresh.assert_called_once()
+            mock_list_refresh.assert_called_once()
 
     def test_review_panel_refresh_colors_updates_header_labels(self, parent_frame, mock_cards):
         """refresh_colors sets TEXT_SECONDARY on header StaticText children."""
@@ -2594,7 +2596,9 @@ class TestSelectionValidationGuards:
         """_on_candidate with a label not in _candidate_map does nothing (line 542-544)."""
         called = []
         detail = DetailPanel(
-            parent_frame, None, None,
+            parent_frame,
+            None,
+            None,
             on_candidate_select=lambda cid, idx: called.append((cid, idx)),
             on_ai_request=None,
         )
@@ -2756,11 +2760,13 @@ class TestFileOpenReveal:
         menu = panel._build_context_menu([card])
         open_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Open"][0]
 
-        with patch("app.gui.components.review_panel.subprocess.Popen", side_effect=OSError("fail")):
-            with patch("app.gui.components.review_panel.logger") as mock_logger:
-                event = wx.CommandEvent(wx.wxEVT_MENU, open_item.GetId())
-                menu.ProcessEvent(event)
-                mock_logger.warning.assert_called_once()
+        with (
+            patch("app.gui.components.review_panel.subprocess.Popen", side_effect=OSError("fail")),
+            patch("app.gui.components.review_panel.logger") as mock_logger,
+        ):
+            event = wx.CommandEvent(wx.wxEVT_MENU, open_item.GetId())
+            menu.ProcessEvent(event)
+            mock_logger.warning.assert_called_once()
         menu.Destroy()
 
     def test_reveal_file_oserror_logged(self, parent_frame, mock_cards):
@@ -2773,11 +2779,13 @@ class TestFileOpenReveal:
         menu = panel._build_context_menu([card])
         reveal_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Reveal in Finder"][0]
 
-        with patch("app.gui.components.review_panel.subprocess.Popen", side_effect=OSError("fail")):
-            with patch("app.gui.components.review_panel.logger") as mock_logger:
-                event = wx.CommandEvent(wx.wxEVT_MENU, reveal_item.GetId())
-                menu.ProcessEvent(event)
-                mock_logger.warning.assert_called_once()
+        with (
+            patch("app.gui.components.review_panel.subprocess.Popen", side_effect=OSError("fail")),
+            patch("app.gui.components.review_panel.logger") as mock_logger,
+        ):
+            event = wx.CommandEvent(wx.wxEVT_MENU, reveal_item.GetId())
+            menu.ProcessEvent(event)
+            mock_logger.warning.assert_called_once()
         menu.Destroy()
 
 
@@ -2792,9 +2800,7 @@ class TestAIAnalyzeMenuBinding:
     def test_ai_analyze_disabled_when_locked(self, parent_frame, mock_cards):
         """AI Analyze menu item is disabled when AI buttons are locked."""
         on_ai_analyze = Mock()
-        panel = ReviewPanelMasterDetail(
-            parent_frame, Mock(), Mock(), on_remove=Mock(), on_ai_analyze=on_ai_analyze
-        )
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock(), on_ai_analyze=on_ai_analyze)
         mock_cards[0].file_hash = "test_hash"
         panel.load_cards(mock_cards)
         panel.set_ai_buttons_locked(True)
@@ -2808,9 +2814,7 @@ class TestAIAnalyzeMenuBinding:
     def test_ai_analyze_enabled_when_unlocked(self, parent_frame, mock_cards):
         """AI Analyze menu item is enabled when AI buttons are not locked."""
         on_ai_analyze = Mock()
-        panel = ReviewPanelMasterDetail(
-            parent_frame, Mock(), Mock(), on_remove=Mock(), on_ai_analyze=on_ai_analyze
-        )
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock(), on_ai_analyze=on_ai_analyze)
         mock_cards[0].file_hash = "test_hash"
         panel.load_cards(mock_cards)
         panel.set_ai_buttons_locked(False)
@@ -2823,9 +2827,7 @@ class TestAIAnalyzeMenuBinding:
     def test_ai_analyze_menu_binding_fires_callback(self, parent_frame, mock_cards):
         """AI Analyze menu item fires on_ai_analyze with captured card list."""
         on_ai_analyze = Mock()
-        panel = ReviewPanelMasterDetail(
-            parent_frame, Mock(), Mock(), on_remove=Mock(), on_ai_analyze=on_ai_analyze
-        )
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock(), on_ai_analyze=on_ai_analyze)
         mock_cards[0].file_hash = "test_hash"
         panel.load_cards(mock_cards)
 

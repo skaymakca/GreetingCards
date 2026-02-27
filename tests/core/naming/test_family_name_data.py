@@ -231,7 +231,9 @@ class TestFamilyNameDatabaseLoadEdgeCases:
         """Missing database file returns empty DB with a warning (lines 159-160)."""
         from unittest.mock import patch
 
-        with patch("app.core.naming.family_name.data.get_runtime_content_path", return_value=tmp_path / "nonexistent.tsv.gz"):
+        with patch(
+            "app.core.naming.family_name.data.get_runtime_content_path", return_value=tmp_path / "nonexistent.tsv.gz"
+        ):
             db = FamilyNameDatabase.load()
         assert len(db) == 0
 

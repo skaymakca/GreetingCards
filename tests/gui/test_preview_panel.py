@@ -842,14 +842,16 @@ def test_on_motion_guard_no_images(preview_panel):
     """Test _on_motion returns early when no images loaded."""
     preview_panel.clear()
 
-    with patch.object(preview_panel, "_update_cursor") as mock_cursor:
-        with patch.object(preview_panel, "_on_pan_drag") as mock_drag:
-            event = wx.MouseEvent(wx.wxEVT_MOTION)
-            event.SetPosition((150, 150))
-            preview_panel._on_motion(event)
+    with (
+        patch.object(preview_panel, "_update_cursor") as mock_cursor,
+        patch.object(preview_panel, "_on_pan_drag") as mock_drag,
+    ):
+        event = wx.MouseEvent(wx.wxEVT_MOTION)
+        event.SetPosition((150, 150))
+        preview_panel._on_motion(event)
 
-            mock_cursor.assert_not_called()
-            mock_drag.assert_not_called()
+        mock_cursor.assert_not_called()
+        mock_drag.assert_not_called()
 
 
 def test_modifier_timer_stop_when_no_app(preview_panel, sample_image):
@@ -913,12 +915,14 @@ def test_on_resize_no_action_when_empty(preview_panel):
     """Test _on_resize does nothing when no images and no error."""
     preview_panel.clear()
 
-    with patch.object(preview_panel._canvas, "Refresh") as mock_refresh:
-        with patch.object(preview_panel, "_render") as mock_render:
-            preview_panel._on_resize(None)
+    with (
+        patch.object(preview_panel._canvas, "Refresh") as mock_refresh,
+        patch.object(preview_panel, "_render") as mock_render,
+    ):
+        preview_panel._on_resize(None)
 
-            mock_refresh.assert_not_called()
-            mock_render.assert_not_called()
+        mock_refresh.assert_not_called()
+        mock_render.assert_not_called()
 
 
 def test_on_resize_skips_event(preview_panel, sample_image):
@@ -1007,7 +1011,7 @@ def test_apply_zoom_successive_multiplications(preview_panel, sample_image):
     second = preview_panel._zoom
 
     assert first == pytest.approx(fit_zoom * PreviewPanel.ZOOM_STEP)
-    assert second == pytest.approx(fit_zoom * PreviewPanel.ZOOM_STEP ** 2)
+    assert second == pytest.approx(fit_zoom * PreviewPanel.ZOOM_STEP**2)
 
 
 def test_paint_coordinate_calculation(preview_panel, sample_image):

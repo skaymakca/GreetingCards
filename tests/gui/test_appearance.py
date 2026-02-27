@@ -125,7 +125,7 @@ class TestAppearanceDelegate:
         with (
             patch.object(appearance, "NSApplication"),
             patch.object(appearance, "_AppearanceObserver") as mock_cls,
-            patch.object(appearance, "wx") as mock_wx,
+            patch.object(appearance, "wx"),
         ):
             # Create a real-ish observer instance that stores callback
             mock_instance = MagicMock()

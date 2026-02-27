@@ -235,7 +235,9 @@ class TestRunAiBatchAsync:
 
         with (
             patch("app.core.pipeline.ai_batch.get_card_state", return_value=None),
-            patch("app.core.pipeline.ai_batch.analyze_card_with_ai_async", AsyncMock(return_value=AIResult(best_name="X"))),
+            patch(
+                "app.core.pipeline.ai_batch.analyze_card_with_ai_async", AsyncMock(return_value=AIResult(best_name="X"))
+            ),
             patch("app.core.pipeline.ai_batch.save_raw_ai"),
             patch("app.core.pipeline.ai_batch.reprocess_candidates_from_raw"),
             patch("app.core.pipeline.ai_batch.load_card_state_from_db"),
@@ -347,7 +349,9 @@ class TestRunAiBatchAsync:
 
         with (
             patch("app.core.pipeline.ai_batch.get_card_state", return_value=None),
-            patch("app.core.pipeline.ai_batch.analyze_card_with_ai_async", AsyncMock(return_value=mock_result)) as mock_ai,
+            patch(
+                "app.core.pipeline.ai_batch.analyze_card_with_ai_async", AsyncMock(return_value=mock_result)
+            ) as mock_ai,
             patch("app.core.pipeline.ai_batch.save_raw_ai"),
             patch("app.core.pipeline.ai_batch.reprocess_candidates_from_raw"),
             patch("app.core.pipeline.ai_batch.load_card_state_from_db"),

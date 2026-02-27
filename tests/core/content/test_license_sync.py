@@ -2,6 +2,14 @@
 
 import pytest
 
+from app.core.content.license_models import (
+    DiscoveredPackage,
+    LicenseConfig,
+    LicenseRegistry,
+    PackageCategory,
+    PackageOverride,
+    SystemDep,
+)
 from app.core.content.license_sync import (
     _build_reverse_deps,
     _categorize_packages,
@@ -16,14 +24,6 @@ from app.core.content.license_sync import (
     _slug,
     _write_registry_toml,
     load_config,
-)
-from app.core.content.license_models import (
-    DiscoveredPackage,
-    LicenseConfig,
-    LicenseRegistry,
-    PackageCategory,
-    PackageOverride,
-    SystemDep,
 )
 
 

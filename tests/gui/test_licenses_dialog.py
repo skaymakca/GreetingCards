@@ -11,6 +11,14 @@ from app.core.content.license_html import (
     generate_licenses_html,
     get_page_order,
 )
+from app.core.content.license_models import (
+    DiscoveredPackage,
+    LicenseConfig,
+    LicenseRegistry,
+    PackageCategory,
+    PackageOverride,
+    SystemDep,
+)
 from app.core.content.license_sync import (
     _build_reverse_deps,
     _categorize_packages,
@@ -25,14 +33,6 @@ from app.core.content.license_sync import (
     _slug,
     load_config,
     sync_registry,
-)
-from app.core.content.license_models import (
-    DiscoveredPackage,
-    LicenseConfig,
-    LicenseRegistry,
-    PackageCategory,
-    PackageOverride,
-    SystemDep,
 )
 from app.core.paths import get_runtime_content_path
 from app.gui.components.html_viewer import _viewer_refs

@@ -6,7 +6,12 @@ from unittest.mock import Mock
 import pytest
 import wx
 
-from app.core.pipeline.card_processor import derive_folders, load_card_state_from_db, scan_for_pdfs, worker_result_to_card
+from app.core.pipeline.card_processor import (
+    derive_folders,
+    load_card_state_from_db,
+    scan_for_pdfs,
+    worker_result_to_card,
+)
 from app.gui.main_window import FileDropTarget, MainWindow
 
 
@@ -3547,8 +3552,9 @@ def test_on_ai_request_guards_no_api_key(wx_app):
     """_on_ai_request returns when no API key."""
     from unittest.mock import patch
 
-    from app.models.card import CardResult, Confidence
     from PIL import Image
+
+    from app.models.card import CardResult, Confidence
 
     window = MainWindow()
 
@@ -3572,8 +3578,9 @@ def test_start_ai_all_disables_tools_starts_thread(wx_app):
     """_start_ai_all determines scope, disables tools, starts thread."""
     from unittest.mock import patch
 
-    from app.models.card import CardResult, Confidence
     from PIL import Image
+
+    from app.models.card import CardResult, Confidence
 
     window = MainWindow()
 

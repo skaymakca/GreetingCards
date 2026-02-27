@@ -12,17 +12,22 @@ import wx.adv
 
 logger = logging.getLogger(__name__)
 
-from app.core.pipeline.ai_batch import run_ai_batch_async
-from app.core.pipeline.card_processor import derive_folders, load_card_state_from_db, scan_for_pdfs, worker_result_to_card
 from app.core.config import get_api_key
 from app.core.constants import OCR_WORKERS
 from app.core.database import (
     clear_ai_results,
     set_manual_name,
 )
-from app.core.pipeline.pdf_worker import process_pdf_worker
 from app.core.naming.rename_filter import RESOLVED_MESSAGES, filter_completed_renames
 from app.core.naming.renamer import build_rename_plan, execute_rename_plan
+from app.core.pipeline.ai_batch import run_ai_batch_async
+from app.core.pipeline.card_processor import (
+    derive_folders,
+    load_card_state_from_db,
+    scan_for_pdfs,
+    worker_result_to_card,
+)
+from app.core.pipeline.pdf_worker import process_pdf_worker
 from app.gui.components.drop_target import DropOverlay as _DropOverlay
 from app.gui.components.drop_target import FileDropTarget
 from app.gui.components.filter_sidebar import FilterSidebar

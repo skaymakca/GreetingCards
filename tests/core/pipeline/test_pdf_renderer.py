@@ -7,7 +7,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from PIL import Image
 
-from app.core.pipeline.pdf_renderer import _capped_zoom, autocrop_whitespace, get_page_count, render_all_pages, render_pdf_page
+from app.core.pipeline.pdf_renderer import (
+    _capped_zoom,
+    autocrop_whitespace,
+    get_page_count,
+    render_all_pages,
+    render_pdf_page,
+)
 
 
 class TestCappedZoom:

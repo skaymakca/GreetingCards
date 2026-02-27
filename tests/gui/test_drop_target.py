@@ -12,15 +12,12 @@ from app.gui.components.drop_target import (
     load_drop_background,
 )
 
-
 # --- load_drop_background() ---
 
 
 def test_load_drop_background_returns_none_when_image_missing():
     """Returns None when the background image file does not exist."""
-    with patch(
-        "app.core.paths.get_runtime_content_path"
-    ) as mock_path:
+    with patch("app.core.paths.get_runtime_content_path") as mock_path:
         fake_path = MagicMock()
         fake_path.exists.return_value = False
         mock_path.return_value = fake_path
@@ -44,9 +41,7 @@ def test_load_drop_background_returns_none_on_exception():
 @pytest.fixture
 def overlay(wx_frame):
     """Create a DropOverlay with load_drop_background patched to None."""
-    with patch(
-        "app.gui.components.drop_target.load_drop_background", return_value=None
-    ):
+    with patch("app.gui.components.drop_target.load_drop_background", return_value=None):
         ov = DropOverlay(wx_frame)
     return ov
 
@@ -120,6 +115,4 @@ class TestFileDropTargetOnDropFiles:
             result = target.OnDropFiles(0, 0, ["/tmp/a.pdf", "/tmp/b.pdf"])
 
         assert result is True
-        mock_call_after.assert_called_once_with(
-            callback, [Path("/tmp/a.pdf"), Path("/tmp/b.pdf")]
-        )
+        mock_call_after.assert_called_once_with(callback, [Path("/tmp/a.pdf"), Path("/tmp/b.pdf")])
