@@ -59,7 +59,7 @@ class MainWindow:
         self._cards_by_hash: dict[str, CardResult] = {}  # hash → Card (1:1)
         self._hash_by_path: dict[Path, str] = {}  # path → hash (many:1)
         self._mtime_by_path: dict[Path, float] = {}  # path → st_mtime (for fast pre-filter)
-        self._pdf_files: list[Path] = []
+        self._pdf_files: set[Path] = set()
         self._year = datetime.now().year - 1
         self._current_category_filters = ["all"]  # Current sidebar category filters
         self._current_folder_filters = ["all_folders"]  # Current sidebar folder filters
@@ -289,6 +289,9 @@ class MainWindow:
         """
         search_cards = self._get_search_filtered_cards()
 
+        # Capture filter state BEFORE sidebar sync / auto-reset may clear them
+        had_active_filters = self._has_active_filters()
+
         # First pass: compute cross-filtered counts
         folder_filtered = self._apply_folder_filters(search_cards)
         category_filtered = self._apply_category_filters(search_cards)
@@ -316,7 +319,7 @@ class MainWindow:
             self._sidebar.update_category_counts(folder_filtered)
             self._sidebar.update_folder_counts(display_cards)
 
-        self._review_panel.load_cards(display_cards, preserve_selection=not self._has_active_filters())
+        self._review_panel.load_cards(display_cards, preserve_selection=not had_active_filters)
 
         # Toggle overlay vs content area based on whether any cards exist at all
         self._set_empty_state(not self._cards_by_hash)
@@ -525,7 +528,7 @@ class MainWindow:
                 new_pdfs.append(pdf_path)
 
         # 3. Update state (accumulate, don't replace)
-        self._pdf_files.extend(new_pdfs)
+        self._pdf_files.update(new_pdfs)
 
         # 4. Show feedback
         if new_pdfs or skipped_pdfs:
@@ -546,7 +549,7 @@ class MainWindow:
         self._cards_by_hash.clear()
         self._hash_by_path.clear()
         self._mtime_by_path.clear()
-        self._pdf_files = []
+        self._pdf_files = set()
         self._next_card_id = 0
 
         self._review_panel.load_cards([])
@@ -569,7 +572,23 @@ class MainWindow:
         # Show confirmation
         self._show_info_message("All cards cleared", wx.ICON_INFORMATION)
 
-    # noinspection DuplicatedCode
+    def _unlink_path(self, path: Path) -> None:
+        """Remove a path from all tracking dicts and its associated card.
+
+        Pops path from _hash_by_path, _mtime_by_path, and _pdf_files.
+        Removes path from its card's file_paths list and deletes the card
+        from _cards_by_hash if it has no remaining paths.
+        """
+        file_hash = self._hash_by_path.pop(path, None)
+        self._mtime_by_path.pop(path, None)
+        self._pdf_files.discard(path)
+        if file_hash and file_hash in self._cards_by_hash:
+            card = self._cards_by_hash[file_hash]
+            if path in card.file_paths:
+                card.file_paths.remove(path)
+            if not card.file_paths:
+                del self._cards_by_hash[file_hash]
+
     def _reload_cards(self, *, mtime_only: bool = False) -> None:
         """Re-check all loaded paths for modifications and deletions.
 
@@ -599,16 +618,7 @@ class MainWindow:
         for path in loaded_paths:
             if not path.exists():
                 # File was deleted externally
-                old_hash = self._hash_by_path.pop(path, None)
-                self._mtime_by_path.pop(path, None)
-                if path in self._pdf_files:
-                    self._pdf_files.remove(path)
-                if old_hash and old_hash in self._cards_by_hash:
-                    card = self._cards_by_hash[old_hash]
-                    if path in card.file_paths:
-                        card.file_paths.remove(path)
-                    if not card.file_paths:
-                        del self._cards_by_hash[old_hash]
+                self._unlink_path(path)
                 deleted_paths.append(path)
             else:
                 # mtime pre-filter: skip files whose mtime hasn't changed
@@ -630,8 +640,7 @@ class MainWindow:
                     # Content changed — remove from old card
                     self._hash_by_path.pop(path, None)
                     self._mtime_by_path.pop(path, None)
-                    if path in self._pdf_files:
-                        self._pdf_files.remove(path)
+                    self._pdf_files.discard(path)
                     if old_hash in self._cards_by_hash:
                         card = self._cards_by_hash[old_hash]
                         if path in card.file_paths:
@@ -642,7 +651,7 @@ class MainWindow:
 
         if needs_processing:
             # Re-add to _pdf_files and process (dedup handled by _process_cards)
-            self._pdf_files.extend(needs_processing)
+            self._pdf_files.update(needs_processing)
             self._start_processing(needs_processing)
             n_del = len(deleted_paths)
             n_mod = len(needs_processing)
@@ -751,7 +760,14 @@ class MainWindow:
         with ProcessPoolExecutor(max_workers=min(total, OCR_WORKERS)) as executor:
             futures = {executor.submit(process_pdf_worker, path_str): path_str for path_str in pdf_paths_str}
             for future in as_completed(futures):
-                worker_result = future.result()
+                try:
+                    worker_result = future.result()
+                except Exception:
+                    path_str = futures[future]
+                    logger.exception("Worker failed for %s", path_str)
+                    completed += 1
+                    wx.CallAfter(self._update_processing_progress, completed, total, Path(path_str).name)
+                    continue
                 pdf_path = Path(worker_result.pdf_path)
                 file_hash = worker_result.file_hash
 
@@ -888,15 +904,9 @@ class MainWindow:
         if not card:
             return
 
-        # Remove all path → hash mappings for this card
-        for path in card.file_paths:
-            self._hash_by_path.pop(path, None)
-            self._mtime_by_path.pop(path, None)
-            if path in self._pdf_files:
-                self._pdf_files.remove(path)
-
-        # Remove the card itself
-        del self._cards_by_hash[file_hash]
+        # Remove all path → hash mappings for this card, then the card itself
+        for path in list(card.file_paths):
+            self._unlink_path(path)
 
         # Refresh display (handles filter counts, list reload, empty state)
         self._refresh_display()
@@ -906,7 +916,11 @@ class MainWindow:
         for card_id in list(self._review_panel.selected_card_ids):
             card = self._get_card_by_id(card_id)
             if card and card.file_hash:
-                self._on_remove_card(card.file_hash)
+                card_obj = self._cards_by_hash.get(card.file_hash)
+                if card_obj:
+                    for path in list(card_obj.file_paths):
+                        self._unlink_path(path)
+        self._refresh_display()
 
     def _on_update_remove_menu(self, event: wx.UpdateUIEvent) -> None:
         """Enable Remove menu item only when cards are selected."""
@@ -1099,7 +1113,6 @@ class MainWindow:
 
         dialog.Destroy()
 
-    # noinspection DuplicatedCode
     def _remove_completed_results(self, results: list[RenameResult]) -> None:
         """Remove successfully renamed/skip_same paths from cards; drop empty cards.
 
@@ -1114,17 +1127,7 @@ class MainWindow:
 
         # Remove paths from cards and tracking dicts
         for path in paths_to_remove:
-            file_hash = self._hash_by_path.pop(path, None)
-            self._mtime_by_path.pop(path, None)
-            if path in self._pdf_files:
-                self._pdf_files.remove(path)
-            if file_hash and file_hash in self._cards_by_hash:
-                card = self._cards_by_hash[file_hash]
-                if path in card.file_paths:
-                    card.file_paths.remove(path)
-                # Remove card if it has no remaining paths
-                if not card.file_paths:
-                    del self._cards_by_hash[file_hash]
+            self._unlink_path(path)
 
         # Rebuild folder list and refresh display
         self._sidebar.update_folders(derive_folders(self._cards_by_hash.values()))

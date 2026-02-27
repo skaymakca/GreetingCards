@@ -6,6 +6,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import Boolean, DateTime, Engine, ForeignKey, String, Text, UniqueConstraint, create_engine, inspect
 from sqlalchemy.exc import IntegrityError
@@ -184,6 +185,9 @@ def _ensure_schema() -> None:
     try:
         session.add(Settings(key="schema_version", value=expected))
         session.commit()
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
 
@@ -218,6 +222,9 @@ def reset_database() -> None:
     try:
         session.add(Settings(key="schema_version", value=_compute_schema_version()))
         session.commit()
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
 
@@ -295,7 +302,7 @@ _METHOD_ORDER = {"ai": 0, "ocr": 1}
 _CONFIDENCE_ORDER = {"high": 0, "medium": 1, "low": 2}
 
 
-def _sort_candidates(candidates: list) -> list[CandidateInfo]:
+def _sort_candidates(candidates: list[Any]) -> list[CandidateInfo]:
     """Sort candidates by method (AI first) then confidence (high first), returning CandidateInfo list."""
     sorted_candidates = sorted(
         candidates, key=lambda c: (_METHOD_ORDER.get(c.method, 999), _CONFIDENCE_ORDER.get(c.confidence, 999))
@@ -326,14 +333,11 @@ def create_or_update_card(file_hash: str, remove_family: bool = False) -> None:
 
 
 # noinspection PyTypeChecker
-def _add_candidate_inline(session: Session, file_hash: str, family_name: str, method: str, confidence: str) -> int:
-    """Add a candidate within an existing session (no new session scope).
+def _insert_candidates(session: Session, file_hash: str, family_name: str, method: str, confidence: str) -> int:
+    """Insert candidates within an existing session. Returns first candidate ID, or 0 if filtered out.
 
-    Used by reprocess_candidates_from_raw() to keep everything in one transaction.
-    Returns the first candidate ID, or 0 if all names are filtered out.
-
-    When the cleaning pipeline returns multiple names (e.g. a recognized alternate
-    form plus its related forms), all are added as separate candidates.
+    Applies cleaning/filtering and smart title case. When the cleaning pipeline returns multiple
+    names (e.g. a recognized alternate form plus its related forms), all are added as separate candidates.
     """
     from app.core.naming.family_name import clean_and_filter_family_names, smart_title_case_family_name
 
@@ -355,14 +359,31 @@ def _add_candidate_inline(session: Session, file_hash: str, family_name: str, me
 
         candidate = Candidate(file_hash=file_hash, family_name=clean_name, method=method, confidence=confidence)
         session.add(candidate)
-        session.flush()
+        try:
+            session.flush()
+        except IntegrityError:
+            session.rollback()
+            existing = (
+                session.query(Candidate).filter_by(file_hash=file_hash, family_name=clean_name, method=method).first()
+            )
+            if existing and not first_id:
+                first_id = existing.id
+            continue
         if not first_id:
             first_id = candidate.id
 
     return first_id
 
 
-# noinspection PyTypeChecker
+def _add_candidate_inline(session: Session, file_hash: str, family_name: str, method: str, confidence: str) -> int:
+    """Add a candidate within an existing session (no new session scope).
+
+    Used by reprocess_candidates_from_raw() to keep everything in one transaction.
+    Returns the first candidate ID, or 0 if all names are filtered out.
+    """
+    return _insert_candidates(session, file_hash, family_name, method, confidence)
+
+
 def add_candidate(file_hash: str, family_name: str, method: str, confidence: str) -> int:
     """Add a name candidate (OCR or AI result). Returns first candidate ID.
 
@@ -372,44 +393,10 @@ def add_candidate(file_hash: str, family_name: str, method: str, confidence: str
     form plus its related forms), all are added as separate candidates.
     Returns 0 if all names are filtered out.
     """
-    from app.core.naming.family_name import clean_and_filter_family_names, smart_title_case_family_name
-
-    cleaned = clean_and_filter_family_names([family_name])
-    if not cleaned:
-        return 0
-
     first_id = 0
     with _session_scope() as session:
         _ensure_card_exists(session, file_hash)
-
-        for name in cleaned:
-            clean_name = smart_title_case_family_name(name)
-
-            existing = (
-                session.query(Candidate).filter_by(file_hash=file_hash, family_name=clean_name, method=method).first()
-            )
-            if existing:
-                if not first_id:
-                    first_id = existing.id
-                continue
-
-            candidate = Candidate(file_hash=file_hash, family_name=clean_name, method=method, confidence=confidence)
-            session.add(candidate)
-            try:
-                session.flush()
-            except IntegrityError:
-                session.rollback()
-                existing = (
-                    session.query(Candidate)
-                    .filter_by(file_hash=file_hash, family_name=clean_name, method=method)
-                    .first()
-                )
-                if existing and not first_id:
-                    first_id = existing.id
-                continue
-            if not first_id:
-                first_id = candidate.id
-
+        first_id = _insert_candidates(session, file_hash, family_name, method, confidence)
     return first_id
 
 

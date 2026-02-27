@@ -33,6 +33,7 @@ import wx
 import wx.dataview as dv
 
 from app.gui.context_menu import add_entry_context_menu
+from app.gui.dialogs.common import display_path as _display_path
 from app.gui.icons import load_menu_icon, load_sf_symbol
 from app.gui.styles import Color, Font, Layout
 from app.gui.utils import create_static_text
@@ -251,7 +252,7 @@ class DetailPanel(wx.Panel):
         self._build_ui()
         self.clear()
 
-    def _make_action_button(self, icon_name: str, label: str, handler) -> wx.Button:
+    def _make_action_button(self, icon_name: str, label: str, handler: Callable) -> wx.Button:
         """Create a compact action button with an SF Symbol icon."""
         icon = load_sf_symbol(icon_name, Layout.ACTION_ICON_SIZE)
         if icon:
@@ -436,14 +437,7 @@ class DetailPanel(wx.Panel):
         # Populate list
         self._locations_list.DeleteAllItems()
         for path in card.file_paths:
-            # Show relative path from home if possible
-            try:
-                rel_path = path.relative_to(Path.home())
-                display_path = f"~/{rel_path}"
-            except ValueError:
-                display_path = str(path)
-
-            self._locations_list.AppendItem([display_path])
+            self._locations_list.AppendItem([_display_path(path)])
 
         # Highlight primary path (first one)
         if num_paths > 0:

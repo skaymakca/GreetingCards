@@ -26,7 +26,7 @@ _STATUS_COL_WIDTH = 100  # Width for short status columns (OK, SKIP, SAME, ERROR
 _RESULT_COL_WIDTH = 140  # Width for result columns (OK, ERROR: msg)
 
 
-def _display_path(path: Path) -> str:
+def display_path(path: Path) -> str:
     """Format a path as ~/relative for display (or just filename if under home)."""
     try:
         return "~/" + str(path.relative_to(Path.home()))
@@ -101,7 +101,7 @@ def _dismiss_on_key(dialog: wx.Dialog, event: wx.KeyEvent) -> None:
 class ProgressDialog(wx.Dialog):
     """Modal progress dialog for batch processing."""
 
-    def __init__(self, parent: wx.Window, title: str, total: int):
+    def __init__(self, parent: wx.Window, title: str, total: int) -> None:
         super().__init__(
             parent,
             title=title,
@@ -178,7 +178,7 @@ class ProgressDialog(wx.Dialog):
 class RenameConfirmDialog(wx.Dialog):
     """Dialog showing the rename plan and asking for confirmation."""
 
-    def __init__(self, parent: wx.Window, plan: list[RenamePlanItem]):
+    def __init__(self, parent: wx.Window, plan: list[RenamePlanItem]) -> None:
         super().__init__(
             parent, title="Confirm Rename", size=(700, 500), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
         )
@@ -241,11 +241,11 @@ class RenameConfirmDialog(wx.Dialog):
         data = []
         colors = []
         for item in plan:
-            old_display = _display_path(item.old_path) if multi_dir else item.old_path.name
+            old_display = display_path(item.old_path) if multi_dir else item.old_path.name
             new_display = (
                 "-"
                 if item.status in _SKIP_STATUSES
-                else (_display_path(item.new_path) if multi_dir else item.new_path.name)
+                else (display_path(item.new_path) if multi_dir else item.new_path.name)
             )
             label, color = _STATUS_STYLE.get(item.status, (item.status, styles.Color.TEXT_PRIMARY))
             data.append([old_display, new_display, label])
@@ -322,7 +322,9 @@ class RenameConfirmDialog(wx.Dialog):
 class ErrorListDialog(wx.Dialog):
     """Dialog showing AI analysis errors in a structured table."""
 
-    def __init__(self, parent: wx.Window, title: str, errors: list[tuple[str, str]], auth_aborted: bool = False):
+    def __init__(
+        self, parent: wx.Window, title: str, errors: list[tuple[str, str]], auth_aborted: bool = False
+    ) -> None:
         super().__init__(parent, title=title, size=(650, 400), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
 
         # Main sizer
@@ -393,7 +395,7 @@ class ErrorListDialog(wx.Dialog):
 class CompletionDialog(wx.Dialog):
     """Dialog showing rename results in a structured table."""
 
-    def __init__(self, parent: wx.Window, title: str, results: list[RenameResult]):
+    def __init__(self, parent: wx.Window, title: str, results: list[RenameResult]) -> None:
         super().__init__(parent, title=title, size=(650, 420), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
 
         # Compute counts
@@ -438,7 +440,7 @@ class CompletionDialog(wx.Dialog):
         colors = []
         for r in visible:
             path = r.new_path if r.success else r.old_path
-            display_name = _display_path(path) if multi_dir else path.name
+            display_name = display_path(path) if multi_dir else path.name
             if r.success:
                 result_text = "OK"
                 colors.append(styles.Color.SUCCESS)

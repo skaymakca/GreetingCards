@@ -2,6 +2,11 @@ import sys
 from pathlib import Path
 
 
+def get_project_root() -> Path:
+    """Return the project root directory (the repo root, not the package root)."""
+    return Path(__file__).resolve().parent.parent.parent
+
+
 # noinspection PyProtectedMember
 def is_bundled() -> bool:
     """True when running inside a PyInstaller .app bundle."""

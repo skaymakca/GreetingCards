@@ -14,7 +14,7 @@ from app.gui.dialogs import (
     RenameConfirmDialog,
     TableModel,
     _dismiss_on_key,
-    _display_path,
+    display_path,
 )
 from app.models.card import (
     STATUS_DUPLICATE,
@@ -26,22 +26,22 @@ from app.models.card import (
     RenameResult,
 )
 
-# --- _display_path ---
+# --- display_path ---
 
 
 class TestDisplayPath:
-    """Tests for _display_path() helper."""
+    """Tests for display_path() helper."""
 
     def test_home_relative(self):
         home = Path.home()
         p = home / "Documents" / "file.pdf"
-        result = _display_path(p)
+        result = display_path(p)
         assert result.startswith("~/")
         assert "Documents/file.pdf" in result
 
     def test_non_home_path(self):
         p = Path("/tmp/file.pdf")
-        result = _display_path(p)
+        result = display_path(p)
         assert result == "/tmp/file.pdf"
 
 

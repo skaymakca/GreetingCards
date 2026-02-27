@@ -107,7 +107,7 @@ def test_clear_all_resets_state(wx_app):
     window._cards_by_hash = {"hash1": None, "hash2": None}
     window._hash_by_path = {Path("/test1.pdf"): "hash1", Path("/test2.pdf"): "hash2"}
     window._mtime_by_path = {Path("/test1.pdf"): 100.0, Path("/test2.pdf"): 200.0}
-    window._pdf_files = [Path("test.pdf")]
+    window._pdf_files = {Path("test.pdf")}
 
     # Clear
     window._clear_all()
@@ -1030,7 +1030,7 @@ def test_remove_card_removes_from_state(wx_app):
     window._cards_by_hash = {"hash1": card}
     window._hash_by_path = {Path("/test/card.pdf"): "hash1"}
     window._mtime_by_path = {Path("/test/card.pdf"): 100.0}
-    window._pdf_files = [Path("/test/card.pdf")]
+    window._pdf_files = {Path("/test/card.pdf")}
 
     # Remove card
     window._on_remove_card("hash1")
@@ -1067,7 +1067,7 @@ def test_remove_card_multi_path(wx_app):
         Path("/test/card1.pdf"): 100.0,
         Path("/test/card2.pdf"): 200.0,
     }
-    window._pdf_files = [Path("/test/card1.pdf"), Path("/test/card2.pdf")]
+    window._pdf_files = {Path("/test/card1.pdf"), Path("/test/card2.pdf")}
 
     # Remove card
     window._on_remove_card("hash1")
@@ -1103,7 +1103,7 @@ def test_remove_menu_removes_selected_cards(wx_app):
     card2.confidence = Confidence.HIGH
     window._cards_by_hash = {"hash1": card1, "hash2": card2}
     window._hash_by_path = {Path("/test/a.pdf"): "hash1", Path("/test/b.pdf"): "hash2"}
-    window._pdf_files = [Path("/test/a.pdf"), Path("/test/b.pdf")]
+    window._pdf_files = {Path("/test/a.pdf"), Path("/test/b.pdf")}
 
     # Simulate selecting both cards
     window._review_panel._selected_card_ids = [1, 2]
@@ -1133,7 +1133,7 @@ def test_remove_menu_skips_card_without_hash(wx_app):
 
     window._cards_by_hash = {"hash1": card1}
     window._hash_by_path = {Path("/test/a.pdf"): "hash1"}
-    window._pdf_files = [Path("/test/a.pdf")]
+    window._pdf_files = {Path("/test/a.pdf")}
 
     # Simulate selecting both cards
     window._review_panel._selected_card_ids = [1, 2]
@@ -1180,7 +1180,7 @@ def test_remove_last_card_shows_overlay(wx_app):
     card.file_hash = "hash1"
     window._cards_by_hash = {"hash1": card}
     window._hash_by_path = {Path("/test/card.pdf"): "hash1"}
-    window._pdf_files = [Path("/test/card.pdf")]
+    window._pdf_files = {Path("/test/card.pdf")}
 
     # Show content area first
     window._set_empty_state(False)
@@ -1342,7 +1342,7 @@ def test_remove_completed_results_full_success(wx_app):
     # Simulate state after execute_rename_plan has updated paths
     window._cards_by_hash = {"h1": card1, "h2": card2}
     window._hash_by_path = {new1: "h1", new2: "h2"}
-    window._pdf_files = [new1, new2]
+    window._pdf_files = {new1, new2}
 
     results = [
         RenameResult(path1, new1, True, "Renamed", card=card1),
@@ -1376,7 +1376,7 @@ def test_remove_completed_results_partial_failure(wx_app):
 
     window._cards_by_hash = {"h1": card1, "h2": card2}
     window._hash_by_path = {new_path: "h1", fail_path: "h2"}
-    window._pdf_files = [new_path, fail_path]
+    window._pdf_files = {new_path, fail_path}
 
     results = [
         RenameResult(Path("/test/old1.pdf"), new_path, True, "Renamed", card=card1),
@@ -1410,7 +1410,7 @@ def test_remove_completed_results_skip_same(wx_app):
 
     window._cards_by_hash = {"h1": card1}
     window._hash_by_path = {path1: "h1"}
-    window._pdf_files = [path1]
+    window._pdf_files = {path1}
 
     results = [
         RenameResult(path1, path1, True, "Already named correctly", card=card1),
@@ -1437,7 +1437,7 @@ def test_remove_completed_results_skip_no_name_kept(wx_app):
 
     window._cards_by_hash = {"h1": card1}
     window._hash_by_path = {path1: "h1"}
-    window._pdf_files = [path1]
+    window._pdf_files = {path1}
 
     results = [
         RenameResult(path1, path1, True, "No name extracted", card=card1),
@@ -1466,7 +1466,7 @@ def test_remove_completed_results_multi_path_card(wx_app):
 
     window._cards_by_hash = {"h1": card}
     window._hash_by_path = {new_path: "h1", fail_path: "h1"}
-    window._pdf_files = [new_path, fail_path]
+    window._pdf_files = {new_path, fail_path}
 
     results = [
         RenameResult(Path("/test/dir_a/old.pdf"), new_path, True, "Renamed", card=card),
@@ -2150,7 +2150,7 @@ def test_reload_no_changes(wx_app, tmp_path):
     card.confidence = Confidence.HIGH
     window._cards_by_hash = {"hash1": card}
     window._hash_by_path = {pdf: "hash1"}
-    window._pdf_files = [pdf]
+    window._pdf_files = {pdf}
 
     # Mock compute_file_hash to return the same hash
     with (
@@ -2179,7 +2179,7 @@ def test_reload_deleted_file(wx_app, tmp_path):
     window._cards_by_hash = {"hash1": card}
     window._hash_by_path = {pdf: "hash1"}
     window._mtime_by_path = {pdf: 100.0}
-    window._pdf_files = [pdf]
+    window._pdf_files = {pdf}
 
     # Delete the file
     pdf.unlink()
@@ -2211,7 +2211,7 @@ def test_reload_modified_file(wx_app, tmp_path):
     window._cards_by_hash = {"old_hash": card}
     window._hash_by_path = {pdf: "old_hash"}
     window._mtime_by_path = {pdf: 100.0}
-    window._pdf_files = [pdf]
+    window._pdf_files = {pdf}
 
     # Mock compute_file_hash to return a new hash
     with (
@@ -2246,7 +2246,7 @@ def test_reload_deleted_multi_path_card(wx_app, tmp_path):
     card.confidence = Confidence.HIGH
     window._cards_by_hash = {"hash1": card}
     window._hash_by_path = {pdf1: "hash1", pdf2: "hash1"}
-    window._pdf_files = [pdf1, pdf2]
+    window._pdf_files = {pdf1, pdf2}
 
     # Delete one copy
     pdf1.unlink()
@@ -2283,7 +2283,7 @@ def test_reload_updates_cooldown_timestamp(wx_app, tmp_path):
     card.confidence = Confidence.HIGH
     window._cards_by_hash = {"hash1": card}
     window._hash_by_path = {pdf: "hash1"}
-    window._pdf_files = [pdf]
+    window._pdf_files = {pdf}
 
     before = time.monotonic()
     with patch("app.core.database.compute_file_hash", return_value="hash1"):
@@ -2425,7 +2425,7 @@ def test_reload_hash_error_skips_file(wx_app, tmp_path):
     card.confidence = Confidence.HIGH
     window._cards_by_hash = {"hash1": card}
     window._hash_by_path = {pdf: "hash1"}
-    window._pdf_files = [pdf]
+    window._pdf_files = {pdf}
 
     with (
         patch("app.core.database.compute_file_hash", side_effect=OSError("disk error")),
@@ -2480,7 +2480,7 @@ def test_reload_mtime_only_skips_unchanged(wx_app, tmp_path):
     window._cards_by_hash = {"hash1": card}
     window._hash_by_path = {pdf: "hash1"}
     window._mtime_by_path = {pdf: mtime}
-    window._pdf_files = [pdf]
+    window._pdf_files = {pdf}
 
     with patch("app.core.database.compute_file_hash") as mock_hash, patch.object(window, "_show_info_message"):
         window._reload_cards(mtime_only=True)
@@ -2509,7 +2509,7 @@ def test_reload_mtime_only_hashes_on_mtime_change(wx_app, tmp_path):
     window._cards_by_hash = {"hash1": card}
     window._hash_by_path = {pdf: "hash1"}
     window._mtime_by_path = {pdf: 0.0}  # Stale mtime — will differ from stat
-    window._pdf_files = [pdf]
+    window._pdf_files = {pdf}
 
     with (
         patch("app.core.database.compute_file_hash", return_value="hash1") as mock_hash,
@@ -2539,7 +2539,7 @@ def test_reload_manual_always_hashes(wx_app, tmp_path):
     window._cards_by_hash = {"hash1": card}
     window._hash_by_path = {pdf: "hash1"}
     window._mtime_by_path = {pdf: mtime}
-    window._pdf_files = [pdf]
+    window._pdf_files = {pdf}
 
     with (
         patch("app.core.database.compute_file_hash", return_value="hash1") as mock_hash,
@@ -3022,6 +3022,56 @@ def test_auto_reset_filters_when_filtered_empty_but_cards_exist(wx_app):
     window._frame.Destroy()
 
 
+def test_refresh_display_clears_selection_on_filter_auto_reset(wx_app):
+    """Selection is cleared when filter auto-resets (not preserved from filtered context).
+
+    Regression test: previously _has_active_filters() was checked AFTER the
+    auto-reset cleared the filters, causing stale selections to persist.
+    """
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    # Two cards with NONE confidence (show in "errors" filter)
+    card1 = CardResult(id=0, file_paths=[Path("/test/a.pdf")], primary_path=Path("/test/a.pdf"))
+    card1.family_name = "A"
+    card1.confidence = Confidence.NONE
+    card1.file_hash = "hash_a"
+
+    card2 = CardResult(id=1, file_paths=[Path("/test/b.pdf")], primary_path=Path("/test/b.pdf"))
+    card2.family_name = "B"
+    card2.confidence = Confidence.NONE
+    card2.file_hash = "hash_b"
+
+    window._cards_by_hash = {"hash_a": card1, "hash_b": card2}
+
+    # Apply "errors" filter and load — both cards shown
+    window._current_category_filters = ["errors"]
+    window._sidebar.set_category_filters(["errors"])
+    window._refresh_display()
+    assert window._current_category_filters == ["errors"]
+
+    # Simulate selection made in the filtered context
+    window._review_panel._selected_card_ids = [card1.id, card2.id]
+    window._review_panel._cards_by_id = {card1.id: card1, card2.id: card2}
+
+    # Simulate AI analysis completing: both cards now have HIGH confidence
+    card1.confidence = Confidence.HIGH
+    card2.confidence = Confidence.HIGH
+
+    # Refresh — "errors" filter now matches 0 cards, so it should auto-reset to "all"
+    window._refresh_display()
+
+    # Filter should have been reset
+    assert window._current_category_filters == ["all"]
+    assert window._sidebar.get_selected_category_filters() == ["all"]
+
+    # Selection should be cleared (not preserved from the stale filtered context)
+    assert window._review_panel._selected_card_ids == []
+
+    window._frame.Destroy()
+
+
 # ============================================================================
 # Drag highlight
 # ============================================================================
@@ -3218,7 +3268,7 @@ def test_start_processing_returns_on_none_empty_pdf_files(wx_app):
     from unittest.mock import patch
 
     window = MainWindow()
-    window._pdf_files = []
+    window._pdf_files = set()
 
     with patch("threading.Thread") as mock_thread:
         window._start_processing(None)

@@ -146,8 +146,7 @@ class TestGenerateHelpHtmlEntryPoint:
 
         import app.core.content.help_builder as hb
 
-        fake_file = str(tmp_path / "app" / "core" / "content" / "help_builder.py")
-        return patch.object(hb, "__file__", fake_file)
+        return patch.object(hb, "_get_project_root", return_value=tmp_path)
 
     def test_generates_output_files(self, tmp_path):
         """generate_help_html() creates index.html, pages/, and page_order.txt."""

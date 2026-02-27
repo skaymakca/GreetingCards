@@ -7,5 +7,5 @@ from app.gui.dialogs.common import (
     RenameConfirmDialog,
     TableModel,
     _dismiss_on_key,
-    _display_path,
+    display_path,
 )

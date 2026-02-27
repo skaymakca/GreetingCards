@@ -14,13 +14,17 @@ from markupsafe import Markup, escape
 from app.core.config import GITHUB_URL
 from app.core.content.license_models import LicenseRegistry, PackageCategory
 from app.core.content.license_sync import (
-    _get_licenses_build_dir,
-    _get_licenses_source_dir,
-    _get_project_root,
+    get_licenses_build_dir as _get_licenses_build_dir,
+)
+from app.core.content.license_sync import (
+    get_licenses_source_dir as _get_licenses_source_dir,
+)
+from app.core.content.license_sync import (
     sync_registry,
 )
 from app.core.content.template_env import get_page_order as _get_page_order
 from app.core.content.template_env import jinja_env as _jinja_env
+from app.core.paths import get_project_root as _get_project_root
 
 logger = logging.getLogger(__name__)
 

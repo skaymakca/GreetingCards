@@ -10,6 +10,7 @@ from pathlib import Path
 
 from app.core.content.changelog_models import ChangelogGroup, ChangelogVersion
 from app.core.content.template_env import jinja_env as _jinja_env
+from app.core.paths import get_project_root as _get_project_root
 
 logger = logging.getLogger(__name__)
 
@@ -191,11 +192,6 @@ def _generate_changelog_html(versions: list[ChangelogVersion], output_dir: Path)
 # noinspection PyUnusedImports
 # Re-export for consumers that import from here
 from app.core.content.template_env import get_page_order  # noqa: E402
-
-
-def _get_project_root() -> Path:
-    """Return project root directory."""
-    return Path(__file__).resolve().parent.parent.parent.parent
 
 
 def generate_changelog_html() -> None:

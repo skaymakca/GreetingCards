@@ -27,12 +27,16 @@ from app.core.content.license_sync import (
     _extract_license_type,
     _find_dist_info,
     _find_license_file,
-    _get_licenses_build_dir,
-    _get_licenses_source_dir,
     _parse_uv_lock,
     _slug,
     load_config,
     sync_registry,
+)
+from app.core.content.license_sync import (
+    get_licenses_build_dir as _get_licenses_build_dir,
+)
+from app.core.content.license_sync import (
+    get_licenses_source_dir as _get_licenses_source_dir,
 )
 from app.core.paths import get_runtime_content_path
 from app.gui.components.html_viewer import _viewer_refs

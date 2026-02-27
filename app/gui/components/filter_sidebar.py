@@ -264,7 +264,7 @@ class FilterSidebar(wx.Panel):
         # Build labels with disambiguation for colliding basenames
         basenames = [p.name for p in folder_paths]
         labels = []
-        for _i, p in enumerate(folder_paths):
+        for p in folder_paths:
             if basenames.count(p.name) > 1:
                 labels.append(f"{p.parent.name}/{p.name}")
             else:

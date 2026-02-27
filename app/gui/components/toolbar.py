@@ -7,7 +7,7 @@ preserved throughout the codebase.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import wx
 import wx.adv
@@ -15,9 +15,6 @@ import wx.adv
 from app.gui.components.html_viewer import build_help_menu
 from app.gui.icons import load_menu_icon, load_sf_symbol
 from app.gui.styles import Font, Layout
-
-if TYPE_CHECKING:
-    pass  # MainWindow imported only for type hints to avoid circular imports
 
 
 class ToolbarManager:

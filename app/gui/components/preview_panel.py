@@ -536,7 +536,7 @@ class PreviewPanel(wx.Panel):
             dc.DrawText(line, cx - tw // 2, y_offset)
             y_offset += th + 4
 
-    def _wrap_text(self, dc, text: str, max_width: int) -> list[str]:
+    def _wrap_text(self, dc: wx.DC, text: str, max_width: int) -> list[str]:
         """Wrap text to fit within max_width.
 
         Args:

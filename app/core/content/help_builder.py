@@ -22,6 +22,7 @@ from pathlib import Path
 import markdown
 
 from app.core.content.template_env import jinja_env as _jinja_env
+from app.core.paths import get_project_root as _get_project_root
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,7 @@ def _validate_numbering(numbers: list[int], filenames: list[str]) -> None:
 
     # Check for duplicates
     seen: dict[int, str] = {}
-    for num, fname in zip(numbers, filenames, strict=False):
+    for num, fname in zip(numbers, filenames, strict=True):
         if num in seen:
             raise ValueError(f"Duplicate help page number {num}: '{fname}' and '{seen[num]}'")
         seen[num] = fname
@@ -153,7 +154,7 @@ def _read_help_pages(content_dir: Path) -> list[_HelpPage]:
 
 def generate_help_html() -> None:
     """Entry point for Makefile — generate help HTML from Markdown pages."""
-    project_root = Path(__file__).resolve().parent.parent.parent.parent
+    project_root = _get_project_root()
     content_dir = project_root / "content" / "html"
     output_dir = project_root / "_build" / "runtime_content" / "html" / "help"
 

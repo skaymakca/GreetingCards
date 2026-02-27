@@ -124,7 +124,8 @@ class TestGenerateLicensesHtml:
         build_dir = tmp_path / "_build" / "licenses"
 
         with (
-            patch.object(ls, "__file__", str(tmp_path / "app" / "core" / "content" / "license_sync.py")),
+            patch.object(ls, "_get_project_root", return_value=tmp_path),
+            patch("app.core.content.license_html._get_project_root", return_value=tmp_path),
             patch("app.core.content.license_sync._get_site_packages", return_value=site_packages),
         ):
             from app.core.content.license_html import generate_licenses_html
@@ -182,7 +183,8 @@ class TestGenerateLicensesHtml:
         stale.write_text("stale", encoding="utf-8")
 
         with (
-            patch.object(ls, "__file__", str(tmp_path / "app" / "core" / "content" / "license_sync.py")),
+            patch.object(ls, "_get_project_root", return_value=tmp_path),
+            patch("app.core.content.license_html._get_project_root", return_value=tmp_path),
             patch("app.core.content.license_sync._get_site_packages", return_value=site_packages),
         ):
             from app.core.content.license_html import generate_licenses_html
@@ -234,7 +236,8 @@ class TestGenerateLicensesHtml:
         # No dist-info for nolicense — no text at all → "License text not available."
 
         with (
-            patch.object(ls, "__file__", str(tmp_path / "app" / "core" / "content" / "license_sync.py")),
+            patch.object(ls, "_get_project_root", return_value=tmp_path),
+            patch("app.core.content.license_html._get_project_root", return_value=tmp_path),
             patch("app.core.content.license_sync._get_site_packages", return_value=site_packages),
         ):
             from app.core.content.license_html import generate_licenses_html

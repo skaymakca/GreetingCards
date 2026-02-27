@@ -28,20 +28,17 @@ from app.core.content.license_models import (
     PackageOverride,
     SystemDep,
 )
+from app.core.paths import get_project_root as _get_project_root
 
 logger = logging.getLogger(__name__)
 
 
-def _get_project_root() -> Path:
-    return Path(__file__).resolve().parent.parent.parent.parent
-
-
-def _get_licenses_source_dir() -> Path:
+def get_licenses_source_dir() -> Path:
     """Return content/licenses/ — committed source files (config.toml, manual/)."""
     return _get_project_root() / "content" / "licenses"
 
 
-def _get_licenses_build_dir() -> Path:
+def get_licenses_build_dir() -> Path:
     """Return _build/licenses/ — generated files (registry.toml, texts/)."""
     return _get_project_root() / "_build" / "licenses"
 
@@ -220,7 +217,7 @@ def _display_name(name: str, overrides: dict[str, PackageOverride]) -> str:
 
 # noinspection GrazieInspection
 def _categorize_packages(
-    packages: list[dict],
+    packages: list[dict[str, Any]],
     dev_deps: set[str],
     config: LicenseConfig,
     runtime_deps: set[str],
@@ -252,7 +249,7 @@ def _categorize_packages(
     return categories
 
 
-def _build_reverse_deps(packages: list[dict]) -> dict[str, set[str]]:
+def _build_reverse_deps(packages: list[dict[str, Any]]) -> dict[str, set[str]]:
     """Build reverse dependency map: package -> set of packages that require it."""
     reverse: dict[str, set[str]] = {}
     for pkg in packages:
@@ -305,8 +302,8 @@ def sync_registry() -> LicenseRegistry:
     Entry point for `make licenses-sync`.
     """
     project_root = _get_project_root()
-    source_dir = _get_licenses_source_dir()
-    build_dir = _get_licenses_build_dir()
+    source_dir = get_licenses_source_dir()
+    build_dir = get_licenses_build_dir()
     lock_path = project_root / "uv.lock"
 
     config = load_config(source_dir)

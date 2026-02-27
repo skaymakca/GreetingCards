@@ -1,5 +1,6 @@
 import re
 
+from app.core.naming.family_name.cleaning import strip_family_name_punctuation as _clean_name
 from app.models.card import Confidence, NameMatch
 
 # Words to filter out — common greeting card phrases
@@ -55,13 +56,6 @@ GREETING_WORDS = {
     "neighbor",
     "neighbors",
 }
-
-
-def _clean_name(name: str) -> str:
-    """Clean up extracted name."""
-    name = name.strip().strip(".,!;:-—–\"'''")
-    name = re.sub(r"\s+", " ", name)
-    return name.strip()
 
 
 def _is_valid_name(name: str) -> bool:
