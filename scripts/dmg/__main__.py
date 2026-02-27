@@ -32,7 +32,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Build the Greeting Cards DMG installer.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=("Reads version from pyproject.toml.\nOutput: dist/Greeting Cards - X.Y.Z.dmg"),
+        epilog="Reads version from pyproject.toml.\nOutput: dist/Greeting Cards - X.Y.Z.dmg",
     )
     parser.add_argument(
         "--editable",

@@ -39,12 +39,12 @@ Icon positions were determined by manual Finder placement on an editable (UDRW) 
 
 ## Files in the DMG
 
-| Item | Source | Role |
-|---|---|---|
-| `Greeting Cards.app` | `dist/Greeting Cards.app` | The app bundle |
-| `Applications` | symlink → `/Applications` | Drop target |
-| `Read Me.rtfd` | `_build/dmg/Read Me.rtfd` (generated) | Quick-start instructions with app icon |
-| `Sample Cards/` | `content/dmg/Sample Cards/` | Example PDFs |
+| Item                 | Source                                | Role                                   |
+|----------------------|---------------------------------------|----------------------------------------|
+| `Greeting Cards.app` | `dist/Greeting Cards.app`             | The app bundle                         |
+| `Applications`       | symlink → `/Applications`             | Drop target                            |
+| `Read Me.rtfd`       | `_build/dmg/Read Me.rtfd` (generated) | Quick-start instructions with app icon |
+| `Sample Cards/`      | `content/dmg/Sample Cards/`           | Example PDFs                           |
 
 Files are added in order: Read Me, Sample Cards, then the app last. This prevents Finder from pre-selecting the app when the DMG opens.
 
@@ -54,11 +54,11 @@ Files are added in order: Read Me, Sample Cards, then the app last. This prevent
 
 The orchestrator package handles the full DMG build:
 
-| Module | Purpose |
-|---|---|
-| `__main__.py` | CLI entry point: reads version, generates background + README, calls dmgbuild |
-| `readme.py` | Converts `content/dmg/readme.md` → RTFD with embedded icon |
-| `background.py` | Generates 1× and @2x gradient background with arrow and small-caps label |
+| Module          | Purpose                                                                       |
+|-----------------|-------------------------------------------------------------------------------|
+| `__main__.py`   | CLI entry point: reads version, generates background + README, calls dmgbuild |
+| `readme.py`     | Converts `content/dmg/readme.md` → RTFD with embedded icon                    |
+| `background.py` | Generates 1× and @2x gradient background with arrow and small-caps label      |
 
 ### Orchestrator flow (`__main__.py`)
 
@@ -79,13 +79,13 @@ The `--editable` flag builds a read-write (UDRW) DMG for manual icon positioning
 
 A Python file executed by dmgbuild at runtime. dmgbuild injects a `defines` dict containing values passed via the Python API:
 
-| define key | Value |
-|---|---|
-| `app_path` | `dist/Greeting Cards.app` |
-| `readme_path` | `_build/dmg/Read Me.rtfd` |
-| `sample_cards_path` | `content/dmg/Sample Cards` |
-| `background` | `_build/dmg/background.png` |
-| `format` | `UDRW` (only when `--editable`) |
+| define key          | Value                           |
+|---------------------|---------------------------------|
+| `app_path`          | `dist/Greeting Cards.app`       |
+| `readme_path`       | `_build/dmg/Read Me.rtfd`       |
+| `sample_cards_path` | `content/dmg/Sample Cards`      |
+| `background`        | `_build/dmg/background.png`     |
+| `format`            | `UDRW` (only when `--editable`) |
 
 Because `defines` is injected at runtime and not imported, ruff raises F821 (undefined name). This is suppressed globally for `scripts/dmg/dmgbuild_settings.py` via `pyproject.toml` per-file-ignores. pyright also excludes this file.
 
@@ -99,7 +99,7 @@ Key settings: `icon_size = 80`, `text_size = 13`, `show_icon_preview = True`, `w
 - `_build/dmg/background.png` — 660×480 (1× logical size)
 - `_build/dmg/background@2x.png` — 1320×960 (Retina)
 
-dmgbuild automatically discovers the `@2x` variant when both files are in the same directory and combines them into a multi-page TIFF for the DMG. Finder displays the @2x version on Retina screens.
+dmgbuild automatically discovers the `@2x` variant when both files are in the same directory and combines them into a multipage TIFF for the DMG. Finder displays the @2x version on Retina screens.
 
 The background contains:
 - **Gradient:** Left-to-right steel-blue-gray → near-white
@@ -169,12 +169,12 @@ TextEdit rewrites the entire document in its preferred normalized form when savi
 
 `content/dmg/Sample Cards/` contains four PDFs showing naming patterns the app handles:
 
-| File | Content | Pattern |
-|---|---|---|
-| `Christmas Card - Morales Family.pdf` | Hispanic, Christmas | Named (named pattern) |
-| `IMG_4102.pdf` | Slavic, Season's Greetings | Camera import |
-| `Scan 2024-12-22 at 3.45 PM.pdf` | South Asian, Diwali | Scanner timestamp |
-| `Photo Dec 25 2024, 9 15 AM.pdf` | West African, Kwanzaa | Apple Photos |
+| File                                  | Content                    | Pattern               |
+|---------------------------------------|----------------------------|-----------------------|
+| `Christmas Card - Morales Family.pdf` | Hispanic, Christmas        | Named (named pattern) |
+| `IMG_4102.pdf`                        | Slavic, Season's Greetings | Camera import         |
+| `Scan 2024-12-22 at 3.45 PM.pdf`      | South Asian, Diwali        | Scanner timestamp     |
+| `Photo Dec 25 2024, 9 15 AM.pdf`      | West African, Kwanzaa      | Apple Photos          |
 
 Three of four cards have "messy" generic filenames — the kind users actually have — showcasing how the app reads card content rather than relying on the filename.
 
@@ -201,14 +201,14 @@ The DMG volume is named `"Greeting Cards - X.Y.Z"` (version injected at build ti
 - **dmgbuild version:** Requires `>=1.6.1` for reliable Python-based config and UDBZ support.
 
 ### Background @2x handling (critical)
-- **dmgbuild auto-discovers @2x files.** If `background.png` is in a directory, dmgbuild looks for `background@2x.png` in the same directory and combines both into a multi-page TIFF. If only one exists, it uses that single image.
+- **dmgbuild auto-discovers @2x files.** If `background.png` is in a directory, dmgbuild looks for `background@2x.png` in the same directory and combines both into a multipage TIFF. If only one exists, it uses that single image.
 - **Stale @2x files cause silent breakage.** If you regenerate `background.png` but a stale `background@2x.png` remains from a previous build, dmgbuild combines the new 1× with the old @2x — and Finder displays the old @2x on Retina screens. The fix: always regenerate both files together (which `background.generate()` now does).
 - **Background not updating? Check for orphan files in `_build/dmg/`.** This was the root cause of extensive debugging — calibration images were correct in the 1× PNG but Finder always showed the stale @2x image.
 
 ### Icon positioning
 - **Use an editable UDRW DMG** (`--editable` flag) to manually position icons in Finder, then extract coordinates from the `.DS_Store` binary. This is far more reliable than guessing coordinates.
 - **DS_Store Iloc format:** 16 bytes per entry: x (4 bytes, big-endian uint32) + y (4 bytes) + 8 bytes padding. Parse with `struct.unpack('>II8x', data)`.
-- **Iloc coordinates ≠ icon image centre.** Finder renders icon images above the Iloc point. The Iloc is the anchor point for the icon+label unit, not the image centre.
+- **Iloc coordinates ≠ icon image center.** Finder renders icon images above the Iloc point. The Iloc is the anchor point for the icon+label unit, not the image center.
 - **PIL and Finder use the same coordinate system.** Confirmed empirically: crosshairs drawn at Iloc positions in PIL appear directly under icon images in Finder.
 
 ### mac_alias and NSURL bookmarks

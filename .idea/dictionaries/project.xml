@@ -14,6 +14,7 @@
       <w>Dilorenzo</w>
       <w>Distefano</w>
       <w>Garcias</w>
+      <w>Iloc</w>
       <w>Intyre</w>
       <w>NFKD</w>
       <w>Nguyens</w>
@@ -33,11 +34,15 @@
       <w>Vecchio</w>
       <w>Weiß</w>
       <w>amdahlq</w>
+      <w>appleaqc</w>
+      <w>appleattachmentpadding</w>
+      <w>appleembedtype</w>
       <w>autocontrast</w>
       <w>avgjobq</w>
       <w>basenames</w>
       <w>ches</w>
       <w>classmethod</w>
+      <w>colortbl</w>
       <w>confq</w>
       <w>curdir</w>
       <w>damico</w>
@@ -52,9 +57,12 @@
       <w>efficiencyq</w>
       <w>endef</w>
       <w>entrancy</w>
+      <w>fcharset</w>
       <w>firstword</w>
       <w>fname</w>
+      <w>fonttbl</w>
       <w>frontmatter</w>
+      <w>fswiss</w>
       <w>gitignored</w>
       <w>helv</w>
       <w>heredocs</w>
@@ -72,19 +80,28 @@
       <w>libtesseract</w>
       <w>lsregister</w>
       <w>magnifyingglass</w>
+      <w>margb</w>
+      <w>margl</w>
+      <w>margr</w>
+      <w>margt</w>
       <w>mbenchmark</w>
       <w>meipass</w>
       <w>memsize</w>
       <w>mgenerate</w>
       <w>neue</w>
       <w>noarchive</w>
+      <w>noorient</w>
       <w>o'brian</w>
       <w>o'brien</w>
       <w>obrien</w>
       <w>oneil</w>
+      <w>paperh</w>
+      <w>paperw</w>
+      <w>pathbar</w>
       <w>pathex</w>
       <w>picklable</w>
       <w>pluralizations</w>
+      <w>pngblip</w>
       <w>preprocs</w>
       <w>purelib</w>
       <w>rasterizing</w>
@@ -105,10 +122,13 @@
       <w>sukru</w>
       <w>takahashi</w>
       <w>tessdata</w>
+      <w>textutil</w>
       <w>throughputq</w>
       <w>timeq</w>
       <w>tomllib</w>
       <w>traineddata</w>
+      <w>udbz</w>
+      <w>udrw</w>
       <w>vandyke</w>
       <w>visualtest</w>
       <w>walltimeq</w>

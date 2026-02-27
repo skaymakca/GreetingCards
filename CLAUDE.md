@@ -216,8 +216,8 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `scripts/generate_sample_cards/**`                                              | `docs/architecture/sample-card-generator.md`                          |
 | `scripts/helpers.py`, `scripts/**/__main__.py`                                  | `docs/architecture/scripts-infrastructure.md`                         |
 | `# noinspection` comments in any `*.py` file                                    | `docs/architecture/pycharm-inspections.md`                            |
-| `scripts/dmg/**` (including `dmgbuild_settings.py`)                              | `docs/architecture/dmg-creation.md`                                   |
-| `content/dmg/readme.md`, `content/dmg/Sample Cards/`                           | `docs/architecture/dmg-creation.md`                                   |
+| `scripts/dmg/**` (including `dmgbuild_settings.py`)                             | `docs/architecture/dmg-creation.md`                                   |
+| `content/dmg/readme.md`, `content/dmg/Sample Cards/`                            | `docs/architecture/dmg-creation.md`                                   |
 
 ### Test Count
 When adding or removing tests, update the test count in `README.md` (search for "tests** covering") to match the actual number from `pytest` output.

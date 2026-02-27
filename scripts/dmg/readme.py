@@ -3,7 +3,7 @@
 Reads content/dmg/readme.md and produces _build/dmg/Read Me.rtfd/ with:
   - 128×128 app icon (centred, via NeXTGraphic)
   - "Greeting Cards" title (bold, 28pt)
-  - "Version: X.Y.Z" subtitle (grey, 12pt)
+  - "Version: X.Y.Z" subtitle (gray, 12pt)
   - Markdown body: ## headings, **bold**, numbered lists, bullet lists, paragraphs
 
 Output is an RTFD package (directory with TXT.rtf + icon.png) because TextEdit

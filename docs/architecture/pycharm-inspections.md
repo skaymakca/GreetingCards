@@ -104,6 +104,16 @@ Benchmark scripts use parenthesized return tuples for readability.
 
 **Files:** `scripts/benchmark/ocr_concurrency.py`, `scripts/benchmark/pre_processing_concurrency.py`
 
+#### PyUnresolvedReferences — dmgbuild runtime injection
+`scripts/dmg/dmgbuild_settings.py` uses `defines`, a dict injected by dmgbuild at runtime. It is never declared in the file. Each of the 5 `defines` usages is suppressed with a per-statement `# noinspection PyUnresolvedReferences` comment (file-level suppression is not supported in Python — `# noinspection` only covers the next statement). The file is also excluded from pyright and ruff F821.
+
+**Files:** `scripts/dmg/dmgbuild_settings.py`
+
+#### PyShadowingBuiltins — dmgbuild config variable names
+`scripts/dmg/dmgbuild_settings.py` uses `format` as a config variable name — it is the key expected by the dmgbuild API and cannot be renamed. Suppressed per-statement with `# noinspection PyShadowingBuiltins`.
+
+**Files:** `scripts/dmg/dmgbuild_settings.py`
+
 #### PyAttributeOutsideInit — wxPython widget creation pattern
 Complex wxPython UIs build widgets in helper methods (`_build_key_section`, etc.) called from `__init__`, not directly in `__init__` itself. PyCharm doesn't trace this pattern.
 

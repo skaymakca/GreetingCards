@@ -2,7 +2,7 @@
 
 Outputs _build/dmg/background.png (1×) and background@2x.png (2×).
 dmgbuild automatically discovers the @2x variant and combines both into
-a multi-page TIFF so Finder displays the sharp Retina version.
+a multipage TIFF so Finder displays the sharp Retina version.
 
 Called by scripts/dmg/__main__.py before dmgbuild; the 1× path is passed
 as the "background" define to scripts/dmg/dmgbuild_settings.py.
