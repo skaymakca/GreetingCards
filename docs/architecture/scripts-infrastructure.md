@@ -220,3 +220,54 @@ Self-contained HTML reports with:
 
 - `mean_std(values)` — returns (mean, standard_deviation)
 - `fmt_mean_std(mean, std)` — formatted string "M +/- S"
+
+---
+
+## Testing
+
+### Test directory
+
+`tests/scripts/` mirrors the `scripts/` directory structure. Each sub-package has its own `tests/scripts/<name>/` directory with `__init__.py` and focused test modules.
+
+### What's tested
+
+Scripts with pure logic or mockable I/O:
+
+- **`scripts/helpers.py`** — `_make_output_dir` timestamped dir creation; `script_output_dir` keeps non-empty dirs on error, removes empty dirs, re-raises
+- **`scripts/build_family_name_db/`** — `_unicode.py` mapping table; `merger.py` normalize/ascii_fold/merge_sources/apply_overrides/write_tsv/`_sanity_check`; all three source downloaders (census, faker_names, smashew) with in-memory zip/network mocks
+- **`scripts/dmg/`** — `readme.py` RTF generation (escape, inline bold, body rendering, RTFD package); `background.py` gradient and PNG generation; `__main__.py` version reading and `dmgbuild` orchestration
+- **`scripts/generate_diagnostic_cards/cli.py`** — `_create_diagnostic_pdf` fitz mock; `main()` argument parsing
+- **`scripts/generate_sample_cards/`** — `models.py` dataclasses; `display.py` Rich table layout; `pdf_composer.py` fitz page creation; `image_generator.py` rate limiting, retry, prompt building, OpenAI API; `spec_generator.py` full pipeline; `cli.py` API key validation and card processing
+- **`scripts/generate_sample_cards/spec_generators/`** — `utils.py` JSON extraction; `constants.py` list integrity; `formatting.py` deterministic field assignment; `family_names.py`, `color_schemes.py`, `subtitles.py`, `card_content.py` — all Anthropic API calls mocked
+
+### What's NOT tested and why
+
+| Script | Reason |
+|---|---|
+| `scripts/benchmark/` | Requires a real PDF corpus and OCR engines (tesseract/OpenCV); measurement tools, not business logic |
+| `scripts/profiling/` | Requires real PDF files and pyinstrument; measures performance, not correctness |
+| `scripts/visual_test.py` | Is itself a testing tool for manual GUI inspection |
+| `scripts/dark_mode_cycler.py` | Trivial macOS utility — a single `osascript` call in a loop |
+| `scripts/build_family_name_db/cli.py` | Integration orchestrator that downloads real Census/GitHub data; individual sources and merger are tested in isolation |
+| `scripts/build_family_name_db/benchmark_compression.py` | Benchmarking utility for file format selection |
+
+### API mocking
+
+All Anthropic and OpenAI calls are mocked via `unittest.mock.patch` + `AsyncMock`. No tests hit real APIs or the network. The standard mock pattern:
+
+```python
+mock_msg = MagicMock()
+mock_msg.content = [MagicMock(text='["Smith", "Jones"]')]
+mock_client = MagicMock()
+mock_client.messages.create = AsyncMock(return_value=mock_msg)
+```
+
+For sequential multi-phase responses (spec generator pipeline), pass a list to `side_effect`:
+```python
+mock_client.messages.create = AsyncMock(side_effect=[names_msg, schemes_msg, subtitles_msg, *content_msgs])
+```
+
+### Makefile targets
+
+- `make test-scripts` — run `tests/scripts/` only (fast, ~1s)
+- `make test-cov` — full suite with coverage for both `app/` and `scripts/`

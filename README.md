@@ -51,6 +51,7 @@ Scans holiday/greeting card PDFs, extracts family names via OCR and AI, and batc
 - [pyright](https://github.com/microsoft/pyright) — type checking (`brew install pyright` or `npm i -g pyright`)
 - [Tesseract](https://github.com/tesseract-ocr/tesseract) — required only for benchmark scripts (
   `brew install tesseract`)
+- [lcov](https://github.com/linux-test-project/lcov) — grouped HTML coverage reports (optional; `brew install lcov`)
 
 ## Quick Start
 
@@ -79,7 +80,8 @@ Run `make help` to see all available commands.
 | `make setup-dev`       | Install all dependencies including dev/testing tools                                     |
 | `make run`             | Run the app from source                                                                  |
 | `make test`            | Run all tests                                                                            |
-| `make test-cov`        | Run tests with coverage report (generates `_build/htmlcov/index.html`)                   |
+| `make test-cov`        | Run tests with coverage (timestamped output in `_build/coverage/`, flat + grouped HTML)                        |
+| `make test-cov-open`   | Run coverage and open HTML reports in browser                                                          |
 | `make test-core`       | Run core (non-GUI) tests only                                                            |
 | `make test-gui`        | Run GUI tests only                                                                       |
 | `make build`           | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`) — alias for `make app` |
@@ -157,9 +159,8 @@ make setup-dev
 # Run all tests
 make test
 
-# Run with coverage report
-make test-cov
-open _build/htmlcov/index.html
+# Run with coverage and open HTML reports in browser
+make test-cov-open
 ```
 
 ### Test Organization
@@ -204,7 +205,8 @@ tests/
 | Command                                               | What it does                       |
 |-------------------------------------------------------|------------------------------------|
 | `make test`                                           | Run all tests with verbose output  |
-| `make test-cov`                                       | Generate HTML coverage report      |
+| `make test-cov`                                       | Coverage with timestamped output, flat + grouped HTML                        |
+| `make test-cov-open`                                  | Run coverage and open HTML reports in browser |
 | `make test-core`                                      | Run only core tests (fast, no GUI) |
 | `make test-gui`                                       | Run only GUI tests                 |
 | `uv run pytest -k "mac_names"`                        | Run tests matching pattern         |
@@ -212,7 +214,7 @@ tests/
 
 ### Current Coverage
 
-- **1694 tests** covering core logic and GUI components
+- **1970 tests** covering core logic, GUI components, and scripts
 - **Core** (pipeline/, naming/, content/ sub-packages + top-level): AI analysis, card model, changelog, changelog models,
   config, database, family name cleaning, family name data, family name formatting, filename safety, help builder,
   license HTML, license models, license sync, name extraction, OCR engine, paths, PDF rendering, PDF worker, renamer,

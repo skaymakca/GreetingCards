@@ -215,6 +215,7 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `scripts/*.py` (adding/removing/renaming scripts)                               | Update `Makefile` `show-scripts` target + `README.md` Scripts section |
 | `scripts/generate_sample_cards/**`                                              | `docs/architecture/sample-card-generator.md`                          |
 | `scripts/helpers.py`, `scripts/**/__main__.py`                                  | `docs/architecture/scripts-infrastructure.md`                         |
+| `tests/scripts/**`                                                              | `docs/architecture/scripts-infrastructure.md`                         |
 | `# noinspection` comments in any `*.py` file                                    | `docs/architecture/pycharm-inspections.md`                            |
 | `scripts/dmg/**` (including `dmgbuild_settings.py`)                             | `docs/architecture/dmg-creation.md`                                   |
 | `content/dmg/readme.md`, `content/dmg/Sample Cards/`                            | `docs/architecture/dmg-creation.md`                                   |
