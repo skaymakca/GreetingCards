@@ -126,6 +126,8 @@ content: ## Generate runtime content (HTML, data files, images)
 	@mkdir -p _build/runtime_content/html/common/css _build/runtime_content/html/common/js _build/runtime_content/images _build/runtime_content/data
 	@cp content/html/common/css/viewer.css _build/runtime_content/html/common/css/viewer.css
 	@cp content/html/common/js/search.js _build/runtime_content/html/common/js/search.js
+	@cp content/html/common/css/highlight.css _build/runtime_content/html/common/css/highlight.css
+	@cp content/html/common/js/highlight.min.js _build/runtime_content/html/common/js/highlight.min.js
 	@cp content/images/drop-target-background.png _build/runtime_content/images/drop-target-background.png
 	@gzip -c content/data/family_name_database.tsv > _build/runtime_content/data/family_name_database.tsv.gz
 	uv run python -c "from app.core.content.help_builder import generate_help_html; generate_help_html()"

@@ -3,12 +3,12 @@
 import pytest
 
 from app.core.content.license_models import (
+    BundledDep,
     DiscoveredPackage,
     LicenseConfig,
     LicenseRegistry,
     PackageCategory,
     PackageOverride,
-    SystemDep,
 )
 from app.core.content.license_sync import (
     _build_reverse_deps,
@@ -34,15 +34,15 @@ class TestLoadConfig:
         config_toml = tmp_path / "config.toml"
         config_toml.write_text(
             'exclude = ["bar"]\n\n'
-            '[[system]]\nslug = "python"\ndisplay = "Python"\n'
+            '[[bundled]]\nslug = "python"\ndisplay = "Python"\n'
             'version = "3.14"\nlicense_type = "PSF"\n\n'
             '[[package]]\nname = "foo"\ndisplay = "Foo Lib"\n'
             'category = "Runtime"\n',
             encoding="utf-8",
         )
         config = load_config(tmp_path)
-        assert len(config.system_deps) == 1
-        assert config.system_deps[0].slug == "python"
+        assert len(config.bundled_deps) == 1
+        assert config.bundled_deps[0].slug == "python"
         assert "foo" in config.package_overrides
         assert "bar" in config.exclude
 
@@ -54,7 +54,7 @@ class TestLoadConfig:
         config_toml = tmp_path / "config.toml"
         config_toml.write_text("", encoding="utf-8")
         config = load_config(tmp_path)
-        assert config.system_deps == []
+        assert config.bundled_deps == []
         assert config.package_overrides == {}
         assert config.exclude == set()
 
@@ -80,19 +80,19 @@ class TestCategorizePackages:
 
     def test_runtime_categorization(self):
         packages = [{"name": "anthropic", "version": "1.0", "deps": []}]
-        config = LicenseConfig(system_deps=[])
+        config = LicenseConfig(bundled_deps=[])
         cats = _categorize_packages(packages, set(), config, {"anthropic"})
         assert cats["anthropic"] == PackageCategory.RUNTIME
 
     def test_dev_categorization(self):
         packages = [{"name": "pytest", "version": "9.0", "deps": []}]
-        config = LicenseConfig(system_deps=[])
+        config = LicenseConfig(bundled_deps=[])
         cats = _categorize_packages(packages, {"pytest"}, config, set())
         assert cats["pytest"] == PackageCategory.DEVELOPMENT
 
     def test_transitive_categorization(self):
         packages = [{"name": "anyio", "version": "4.0", "deps": []}]
-        config = LicenseConfig(system_deps=[])
+        config = LicenseConfig(bundled_deps=[])
         cats = _categorize_packages(packages, set(), config, set())
         assert cats["anyio"] == PackageCategory.TRANSITIVE
 
@@ -103,7 +103,7 @@ class TestCategorizePackagesOverride:
     def test_config_override_changes_category(self):
         packages = [{"name": "foo", "version": "1.0", "deps": []}]
         overrides = {"foo": PackageOverride(name="foo", category="Runtime")}
-        config = LicenseConfig(system_deps=[], package_overrides=overrides)
+        config = LicenseConfig(bundled_deps=[], package_overrides=overrides)
         cats = _categorize_packages(packages, set(), config, set())
         assert cats["foo"] == PackageCategory.RUNTIME
 
@@ -194,7 +194,7 @@ class TestWriteRegistryToml:
         registry = LicenseRegistry(
             uv_lock_hash="sha256:abc123",
             generated_at="2026-01-01T00:00:00+00:00",
-            system_deps=[SystemDep(slug="python", display="Python", version="3.14", license_type="PSF", notes="")],
+            bundled_deps=[BundledDep(slug="python", display="Python", version="3.14", license_type="PSF", notes="")],
             packages=[
                 DiscoveredPackage(
                     name="foo",
@@ -216,7 +216,7 @@ class TestWriteRegistryToml:
         assert data["meta"]["uv_lock_hash"] == "sha256:abc123"
         assert len(data["package"]) == 1
         assert data["package"][0]["name"] == "foo"
-        assert len(data["system"]) == 1
+        assert len(data["bundled"]) == 1
 
 
 class TestFindDistInfo:

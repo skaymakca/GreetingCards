@@ -116,7 +116,7 @@ def _read_help_pages(content_dir: Path) -> list[_HelpPage]:
     numbers: list[int] = []
     filenames: list[str] = []
 
-    md_converter = markdown.Markdown(extensions=["tables"])
+    md_converter = markdown.Markdown(extensions=["tables", "fenced_code"])
 
     for md_file in sorted(help_dir.glob("*.md")):
         match = _FILENAME_RE.match(md_file.name)
@@ -194,23 +194,36 @@ def generate_help_html() -> None:
 
     # Render each page
     for page in pages:
+        has_code_blocks = "<code" in page.body_html
+
         if page.slug == "index":
             # Index page: nav hrefs are child-relative
             nav = [{"slug": n["slug"], "title": n["title"], "href": n["href"]} for n in nav_items]
             css_path = "../common/css/viewer.css"
             js_path = "../common/js/search.js"
+            common_prefix = "../common"
             out_path = output_dir / "index.html"
         else:
             # Sub-pages: nav hrefs are sibling-relative
             nav = [{"slug": n["slug"], "title": n["title"], "href": n["href_from_pages"]} for n in nav_items]
             css_path = "../../common/css/viewer.css"
             js_path = "../../common/js/search.js"
+            common_prefix = "../../common"
             out_path = pages_dir / f"{page.slug}.html"
+
+        extra_css_paths: list[str] = []
+        extra_js_paths: list[str] = []
+        if has_code_blocks:
+            extra_css_paths.append(f"{common_prefix}/css/highlight.css")
+            extra_js_paths.append(f"{common_prefix}/js/highlight.min.js")
 
         html = template.render(
             title=page.title,
             css_path=css_path,
             js_path=js_path,
+            extra_css_paths=extra_css_paths,
+            extra_js_paths=extra_js_paths,
+            has_highlight=has_code_blocks,
             nav=nav,
             active_slug=page.slug,
             body_html=page.body_html,

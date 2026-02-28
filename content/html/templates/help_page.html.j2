@@ -12,3 +12,8 @@
 {% block content %}
 {{ body_html|safe }}
 {% endblock %}
+{% block body_end %}
+{% if has_highlight %}
+<script>hljs.highlightAll();</script>
+{% endif %}
+{% endblock %}

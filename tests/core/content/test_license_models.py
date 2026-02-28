@@ -1,12 +1,12 @@
 """Tests for app.core.license_models module."""
 
 from app.core.content.license_models import (
+    BundledDep,
     DiscoveredPackage,
     LicenseConfig,
     LicenseRegistry,
     PackageCategory,
     PackageOverride,
-    SystemDep,
 )
 
 
@@ -26,11 +26,11 @@ class TestPackageCategory:
         assert len(PackageCategory) == 3
 
 
-class TestSystemDep:
-    """Tests for SystemDep dataclass."""
+class TestBundledDep:
+    """Tests for BundledDep dataclass."""
 
     def test_construction(self):
-        dep = SystemDep(
+        dep = BundledDep(
             slug="python",
             display="Python",
             version="3.14",
@@ -43,7 +43,7 @@ class TestSystemDep:
         assert dep.url == "https://python.org"
 
     def test_url_default_empty(self):
-        dep = SystemDep(
+        dep = BundledDep(
             slug="tesseract", display="Tesseract", version="5.0", license_type="Apache-2.0", notes="OCR engine"
         )
         assert dep.url == ""
@@ -71,15 +71,15 @@ class TestLicenseConfig:
     """Tests for LicenseConfig dataclass."""
 
     def test_construction(self):
-        dep = SystemDep(slug="python", display="Python", version="3.14", license_type="PSF", notes="")
-        config = LicenseConfig(system_deps=[dep])
-        assert len(config.system_deps) == 1
+        dep = BundledDep(slug="python", display="Python", version="3.14", license_type="PSF", notes="")
+        config = LicenseConfig(bundled_deps=[dep])
+        assert len(config.bundled_deps) == 1
         assert config.package_overrides == {}
         assert config.exclude == set()
 
     def test_with_overrides_and_exclude(self):
         config = LicenseConfig(
-            system_deps=[],
+            bundled_deps=[],
             package_overrides={"wx": PackageOverride(name="wx")},
             exclude={"test-pkg"},
         )
@@ -111,7 +111,7 @@ class TestLicenseRegistry:
     """Tests for LicenseRegistry dataclass."""
 
     def test_construction(self):
-        dep = SystemDep(slug="python", display="Python", version="3.14", license_type="PSF", notes="")
+        dep = BundledDep(slug="python", display="Python", version="3.14", license_type="PSF", notes="")
         pkg = DiscoveredPackage(
             name="anyio",
             slug="anyio",
@@ -125,9 +125,9 @@ class TestLicenseRegistry:
         reg = LicenseRegistry(
             uv_lock_hash="abc123",
             generated_at="2026-02-23",
-            system_deps=[dep],
+            bundled_deps=[dep],
             packages=[pkg],
         )
         assert reg.uv_lock_hash == "abc123"
-        assert len(reg.system_deps) == 1
+        assert len(reg.bundled_deps) == 1
         assert len(reg.packages) == 1

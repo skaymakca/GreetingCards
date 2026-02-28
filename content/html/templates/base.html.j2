@@ -4,14 +4,21 @@
     <meta charset="UTF-8">
     <title>{{ title }}</title>
     <link rel="stylesheet" href="{{ css_path }}">
+{% for extra_css in extra_css_paths|default([]) %}
+    <link rel="stylesheet" href="{{ extra_css }}">
+{% endfor %}
 {% if js_path %}
     <script src="{{ js_path }}"></script>
 {% endif %}
+{% for extra_js in extra_js_paths|default([]) %}
+    <script src="{{ extra_js }}"></script>
+{% endfor %}
 </head>
 <body>
     {% block sidebar %}{% endblock %}
     <div class="content">
 {% block content %}{% endblock %}
     </div>
+{% block body_end %}{% endblock %}
 </body>
 </html>

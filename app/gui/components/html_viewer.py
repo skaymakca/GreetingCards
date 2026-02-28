@@ -45,15 +45,17 @@ class _TextExtractor(HTMLParser):
     Ignores everything outside <div class="content">, plus script/style.
     """
 
+    _SKIP_TAGS = frozenset(("script", "style", "pre"))
+
     def __init__(self) -> None:
         super().__init__()
         self._pieces: list[str] = []
         self._in_content = False
         self._content_depth = 0  # nested div depth inside .content
-        self._skip_depth = 0  # nested script/style depth
+        self._skip_depth = 0  # nested script/style/pre depth
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if self._in_content and tag in ("script", "style"):
+        if self._in_content and tag in self._SKIP_TAGS:
             self._skip_depth += 1
             return
         if tag == "div":
@@ -66,7 +68,7 @@ class _TextExtractor(HTMLParser):
                 self._content_depth += 1
 
     def handle_endtag(self, tag: str) -> None:
-        if self._skip_depth > 0 and tag in ("script", "style"):
+        if self._skip_depth > 0 and tag in self._SKIP_TAGS:
             self._skip_depth -= 1
             return
         if self._in_content and tag == "div":

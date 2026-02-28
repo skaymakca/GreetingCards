@@ -9,7 +9,7 @@
         <h2>Dependency Types</h2>
         <ul>
             <li><strong><a href="greeting-cards.html">Greeting Cards</a></strong> — This application's own license</li>
-            <li><strong><a href="system.html">System</a></strong> — Platform-level dependencies not managed by Python packaging (e.g. Python itself, Tesseract OCR)</li>
+            <li><strong><a href="bundled.html">Bundled</a></strong> — Dependencies bundled with the app but not managed by Python packaging (e.g. Python itself, Tesseract OCR)</li>
             <li><strong><a href="runtime.html">Runtime</a></strong> — Libraries the app directly imports and depends on</li>
             <li><strong><a href="development.html">Development</a></strong> — Testing, development, and build tools</li>
             <li><strong><a href="transitive.html">Transitive</a></strong> — Dependencies pulled in by Runtime and Development packages</li>
@@ -21,11 +21,11 @@
             <tr><td><a href="greeting-cards.html">Greeting Cards</a></td><td>BSD 3-Clause</td></tr>
         </table>
 
-        <h2>System Dependencies</h2>
+        <h2>Bundled Dependencies</h2>
         <table>
             <tr><th>Name</th><th>License</th><th>Notes</th></tr>
-{% for dep in system_deps %}
-            <tr><td class="pkg-name"><a href="system.html#{{ dep.slug }}">{{ dep.display }}{{ ' ' + dep.version if dep.version else '' }}</a>{% if dep.url %} <a href="{{ dep.url }}">&nearr;</a>{% endif %}</td><td>{{ dep.license }}</td><td>{{ dep.notes }}</td></tr>
+{% for dep in bundled_deps %}
+            <tr><td class="pkg-name"><a href="bundled.html#{{ dep.slug }}">{{ dep.display }}{{ ' ' + dep.version if dep.version else '' }}</a>{% if dep.url %} <a href="{{ dep.url }}">&nearr;</a>{% endif %}</td><td>{{ dep.license }}</td><td>{{ dep.notes }}</td></tr>
 {% endfor %}
         </table>
 

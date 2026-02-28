@@ -82,7 +82,7 @@ def _build_nav_items() -> list[dict[str, str]]:
     items = [
         {"slug": "index", "display": "Home", "href": "index.html"},
         {"slug": "greeting-cards", "display": "Greeting Cards", "href": "greeting-cards.html"},
-        {"slug": "system", "display": "System", "href": "system.html"},
+        {"slug": "bundled", "display": "Bundled", "href": "bundled.html"},
         {"slug": "runtime", "display": "Runtime", "href": "runtime.html"},
         {"slug": "development", "display": "Development", "href": "development.html"},
         {"slug": "transitive", "display": "Transitive", "href": "transitive.html"},
@@ -114,7 +114,7 @@ def generate_licenses_html() -> None:
     logger.info(
         "Generated %d license entries across %d pages in %s",
         len(registry.packages),
-        len(_CATEGORY_PAGES) + 3,  # +3 for index, greeting-cards, system
+        len(_CATEGORY_PAGES) + 3,  # +3 for index, greeting-cards, bundled
         html_dir,
     )
 
@@ -156,7 +156,7 @@ def _write_html(
         }
         for pkg in registry.packages
     ]
-    system_dicts = [
+    bundled_dicts = [
         {
             "slug": dep.slug,
             "display": dep.display,
@@ -165,7 +165,7 @@ def _write_html(
             "notes": dep.notes,
             "url": dep.url,
         }
-        for dep in registry.system_deps
+        for dep in registry.bundled_deps
     ]
 
     index_template = _jinja_env.get_template("licenses_index.html.j2")
@@ -175,7 +175,7 @@ def _write_html(
         js_path=js_path,
         nav_items=nav_items,
         active_slug="index",
-        system_deps=system_dicts,
+        bundled_deps=bundled_dicts,
         pkg_infos=pkg_dicts,
     )
     (html_dir / "index.html").write_text(index_html, encoding="utf-8")
@@ -204,14 +204,14 @@ def _write_html(
     )
     (html_dir / "greeting-cards.html").write_text(gc_html, encoding="utf-8")
 
-    # --- System page ---
-    system_entries = []
-    for dep in registry.system_deps:
+    # --- Bundled page ---
+    bundled_entries = []
+    for dep in registry.bundled_deps:
         text_path = source_dir / "manual" / f"{dep.slug}.txt"
         dep_text = (
             text_path.read_text(encoding="utf-8").strip() if text_path.exists() else "License text not available."
         )
-        system_entries.append(
+        bundled_entries.append(
             {
                 "slug": dep.slug,
                 "display": dep.display,
@@ -223,16 +223,16 @@ def _write_html(
             }
         )
 
-    sys_html = page_template.render(
-        title="System Dependencies — Licenses",
+    bundled_html = page_template.render(
+        title="Bundled Dependencies — Licenses",
         css_path=css_path,
         js_path=js_path,
         nav_items=nav_items,
-        active_slug="system",
-        page_title="System Dependencies",
-        entries=system_entries,
+        active_slug="bundled",
+        page_title="Bundled Dependencies",
+        entries=bundled_entries,
     )
-    (html_dir / "system.html").write_text(sys_html, encoding="utf-8")
+    (html_dir / "bundled.html").write_text(bundled_html, encoding="utf-8")
 
     # --- Category pages ---
     for cats, filename, page_title in _CATEGORY_PAGES:

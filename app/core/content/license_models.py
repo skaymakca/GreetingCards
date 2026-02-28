@@ -11,7 +11,7 @@ class PackageCategory(Enum):
 
 
 @dataclass
-class SystemDep:
+class BundledDep:
     slug: str
     display: str
     version: str
@@ -34,7 +34,7 @@ class PackageOverride:
 
 @dataclass
 class LicenseConfig:
-    system_deps: list[SystemDep]
+    bundled_deps: list[BundledDep]
     package_overrides: dict[str, PackageOverride] = field(default_factory=dict)
     exclude: set[str] = field(default_factory=set)
 
@@ -57,5 +57,5 @@ class DiscoveredPackage:
 class LicenseRegistry:
     uv_lock_hash: str
     generated_at: str
-    system_deps: list[SystemDep]
+    bundled_deps: list[BundledDep]
     packages: list[DiscoveredPackage]

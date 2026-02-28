@@ -21,12 +21,12 @@ from typing import Any
 import tomli_w
 
 from app.core.content.license_models import (
+    BundledDep,
     DiscoveredPackage,
     LicenseConfig,
     LicenseRegistry,
     PackageCategory,
     PackageOverride,
-    SystemDep,
 )
 from app.core.paths import get_project_root as _get_project_root
 
@@ -54,8 +54,8 @@ def load_config(licenses_dir: Path) -> LicenseConfig:
     config_path = licenses_dir / "config.toml"
     data = tomllib.loads(config_path.read_text(encoding="utf-8"))
 
-    system_deps = [
-        SystemDep(
+    bundled_deps = [
+        BundledDep(
             slug=sd["slug"],
             display=sd["display"],
             version=sd.get("version", ""),
@@ -63,7 +63,7 @@ def load_config(licenses_dir: Path) -> LicenseConfig:
             notes=sd.get("notes", ""),
             url=sd.get("url", ""),
         )
-        for sd in data.get("system", [])
+        for sd in data.get("bundled", [])
     ]
 
     package_overrides: dict[str, PackageOverride] = {}
@@ -81,7 +81,7 @@ def load_config(licenses_dir: Path) -> LicenseConfig:
     exclude = set(data.get("exclude", []))
 
     return LicenseConfig(
-        system_deps=system_deps,
+        bundled_deps=bundled_deps,
         package_overrides=package_overrides,
         exclude=exclude,
     )
@@ -410,15 +410,15 @@ def sync_registry() -> LicenseRegistry:
     registry = LicenseRegistry(
         uv_lock_hash=uv_lock_hash,
         generated_at=datetime.now(UTC).isoformat(timespec="seconds"),
-        system_deps=config.system_deps,
+        bundled_deps=config.bundled_deps,
         packages=discovered,
     )
 
     _write_registry_toml(build_dir, registry)
     logger.info(
-        "Synced registry: %d packages, %d system deps",
+        "Synced registry: %d packages, %d bundled deps",
         len(discovered),
-        len(config.system_deps),
+        len(config.bundled_deps),
     )
     return registry
 
@@ -439,7 +439,7 @@ def _write_registry_toml(licenses_dir: Path, registry: LicenseRegistry) -> None:
             "uv_lock_hash": registry.uv_lock_hash,
             "generated_at": registry.generated_at,
         },
-        "system": [
+        "bundled": [
             {
                 "slug": sd.slug,
                 "display": sd.display,
@@ -449,7 +449,7 @@ def _write_registry_toml(licenses_dir: Path, registry: LicenseRegistry) -> None:
                 "url": sd.url,
                 "text_file": f"manual/{sd.slug}.txt",
             }
-            for sd in registry.system_deps
+            for sd in registry.bundled_deps
         ],
         "package": [
             {

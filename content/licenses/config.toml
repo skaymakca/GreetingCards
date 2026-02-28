@@ -1,7 +1,7 @@
 # License configuration — manually maintained
 # Run `make licenses-sync` after editing this file
 #
-# [[system]]  — seeds for deps not in uv.lock
+# [[bundled]] — seeds for deps not in uv.lock (bundled with the app)
 # [[package]] — overrides for auto-discovered fields (non-empty fields win)
 # exclude     — list of package names to skip (e.g. platform-specific deps)
 
@@ -14,9 +14,9 @@ exclude = [
     "greenlet",         # Not on macOS ARM (platform_machine marker)
 ]
 
-# --- System dependencies (not in uv.lock) ---
+# --- Bundled dependencies (not in uv.lock) ---
 
-[[system]]
+[[bundled]]
 slug = "python"
 display = "Python"
 version = "3.14"
@@ -24,26 +24,27 @@ license_type = "PSF License 2.0"
 notes = "Bundled via PyInstaller"
 url = "https://python.org"
 
-[[system]]
+[[bundled]]
 slug = "tesseract"
 display = "Tesseract OCR"
 license_type = "Apache 2.0"
 notes = "Bundled via tesserocr (library, data files, and transitive dependencies)"
 url = "https://github.com/tesseract-ocr/tesseract"
 
-[[system]]
-slug = "tzdata"
-display = "tzdata"
-license_type = "Apache 2.0"
-notes = "IANA time zone database for Python"
-url = "https://github.com/python/tzdata"
-
-[[system]]
+[[bundled]]
 slug = "leptonica"
 display = "Leptonica"
 license_type = "BSD-2-Clause"
 notes = "Bundled as transitive dependency of tesserocr"
 url = "https://github.com/DanBloomberg/leptonica"
+
+[[bundled]]
+slug = "highlight-js"
+display = "Highlight.js"
+version = "11.11.1"
+license_type = "BSD-3-Clause"
+notes = "JavaScript syntax highlighter for help pages"
+url = "https://highlightjs.org"
 
 # --- Package overrides (display name, homepage, etc.) ---
 
@@ -99,3 +100,6 @@ homepage = "https://github.com/cpburnz/python-pathspec"
 name = "pluggy"
 homepage = "https://github.com/pytest-dev/pluggy"
 
+[[package]]
+name = "tzdata"
+license_type = "Apache 2.0"
