@@ -24,6 +24,7 @@ CardResult
 ├── manual_override: str       # User-typed name (overrides family_name in display)
 ├── original_confidence: Confidence?  # Saved before manual override
 ├── remove_family: bool        # Omit "Family" suffix in filename
+├── alternates: list[str]      # Alternative display name forms
 ├── preview_image: PIL.Image   # First page render (for AI)
 ├── page_images: list[Image]   # All page renders
 ├── ocr_text: str              # Raw OCR output
@@ -31,6 +32,7 @@ CardResult
 ├── error: str                 # Non-empty on processing failure
 └── @property display_name     # manual_override if set, else family_name
     @property filename         # primary_path.name
+    @property pdf_path         # alias for primary_path
     target_filename(year)      # "Holiday Cards {year} - {Name} Family.pdf"
 ```
 
@@ -111,9 +113,8 @@ PDF file on disk
     │          save_raw_ocr(hash, text) → persist raw
     │          reprocess_candidates_from_raw(hash) → parse + clean + auto-select
     │
-    ├─ Dict result → _dict_to_card() → CardResult with assigned ID
-    │
-    └─ CardResult stored in _cards_by_hash[hash]
+    └─ CardResult constructed inline in _process_cards() with assigned ID
+       → stored in _cards_by_hash[hash]
 ```
 
 ## Multi-Load Architecture

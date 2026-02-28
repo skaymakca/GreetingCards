@@ -53,14 +53,14 @@ preview_buf = io.BytesIO()
 images[0].save(preview_buf, format='PNG')
 result.preview_image_bytes = preview_buf.getvalue()
 
-# Main side: PNG bytes → PIL (in _worker_result_to_card)
+# Main side: PNG bytes → PIL (inline in _process_cards)
 card.preview_image = Image.open(io.BytesIO(wr.preview_image_bytes))
 ```
 
 ### Deduplication During Processing
 In `_process_cards()` (background thread, receiving results):
 - Hash already in `_cards_by_hash` → add path to existing card
-- New hash → `_worker_result_to_card()` creates CardResult with next monotonic ID
+- New hash → CardResult is created inline with next monotonic ID
 
 ### Reload: `_reload_cards()`
 
@@ -75,7 +75,7 @@ Auto-reload fires on `wx.EVT_ACTIVATE` (window re-activation) with a 2-second co
 ### Unified Path: `_start_ai_all()`
 All AI analysis (single card, selected, or visible) flows through a single async batch path:
 
-1. `_get_ai_target_cards()` determines scope: 2+ selected → "selected", else → all "visible" cards
+1. `_get_target_cards()` determines scope: 2+ selected → "selected", else → all "visible" cards
 2. Single card from detail panel AI button passes `cards=[card]` directly
 3. Spawns `threading.Thread(target=_run_ai_all)`
 4. Thread runs `asyncio.run(run_ai_batch_async(...))` from `app/core/pipeline/ai_batch.py`
@@ -104,7 +104,7 @@ Two layers of retry protect against transient API failures:
 
 ### `RateLimitGate` (Thundering Herd Prevention)
 
-Defined in `app/core/pipeline/rate_limit.py`. Re-imported into `app/gui/main_window.py` as `_RateLimitGate`.
+Defined in `app/core/pipeline/rate_limit.py`. Used directly in `app/core/pipeline/ai_batch.py`.
 
 ```python
 class RateLimitGate:
@@ -166,7 +166,7 @@ Both PDF processing and AI batch use an inline progress strip (a thin `wx.Panel`
 
 When `_ai_batch_running` is `True`, these controls are disabled:
 - **Toolbar:** Reload, AI Analyze, Rename, Clear (via `_enable_action_tools`)
-- **Menu items:** Mirrored automatically from toolbar state (via `_on_update_action_menu`)
+- **Menu items:** Mirrored automatically from toolbar state (via `on_update_action_menu` on `ToolbarManager`)
 - **Detail panel AI button:** Locked via `ReviewPanelMasterDetail.set_ai_buttons_locked(True)`
 - **Context menu AI item:** Checks `_ai_buttons_locked` flag when building the menu
 - **Settings Reset DB:** Checks `is_ai_running` callback and shows a warning if running
@@ -174,8 +174,8 @@ When `_ai_batch_running` is `True`, these controls are disabled:
 ## Gotchas
 
 - **spawn method:** `multiprocessing.set_start_method('spawn', force=True)` is required for PyInstaller-bundled apps (fork doesn't work with frozen modules).
-- **Module-level worker:** `process_pdf_worker` is defined at module level in `app/core/pdf_worker.py`, not as a method. Methods can't be pickled for multiprocessing.
+- **Module-level worker:** `process_pdf_worker` is defined at module level in `app/core/pipeline/pdf_worker.py`, not as a method. Methods can't be pickled for multiprocessing.
 - **Semaphore(3):** Limits concurrent API calls. Combined with `RateLimitGate` (`app/core/pipeline/rate_limit.py`) for cross-request coordination — the gate pauses all tasks before semaphore acquisition when a rate limit is hit.
 - **asyncio.run() in thread:** Creates a new event loop in the background thread. The main thread's wx event loop is separate.
 - **Busy cursor:** `wx.BeginBusyCursor()` / `wx.EndBusyCursor()` bracket PDF processing. Guard: `if wx.IsBusy()` prevents double-end. AI batch does not use busy cursor (window stays interactive).
-- **tesserocr C API:** Uses tesserocr (C++ bindings to Tesseract) instead of pytesseract (CLI wrapper). No binary path resolution needed — tesserocr links directly to libtesseract. Tessdata (`eng.traineddata`) is bundled in `_build/runtime_content/tessdata/` (dev) / `_runtime_content/tessdata/` (bundle) and the path is set deterministically via `_get_tessdata_path()` in `pipeline/ocr_engine.py` (uses `sys._MEIPASS` when bundled, project root in dev).
+- **tesserocr C API:** Uses tesserocr (C++ bindings to Tesseract) instead of pytesseract (CLI wrapper). No binary path resolution needed — tesserocr links directly to libtesseract. Tessdata (`eng.traineddata`) is bundled in `_build/runtime_content/tessdata/` (dev) / `_runtime_content/tessdata/` (bundle) and the path is set deterministically via module-level `_tessdata_path = str(get_runtime_content_path("tessdata/fast"))` in `app/core/pipeline/ocr_engine.py`.

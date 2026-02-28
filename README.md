@@ -184,13 +184,14 @@ tests/
 │   ├── test_database.py             # SQLite database operations
 │   ├── test_paths.py                # Path resolution (dev vs bundle)
 │   ├── test_version.py              # Version string
+│   ├── test_apple_events.py         # Apple Events handler logic
 │   ├── content/                     # 7 files: changelog, changelog_models, help_builder,
 │   │                                #   license_html, license_models, license_sync, template_env
-│   ├── naming/                      # 6 files: extractor, family_name_cleaning, family_name_data,
+│   ├── naming/                      # 7 files: extractor, family_name_cleaning, family_name_data,
 │   │                                #   family_name_formatting, filename_safety, rename_filter, renamer
 │   └── pipeline/                    # 7 files: ai_analyzer, ai_batch, card_processor, ocr_engine,
 │                                    #   pdf_renderer, pdf_worker, rate_limit
-├── gui/                             # 20 test files
+├── gui/                             # 21 test files
 │   ├── conftest.py                  # GUI-specific fixtures
 │   ├── test_api_key_dialog.py       # API key prompt dialog
 │   ├── test_appearance.py           # Dark/light mode appearance
@@ -211,6 +212,7 @@ tests/
 │   ├── test_settings_dialog.py      # Preferences editor
 │   ├── test_styles.py               # Style constants
 │   ├── test_toolbar.py              # Native toolbar buttons and state
+│   ├── test_apple_events_bridge.py  # AppleScript bridge integration mocks
 │   └── test_utils.py                # wxPython utility functions
 └── scripts/
     ├── test_helpers.py              # script_output_dir lifecycle
@@ -231,18 +233,18 @@ tests/
 | `make test-core`                                      | Run only core tests (fast, no GUI) |
 | `make test-gui`                                       | Run only GUI tests                 |
 | `uv run pytest -k "mac_names"`                        | Run tests matching pattern         |
-| `uv run pytest tests/core/test_name_formatting.py -v` | Run specific test file             |
+| `uv run pytest tests/core/naming/test_family_name_formatting.py -v` | Run specific test file             |
 
 ### Current Coverage
 
 - **2068 tests** covering core logic, GUI components, and scripts
-- **Core** (pipeline/, naming/, content/ sub-packages + top-level): AI analysis, AI batch, card model, card processor,
-  changelog, changelog models, config, database, family name cleaning, family name data, family name formatting,
-  filename safety, help builder, license HTML, license models, license sync, name extraction, OCR engine, paths,
-  PDF rendering, PDF worker, rate limit, renamer, rename filter, template environment, version
-- **GUI** (20 test files): API key dialog, appearance, changelog dialog, context menu, cursors, dialogs, drop target,
-  filter sidebar, help dialog, HTML viewer, icons, licenses dialog, main window, preview cursor behavior, preview panel,
-  review panel, settings, styles, toolbar, utilities
+- **Core** (pipeline/, naming/, content/ sub-packages + top-level): AI analysis, AI batch, apple events, card model,
+  card processor, changelog, changelog models, config, database, family name cleaning, family name data, family name
+  formatting, filename safety, help builder, license HTML, license models, license sync, name extraction, OCR engine,
+  paths, PDF rendering, PDF worker, rate limit, renamer, rename filter, template environment, version
+- **GUI** (21 test files): API key dialog, apple events bridge, appearance, changelog dialog, context menu, cursors,
+  dialogs, drop target, filter sidebar, help dialog, HTML viewer, icons, licenses dialog, main window, preview cursor
+  behavior, preview panel, review panel, settings, styles, toolbar, utilities
 - **Scripts** (tests/scripts/): helpers, build_family_name_db (merger, unicode, Census/Faker/Smashew sources), dmg
   (readme RTF, background PNG, dmgbuild orchestration), generate_diagnostic_cards (CLI), generate_sample_cards
   (models, display, pdf_composer, image_generator, spec_generator, cli, spec_generators/ sub-package)
@@ -256,7 +258,7 @@ When adding new functionality:
 3. Run tests to verify: `make test`
 4. Check coverage: `make test-cov`
 
-See `tests/core/test_name_formatting.py` for examples of comprehensive test organization with parameterization.
+See `tests/core/naming/test_family_name_formatting.py` for examples of comprehensive test organization with parameterization.
 
 ## Database
 
@@ -276,7 +278,7 @@ only contains derived/cached data, never source data.
 
 ## Scripts
 
-Utility and benchmark scripts live in `scripts/` (a Python package). Run them with `python -m scripts.<name>`. All
+Utility and benchmark scripts live in `scripts/` (a Python package). Run them with `uv run python -m scripts.<name>`. All
 script dependencies are included in the dev group — run `make setup-dev` first.
 
 Output goes to `_build/script_output/` with timestamped directories (e.g., `20260223_2011-generate_sample_cards/`) so

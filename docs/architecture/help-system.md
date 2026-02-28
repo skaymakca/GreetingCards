@@ -6,7 +6,7 @@ Help pages generated from Markdown and displayed in the shared WebView viewer.
 
 ## How It Works
 
-`app/gui/dialogs/help.py` is a thin wrapper that calls `show_viewer()` with path resolution. `_HELP_REL_PATH = Path("_build/runtime_content") / "html" / "help"`.
+`app/gui/dialogs/help.py` is a thin wrapper that calls `show_viewer()` with path resolution via `get_runtime_content_path("html/help")`.
 
 `app/core/content/help_builder.py` generates HTML from Markdown source files using the `markdown` library and Jinja2 templates.
 

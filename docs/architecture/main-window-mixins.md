@@ -12,7 +12,7 @@ app/gui/main_window_mixins/
     selection_mixin.py     # Group F — card selection/editing (7 methods)
     ai_mixin.py            # Group B — AI batch analysis (8 methods)
     apple_events_mixin.py  # Group A — Apple Events scripting bridge (16 methods)
-app/gui/main_window.py     # Core class: inherits all 4 mixins, ~700 lines remaining
+app/gui/main_window.py     # Core class: inherits all 4 mixins, ~850 lines remaining
 ```
 
 ## Class Declaration
@@ -154,7 +154,7 @@ patch("app.gui.main_window.RenameConfirmDialog")
 
 ## What Stays in `main_window.py`
 
-The following groups remain in `app/gui/main_window.py` (~700 lines):
+The following groups remain in `app/gui/main_window.py` (~850 lines):
 
 - `__init__` and all widget/state initialization
 - UI builders: `_build_ui`, `_build_content_area`, `_build_progress_strip`

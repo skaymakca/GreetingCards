@@ -198,7 +198,7 @@ raw_ai_results (file_hash FK, unique)
 
 When candidates are added (via `_add_candidate_inline` or `add_candidate`), the cleaning pipeline is called with lazy imports:
 ```python
-from app.core.family_name import clean_and_filter_family_names, smart_title_case_family_name
+from app.core.naming.family_name import clean_and_filter_family_names, smart_title_case_family_name
 cleaned = clean_and_filter_family_names([family_name])
 clean_name = smart_title_case_family_name(cleaned[0])
 ```
