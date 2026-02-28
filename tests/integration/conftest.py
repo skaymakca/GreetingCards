@@ -101,3 +101,15 @@ def test_pdfs(tmp_path_factory):
         doc.close()
 
     return pdf_dir
+
+
+@pytest.fixture
+def rename_pdfs(tmp_path):
+    """Create a temp directory with a single PDF for rename tests (function-scoped)."""
+    path = tmp_path / "RenameTarget.pdf"
+    doc = fitz.open()
+    page = doc.new_page(width=200, height=200)
+    page.insert_text((20, 50), "Holiday Card\nFrom the Johnson Family", fontsize=14)
+    doc.save(str(path))
+    doc.close()
+    return tmp_path

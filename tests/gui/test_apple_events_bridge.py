@@ -133,7 +133,7 @@ class TestSetCardNameForScript:
         with patch("app.gui.main_window_mixins.apple_events_mixin.set_manual_name"):
             result = window.set_card_name_for_script("test.pdf", "Jones")
 
-        assert result is True
+        assert result["success"] is True
         assert card.manual_override == "Jones"
         assert card.family_name == "Jones"
         assert card.confidence == Confidence.MANUAL
@@ -149,12 +149,13 @@ class TestSetCardNameForScript:
         ):
             result = window.set_card_name_for_script("test.pdf", "")
 
-        assert result is True
+        assert result["success"] is True
         assert card.manual_override == ""
 
     def test_not_found(self, window):
         result = window.set_card_name_for_script("nope.pdf", "Smith")
-        assert result is False
+        assert result["success"] is False
+        assert "not found" in result["error"].lower()
 
     def test_updates_db(self, window):
         card = _make_card()
@@ -181,7 +182,7 @@ class TestSelectCandidateForScript:
         with patch("app.core.database.select_candidate"):
             result = window.select_candidate_for_script("test.pdf", 2)
 
-        assert result is True
+        assert result["success"] is True
         assert card.family_name == "Beta"
         assert card.selected_candidate_id == 11
 
@@ -193,11 +194,13 @@ class TestSelectCandidateForScript:
         )
         _inject_card(window, card)
         result = window.select_candidate_for_script("test.pdf", 5)
-        assert result is False
+        assert result["success"] is False
+        assert "invalid rank" in result["error"].lower()
 
     def test_not_found(self, window):
         result = window.select_candidate_for_script("nope.pdf", 1)
-        assert result is False
+        assert result["success"] is False
+        assert "not found" in result["error"].lower()
 
 
 # ── set_remove_family_for_script ────────────────────────────────────────
@@ -211,12 +214,13 @@ class TestSetRemoveFamilyForScript:
         with patch("app.core.database.update_remove_family"):
             result = window.set_remove_family_for_script("test.pdf", True)
 
-        assert result is True
+        assert result["success"] is True
         assert card.remove_family is True
 
     def test_not_found(self, window):
         result = window.set_remove_family_for_script("nope.pdf", True)
-        assert result is False
+        assert result["success"] is False
+        assert "not found" in result["error"].lower()
 
 
 # ── load_paths_for_script ────────────────────────────────────────────────
@@ -230,9 +234,10 @@ class TestLoadPathsForScript:
             patch("app.gui.main_window_mixins.apple_events_mixin.scan_for_pdfs", return_value=fake_pdfs),
             patch.object(window, "_start_processing") as mock_proc,
         ):
-            count = window.load_paths_for_script(["/tmp/cards"])
+            result = window.load_paths_for_script(["/tmp/cards"])
 
-        assert count == 2
+        assert result["success"] is True
+        assert result["count"] == 2
         mock_proc.assert_called_once()
 
     def test_skips_already_loaded(self, window):
@@ -246,14 +251,15 @@ class TestLoadPathsForScript:
             ),
             patch.object(window, "_start_processing"),
         ):
-            count = window.load_paths_for_script(["/tmp/cards"])
+            result = window.load_paths_for_script(["/tmp/cards"])
 
-        assert count == 1
+        assert result["count"] == 1
 
     def test_nonexistent_returns_zero(self, window):
         with patch("app.gui.main_window_mixins.apple_events_mixin.scan_for_pdfs", return_value=[]):
-            count = window.load_paths_for_script(["/nonexistent"])
-        assert count == 0
+            result = window.load_paths_for_script(["/nonexistent"])
+        assert result["success"] is True
+        assert result["count"] == 0
 
 
 # ── rename_card_for_script ──────────────────────────────────────────────
@@ -337,9 +343,10 @@ class TestAnalyzeForScript:
             patch("app.gui.main_window_mixins.apple_events_mixin.get_api_key", return_value="sk-test"),
             patch.object(window, "_start_ai_all") as mock_ai,
         ):
-            count = window.analyze_for_script(None)
+            result = window.analyze_for_script(None)
 
-        assert count == 1
+        assert result["success"] is True
+        assert result["count"] == 1
         mock_ai.assert_called_once()
 
     def test_single_card(self, window):
@@ -353,24 +360,27 @@ class TestAnalyzeForScript:
             patch("app.gui.main_window_mixins.apple_events_mixin.get_api_key", return_value="sk-test"),
             patch.object(window, "_start_ai_all") as mock_ai,
         ):
-            count = window.analyze_for_script("test.pdf")
+            result = window.analyze_for_script("test.pdf")
 
-        assert count == 1
+        assert result["success"] is True
+        assert result["count"] == 1
         mock_ai.assert_called_once()
 
     def test_not_found(self, window):
         _inject_card(window, _make_card())
 
         with patch("app.gui.main_window_mixins.apple_events_mixin.get_api_key", return_value="sk-test"):
-            count = window.analyze_for_script("nope.pdf")
-        assert count == 0
+            result = window.analyze_for_script("nope.pdf")
+        assert result["success"] is False
+        assert "not found" in result["error"].lower()
 
     def test_no_api_key(self, window):
         _inject_card(window, _make_card())
 
         with patch("app.gui.main_window_mixins.apple_events_mixin.get_api_key", return_value=""):
-            count = window.analyze_for_script(None)
-        assert count == 0
+            result = window.analyze_for_script(None)
+        assert result["success"] is False
+        assert "api key" in result["error"].lower()
 
 
 # ── clear_ai_for_script ─────────────────────────────────────────────────
@@ -385,9 +395,10 @@ class TestClearAiForScript:
             patch("app.gui.main_window_mixins.apple_events_mixin.clear_ai_results", return_value=1) as mock_clear,
             patch("app.gui.main_window_mixins.apple_events_mixin.load_card_state_from_db"),
         ):
-            count = window.clear_ai_for_script(None)
+            result = window.clear_ai_for_script(None)
 
-        assert count == 1
+        assert result["success"] is True
+        assert result["count"] == 1
         mock_clear.assert_called_once_with(["abc123"])
 
     def test_single_card(self, window):
@@ -398,13 +409,15 @@ class TestClearAiForScript:
             patch("app.gui.main_window_mixins.apple_events_mixin.clear_ai_results", return_value=1),
             patch("app.gui.main_window_mixins.apple_events_mixin.load_card_state_from_db"),
         ):
-            count = window.clear_ai_for_script("test.pdf")
+            result = window.clear_ai_for_script("test.pdf")
 
-        assert count == 1
+        assert result["success"] is True
+        assert result["count"] == 1
 
     def test_not_found(self, window):
-        count = window.clear_ai_for_script("nope.pdf")
-        assert count == 0
+        result = window.clear_ai_for_script("nope.pdf")
+        assert result["success"] is False
+        assert "not found" in result["error"].lower()
 
 
 # ── reload_for_script ────────────────────────────────────────────────────
@@ -412,7 +425,9 @@ class TestClearAiForScript:
 
 class TestReloadForScript:
     def test_no_loaded_paths(self, window):
-        assert window.reload_for_script() is False
+        result = window.reload_for_script()
+        assert result["success"] is False
+        assert "no paths" in result["error"].lower()
 
     def test_reload_no_changes(self, window):
         card = _make_card()
@@ -421,7 +436,8 @@ class TestReloadForScript:
         with patch.object(window, "_reload_cards"):
             result = window.reload_for_script()
         # Since _reload_cards is mocked and doesn't modify state, hashes remain same
-        assert result is False
+        assert result["success"] is True
+        assert result["changed"] is False
 
 
 # ── clear_all_for_script ─────────────────────────────────────────────────
@@ -434,7 +450,7 @@ class TestClearAllForScript:
         assert len(window._cards_by_hash) == 1
 
         result = window.clear_all_for_script()
-        assert result is True
+        assert result["success"] is True
         assert len(window._cards_by_hash) == 0
 
 
@@ -466,3 +482,262 @@ class TestProperties:
 
     def test_is_processing_default(self, window):
         assert window.is_processing is False
+
+
+# ── DB-backed clear_ai_for_script tests ──────────────────────────────────
+
+
+class TestClearAiForScriptWithDB:
+    """DB-backed tests for clear_ai_for_script using in_memory_db fixture."""
+
+    @pytest.fixture(autouse=True)
+    def _use_db(self, in_memory_db):
+        return in_memory_db
+
+    def _make_window_with_card(self, window, filename: str, file_hash: str, card_id: int = 1) -> CardResult:
+        """Create a card and inject it into the window."""
+        card = _make_card(card_id=card_id, filename=filename, file_hash=file_hash)
+        _inject_card(window, card)
+        return card
+
+    def test_clear_all_returns_count(self, window):
+        """clear_ai_for_script(None) returns affected count from DB."""
+        from app.core.database import add_candidate, create_or_update_card, save_raw_ai
+
+        with (
+            patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=["Smith"]),
+            patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x),
+        ):
+            create_or_update_card("h1")
+            ai_cid = add_candidate("h1", "Smith", "ai", "high")
+            save_raw_ai("h1", "Smith", [])
+
+            from app.core.database import select_candidate as db_select_candidate
+
+            db_select_candidate("h1", ai_cid)
+
+        card = self._make_window_with_card(window, "alpha.pdf", "h1")
+        card.file_hash = "h1"
+
+        with patch.object(window, "_review_panel"):
+            result = window.clear_ai_for_script(None)
+
+        assert result["success"] is True
+        assert result["count"] == 1
+
+    def test_clear_specific_path_only_affects_target(self, window):
+        """clear_ai_for_script(filename) only clears the named card."""
+        from app.core.database import add_candidate, create_or_update_card, get_card_state, save_raw_ai
+
+        with (
+            patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=["Smith"]),
+            patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x),
+        ):
+            create_or_update_card("h1")
+            create_or_update_card("h2")
+            ai_cid1 = add_candidate("h1", "Smith", "ai", "high")
+            ai_cid2 = add_candidate("h2", "Jones", "ai", "high")
+            save_raw_ai("h1", "Smith", [])
+            save_raw_ai("h2", "Jones", [])
+
+            from app.core.database import select_candidate as db_select_candidate
+
+            db_select_candidate("h1", ai_cid1)
+            db_select_candidate("h2", ai_cid2)
+
+        card1 = self._make_window_with_card(window, "alpha.pdf", "h1", card_id=1)
+        card2 = self._make_window_with_card(window, "beta.pdf", "h2", card_id=2)
+        card1.file_hash = "h1"
+        card2.file_hash = "h2"
+
+        with patch.object(window, "_review_panel"):
+            result = window.clear_ai_for_script("alpha.pdf")
+
+        assert result["success"] is True
+        assert result["count"] == 1
+
+        # h1 should be cleared, h2 untouched
+        state1 = get_card_state("h1")
+        state2 = get_card_state("h2")
+        assert state1.method == "missing"
+        assert state2.method == "ai"
+
+    def test_clear_returns_zero_for_ocr_only_card(self, window):
+        """clear_ai_for_script returns count=0 when no AI was selected."""
+        from app.core.database import add_candidate, create_or_update_card
+
+        with (
+            patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=["Smith"]),
+            patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x),
+        ):
+            create_or_update_card("h1")
+            add_candidate("h1", "Smith", "ocr", "high")
+
+        card = self._make_window_with_card(window, "alpha.pdf", "h1")
+        card.file_hash = "h1"
+
+        with patch.object(window, "_review_panel"):
+            result = window.clear_ai_for_script(None)
+
+        assert result["success"] is True
+        assert result["count"] == 0
+
+    def test_clear_not_found_returns_error(self, window):
+        """clear_ai_for_script returns error for unknown filename."""
+        result = window.clear_ai_for_script("nonexistent.pdf")
+        assert result["success"] is False
+        assert "not found" in result["error"].lower()
+
+    def test_clear_preserves_manual_override(self, window):
+        """clear_ai_for_script preserves manual name override in DB."""
+        from app.core.database import add_candidate, create_or_update_card, get_card_state, set_manual_name
+
+        with (
+            patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=["Smith"]),
+            patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x),
+        ):
+            create_or_update_card("h1")
+            add_candidate("h1", "Smith", "ai", "high")
+            set_manual_name("h1", "ManualName")
+
+        card = self._make_window_with_card(window, "alpha.pdf", "h1")
+        card.file_hash = "h1"
+
+        with patch.object(window, "_review_panel"):
+            result = window.clear_ai_for_script(None)
+
+        assert result["success"] is True
+        state = get_card_state("h1")
+        assert state.display_name == "ManualName"
+        assert state.method == "manual"
+
+    def test_clear_all_removes_ai_candidates(self, window):
+        """AI candidate rows are deleted from the DB after clear."""
+        from app.core.database import add_candidate, create_or_update_card, get_candidates, get_raw_ai, save_raw_ai
+
+        with (
+            patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=["Smith"]),
+            patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x),
+        ):
+            create_or_update_card("h1")
+            add_candidate("h1", "Smith", "ai", "high")
+            add_candidate("h1", "Smith", "ocr", "medium")
+            save_raw_ai("h1", "Smith", [])
+
+        card = self._make_window_with_card(window, "alpha.pdf", "h1")
+        card.file_hash = "h1"
+
+        with patch.object(window, "_review_panel"):
+            window.clear_ai_for_script(None)
+
+        # AI candidates must be gone from the candidates table
+        candidates = get_candidates("h1")
+        assert all(c.method != "ai" for c in candidates)
+        # Raw AI result must also be deleted
+        assert get_raw_ai("h1") is None
+
+    def test_clear_reselects_ocr_after_ai_removed(self, window):
+        """After AI clear, card falls back to best OCR candidate (DB state verified)."""
+        from app.core.database import add_candidate, create_or_update_card, get_candidates, get_card_state
+        from app.core.database import select_candidate as db_select
+
+        with (
+            patch("app.core.naming.family_name.clean_and_filter_family_names", return_value=["Smith"]),
+            patch("app.core.naming.family_name.smart_title_case_family_name", side_effect=lambda x: x),
+        ):
+            create_or_update_card("h1")
+            ocr_cid = add_candidate("h1", "Smith", "ocr", "high")
+            ai_cid = add_candidate("h1", "AiName", "ai", "high")
+            db_select("h1", ai_cid)
+
+        card = self._make_window_with_card(window, "alpha.pdf", "h1")
+        card.file_hash = "h1"
+
+        with patch.object(window, "_review_panel"):
+            window.clear_ai_for_script(None)
+
+        # OCR candidate must still exist
+        candidates = get_candidates("h1")
+        assert any(c.method == "ocr" for c in candidates)
+        assert all(c.method != "ai" for c in candidates)
+
+        # Card must have fallen back to the OCR candidate
+        state = get_card_state("h1")
+        assert state.method == "ocr"
+        assert state.selected_candidate_id == ocr_cid
+
+
+# ── DB-backed mixin mutation tests ───────────────────────────────────────
+
+
+class TestAppleEventsMixinWithDB:
+    """DB-backed tests for set_card_name_for_script, select_candidate_for_script,
+    and set_remove_family_for_script."""
+
+    @pytest.fixture(autouse=True)
+    def _use_db(self, in_memory_db):
+        return in_memory_db
+
+    def _make_window_with_card(self, window, filename: str, file_hash: str, card_id: int = 1) -> CardResult:
+        """Create a card and inject it into the window."""
+        card = _make_card(card_id=card_id, filename=filename, file_hash=file_hash)
+        _inject_card(window, card)
+        return card
+
+    def test_set_card_name_writes_manual_to_db(self, window):
+        """set_card_name_for_script persists a manual name to the DB."""
+        from app.core.database import add_candidate, create_or_update_card, get_card_state
+
+        create_or_update_card("h1")
+        add_candidate("h1", "Smith", "ocr", "high")
+        card = self._make_window_with_card(window, "alpha.pdf", "h1")
+        card.file_hash = "h1"
+
+        with patch.object(window, "_review_panel"):
+            result = window.set_card_name_for_script("alpha.pdf", "Johnson")
+
+        assert result["success"] is True
+        state = get_card_state("h1")
+        assert state.display_name == "Johnson"
+        assert state.method == "manual"
+        assert state.selected_candidate_id is None
+
+    def test_select_candidate_updates_db(self, window):
+        """select_candidate_for_script writes the selected candidate ID to the DB."""
+        from app.core.database import add_candidate, create_or_update_card, get_card_state
+        from app.core.database import select_candidate as db_select
+
+        create_or_update_card("h1")
+        ocr_cid = add_candidate("h1", "Smith", "ocr", "high")
+        ai_cid = add_candidate("h1", "AiName", "ai", "high")
+        db_select("h1", ocr_cid)
+
+        card = self._make_window_with_card(window, "alpha.pdf", "h1")
+        card.file_hash = "h1"
+        card.candidates = [
+            CandidateInfo(id=ocr_cid, family_name="Smith", method="ocr", confidence="high"),
+            CandidateInfo(id=ai_cid, family_name="AiName", method="ai", confidence="high"),
+        ]
+
+        with patch.object(window, "_review_panel"):
+            result = window.select_candidate_for_script("alpha.pdf", 2)
+
+        assert result["success"] is True
+        state = get_card_state("h1")
+        assert state.selected_candidate_id == ai_cid
+        assert state.method == "ai"
+
+    def test_set_remove_family_updates_db(self, window):
+        """set_remove_family_for_script persists the remove_family flag to the DB."""
+        from app.core.database import create_or_update_card, get_card_state
+
+        create_or_update_card("h1")
+        card = self._make_window_with_card(window, "alpha.pdf", "h1")
+        card.file_hash = "h1"
+
+        with patch.object(window, "_review_panel"):
+            result = window.set_remove_family_for_script("alpha.pdf", True)
+
+        assert result["success"] is True
+        state = get_card_state("h1")
+        assert state.remove_family is True

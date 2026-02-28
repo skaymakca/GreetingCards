@@ -361,3 +361,66 @@ class TestRunAiBatchAsync:
         # AI should have been called with the preview image
         mock_ai.assert_called_once()
         on_complete.assert_called_once_with([], False)
+
+
+class TestRunAiBatchWithDB:
+    """DB-backed tests for run_ai_batch_async using real in-memory SQLite."""
+
+    @pytest.fixture(autouse=True)
+    def _use_db(self, in_memory_db):
+        return in_memory_db
+
+    @pytest.mark.asyncio
+    async def test_ai_batch_saves_results_and_creates_candidates(self):
+        """Successful AI batch saves raw AI result and creates AI candidates in DB."""
+        from app.core.database import create_or_update_card, get_candidates, get_card_state, get_raw_ai, save_raw_ocr
+        from app.core.pipeline.ai_analyzer import AIResult
+        from app.core.pipeline.ai_batch import run_ai_batch_async
+
+        create_or_update_card("h1")
+        save_raw_ocr("h1", "The OcrName Family")
+
+        card = _make_card(file_hash="h1")
+        mock_result = AIResult(best_name="AiName", alternates=["AltName"])
+
+        with patch("app.core.pipeline.ai_batch.analyze_card_with_ai_async", AsyncMock(return_value=mock_result)):
+            await run_ai_batch_async([card], MagicMock(), MagicMock())
+
+        raw = get_raw_ai("h1")
+        assert raw is not None
+        assert raw[0] == "AiName"
+        assert "AltName" in raw[1]
+
+        candidates = get_candidates("h1")
+        assert any(c.method == "ai" for c in candidates)
+        assert any(c.method == "ocr" for c in candidates)
+
+        state = get_card_state("h1")
+        assert state.method == "ai"
+
+    @pytest.mark.asyncio
+    async def test_ai_batch_skips_card_with_existing_ai(self):
+        """Card that already has AI candidates skips AI analysis and leaves raw data unchanged."""
+        from app.core.database import (
+            create_or_update_card,
+            get_raw_ai,
+            reprocess_candidates_from_raw,
+            save_raw_ai,
+            save_raw_ocr,
+        )
+        from app.core.pipeline.ai_batch import run_ai_batch_async
+
+        create_or_update_card("h1")
+        save_raw_ocr("h1", "The OcrName Family")
+        save_raw_ai("h1", "ExistingAi", [])
+        reprocess_candidates_from_raw("h1")
+
+        card = _make_card(file_hash="h1")
+
+        with patch("app.core.pipeline.ai_batch.analyze_card_with_ai_async") as mock_ai:
+            await run_ai_batch_async([card], MagicMock(), MagicMock())
+
+        mock_ai.assert_not_called()
+        raw = get_raw_ai("h1")
+        assert raw is not None
+        assert raw[0] == "ExistingAi"

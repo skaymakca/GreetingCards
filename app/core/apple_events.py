@@ -241,14 +241,17 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
         """load paths — load PDFs from files/folders."""
         paths = _get_text_list_param(event)
         if not paths:
-            _set_int_reply(reply, 0)
+            _set_text_reply(reply, json.dumps({"success": True, "count": 0}))
             return
 
         def _do():
             return self._window.load_paths_for_script(paths)
 
-        count = _call_on_main_thread(_do)
-        _set_int_reply(reply, count if count is not None else 0)
+        result = _call_on_main_thread(_do)
+        if result is None:
+            _set_text_reply(reply, json.dumps({"success": False, "error": "Main thread timeout"}))
+        else:
+            _set_text_reply(reply, json.dumps(result))
 
     def handleGetStatus_reply_(self, _event, reply):
         """get status — return app status as JSON."""
@@ -266,7 +269,10 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
             return self._window.reload_for_script()
 
         result = _call_on_main_thread(_do)
-        _set_bool_reply(reply, result if result is not None else False)
+        if result is None:
+            _set_text_reply(reply, json.dumps({"success": False, "error": "Main thread timeout"}))
+        else:
+            _set_text_reply(reply, json.dumps(result))
 
     def handleClearAll_reply_(self, _event, reply):
         """clear all — clear all loaded cards."""
@@ -275,7 +281,10 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
             return self._window.clear_all_for_script()
 
         result = _call_on_main_thread(_do)
-        _set_bool_reply(reply, result if result is not None else False)
+        if result is None:
+            _set_text_reply(reply, json.dumps({"success": False, "error": "Main thread timeout"}))
+        else:
+            _set_text_reply(reply, json.dumps(result))
 
     # -- Card Queries ------------------------------------------------------
 
@@ -329,14 +338,17 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
         new_name = _get_text_param(event, _K_NEW_NAME)
 
         if not filename or new_name is None:
-            _set_bool_reply(reply, False)
+            _set_text_reply(reply, json.dumps({"success": False, "error": "Missing filename or name"}))
             return
 
         def _do():
             return self._window.set_card_name_for_script(filename, new_name)
 
         result = _call_on_main_thread(_do)
-        _set_bool_reply(reply, result if result is not None else False)
+        if result is None:
+            _set_text_reply(reply, json.dumps({"success": False, "error": "Main thread timeout"}))
+        else:
+            _set_text_reply(reply, json.dumps(result))
 
     def handleSelectCandidate_reply_(self, event, reply):
         """select candidate — select candidate by rank."""
@@ -344,14 +356,17 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
         rank = _get_int_param(event, _K_RANK)
 
         if not filename or rank is None:
-            _set_bool_reply(reply, False)
+            _set_text_reply(reply, json.dumps({"success": False, "error": "Missing filename or rank"}))
             return
 
         def _do():
             return self._window.select_candidate_for_script(filename, rank)
 
         result = _call_on_main_thread(_do)
-        _set_bool_reply(reply, result if result is not None else False)
+        if result is None:
+            _set_text_reply(reply, json.dumps({"success": False, "error": "Main thread timeout"}))
+        else:
+            _set_text_reply(reply, json.dumps(result))
 
     def handleSetRemoveFamily_reply_(self, event, reply):
         """set remove family — toggle Remove Family checkbox."""
@@ -359,14 +374,17 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
         new_value = _get_bool_param(event, _K_NEW_VALUE)
 
         if not filename or new_value is None:
-            _set_bool_reply(reply, False)
+            _set_text_reply(reply, json.dumps({"success": False, "error": "Missing filename or value"}))
             return
 
         def _do():
             return self._window.set_remove_family_for_script(filename, new_value)
 
         result = _call_on_main_thread(_do)
-        _set_bool_reply(reply, result if result is not None else False)
+        if result is None:
+            _set_text_reply(reply, json.dumps({"success": False, "error": "Main thread timeout"}))
+        else:
+            _set_text_reply(reply, json.dumps(result))
 
     # -- AI Operations -----------------------------------------------------
 
@@ -377,8 +395,11 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
         def _do():
             return self._window.analyze_for_script(filename)
 
-        count = _call_on_main_thread(_do)
-        _set_int_reply(reply, count if count is not None else 0)
+        result = _call_on_main_thread(_do)
+        if result is None:
+            _set_text_reply(reply, json.dumps({"success": False, "error": "Main thread timeout"}))
+        else:
+            _set_text_reply(reply, json.dumps(result))
 
     def handleClearAiResults_reply_(self, event, reply):
         """clear ai results — clear AI results."""
@@ -387,8 +408,11 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
         def _do():
             return self._window.clear_ai_for_script(filename)
 
-        count = _call_on_main_thread(_do)
-        _set_int_reply(reply, count if count is not None else 0)
+        result = _call_on_main_thread(_do)
+        if result is None:
+            _set_text_reply(reply, json.dumps({"success": False, "error": "Main thread timeout"}))
+        else:
+            _set_text_reply(reply, json.dumps(result))
 
     # -- Model Management --------------------------------------------------
 
@@ -400,16 +424,16 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
         """set model — set the active AI model."""
         model_id = _get_direct_text(event)
         if not model_id:
-            _set_bool_reply(reply, False)
+            _set_text_reply(reply, json.dumps({"success": False, "error": "Missing model ID"}))
             return
 
         valid_ids = {m.model_id for m in AI_MODELS}
         if model_id not in valid_ids:
-            _set_bool_reply(reply, False)
+            _set_text_reply(reply, json.dumps({"success": False, "error": f"Unknown model: {model_id}"}))
             return
 
         save_ai_model(model_id)
-        _set_bool_reply(reply, True)
+        _set_text_reply(reply, json.dumps({"success": True}))
 
     # -- Lifecycle ---------------------------------------------------------
 

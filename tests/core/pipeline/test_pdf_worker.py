@@ -3,6 +3,7 @@
 from dataclasses import fields
 from unittest.mock import patch
 
+import pytest
 from PIL import Image
 
 from app.core.pipeline.pdf_worker import process_pdf_worker
@@ -259,3 +260,47 @@ class TestProcessPdfWorkerCardState:
         assert result.alternates == []
         assert result.remove_family is False
         assert result.selected_candidate_id is None
+
+
+class TestProcessPdfWorkerWithDB:
+    """DB-backed tests for process_pdf_worker using real in-memory SQLite."""
+
+    @pytest.fixture(autouse=True)
+    def _use_db(self, in_memory_db):
+        return in_memory_db
+
+    def test_new_pdf_saves_ocr_and_creates_candidates(self):
+        """New PDF saves OCR text and creates OCR candidates in the DB."""
+        from app.core.database import get_candidates, get_raw_ocr
+
+        test_image = _make_test_image()
+        with (
+            patch("app.core.pipeline.pdf_worker.compute_file_hash", return_value="h1"),
+            patch("app.core.pipeline.pdf_worker.render_all_pages", return_value=[test_image]),
+            patch("app.core.pipeline.pdf_worker.extract_text_all_pages", return_value="The Smith Family"),
+        ):
+            result = process_pdf_worker("/tmp/test.pdf")
+
+        assert not result.error
+        assert get_raw_ocr("h1") == "The Smith Family"
+        candidates = get_candidates("h1")
+        assert any(c.method == "ocr" and c.family_name == "Smith" for c in candidates)
+
+    def test_cached_pdf_reprocesses_without_ocr(self):
+        """Cached PDF skips OCR but reprocesses candidates from existing raw data."""
+        from app.core.database import create_or_update_card, get_raw_ocr, save_raw_ocr
+
+        create_or_update_card("h1")
+        save_raw_ocr("h1", "The Old Family")
+
+        test_image = _make_test_image()
+        with (
+            patch("app.core.pipeline.pdf_worker.compute_file_hash", return_value="h1"),
+            patch("app.core.pipeline.pdf_worker.render_all_pages", return_value=[test_image]),
+            patch("app.core.pipeline.pdf_worker.extract_text_all_pages") as mock_ocr,
+        ):
+            result = process_pdf_worker("/tmp/test.pdf")
+
+        mock_ocr.assert_not_called()
+        assert not result.error
+        assert get_raw_ocr("h1") == "The Old Family"

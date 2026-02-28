@@ -324,3 +324,135 @@ class TestRegistration:
         mock_mgr_class.sharedAppleEventManager.return_value = MagicMock()
         handler = register_apple_event_handlers(MagicMock())
         assert isinstance(handler, AppleEventHandler)
+
+
+# ── Handler param validation ─────────────────────────────────────────────
+
+
+def _make_event(
+    direct: str | None = None, new_name: str | None = None, rank: int | None = None, new_value: bool | None = None
+) -> MagicMock:
+    """Build a mock Apple Event descriptor with given param values."""
+    from app.core.apple_events import _K_AE_DIRECT_OBJECT, _K_NEW_NAME, _K_NEW_VALUE, _K_RANK
+
+    def param_descriptor(keyword):
+        if keyword == _K_AE_DIRECT_OBJECT and direct is not None:
+            return _make_descriptor(string_value=direct)
+        if keyword == _K_NEW_NAME and new_name is not None:
+            return _make_descriptor(string_value=new_name)
+        if keyword == _K_RANK and rank is not None:
+            return _make_descriptor(int32_value=rank)
+        if keyword == _K_NEW_VALUE and new_value is not None:
+            return _make_descriptor(boolean_value=new_value)
+        return None
+
+    event = MagicMock()
+    event.paramDescriptorForKeyword_.side_effect = param_descriptor
+    return event
+
+
+class TestHandlerParamValidation:
+    """Handler-level tests for missing/invalid parameter validation."""
+
+    @pytest.fixture
+    def handler(self):
+        return AppleEventHandler.alloc().initWithWindow_(MagicMock())
+
+    def test_set_card_name_missing_filename(self, handler):
+        event = _make_event(new_name="Smith")  # no direct/filename
+        reply = MagicMock()
+        with patch("app.core.apple_events._set_text_reply") as mock_reply:
+            handler.handleSetCardName_reply_(event, reply)
+        mock_reply.assert_called_once()
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is False
+        assert "error" in result
+
+    def test_set_card_name_missing_name(self, handler):
+        event = _make_event(direct="test.pdf")  # no new_name
+        reply = MagicMock()
+        with patch("app.core.apple_events._set_text_reply") as mock_reply:
+            handler.handleSetCardName_reply_(event, reply)
+        mock_reply.assert_called_once()
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is False
+
+    def test_select_candidate_missing_filename(self, handler):
+        event = _make_event(rank=1)  # no filename
+        reply = MagicMock()
+        with patch("app.core.apple_events._set_text_reply") as mock_reply:
+            handler.handleSelectCandidate_reply_(event, reply)
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is False
+
+    def test_select_candidate_missing_rank(self, handler):
+        event = _make_event(direct="test.pdf")  # no rank
+        reply = MagicMock()
+        with patch("app.core.apple_events._set_text_reply") as mock_reply:
+            handler.handleSelectCandidate_reply_(event, reply)
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is False
+
+    def test_set_remove_family_missing_filename(self, handler):
+        event = _make_event(new_value=True)  # no filename
+        reply = MagicMock()
+        with patch("app.core.apple_events._set_text_reply") as mock_reply:
+            handler.handleSetRemoveFamily_reply_(event, reply)
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is False
+
+    def test_set_remove_family_missing_value(self, handler):
+        event = _make_event(direct="test.pdf")  # no value
+        reply = MagicMock()
+        with patch("app.core.apple_events._set_text_reply") as mock_reply:
+            handler.handleSetRemoveFamily_reply_(event, reply)
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is False
+
+    def test_set_model_missing_param(self, handler):
+        event = _make_event()  # no model_id
+        reply = MagicMock()
+        with patch("app.core.apple_events._set_text_reply") as mock_reply:
+            handler.handleSetModel_reply_(event, reply)
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is False
+        assert "missing" in result["error"].lower()
+
+    def test_set_model_invalid_model(self, handler):
+        event = _make_event(direct="nonexistent-model")
+        reply = MagicMock()
+        with patch("app.core.apple_events._set_text_reply") as mock_reply:
+            handler.handleSetModel_reply_(event, reply)
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is False
+        assert "unknown" in result["error"].lower()
+
+
+class TestHandlerGetModels:
+    """Tests for handleGetModels_reply_ handler."""
+
+    def test_returns_json_array(self):
+        handler = AppleEventHandler.alloc().initWithWindow_(MagicMock())
+        reply = MagicMock()
+        with patch("app.core.apple_events._set_text_reply") as mock_reply:
+            handler.handleGetModels_reply_(MagicMock(), reply)
+        text = mock_reply.call_args[0][1]
+        models = json.loads(text)
+        assert isinstance(models, list)
+        assert len(models) == 3
+
+
+class TestHandlerSetModel:
+    """Tests for handleSetModel_reply_ success path."""
+
+    def test_valid_model_returns_success(self):
+        handler = AppleEventHandler.alloc().initWithWindow_(MagicMock())
+        event = _make_event(direct="claude-haiku-4-5")
+        reply = MagicMock()
+        with (
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+            patch("app.core.apple_events.save_ai_model"),
+        ):
+            handler.handleSetModel_reply_(event, reply)
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is True

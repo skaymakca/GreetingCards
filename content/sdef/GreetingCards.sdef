@@ -24,10 +24,10 @@
         <!-- ============================================================ -->
 
         <command name="load paths" code="GrCdLdPa"
-                 description="Load PDFs from files and/or folders. Returns count of new PDFs found.">
+                 description="Load PDFs from files and/or folders. Returns JSON with success and count.">
             <direct-parameter description="List of file or folder paths to load."
                               type="text" list="yes"/>
-            <result description="Number of new PDFs found." type="integer"/>
+            <result description="JSON with success and count of new PDFs found." type="text"/>
         </command>
 
         <command name="get status" code="GrCdGtSt"
@@ -37,13 +37,13 @@
         </command>
 
         <command name="reload" code="GrCdRlCd"
-                 description="Trigger manual reload of all loaded paths. Returns true if changes detected.">
-            <result description="True if any changes were detected." type="boolean"/>
+                 description="Trigger manual reload of all loaded paths. Returns JSON with success and changed flag.">
+            <result description="JSON with success and changed fields." type="text"/>
         </command>
 
         <command name="clear all" code="GrCdClAl"
                  description="Clear all loaded cards and reset the UI.">
-            <result description="Always returns true." type="boolean"/>
+            <result description="JSON with success true." type="text"/>
         </command>
 
         <!-- ============================================================ -->
@@ -84,7 +84,7 @@
             <parameter name="to" code="newN" description="New name (empty string clears override)." type="text">
                 <cocoa key="newName"/>
             </parameter>
-            <result description="True if the card was found and updated." type="boolean"/>
+            <result description="JSON with success or error." type="text"/>
         </command>
 
         <command name="select candidate" code="GrCdSlCa"
@@ -94,7 +94,7 @@
                        type="integer">
                 <cocoa key="rank"/>
             </parameter>
-            <result description="True if the candidate was found and selected." type="boolean"/>
+            <result description="JSON with success or error." type="text"/>
         </command>
 
         <command name="set remove family" code="GrCdStRF"
@@ -104,7 +104,7 @@
                        type="boolean">
                 <cocoa key="newValue"/>
             </parameter>
-            <result description="True if the card was found and updated." type="boolean"/>
+            <result description="JSON with success or error." type="text"/>
         </command>
 
         <!-- ============================================================ -->
@@ -115,14 +115,14 @@
                  description="Start AI analysis. Analyzes a single card if filename given, otherwise all loaded cards.">
             <direct-parameter description="Optional filename to analyze a single card."
                               type="text" optional="yes"/>
-            <result description="Number of cards queued for analysis." type="integer"/>
+            <result description="JSON with success and count of cards queued, or error." type="text"/>
         </command>
 
         <command name="clear ai results" code="GrCdClAi"
                  description="Clear AI results. Clears a single card if filename given, otherwise all loaded cards.">
             <direct-parameter description="Optional filename to clear a single card."
                               type="text" optional="yes"/>
-            <result description="Number of cards affected." type="integer"/>
+            <result description="JSON with success and count of cards affected, or error." type="text"/>
         </command>
 
         <!-- ============================================================ -->
@@ -138,7 +138,7 @@
         <command name="set model" code="GrCdStMo"
                  description="Set the active AI model.">
             <direct-parameter description="Model ID to activate (e.g. claude-sonnet-4-6)." type="text"/>
-            <result description="True if the model was recognized and set." type="boolean"/>
+            <result description="JSON with success or error." type="text"/>
         </command>
 
     </suite>

@@ -1,20 +1,15 @@
 """Tests for app.core.database module."""
 
 import hashlib
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
 import app.core.database as db_mod
 from app.core.database import (
-    Base,
     Candidate,
     Card,
     RawAIResult,
-    RawOCRResult,
     Settings,
     _add_candidate_inline,
     _compute_schema_version,
@@ -41,34 +36,9 @@ from app.core.database import (
 
 
 @pytest.fixture(autouse=True)
-def in_memory_db():
-    """Override database globals to use an in-memory SQLite database for each test."""
-    engine = create_engine("sqlite:///:memory:", echo=False)
-    session_factory = sessionmaker(bind=engine)
-
-    # Save originals
-    orig_engine = db_mod._engine
-    orig_session = db_mod._Session
-
-    # Override module globals
-    db_mod._engine = engine
-    db_mod._Session = session_factory
-
-    # Create schema
-    Base.metadata.create_all(engine)
-    session = session_factory()
-    session.add(Settings(key="schema_version", value=_compute_schema_version()))
-    session.commit()
-    session.close()
-
-    yield engine
-
-    # Clean up
-    engine.dispose()
-
-    # Restore
-    db_mod._engine = orig_engine
-    db_mod._Session = orig_session
+def _use_in_memory_db(in_memory_db):
+    """Use shared in-memory DB fixture for all tests in this module."""
+    return in_memory_db
 
 
 class TestSchemaVersion:
