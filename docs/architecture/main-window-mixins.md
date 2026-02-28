@@ -110,25 +110,10 @@ AI batch analysis workflow.
 ### AppleEventsMixin (`apple_events_mixin.py`) — Group A
 
 Scripting bridge called from `app/core/apple_events.py` on the main thread.
+Provides 2 properties (`is_processing`, `is_ai_running`) and 14 bridge methods.
 
-| Method | Purpose |
-|--------|---------|
-| `is_processing` (property) | True while OCR processing thread is running |
-| `is_ai_running` (property) | True while AI batch is running |
-| `_find_card_by_filename` | Case-insensitive card lookup by filename |
-| `get_status_for_script` | Returns status dict for AppleScript |
-| `get_card_info_for_script` | Finds a card by filename for scripting |
-| `get_all_cards_for_script` | Returns all loaded cards |
-| `load_paths_for_script` | Loads PDFs from path strings |
-| `rename_card_for_script` | Renames a card on disk via build+execute plan |
-| `set_card_name_for_script` | Sets or clears manual name override |
-| `select_candidate_for_script` | Selects a candidate by 1-based rank |
-| `set_remove_family_for_script` | Toggles the Remove Family flag |
-| `analyze_for_script` | Starts AI analysis via script |
-| `clear_ai_for_script` | Clears AI results via script |
-| `reload_for_script` | Triggers manual reload via script |
-| `clear_all_for_script` | Clears all loaded cards via script |
-| `quit_for_script` | Quits the application via script |
+See [`docs/architecture/apple-events.md`](apple-events.md) for the full command
+reference, JSON schemas, threading details, and test coverage breakdown.
 
 ---
 
