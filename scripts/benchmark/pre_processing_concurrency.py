@@ -986,7 +986,7 @@ def _write_csv(path: Path, result: BenchmarkResult) -> None:
 # Main
 # ---------------------------------------------------------------------------
 
-from scripts.helpers import make_output_dir
+from scripts.helpers import script_output_dir
 
 _FOLDER_NAME = "benchmark_pre_processing_concurrency"
 
@@ -997,13 +997,6 @@ def main() -> None:
         description="Preprocessing Concurrency Benchmark — test concurrency models for PDF preprocessing"
     )
     parser.add_argument("corpus", type=Path, help="Path to directory containing PDF files")
-    parser.add_argument(
-        "-o",
-        "--output",
-        type=Path,
-        default=None,
-        help="Output directory for reports (default: timestamped)",
-    )
     parser.add_argument("--dpi", type=int, default=200, help="DPI for rendering (default: 200)")
     parser.add_argument(
         "--levels",
@@ -1045,30 +1038,26 @@ def main() -> None:
             console.print(f"[red]Error: unknown model '{m}'. Available: {', '.join(ALL_MODELS)}[/]")
             sys.exit(1)
 
-    if args.output:
-        output_dir = Path(args.output)
-        output_dir.mkdir(parents=True, exist_ok=True)
-    else:
-        output_dir = make_output_dir(_FOLDER_NAME)
+    # noinspection PyTypeChecker
+    with script_output_dir(_FOLDER_NAME) as output_dir:
+        result = run_benchmark(corpus_path, args.dpi, levels, models, pipelines)
 
-    result = run_benchmark(corpus_path, args.dpi, levels, models, pipelines)
+        # Generate outputs
+        with console.status("Generating reports..."):
+            report_html = _generate_report(result)
+            (output_dir / "index.html").write_text(report_html)
+            _write_csv(output_dir / "timing.csv", result)
 
-    # Generate outputs
-    with console.status("Generating reports..."):
-        report_html = _generate_report(result)
-        (output_dir / "index.html").write_text(report_html)
-        _write_csv(output_dir / "timing.csv", result)
+        index_path = output_dir / "index.html"
+        console.print(
+            f"  index.html — HTML report\n"
+            f"  timing.csv — timing data\n"
+            f"  Total time: {result.total_time_s:.1f}s\n"
+            f"\nOpen {index_path} in a browser to view results.",
+        )
 
-    index_path = output_dir / "index.html"
-    console.print(
-        f"  index.html — HTML report\n"
-        f"  timing.csv — timing data\n"
-        f"  Total time: {result.total_time_s:.1f}s\n"
-        f"\nOpen {index_path} in a browser to view results.",
-    )
-
-    if not args.no_open:
-        subprocess.Popen(["open", str(index_path)])
+        if not args.no_open:
+            subprocess.Popen(["open", str(index_path)])
 
 
 if __name__ == "__main__":

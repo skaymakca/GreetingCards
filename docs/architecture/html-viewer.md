@@ -2,7 +2,7 @@
 
 Shared WebView-based viewer used by the Help system, Changelog viewer, and Licenses viewer. Provides toolbar navigation (Home/Prev/Next), cross-page search with JavaScript highlighting, singleton window management, and external link interception.
 
-**Key file:** `app/gui/html_viewer.py`
+**Key file:** `app/gui/components/html_viewer.py`
 
 ## Architecture
 
@@ -25,11 +25,11 @@ This benefits all three consumers — help pages, changelog, and license pages c
 
 ## Consumers
 
-| Consumer  | Key file              | Singleton key | Content                                 |
-|-----------|-----------------------|---------------|-----------------------------------------|
-| Help      | `help_dialog.py`      | `"help"`      | Generated from markdown                 |
-| Changelog | `changelog_dialog.py` | `"changelog"` | Generated from `CHANGELOG.md`           |
-| Licenses  | `licenses_dialog.py`  | `"licenses"`  | Generated from `uv.lock` + `.dist-info` |
+| Consumer  | Key file                       | Singleton key | Content                                 |
+|-----------|--------------------------------|---------------|-----------------------------------------|
+| Help      | `app/gui/dialogs/help.py`      | `"help"`      | Generated from markdown                 |
+| Changelog | `app/gui/dialogs/changelog.py` | `"changelog"` | Generated from `CHANGELOG.md`           |
+| Licenses  | `app/gui/dialogs/licenses.py`  | `"licenses"`  | Generated from `uv.lock` + `.dist-info` |
 
 See per-consumer docs:
 - `docs/architecture/help-system.md`
@@ -57,7 +57,7 @@ Key functions:
 
 ### Layer 3: JavaScript Highlighting
 
-JavaScript highlighting functions are defined in `content/html/common/js/search.js` (copied to `_runtime_content/html/common/js/search.js` during generation). All HTML files include a `<script src="...search.js">` tag. No more `_MARK_JS`, `_FOCUS_JS`, `_CLEAR_JS` string literals in Python.
+JavaScript highlighting functions are defined in `content/html/common/js/search.js` (copied to `_build/runtime_content/html/common/js/search.js` during generation). All HTML files include a `<script src="...search.js">` tag. No more `_MARK_JS`, `_FOCUS_JS`, `_CLEAR_JS` string literals in Python.
 
 Three named functions separate the expensive DOM walk from the cheap cursor movement:
 
@@ -73,7 +73,7 @@ All three consumers use a consistent `page_order.txt` manifest pattern for toolb
 
 1. **Generation time:** Each builder writes `page_order.txt` to the output directory alongside the HTML files
 2. **Runtime:** Each dialog calls `get_page_order(base_path)` which reads the manifest
-3. **Bundle:** The manifest is bundled inside `_runtime_content/html/` alongside the HTML, so it works identically in source and app bundle modes
+3. **Bundle:** The manifest is bundled inside `_build/runtime_content/html/` alongside the HTML, so it works identically in source and app bundle modes
 
 This avoids re-deriving page order at runtime (which previously caused alphabetical sorting bugs when the HTML filenames didn't match the intended navigation order).
 

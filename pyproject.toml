@@ -1,6 +1,6 @@
 [project]
 name = "greeting-cards"
-version = "0.10.0"
+version = "0.11.0"
 description = "macOS app for organizing and renaming greeting card PDFs using OCR and AI"
 requires-python = ">=3.14"
 dependencies = [
@@ -32,6 +32,8 @@ dev = [
     "rich>=14.3.3",
     "ruff>=0.11.0",
     "bandit>=1.9.0",
+    "faker>=40.5.1",
+    "pyinstrument>=5.1.2",
 ]
 
 [tool.pytest.ini_options]
@@ -54,8 +56,8 @@ filterwarnings = [
 ]
 
 [tool.pyright]
-include = ["app", "tests", "scripts"]
-exclude = ["dist", "build", "_runtime_content", ".venv", "content/licenses/registry.toml"]
+include = ["app", "tests", "scripts", "main.py"]
+exclude = ["dist", "_build", ".venv"]
 reportArgumentType = false
 reportAttributeAccessIssue = false
 reportCallIssue = false
@@ -74,7 +76,7 @@ disable_error_code = ["import-untyped"]
 target-version = "py314"
 line-length = 120
 src = ["app", "scripts", "tests"]
-extend-exclude = ["dist", "build", "_runtime_content", ".venv"]
+extend-exclude = ["dist", "_build", ".venv"]
 
 [tool.ruff.lint]
 select = [
@@ -127,7 +129,7 @@ docstring-code-format = true
 
 [tool.bandit]
 targets = ["app", "scripts"]
-exclude_dirs = ["tests", "dist", "build", ".venv", "_runtime_content"]
+exclude_dirs = ["tests", "dist", "_build", ".venv"]
 skips = [
     "B108",   # hardcoded /tmp paths — mock data in visual_test.py, not real temp files
     "B310",   # urllib urlopen — downloading from known URLs (tessdata, OpenAI images)

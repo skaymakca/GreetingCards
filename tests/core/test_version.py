@@ -1,11 +1,27 @@
-"""Tests for app.version module."""
+"""Tests for project version metadata."""
 
-from app.version import __version__
+import tomllib
+from pathlib import Path
+
+_PYPROJECT = Path(__file__).resolve().parent.parent.parent / "pyproject.toml"
 
 
-def test_version_is_string():
-    assert isinstance(__version__, str)
+def _read_version() -> str:
+    with open(_PYPROJECT, "rb") as f:
+        return tomllib.load(f)["project"]["version"]
 
 
-def test_version_not_empty():
-    assert len(__version__) > 0
+def test_version_is_valid_string():
+    """pyproject.toml contains a non-empty version string."""
+    v = _read_version()
+    assert isinstance(v, str)
+    assert len(v) > 0
+
+
+def test_version_format():
+    """Version follows major.minor.patch format."""
+    v = _read_version()
+    parts = v.split(".")
+    assert len(parts) == 3, f"Expected 3 version parts, got {len(parts)}: {v}"
+    for part in parts:
+        assert part.isdigit(), f"Non-numeric version part: {part}"

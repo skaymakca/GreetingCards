@@ -6,6 +6,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import Boolean, DateTime, Engine, ForeignKey, String, Text, UniqueConstraint, create_engine, inspect
 from sqlalchemy.exc import IntegrityError
@@ -15,13 +16,6 @@ from app.core.paths import get_db_path
 from app.models.card import CandidateInfo, CardState
 
 logger = logging.getLogger(__name__)
-
-# Names that should not be treated as family names
-_FILTER_OUT = {
-    "unknown",  # AI response when uncertain
-    "snapfish",  # Card printing service
-    "shutterfly",  # Card printing service
-}
 
 
 class Base(DeclarativeBase):
@@ -191,6 +185,9 @@ def _ensure_schema() -> None:
     try:
         session.add(Settings(key="schema_version", value=expected))
         session.commit()
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
 
@@ -225,6 +222,9 @@ def reset_database() -> None:
     try:
         session.add(Settings(key="schema_version", value=_compute_schema_version()))
         session.commit()
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
 
@@ -294,32 +294,6 @@ def compute_file_hash(path: Path) -> str:
     return h.hexdigest()
 
 
-def _clean_and_filter_names(names: list[str]) -> list[str]:
-    """Apply unified cleaning and filtering to a list of names.
-
-    This is the ONLY place where cleaning/filtering is applied.
-    Raw data is persisted in the DB and cleaned on load.
-    """
-    from app.core.ai_analyzer import clean_family_name
-    from app.core.name_formatting import deparameterize_name, sanitize_for_filename
-
-    cleaned = []
-    for name in names:
-        if not name:
-            continue
-        # Apply comprehensive cleaning
-        clean_name = clean_family_name(name)
-        # Remove plural 's' (Smiths → Smith)
-        clean_name = deparameterize_name(clean_name)
-        # Replace filesystem-invalid characters (cross-platform)
-        clean_name = sanitize_for_filename(clean_name)
-        # Filter out unwanted values
-        if clean_name and clean_name.lower() not in _FILTER_OUT:
-            cleaned.append(clean_name)
-
-    return cleaned
-
-
 # --- Public API ---
 
 # Sort order for candidates dropdown
@@ -328,7 +302,7 @@ _METHOD_ORDER = {"ai": 0, "ocr": 1}
 _CONFIDENCE_ORDER = {"high": 0, "medium": 1, "low": 2}
 
 
-def _sort_candidates(candidates: list) -> list[CandidateInfo]:
+def _sort_candidates(candidates: list[Any]) -> list[CandidateInfo]:
     """Sort candidates by method (AI first) then confidence (high first), returning CandidateInfo list."""
     sorted_candidates = sorted(
         candidates, key=lambda c: (_METHOD_ORDER.get(c.method, 999), _CONFIDENCE_ORDER.get(c.confidence, 999))
@@ -359,58 +333,30 @@ def create_or_update_card(file_hash: str, remove_family: bool = False) -> None:
 
 
 # noinspection PyTypeChecker
-def _add_candidate_inline(session: Session, file_hash: str, family_name: str, method: str, confidence: str) -> int:
-    """Add a candidate within an existing session (no new session scope).
+def _insert_candidates(session: Session, file_hash: str, family_name: str, method: str, confidence: str) -> int:
+    """Insert candidates within an existing session. Returns first candidate ID, or 0 if filtered out.
 
-    Used by reprocess_candidates_from_raw() to keep everything in one transaction.
-    Returns the candidate ID, or 0 if the name is filtered out.
+    Applies cleaning/filtering and smart title case. When the cleaning pipeline returns multiple
+    names (e.g. a recognized alternate form plus its related forms), all are added as separate candidates.
     """
-    from app.core.name_formatting import smart_title_case
+    from app.core.naming.family_name import clean_and_filter_family_names, smart_title_case_family_name
 
-    cleaned = _clean_and_filter_names([family_name])
+    cleaned = clean_and_filter_family_names([family_name])
     if not cleaned:
         return 0
-    clean_name = smart_title_case(cleaned[0])
 
-    existing = session.query(Candidate).filter_by(file_hash=file_hash, family_name=clean_name, method=method).first()
-    if existing:
-        return existing.id
+    first_id = 0
+    for name in cleaned:
+        clean_name = smart_title_case_family_name(name)
 
-    candidate = Candidate(file_hash=file_hash, family_name=clean_name, method=method, confidence=confidence)
-    session.add(candidate)
-    session.flush()
-    return candidate.id
-
-
-# noinspection PyTypeChecker
-def add_candidate(file_hash: str, family_name: str, method: str, confidence: str) -> int:
-    """Add a name candidate (OCR or AI result). Returns candidate ID.
-
-    Automatically creates card if it doesn't exist.
-    Applies cleaning/filtering and smart title case to the name before storing.
-    Returns 0 if name is filtered out.
-    """
-    from app.core.name_formatting import smart_title_case
-
-    # Clean the name first
-    cleaned = _clean_and_filter_names([family_name])
-    if not cleaned:
-        return 0  # Filtered out
-
-    # Apply smart title case
-    clean_name = smart_title_case(cleaned[0])
-
-    with _session_scope() as session:
-        _ensure_card_exists(session, file_hash)
-
-        # Check if candidate already exists
         existing = (
             session.query(Candidate).filter_by(file_hash=file_hash, family_name=clean_name, method=method).first()
         )
         if existing:
-            return existing.id
+            if not first_id:
+                first_id = existing.id
+            continue
 
-        # Add new candidate — catch IntegrityError from concurrent inserts
         candidate = Candidate(file_hash=file_hash, family_name=clean_name, method=method, confidence=confidence)
         session.add(candidate)
         try:
@@ -420,8 +366,38 @@ def add_candidate(file_hash: str, family_name: str, method: str, confidence: str
             existing = (
                 session.query(Candidate).filter_by(file_hash=file_hash, family_name=clean_name, method=method).first()
             )
-            return existing.id if existing else 0
-        return candidate.id
+            if existing and not first_id:
+                first_id = existing.id
+            continue
+        if not first_id:
+            first_id = candidate.id
+
+    return first_id
+
+
+def _add_candidate_inline(session: Session, file_hash: str, family_name: str, method: str, confidence: str) -> int:
+    """Add a candidate within an existing session (no new session scope).
+
+    Used by reprocess_candidates_from_raw() to keep everything in one transaction.
+    Returns the first candidate ID, or 0 if all names are filtered out.
+    """
+    return _insert_candidates(session, file_hash, family_name, method, confidence)
+
+
+def add_candidate(file_hash: str, family_name: str, method: str, confidence: str) -> int:
+    """Add a name candidate (OCR or AI result). Returns first candidate ID.
+
+    Automatically creates card if it doesn't exist.
+    Applies cleaning/filtering and smart title case to the name before storing.
+    When the cleaning pipeline returns multiple names (e.g. a recognized alternate
+    form plus its related forms), all are added as separate candidates.
+    Returns 0 if all names are filtered out.
+    """
+    first_id = 0
+    with _session_scope() as session:
+        _ensure_card_exists(session, file_hash)
+        first_id = _insert_candidates(session, file_hash, family_name, method, confidence)
+    return first_id
 
 
 def get_candidates(file_hash: str) -> list[CandidateInfo]:
@@ -624,7 +600,7 @@ def reprocess_candidates_from_raw(file_hash: str) -> None:
     All work happens in a single transaction to prevent dangling FKs
     and inconsistent intermediate states.
     """
-    from app.core.name_extractor import extract_family_names
+    from app.core.naming.extractor import extract_family_names
 
     with _session_scope() as session:
         card = session.query(Card).filter_by(file_hash=file_hash).first()

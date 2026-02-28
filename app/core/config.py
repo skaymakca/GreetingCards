@@ -3,6 +3,7 @@ import os
 import plistlib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from app.core.paths import get_data_dir, is_bundled
 
@@ -50,7 +51,7 @@ def _plist_path() -> Path:
     return get_data_dir() / _PLIST_NAME
 
 
-def _read_plist() -> dict:
+def _read_plist() -> dict[str, Any]:
     path = _plist_path()
     if path.exists():
         with open(path, "rb") as f:
@@ -58,7 +59,7 @@ def _read_plist() -> dict:
     return {}
 
 
-def _write_plist(data: dict) -> None:
+def _write_plist(data: dict[str, Any]) -> None:
     path = _plist_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "wb") as f:

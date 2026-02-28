@@ -1,15 +1,79 @@
-"""Tests for changelog parsing and HTML generation."""
+"""Tests for changelog parsing, HTML generation, and the show_changelog dialog."""
 
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.core.changelog import (
+from app.core.content.changelog import (
     _generate_changelog_html,
     _group_by_minor,
     _parse_changelog,
 )
-from app.core.changelog_models import ChangelogGroup, ChangelogVersion
+from app.core.content.changelog_models import ChangelogGroup, ChangelogVersion
+
+# --- show_changelog dialog tests ---
+
+
+class TestShowChangelog:
+    """Tests for app.gui.dialogs.changelog.show_changelog()."""
+
+    def test_calls_show_viewer_with_correct_params(self):
+        """show_changelog should call show_viewer with title, base_path, page_order, and singleton_key."""
+        mock_parent = MagicMock()
+        fake_base_path = Path("/fake/html/changelog")
+        fake_page_order = ["v1.html", "v2.html"]
+
+        with (
+            patch("app.gui.dialogs.changelog.get_runtime_content_path", return_value=fake_base_path) as mock_path,
+            patch("app.gui.dialogs.changelog.get_page_order", return_value=fake_page_order) as mock_order,
+            patch("app.gui.dialogs.changelog.show_viewer") as mock_viewer,
+        ):
+            from app.gui.dialogs.changelog import show_changelog
+
+            show_changelog(mock_parent)
+
+            mock_path.assert_called_once_with("html/changelog")
+            mock_order.assert_called_once_with(fake_base_path)
+            mock_viewer.assert_called_once_with(
+                mock_parent,
+                title="What's New",
+                base_path=fake_base_path,
+                page_order=fake_page_order,
+                singleton_key="changelog",
+            )
+
+    def test_passes_parent_as_first_arg(self):
+        """The wx parent window should be passed as the first positional arg to show_viewer."""
+        mock_parent = MagicMock()
+
+        with (
+            patch("app.gui.dialogs.changelog.get_runtime_content_path"),
+            patch("app.gui.dialogs.changelog.get_page_order", return_value=[]),
+            patch("app.gui.dialogs.changelog.show_viewer") as mock_viewer,
+        ):
+            from app.gui.dialogs.changelog import show_changelog
+
+            show_changelog(mock_parent)
+
+            assert mock_viewer.call_args[0][0] is mock_parent
+
+    def test_page_order_derived_from_base_path(self):
+        """get_page_order receives the same base_path returned by get_runtime_content_path."""
+        mock_parent = MagicMock()
+        sentinel_path = Path("/sentinel/path")
+
+        with (
+            patch("app.gui.dialogs.changelog.get_runtime_content_path", return_value=sentinel_path),
+            patch("app.gui.dialogs.changelog.get_page_order") as mock_order,
+            patch("app.gui.dialogs.changelog.show_viewer"),
+        ):
+            from app.gui.dialogs.changelog import show_changelog
+
+            show_changelog(mock_parent)
+
+            mock_order.assert_called_once_with(sentinel_path)
+
 
 # --- CHANGELOG.md file tests ---
 
@@ -134,7 +198,7 @@ First release of the app.
         text = md_path.read_text(encoding="utf-8")
         result = _parse_changelog(text)
         assert len(result) >= 3
-        assert result[0].version == "0.10.0"
+        assert result[0].version == "0.11.0"
 
     def test_html_entities_escaped(self):
         md = '## 1.0.0\n\nUse <html> & "quotes".\n'

@@ -1,14 +1,54 @@
 <component name="ProjectDictionaryState">
   <dictionary name="project">
     <words>
+      <w>Amore</w>
+      <w>Caprio</w>
+      <w>Carthy</w>
+      <w>Damico</w>
+      <w>Damore</w>
+      <w>Dangelo</w>
+      <w>Delapaz</w>
+      <w>Delavega</w>
+      <w>Delrosario</w>
+      <w>Delvecchio</w>
+      <w>Dilorenzo</w>
+      <w>Distefano</w>
+      <w>Garcias</w>
+      <w>Intyre</w>
+      <w>NFKD</w>
+      <w>Nguyens</w>
+      <w>OBRIEN</w>
+      <w>Obrian</w>
+      <w>Okonkwo</w>
+      <w>Oneil</w>
+      <w>SMASHEW</w>
+      <w>Santacruz</w>
       <w>Sauvola</w>
       <w>Segoe</w>
+      <w>Smashew</w>
+      <w>Stclair</w>
+      <w>Stjohn</w>
+      <w>Stlaurent</w>
+      <w>Stpierre</w>
+      <w>Vecchio</w>
+      <w>Weiß</w>
       <w>amdahlq</w>
       <w>autocontrast</w>
       <w>avgjobq</w>
       <w>basenames</w>
+      <w>ches</w>
+      <w>classmethod</w>
       <w>confq</w>
       <w>curdir</w>
+      <w>damico</w>
+      <w>damore</w>
+      <w>dangelo</w>
+      <w>delapaz</w>
+      <w>delavega</w>
+      <w>delrosario</w>
+      <w>delvecchio</w>
+      <w>dilorenzo</w>
+      <w>distefano</w>
       <w>efficiencyq</w>
       <w>endef</w>
       <w>entrancy</w>
@@ -16,6 +56,8 @@
       <w>fname</w>
       <w>frontmatter</w>
       <w>gitignored</w>
+      <w>helv</w>
+      <w>heredocs</w>
       <w>hiddenimports</w>
       <w>hooksconfig</w>
       <w>hookspath</w>
@@ -32,29 +74,42 @@
       <w>magnifyingglass</w>
       <w>mbenchmark</w>
       <w>meipass</w>
+      <w>memsize</w>
       <w>mgenerate</w>
       <w>neue</w>
       <w>noarchive</w>
       <w>o'brian</w>
+      <w>o'brien</w>
+      <w>obrien</w>
+      <w>oneil</w>
       <w>pathex</w>
       <w>picklable</w>
+      <w>pluralizations</w>
       <w>preprocs</w>
       <w>purelib</w>
       <w>rasterizing</w>
+      <w>santacruz</w>
       <w>sauvola</w>
       <w>shutterfly</w>
       <w>sizers</w>
+      <w>smashew</w>
       <w>snapfish</w>
       <w>specpath</w>
       <w>speedupq</w>
+      <w>stclair</w>
       <w>stdev</w>
+      <w>stjohn</w>
+      <w>stlaurent</w>
+      <w>stpierre</w>
       <w>stubless</w>
       <w>sukru</w>
       <w>takahashi</w>
       <w>tessdata</w>
       <w>throughputq</w>
       <w>timeq</w>
+      <w>tomllib</w>
       <w>traineddata</w>
+      <w>vandyke</w>
       <w>visualtest</w>
       <w>walltimeq</w>
       <w>walshes</w>

@@ -3,39 +3,42 @@
 Generates comprehensive license HTML from a layered system: config files, `uv.lock`, `.dist-info` metadata, and committed license texts.
 
 **Key files:**
-- `app/core/license_models.py` — dataclasses (PackageCategory, SystemDep, PackageOverride, LicenseConfig, DiscoveredPackage, LicenseRegistry)
-- `app/core/license_discovery.py` — discovery + HTML generation logic
-- `app/gui/licenses_dialog.py` — viewer only (~30 lines)
+- `app/core/content/license_models.py` — dataclasses (PackageCategory, SystemDep, PackageOverride, LicenseConfig, DiscoveredPackage, LicenseRegistry)
+- `app/core/content/license_sync.py` — registry sync: reads `uv.lock` + `.dist-info` → writes `registry.toml`
+- `app/core/content/license_html.py` — HTML generation: reads `registry.toml` → generates HTML via Jinja2
+- `app/gui/dialogs/licenses.py` — viewer only (~30 lines)
 - `content/licenses/config.toml` — manual configuration: `[[system]]` seeds and `[[package]]` overrides
 - `content/licenses/manual/` — handwritten license texts (committed, never auto-modified)
 
 ## Directory Structure
 
 ```
-content/
+content/                         ← Committed source assets
 └── licenses/
-    ├── config.toml        ← Committed. [[system]] seeds + [[package]] overrides
-    ├── registry.toml      ← Gitignored. Generated: resolved state of all packages
-    ├── manual/            ← Committed. Hand-written license texts
-    │   ├── python.txt
-    │   └── tesseract.txt
-    └── texts/             ← Gitignored. Auto-extracted from .dist-info
-        ├── anthropic.txt
-        ├── pillow.txt
-        └── ...
+    ├── config.toml              ← [[system]] seeds + [[package]] overrides
+    └── manual/                  ← Hand-written license texts
+        ├── python.txt
+        └── tesseract.txt
 
-_runtime_content/html/
-├── licenses/              ← Gitignored. Generated HTML output (bundled in app)
-│   ├── index.html
-│   ├── greeting-cards.html
-│   ├── system.html
-│   ├── runtime.html
-│   ├── development.html
-│   ├── transitive.html
-│   └── page_order.txt    ← Navigation manifest (read at runtime)
-└── common/
-    ├── css/viewer.css     ← Shared stylesheet (referenced via ../common/css/viewer.css)
-    └── js/search.js       ← Shared search/highlight functions
+_build/                          ← Gitignored generated artifacts
+├── licenses/
+│   ├── registry.toml            ← Generated: resolved state of all packages
+│   └── texts/                   ← Auto-extracted from .dist-info
+│       ├── anthropic.txt
+│       ├── pillow.txt
+│       └── ...
+└── runtime_content/html/
+    ├── licenses/                ← Generated HTML output (bundled in app)
+    │   ├── index.html
+    │   ├── greeting-cards.html
+    │   ├── system.html
+    │   ├── runtime.html
+    │   ├── development.html
+    │   ├── transitive.html
+    │   └── page_order.txt       ← Navigation manifest (read at runtime)
+    └── common/
+        ├── css/viewer.css       ← Shared stylesheet (referenced via ../common/css/viewer.css)
+        └── js/search.js         ← Shared search/highlight functions
 ```
 
 ## Config Format
@@ -81,15 +84,15 @@ Available override fields: `display`, `category`, `license_type`, `homepage`, `n
 7. For each package, finds its `.dist-info` directory in site-packages:
    - Extracts license type from `METADATA`
    - Extracts homepage URL from `METADATA` (`Project-URL` or `Home-page` fields)
-   - Extracts license text and writes to `content/licenses/texts/<slug>.txt` (only when version changed or file missing)
+   - Extracts license text and writes to `_build/licenses/texts/<slug>.txt` (only when version changed or file missing)
 8. Applies config overrides (display name, category, etc.)
-9. Writes `content/licenses/registry.toml` with full resolved state
+9. Writes `_build/licenses/registry.toml` with full resolved state
 
-**Phase 2: `generate_licenses_html()`** (entry point for `make html-content`):
+**Phase 2: `generate_licenses_html()`** (entry point for `make content`):
 
 1. Calls `sync_registry()` to ensure registry is up to date
 2. Reads app license from repo root `LICENSE` file
-3. Reads license texts from `content/licenses/manual/` and `content/licenses/texts/` directories
+3. Reads license texts from `content/licenses/manual/` (source) and `_build/licenses/texts/` (generated)
 4. Renders Jinja2 templates to produce category-based HTML pages (flat structure, no `pages/` subdir)
 5. CSS is shared via `../common/css/viewer.css` (no copy step needed)
 6. JS is included via `../common/js/search.js`
@@ -123,7 +126,7 @@ Licenses are grouped into **category pages** (6 files). Each category page conta
 
 ## Dataclasses
 
-All data structures use Python dataclasses from `app/core/license_models.py`:
+All data structures use Python dataclasses from `app/core/content/license_models.py`:
 
 | Class               | Purpose                                                                          |
 |---------------------|----------------------------------------------------------------------------------|
@@ -184,16 +187,16 @@ Simple flat list — each entry links to a category page. Active page is highlig
 
 Help menu → "Licenses" → calls `show_licenses(parent)` → `show_viewer()` with `singleton_key="licenses"`.
 
-The viewer reads from `_runtime_content/html/licenses/` (dev mode) or `_MEIPASS/_runtime_content/html/licenses/` (bundle). `get_page_order(base_path)` reads `page_order.txt` from the output directory. See `docs/architecture/html-viewer.md` for the shared manifest pattern.
+The viewer reads from `_build/runtime_content/html/licenses/` (dev mode) or `_MEIPASS/_runtime_content/html/licenses/` (bundle). `get_page_order(base_path)` reads `page_order.txt` from the output directory. See `docs/architecture/html-viewer.md` for the shared manifest pattern.
 
 ## Make Targets
 
 ```makefile
-licenses-sync:  # Sync registry from uv.lock + .dist-info → registry.toml + texts/
-html-content:   # generates help, changelog, and licenses HTML → _runtime_content/html/
+licenses-sync:  # Sync registry from uv.lock + .dist-info → _build/licenses/
+content:   # generates help, changelog, and licenses HTML → _build/runtime_content/html/
 ```
 
-Both `run` and `app` targets depend on `html-content`. `make licenses-sync` still exists as a standalone target for use after `uv add`.
+Both `run` and `app` targets depend on `content`. `make licenses-sync` still exists as a standalone target for use after `uv add`.
 
 ## Gotchas
 

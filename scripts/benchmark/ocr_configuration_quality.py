@@ -101,10 +101,10 @@ Without AI scoring:
 
     uv run python -m scripts.benchmark.ocr_configuration_quality ~/Desktop/cards --no-ai-score
 
-Custom output directory and config filter:
+Config filter:
 
     uv run python -m scripts.benchmark.ocr_configuration_quality ~/Desktop/cards \\
-        -o results/ --configs pytesseract/default/200/6/pillow/0.15
+        --configs pytesseract/default/200/6/pillow/0.15
 
 AI scoring with Haiku for lower cost:
 
@@ -113,7 +113,7 @@ AI scoring with Haiku for lower cost:
 
 Open the report:
 
-    open _script_output/YYYYMMDD_HHMM-benchmark_ocr_configuration_quality/index.html
+    open _build/script_output/YYYYMMDD_HHMM-benchmark_ocr_configuration_quality/index.html
 
 Environment Variables
 ---------------------
@@ -1553,7 +1553,7 @@ def write_detail_csv(
 # Main
 # ---------------------------------------------------------------------------
 
-from scripts.helpers import make_output_dir
+from scripts.helpers import script_output_dir
 
 _FOLDER_NAME = "benchmark_ocr_configuration_quality"
 
@@ -1563,13 +1563,6 @@ def main() -> None:
         description="OCR Configuration Quality Benchmark — test Tesseract configurations on greeting card PDFs"
     )
     parser.add_argument("corpus", type=Path, help="Path to directory containing PDF files")
-    parser.add_argument(
-        "-o",
-        "--output",
-        type=Path,
-        default=None,
-        help="Output directory for HTML reports (default: timestamped)",
-    )
     parser.add_argument(
         "--configs",
         type=str,
@@ -1638,104 +1631,101 @@ def main() -> None:
         )
     )
 
-    if args.output:
-        output_dir = Path(args.output)
-        output_dir.mkdir(parents=True, exist_ok=True)
-    else:
-        output_dir = make_output_dir(_FOLDER_NAME)
-    cards_dir = output_dir / "cards"
-    cards_dir.mkdir(exist_ok=True)
-    configs_dir = output_dir / "configs"
-    configs_dir.mkdir(exist_ok=True)
+    # noinspection PyTypeChecker
+    with script_output_dir(_FOLDER_NAME) as output_dir:
+        cards_dir = output_dir / "cards"
+        cards_dir.mkdir(exist_ok=True)
+        configs_dir = output_dir / "configs"
+        configs_dir.mkdir(exist_ok=True)
 
-    t0 = time.monotonic()
-    card_results = run_benchmark(corpus_path, configs, output_dir, num_workers)
-    elapsed_total = time.monotonic() - t0
+        t0 = time.monotonic()
+        card_results = run_benchmark(corpus_path, configs, output_dir, num_workers)
+        elapsed_total = time.monotonic() - t0
 
-    # AI scoring (after benchmark, before report generation)
-    if not args.no_ai_score:
-        ai_t0 = time.monotonic()
-        asyncio.run(
-            score_all_cards(
-                card_results,
-                model=args.ai_model,
-                concurrency=args.ai_concurrency,
-                dud_threshold=args.dud_threshold,
+        # AI scoring (after benchmark, before report generation)
+        if not args.no_ai_score:
+            ai_t0 = time.monotonic()
+            asyncio.run(
+                score_all_cards(
+                    card_results,
+                    model=args.ai_model,
+                    concurrency=args.ai_concurrency,
+                    dud_threshold=args.dud_threshold,
+                )
             )
-        )
-        ai_elapsed = time.monotonic() - ai_t0
-        console.print(f"  AI scoring time: {ai_elapsed:.1f}s")
+            ai_elapsed = time.monotonic() - ai_t0
+            console.print(f"  AI scoring time: {ai_elapsed:.1f}s")
 
-    console.print()
+        console.print()
 
-    # Filter configs to only those that actually ran (after availability checks)
-    actual_configs = []
-    seen_names = set()
-    for card in card_results:
-        for r in card.results:
-            if r.config.name not in seen_names:
-                actual_configs.append(r.config)
-                seen_names.add(r.config.name)
+        # Filter configs to only those that actually ran (after availability checks)
+        actual_configs = []
+        seen_names = set()
+        for card in card_results:
+            for r in card.results:
+                if r.config.name not in seen_names:
+                    actual_configs.append(r.config)
+                    seen_names.add(r.config.name)
 
-    all_card_ids = [c.card_id for c in card_results]
-    has_ai = _has_ai_scores(card_results)
+        all_card_ids = [c.card_id for c in card_results]
+        has_ai = _has_ai_scores(card_results)
 
-    with console.status("Generating reports..."):
-        # Compute config stats (shared by summary + config pages)
-        config_stats = _compute_config_stats(card_results, actual_configs)
+        with console.status("Generating reports..."):
+            # Compute config stats (shared by summary + config pages)
+            config_stats = _compute_config_stats(card_results, actual_configs)
 
-        # Ranked configs for config page navigation
-        if has_ai:
-            ranked_configs = [
-                d["config"] for d in sorted(config_stats.values(), key=lambda d: d["ai_score_mean"], reverse=True)
-            ]
-        else:
-            ranked_configs = [
-                d["config"] for d in sorted(config_stats.values(), key=lambda d: d["conf_mean"], reverse=True)
-            ]
+            # Ranked configs for config page navigation
+            if has_ai:
+                ranked_configs = [
+                    d["config"] for d in sorted(config_stats.values(), key=lambda d: d["ai_score_mean"], reverse=True)
+                ]
+            else:
+                ranked_configs = [
+                    d["config"] for d in sorted(config_stats.values(), key=lambda d: d["conf_mean"], reverse=True)
+                ]
 
-        # Summary page
-        summary_html = generate_summary_html(
-            card_results,
-            actual_configs,
-            corpus_path,
-            elapsed_total,
-            config_stats,
-        )
-        (output_dir / "index.html").write_text(summary_html)
-
-        # Per-card pages
-        for idx, card in enumerate(card_results):
-            card_html = generate_card_html(card, idx, all_card_ids)
-            (cards_dir / f"{card.card_id}.html").write_text(card_html)
-
-        # Per-config pages
-        for idx, cfg in enumerate(ranked_configs):
-            config_html = generate_config_html(
-                cfg,
+            # Summary page
+            summary_html = generate_summary_html(
                 card_results,
-                idx,
-                ranked_configs,
+                actual_configs,
+                corpus_path,
+                elapsed_total,
                 config_stats,
             )
-            (configs_dir / f"{cfg.slug}.html").write_text(config_html)
+            (output_dir / "index.html").write_text(summary_html)
 
-        # CSV exports
-        write_summary_csv(output_dir / "summary.csv", config_stats, has_ai)
-        write_detail_csv(output_dir / "detail.csv", card_results, has_ai)
+            # Per-card pages
+            for idx, card in enumerate(card_results):
+                card_html = generate_card_html(card, idx, all_card_ids)
+                (cards_dir / f"{card.card_id}.html").write_text(card_html)
 
-    index_path = output_dir / "index.html"
-    console.print(
-        f"  Summary:  {index_path}\n"
-        f"  Cards:    {len(card_results)} pages in {cards_dir}/\n"
-        f"  Configs:  {len(ranked_configs)} pages in {configs_dir}/\n"
-        f"  CSV:      summary.csv, detail.csv\n"
-        f"  Total time: {elapsed_total:.1f}s\n"
-        f"\nOpen {index_path} in a browser to view results.",
-    )
+            # Per-config pages
+            for idx, cfg in enumerate(ranked_configs):
+                config_html = generate_config_html(
+                    cfg,
+                    card_results,
+                    idx,
+                    ranked_configs,
+                    config_stats,
+                )
+                (configs_dir / f"{cfg.slug}.html").write_text(config_html)
 
-    if not args.no_open:
-        subprocess.Popen(["open", str(index_path)])
+            # CSV exports
+            write_summary_csv(output_dir / "summary.csv", config_stats, has_ai)
+            write_detail_csv(output_dir / "detail.csv", card_results, has_ai)
+
+        index_path = output_dir / "index.html"
+        console.print(
+            f"  Summary:  {index_path}\n"
+            f"  Cards:    {len(card_results)} pages in {cards_dir}/\n"
+            f"  Configs:  {len(ranked_configs)} pages in {configs_dir}/\n"
+            f"  CSV:      summary.csv, detail.csv\n"
+            f"  Total time: {elapsed_total:.1f}s\n"
+            f"\nOpen {index_path} in a browser to view results.",
+        )
+
+        if not args.no_open:
+            subprocess.Popen(["open", str(index_path)])
 
 
 if __name__ == "__main__":

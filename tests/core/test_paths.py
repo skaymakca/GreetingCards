@@ -33,11 +33,12 @@ class TestGetDataDir:
     """Tests for get_data_dir()."""
 
     def test_dev_mode_returns_local_subdir(self):
-        """In dev mode, returns the .local/ subdirectory of project root."""
+        """In dev mode, returns .local/GreetingCards/ under the project root."""
         result = get_data_dir()
-        assert result.name == ".local"
-        # Parent should be the project root (contains main.py)
-        assert (result.parent / "main.py").exists()
+        assert result.name == "GreetingCards"
+        assert result.parent.name == ".local"
+        # Grandparent should be the project root (contains main.py)
+        assert (result.parent.parent / "main.py").exists()
 
     def test_dev_mode_creates_local_dir(self):
         """In dev mode, .local/ directory is auto-created."""

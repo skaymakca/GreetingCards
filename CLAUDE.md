@@ -71,6 +71,54 @@ pip install package-name
 
 ---
 
+## ⚠️ Shell Command Rules ⚠️
+
+**Follow these rules for ALL bash commands to avoid permission prompts.**
+
+### No command substitution
+- ❌ `git commit -m "$(date)"`
+- ✅ Split into two commands: first run `date`, then use the result
+
+### No complex quoting in flag values
+- ❌ `grep --include="*.py" pattern`
+- ✅ `grep --include='*.py' pattern` or `grep -r pattern --include=\*.py`
+
+### No command chaining (&&, ||, ;)
+- ❌ `mkdir build && cmake ..`
+- ✅ Issue each command separately, one per Bash tool call
+- Exception: simple read-only pipes are fine (e.g., `git log --oneline | head -5`)
+
+### No multiline constructs or heredocs
+- ❌ Multi-line bash strings or heredocs in a single command
+- ✅ Use the Write tool to create a file, then execute it
+- ✅ Or break into sequential single-line commands
+- For git commits: use `git commit -m 'single line message'` or write message to a temp file and use `git commit -F /tmp/msg.txt`
+
+### No output redirection for writing files
+- ❌ `echo "text" > file.txt` or `command >> file.txt`
+- ✅ Use the Write or Edit tool instead
+
+### No inline environment variables
+- ❌ `VAR=value command`
+- ✅ Use `env VAR=value command` or set variables separately
+
+### No process substitution
+- ❌ `diff <(cmd1) <(cmd2)`
+- ✅ Write outputs to temp files first, then diff
+
+### No background operators
+- ❌ `command &`
+- ✅ Use the `run_in_background` parameter on the Bash tool
+
+### Prefer make targets and dedicated tools
+- Use `make check`, `make lint`, `make build` etc. — single simple commands
+- Use Read/Write/Edit/Grep/Glob tools instead of cat/echo/sed/grep/find
+
+### General principle
+When in doubt, break complex shell operations into multiple simple sequential commands. Prefer clarity over cleverness. One command per Bash tool call.
+
+---
+
 ## LSP (Language Server Protocol)
 
 **Always use the LSP tool** for code navigation instead of guessing or grepping. It provides accurate, type-aware results.
@@ -134,34 +182,39 @@ Key entry points:
 
 When editing files in these areas, **read the corresponding doc first**, then **update the doc** if your changes alter the documented behavior.
 
-| Files Being Edited                                                             | Read First                                                            |
-|--------------------------------------------------------------------------------|-----------------------------------------------------------------------|
-| `app/gui/main_window.py` (filters, `_refresh_display`)                         | `docs/architecture/filter-pipeline.md`                                |
-| `app/gui/filter_sidebar.py`                                                    | `docs/architecture/filter-pipeline.md`                                |
-| `app/gui/main_window.py` (card loading, state, dedup)                          | `docs/architecture/card-data-model.md`                                |
-| `app/models/card.py`                                                           | `docs/architecture/card-data-model.md`                                |
-| `app/gui/review_panel.py`                                                      | `docs/architecture/review-panel.md`                                   |
-| `app/gui/main_window.py` (processing, AI, threads)                             | `docs/architecture/async-processing.md`                               |
-| `app/core/ai_analyzer.py`                                                      | `docs/architecture/async-processing.md`                               |
-| `app/core/name_extractor.py`, `app/core/name_formatting.py`                    | `docs/architecture/name-pipeline.md`                                  |
-| `app/core/database.py`, `app/core/renamer.py`                                  | `docs/architecture/name-pipeline.md`                                  |
-| `app/gui/help_dialog.py`, `app/core/help_builder.py`                           | `docs/architecture/help-system.md`                                    |
-| `content/html/help/*.md`                                                       | `docs/architecture/help-system.md`                                    |
-| `app/gui/html_viewer.py`, `content/html/common/js/search.js`                   | `docs/architecture/html-viewer.md`                                    |
-| `app/core/changelog.py`, `app/core/changelog_models.py`                        | `docs/architecture/changelog-viewer.md`                               |
-| `app/gui/changelog_dialog.py`, `content/html/templates/changelog_page.html.j2` | `docs/architecture/changelog-viewer.md`                               |
-| `app/core/license_models.py`, `app/core/license_discovery.py`                  | `docs/architecture/licenses-viewer.md`                                |
-| `app/gui/licenses_dialog.py`, `content/html/templates/licenses_*.html.j2`      | `docs/architecture/licenses-viewer.md`                                |
-| `content/licenses/config.toml`, `content/licenses/manual/*`                    | `docs/architecture/licenses-viewer.md`                                |
-| `CHANGELOG.md`                                                                 | `CLAUDE.md` (changelog conventions below)                             |
-| `app/core/config.py`, `app/core/paths.py`                                      | `docs/architecture/config-and-preferences.md`                         |
-| `app/gui/settings_dialog.py`                                                   | `docs/architecture/config-and-preferences.md`                         |
-| `app/gui/appearance.py`, `app/gui/styles.py` (Color.refresh)                   | `docs/architecture/dark-mode.md`                                      |
-| `app/gui/icons.py` (clear_cache, icon tint)                                    | `docs/architecture/dark-mode.md`                                      |
-| `app/gui/main_window.py` (appearance observer, refresh)                        | `docs/architecture/dark-mode.md`                                      |
-| `content/html/common/css/viewer.css` (color variables)                         | `docs/architecture/dark-mode.md`                                      |
-| `scripts/*.py` (adding/removing/renaming scripts)                              | Update `Makefile` `show-scripts` target + `README.md` Scripts section |
-| `# noinspection` comments in any `*.py` file                                   | `docs/architecture/pycharm-inspections.md`                            |
+| Files Being Edited                                                              | Read First                                                            |
+|---------------------------------------------------------------------------------|-----------------------------------------------------------------------|
+| `app/gui/main_window.py` (filters, `_refresh_display`)                          | `docs/architecture/filter-pipeline.md`                                |
+| `app/gui/components/filter_sidebar.py`                                          | `docs/architecture/filter-pipeline.md`                                |
+| `app/gui/main_window.py` (card loading, state, dedup)                           | `docs/architecture/card-data-model.md`                                |
+| `app/models/card.py`                                                            | `docs/architecture/card-data-model.md`                                |
+| `app/gui/components/review_panel.py`                                            | `docs/architecture/review-panel.md`                                   |
+| `app/gui/main_window.py` (processing, AI, threads)                              | `docs/architecture/async-processing.md`                               |
+| `app/core/pipeline/ai_analyzer.py`, `app/core/pipeline/ai_batch.py`             | `docs/architecture/async-processing.md`                               |
+| `app/core/pipeline/pdf_worker.py`, `app/core/pipeline/rate_limit.py`            | `docs/architecture/async-processing.md`                               |
+| `app/core/naming/family_name/*.py`                                              | `docs/architecture/name-pipeline.md`                                  |
+| `app/core/naming/extractor.py`, `app/core/naming/filename_safety.py`            | `docs/architecture/name-pipeline.md`                                  |
+| `app/core/database.py`, `app/core/naming/renamer.py`                            | `docs/architecture/name-pipeline.md`                                  |
+| `app/gui/dialogs/help.py`, `app/core/content/help_builder.py`                   | `docs/architecture/help-system.md`                                    |
+| `content/html/help/*.md`                                                        | `docs/architecture/help-system.md`                                    |
+| `app/gui/components/html_viewer.py`, `content/html/common/js/search.js`         | `docs/architecture/html-viewer.md`                                    |
+| `app/core/content/changelog.py`, `app/core/content/changelog_models.py`         | `docs/architecture/changelog-viewer.md`                               |
+| `app/gui/dialogs/changelog.py`, `content/html/templates/changelog_page.html.j2` | `docs/architecture/changelog-viewer.md`                               |
+| `app/core/content/license_models.py`, `app/core/content/license_sync.py`        | `docs/architecture/licenses-viewer.md`                                |
+| `app/core/content/license_html.py`, `app/gui/dialogs/licenses.py`               | `docs/architecture/licenses-viewer.md`                                |
+| `content/html/templates/licenses_*.html.j2`                                     | `docs/architecture/licenses-viewer.md`                                |
+| `content/licenses/config.toml`, `content/licenses/manual/*`                     | `docs/architecture/licenses-viewer.md`                                |
+| `CHANGELOG.md`                                                                  | `CLAUDE.md` (changelog conventions below)                             |
+| `app/core/config.py`, `app/core/paths.py`                                       | `docs/architecture/config-and-preferences.md`                         |
+| `app/gui/dialogs/settings.py`                                                   | `docs/architecture/config-and-preferences.md`                         |
+| `app/gui/appearance.py`, `app/gui/styles.py` (Color.refresh)                    | `docs/architecture/dark-mode.md`                                      |
+| `app/gui/icons.py` (clear_cache, icon tint)                                     | `docs/architecture/dark-mode.md`                                      |
+| `app/gui/main_window.py` (appearance observer, refresh)                         | `docs/architecture/dark-mode.md`                                      |
+| `content/html/common/css/viewer.css` (color variables)                          | `docs/architecture/dark-mode.md`                                      |
+| `scripts/*.py` (adding/removing/renaming scripts)                               | Update `Makefile` `show-scripts` target + `README.md` Scripts section |
+| `scripts/generate_sample_cards/**`                                              | `docs/architecture/sample-card-generator.md`                          |
+| `scripts/helpers.py`, `scripts/**/__main__.py`                                  | `docs/architecture/scripts-infrastructure.md`                         |
+| `# noinspection` comments in any `*.py` file                                    | `docs/architecture/pycharm-inspections.md`                            |
 
 ### Test Count
 When adding or removing tests, update the test count in `README.md` (search for "tests** covering") to match the actual number from `pytest` output.
@@ -181,11 +234,11 @@ When adding or removing tests, update the test count in `README.md` (search for 
 - **Language:** Plain language — describe *what changed*, not *how*
 - **Grouping:** Each `major.minor` version gets its own `## ` entry with date; patch versions fold into their parent
 - **When to update:** When making user-visible changes
-- **Build step:** `make html-content` regenerates HTML from the Markdown; `make app` runs this automatically
+- **Build step:** `make content` regenerates HTML from the Markdown; `make app` runs this automatically
 
 ### License Sync
 
-After adding or updating packages with `uv add`, run `make licenses-sync` to update the license registry and extract new license texts. Then run `make html-content` to regenerate the HTML.
+After adding or updating packages with `uv add`, run `make licenses-sync` to update the license registry and extract new license texts. Then run `make content` to regenerate the HTML.
 
 ---
 
@@ -211,7 +264,7 @@ Before committing, run these checks and fix any issues:
 
 **Quick pre-commit:** `make check && uv run pytest tests/ -x`
 
-**pyright** (`pyrightconfig.json`): Catches structural type errors, unused imports, unreachable code. Zero-warning baseline.
+**pyright** (`[tool.pyright]` in `pyproject.toml`): Catches structural type errors, unused imports, unreachable code. Zero-warning baseline.
 
 **mypy** (`[tool.mypy]` in `pyproject.toml`): Catches nominal type mismatches, SQLAlchemy plugin issues. `import-untyped` errors are suppressed globally for stubless third-party libs (wx, AppKit, Foundation, tesserocr, fitz).
 

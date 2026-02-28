@@ -1,11 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
 # noinspection PyAll
 from PyInstaller.utils.hooks import collect_all
-import re, subprocess
-__version__ = re.search(r'"(.+?)"', open('app/version.py').read()).group(1)
+import subprocess, tomllib
+with open('pyproject.toml', 'rb') as _f:
+    __version__ = tomllib.load(_f)['project']['version']
 __commit__ = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode().strip()
 
-datas = [('_runtime_content', '_runtime_content')]
+datas = [('_build/runtime_content', '_runtime_content')]
 binaries = []
 hiddenimports = []
 
@@ -65,7 +66,7 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name='Greeting Cards.app',
-    icon='_runtime_content/icon.icns',
+    icon='_build/runtime_content/icon.icns',
     bundle_identifier='com.greetingcards.app',
     info_plist={
         'CFBundleShortVersionString': __version__,

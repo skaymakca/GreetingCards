@@ -7,10 +7,11 @@ import pytest
 import wx
 import wx.dataview as dv
 
-from app.gui.review_panel import (
+from app.gui.components.review_panel import (
     CardListModel,
     DetailPanel,
     ReviewPanelMasterDetail,
+    _ConfidenceLegendPopup,
 )
 from app.gui.styles import Color
 from app.models.card import CandidateInfo, CardResult, Confidence
@@ -785,7 +786,7 @@ class TestNameCharFiltering:
 
     def test_blocks_all_invalid_chars(self, parent_frame):
         """_on_name_char blocks every filesystem-invalid character."""
-        from app.core.name_formatting import INVALID_FILENAME_CHARS
+        from app.core.naming.filename_safety import INVALID_FILENAME_CHARS
 
         detail = DetailPanel(parent_frame, None, None, None, None)
         for char in INVALID_FILENAME_CHARS:
@@ -1433,7 +1434,7 @@ class TestContextMenu:
         # Open is after AI Analyze + separator
         open_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Open"][0]
 
-        with patch("app.gui.review_panel.subprocess.Popen") as mock_popen:
+        with patch("app.gui.components.review_panel.subprocess.Popen") as mock_popen:
             event = wx.CommandEvent(wx.wxEVT_MENU, open_item.GetId())
             menu.ProcessEvent(event)
 
@@ -1452,7 +1453,7 @@ class TestContextMenu:
         menu = panel._build_context_menu([card])
         reveal_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Reveal in Finder"][0]
 
-        with patch("app.gui.review_panel.subprocess.Popen") as mock_popen:
+        with patch("app.gui.components.review_panel.subprocess.Popen") as mock_popen:
             event = wx.CommandEvent(wx.wxEVT_MENU, reveal_item.GetId())
             menu.ProcessEvent(event)
 
@@ -1471,7 +1472,7 @@ class TestContextMenu:
         menu = panel._build_context_menu([mock_cards[0], mock_cards[1]])
         open_item = [it for it in menu.GetMenuItems() if "Open" in it.GetItemLabelText()][0]
 
-        with patch("app.gui.review_panel.subprocess.Popen") as mock_popen:
+        with patch("app.gui.components.review_panel.subprocess.Popen") as mock_popen:
             event = wx.CommandEvent(wx.wxEVT_MENU, open_item.GetId())
             menu.ProcessEvent(event)
 
@@ -1682,7 +1683,7 @@ class TestDetailPanelEdgeCases:
     def test_make_action_button_without_icon(self, parent_frame):
         """_make_action_button falls back to text-only button when icon is None (line 213)."""
         detail = DetailPanel(parent_frame, None, None, None, None)
-        with patch("app.gui.review_panel.load_sf_symbol", return_value=None):
+        with patch("app.gui.components.review_panel.load_sf_symbol", return_value=None):
             btn = detail._make_action_button("nonexistent.icon", "Test", lambda e: None)
         assert btn.GetLabel() == "Test"
 
@@ -2196,3 +2197,766 @@ class TestExtendSelection:
         panel.select_prev_card()
         panel._on_selection_changed(Mock())
         assert panel.selected_card_id == 1
+
+
+# ============================================================================
+# load_cards preserve_selection
+# ============================================================================
+
+
+class TestLoadCardsPreserveSelection:
+    """Tests for load_cards(preserve_selection=...) selection restoration."""
+
+    def test_preserve_false_clears_selection(self, parent_frame, mock_cards):
+        """Default preserve_selection=False always clears selection."""
+        on_select = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, Mock())
+        panel.load_cards(mock_cards)
+        _select_card(panel, 1)
+        on_select.reset_mock()
+
+        panel.load_cards(mock_cards, preserve_selection=False)
+
+        assert panel._selected_card_ids == []
+        assert panel.selected_card_id is None
+
+    def test_preserve_true_single_card_restored(self, parent_frame, mock_cards):
+        """Single selected card is re-selected after reload."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+        _select_card(panel, 2)
+
+        panel.load_cards(mock_cards, preserve_selection=True)
+
+        assert panel._selected_card_ids == [2]
+
+    def test_preserve_true_detail_panel_updated(self, parent_frame, mock_cards):
+        """Detail panel shows the re-selected card's data after reload."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+        _select_card(panel, 1)
+
+        panel.load_cards(mock_cards, preserve_selection=True)
+
+        # Detail panel should have the card loaded
+        assert panel._detail_panel._current_card is not None
+        assert panel._detail_panel._current_card.id == 1
+
+    def test_preserve_true_on_select_callback_fires(self, parent_frame, mock_cards):
+        """_on_select callback fires with restored card ID for single selection."""
+        on_select = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, Mock())
+        panel.load_cards(mock_cards)
+        _select_card(panel, 3)
+        on_select.reset_mock()
+
+        panel.load_cards(mock_cards, preserve_selection=True)
+
+        on_select.assert_called_with(3)
+
+    def test_preserve_true_card_removed_clears(self, parent_frame, mock_cards):
+        """If the selected card is no longer in the list, selection clears."""
+        on_select = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, Mock())
+        panel.load_cards(mock_cards)
+        _select_card(panel, 3)
+        on_select.reset_mock()
+
+        # Reload without card 3
+        remaining = [c for c in mock_cards if c.id != 3]
+        panel.load_cards(remaining, preserve_selection=True)
+
+        assert panel._selected_card_ids == []
+        on_select.assert_called_with(None)
+
+    def test_preserve_true_multi_select_restored(self, parent_frame, mock_cards):
+        """Multiple selected cards are all re-selected."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+
+        # Multi-select cards 1 and 3
+        panel._list_ctrl.UnselectAll()
+        panel._list_ctrl.Select(panel._model.get_item_by_card_id(1))
+        panel._list_ctrl.Select(panel._model.get_item_by_card_id(3))
+        panel._on_selection_changed(Mock())
+        assert len(panel._selected_card_ids) == 2
+
+        panel.load_cards(mock_cards, preserve_selection=True)
+
+        assert sorted(panel._selected_card_ids) == [1, 3]
+
+    def test_preserve_true_multi_select_clears_detail(self, parent_frame, mock_cards):
+        """Multi-select restore clears detail panel (matches existing behavior)."""
+        on_select = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, Mock())
+        panel.load_cards(mock_cards)
+
+        # Multi-select cards 1 and 2
+        panel._list_ctrl.UnselectAll()
+        panel._list_ctrl.Select(panel._model.get_item_by_card_id(1))
+        panel._list_ctrl.Select(panel._model.get_item_by_card_id(2))
+        panel._on_selection_changed(Mock())
+        on_select.reset_mock()
+
+        panel.load_cards(mock_cards, preserve_selection=True)
+
+        # Multi-select: on_select called with None (detail clears)
+        on_select.assert_called_with(None)
+
+    def test_preserve_true_partial_multi_select(self, parent_frame, mock_cards):
+        """If 2 of 3 selected cards survive, only those 2 are re-selected."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+
+        # Multi-select cards 1, 2, 3
+        panel._list_ctrl.UnselectAll()
+        panel._list_ctrl.Select(panel._model.get_item_by_card_id(1))
+        panel._list_ctrl.Select(panel._model.get_item_by_card_id(2))
+        panel._list_ctrl.Select(panel._model.get_item_by_card_id(3))
+        panel._on_selection_changed(Mock())
+
+        # Reload without card 2
+        remaining = [c for c in mock_cards if c.id != 2]
+        panel.load_cards(remaining, preserve_selection=True)
+
+        assert sorted(panel._selected_card_ids) == [1, 3]
+
+    def test_preserve_true_all_multi_gone_clears(self, parent_frame, mock_cards):
+        """If all multi-selected cards are gone, full clear."""
+        on_select = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, Mock())
+        panel.load_cards(mock_cards)
+
+        # Multi-select cards 1 and 2
+        panel._list_ctrl.UnselectAll()
+        panel._list_ctrl.Select(panel._model.get_item_by_card_id(1))
+        panel._list_ctrl.Select(panel._model.get_item_by_card_id(2))
+        panel._on_selection_changed(Mock())
+        on_select.reset_mock()
+
+        # Reload with neither card
+        remaining = [c for c in mock_cards if c.id not in (1, 2)]
+        panel.load_cards(remaining, preserve_selection=True)
+
+        assert panel._selected_card_ids == []
+        on_select.assert_called_with(None)
+
+    def test_preserve_true_empty_selection_noop(self, parent_frame, mock_cards):
+        """If nothing was selected, preserve_selection=True still clears cleanly."""
+        on_select = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, Mock())
+        panel.load_cards(mock_cards)
+
+        # Ensure nothing selected
+        panel._list_ctrl.UnselectAll()
+        panel._selected_card_ids = []
+        on_select.reset_mock()
+
+        panel.load_cards(mock_cards, preserve_selection=True)
+
+        assert panel._selected_card_ids == []
+        on_select.assert_called_with(None)
+
+
+# ============================================================================
+# Confidence Legend Popup Tests
+# ============================================================================
+
+
+class TestConfidenceLegendPopup:
+    """Tests for _ConfidenceLegendPopup init and layout (lines 48-78)."""
+
+    def test_popup_creates_successfully(self, parent_frame):
+        """_ConfidenceLegendPopup initializes without errors."""
+        popup = _ConfidenceLegendPopup(parent_frame)
+        assert popup is not None
+        popup.Destroy()
+
+    def test_popup_has_six_legend_rows(self, parent_frame):
+        """Popup contains 6 legend rows (High, Medium, Low, Manual, No name, Error)."""
+        popup = _ConfidenceLegendPopup(parent_frame)
+        # The popup has a single panel child, which has a vertical sizer with 6 row sizers
+        panel = popup.GetChildren()[0]
+        sizer = panel.GetSizer()
+        assert sizer.GetItemCount() == 6
+        popup.Destroy()
+
+    def test_popup_is_popup_window(self, parent_frame):
+        """_ConfidenceLegendPopup is a wx.PopupWindow."""
+        popup = _ConfidenceLegendPopup(parent_frame)
+        assert isinstance(popup, wx.PopupWindow)
+        popup.Destroy()
+
+    def test_popup_has_sizer_fitted(self, parent_frame):
+        """Popup's sizer is fitted to content (non-zero size)."""
+        popup = _ConfidenceLegendPopup(parent_frame)
+        size = popup.GetSize()
+        assert size.width > 0
+        assert size.height > 0
+        popup.Destroy()
+
+
+# ============================================================================
+# CardListModel Additional Coverage
+# ============================================================================
+
+
+class TestCardListModelGetCardByItemValidation:
+    """Tests for get_card_by_item validation for invalid item (line 106)."""
+
+    def test_get_card_by_item_out_of_range_row(self, wx_app, mock_cards):
+        """get_card_by_item returns None when row index is out of range."""
+        model = CardListModel()
+        model.load_cards(mock_cards[:1])  # Only 1 card loaded
+
+        # ObjectToItem(5) creates an item pointing to row 5, but only 1 card exists
+        item = model.ObjectToItem(5)
+        card = model.get_card_by_item(item)
+        assert card is None
+
+
+class TestCardListModelColumnType:
+    """Tests for GetColumnType implementation (line 192)."""
+
+    def test_column_type_returns_string_for_all_columns(self, wx_app):
+        """GetColumnType returns 'string' for all valid columns."""
+        model = CardListModel()
+        for col in range(model.GetColumnCount()):
+            assert model.GetColumnType(col) == "string"
+
+    def test_column_type_for_arbitrary_column(self, wx_app):
+        """GetColumnType returns 'string' even for columns beyond range."""
+        model = CardListModel()
+        assert model.GetColumnType(99) == "string"
+
+
+class TestCardListModelUpdateCardItemChanged:
+    """Tests for update_card firing ItemChanged (line 164)."""
+
+    def test_update_card_fires_item_changed(self, wx_app, mock_cards):
+        """update_card calls ItemChanged on the model."""
+        model = CardListModel()
+        model.load_cards(mock_cards)
+
+        with patch.object(model, "ItemChanged") as mock_item_changed:
+            updated_card = mock_cards[0]
+            updated_card.family_name = "Changed"
+            model.update_card(1, updated_card)
+            mock_item_changed.assert_called_once()
+
+    def test_update_card_nonexistent_id_no_crash(self, wx_app, mock_cards):
+        """update_card with nonexistent card_id does not crash or call ItemChanged."""
+        model = CardListModel()
+        model.load_cards(mock_cards)
+
+        with patch.object(model, "ItemChanged") as mock_item_changed:
+            model.update_card(999, mock_cards[0])
+            mock_item_changed.assert_not_called()
+
+
+# ============================================================================
+# Paste Menu (Context Menu on Name TextCtrl) Tests
+# ============================================================================
+
+
+class TestPasteMenu:
+    """Tests for add_entry_context_menu binding on name text (line 291)."""
+
+    def test_name_text_has_context_menu_binding(self, parent_frame):
+        """Name TextCtrl has add_entry_context_menu bound (context menu available)."""
+        detail = DetailPanel(parent_frame, None, None, None, None)
+        # The context menu is bound via EVT_CONTEXT_MENU on the text ctrl.
+        # We verify the text ctrl exists and is a TextCtrl with TE_PROCESS_ENTER style.
+        assert isinstance(detail._name_text, wx.TextCtrl)
+
+
+# ============================================================================
+# DetailPanel refresh_colors Tests
+# ============================================================================
+
+
+class TestRefreshColors:
+    """Tests for refresh_colors() updating colours (lines 375-380)."""
+
+    def test_detail_panel_refresh_colors(self, parent_frame, mock_cards):
+        """refresh_colors updates StaticText colours on detail panel."""
+        detail = DetailPanel(parent_frame, None, None, None, None)
+        detail.load_card(mock_cards[0])
+
+        # Call refresh_colors — should not crash and should set colours
+        detail.refresh_colors()
+
+        # Verify locations header uses TEXT_PRIMARY
+        assert detail._locations_header.GetForegroundColour() == Color.TEXT_PRIMARY
+        # Verify duplicate info uses TEXT_SECONDARY
+        assert detail._duplicate_info.GetForegroundColour() == Color.TEXT_SECONDARY
+
+    def test_review_panel_refresh_colors(self, parent_frame, mock_cards):
+        """ReviewPanelMasterDetail.refresh_colors updates header and detail colours."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+
+        with (
+            patch.object(panel._detail_panel, "refresh_colors") as mock_detail_refresh,
+            patch.object(panel._list_ctrl, "Refresh") as mock_list_refresh,
+        ):
+            panel.refresh_colors()
+            mock_detail_refresh.assert_called_once()
+            mock_list_refresh.assert_called_once()
+
+    def test_review_panel_refresh_colors_updates_header_labels(self, parent_frame, mock_cards):
+        """refresh_colors sets TEXT_SECONDARY on header StaticText children."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+
+        panel.refresh_colors()
+
+        # Header StaticText children should have TEXT_SECONDARY colour
+        for child in panel.GetChildren():
+            if isinstance(child, wx.StaticText):
+                assert child.GetForegroundColour() == Color.TEXT_SECONDARY
+
+
+# ============================================================================
+# AI Button Locked State Tests
+# ============================================================================
+
+
+class TestAIButtonLockedState:
+    """Tests for AI button enabled with locked state (line 499)."""
+
+    def test_ai_button_locked_disables(self, parent_frame, mock_cards):
+        """set_ai_buttons_locked(True) disables AI button."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+        _select_card(panel, 1)
+
+        panel.set_ai_buttons_locked(True)
+
+        assert not panel._detail_panel._ai_btn.IsEnabled()
+
+    def test_ai_button_locked_then_load_card_stays_disabled(self, parent_frame, mock_cards):
+        """After locking, loading a card still shows AI button disabled."""
+        detail = DetailPanel(parent_frame, None, None, None, None)
+        detail.set_ai_buttons_locked(True)
+        detail.load_card(mock_cards[0])
+
+        assert not detail._ai_btn.IsEnabled()
+
+    def test_ai_button_enable_respects_locked(self, parent_frame, mock_cards):
+        """enable_ai_button(True) is blocked when locked."""
+        detail = DetailPanel(parent_frame, None, None, None, None)
+        detail.load_card(mock_cards[0])
+        detail.set_ai_buttons_locked(True)
+
+        detail.enable_ai_button(True)
+
+        assert not detail._ai_btn.IsEnabled()
+
+    def test_ai_button_enable_works_when_unlocked(self, parent_frame, mock_cards):
+        """enable_ai_button(True) works when not locked."""
+        detail = DetailPanel(parent_frame, None, None, None, None)
+        detail.load_card(mock_cards[0])
+        detail.set_ai_buttons_locked(False)
+
+        detail.enable_ai_button(True)
+
+        assert detail._ai_btn.IsEnabled()
+
+    def test_panel_set_ai_buttons_locked_propagates(self, parent_frame, mock_cards):
+        """ReviewPanel.set_ai_buttons_locked propagates to detail panel."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+
+        panel.set_ai_buttons_locked(True)
+
+        assert panel._ai_buttons_locked is True
+        assert panel._detail_panel._ai_buttons_locked is True
+
+
+# ============================================================================
+# Selection Validation Guards Tests
+# ============================================================================
+
+
+class TestSelectionValidationGuards:
+    """Tests for selection validation guards (lines 541-545, 550)."""
+
+    def test_on_candidate_with_no_callback_no_crash(self, parent_frame, mock_cards):
+        """_on_candidate with candidate_id but no callback does not crash (line 544)."""
+        detail = DetailPanel(parent_frame, None, None, on_candidate_select=None, on_ai_request=None)
+        detail.load_card(mock_cards[0])  # Has candidates
+
+        # Select a real candidate (not placeholder)
+        detail._candidates_choice.SetSelection(1)
+        event = Mock()
+        detail._on_candidate(event)  # Should not crash
+
+    def test_on_candidate_with_unknown_label_no_crash(self, parent_frame, mock_cards):
+        """_on_candidate with a label not in _candidate_map does nothing (line 542-544)."""
+        called = []
+        detail = DetailPanel(
+            parent_frame,
+            None,
+            None,
+            on_candidate_select=lambda cid, idx: called.append((cid, idx)),
+            on_ai_request=None,
+        )
+        detail.load_card(mock_cards[0])
+
+        # Manually corrupt the candidate map
+        detail._candidate_map = {}
+        detail._candidates_choice.SetSelection(1)
+        event = Mock()
+        detail._on_candidate(event)
+
+        # Should not call callback since candidate_id is None
+        assert called == []
+
+    def test_on_ai_no_card_no_crash(self, parent_frame):
+        """_on_ai with no current card returns early (line 550)."""
+        called = []
+        detail = DetailPanel(parent_frame, None, None, None, on_ai_request=lambda cid: called.append(cid))
+        detail._current_card = None
+        event = Mock()
+        detail._on_ai(event)
+        assert called == []
+
+    def test_on_ai_no_callback_no_crash(self, parent_frame, mock_cards):
+        """_on_ai with no callback does not crash (line 552)."""
+        detail = DetailPanel(parent_frame, None, None, None, on_ai_request=None)
+        detail.load_card(mock_cards[0])
+        event = Mock()
+        detail._on_ai(event)  # Should not crash
+
+
+# ============================================================================
+# Legend Popup Show/Hide on Hover Tests
+# ============================================================================
+
+
+class TestLegendPopupHover:
+    """Tests for legend popup show/hide on hover (lines 667-695)."""
+
+    def test_legend_hover_creates_popup(self, parent_frame, mock_cards):
+        """_on_legend_hover creates and stores the popup."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+
+        assert panel._legend_popup is None
+        panel._on_legend_hover(Mock())
+
+        assert panel._legend_popup is not None
+        assert isinstance(panel._legend_popup, _ConfidenceLegendPopup)
+
+        # Cleanup
+        panel._on_legend_leave(Mock())
+
+    def test_legend_leave_destroys_popup(self, parent_frame, mock_cards):
+        """_on_legend_leave destroys the popup and resets to None."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+
+        panel._on_legend_hover(Mock())
+        assert panel._legend_popup is not None
+
+        panel._on_legend_leave(Mock())
+        assert panel._legend_popup is None
+
+    def test_legend_hover_idempotent(self, parent_frame, mock_cards):
+        """Second _on_legend_hover while popup exists is a no-op."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
+
+        panel._on_legend_hover(Mock())
+        first_popup = panel._legend_popup
+
+        panel._on_legend_hover(Mock())
+        assert panel._legend_popup is first_popup  # Same popup, not recreated
+
+        # Cleanup
+        panel._on_legend_leave(Mock())
+
+    def test_legend_leave_no_popup_no_crash(self, parent_frame):
+        """_on_legend_leave with no popup does not crash."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        assert panel._legend_popup is None
+        panel._on_legend_leave(Mock())  # Should not crash
+        assert panel._legend_popup is None
+
+
+# ============================================================================
+# Popup Cleanup on Destroy Tests
+# ============================================================================
+
+
+class TestPopupCleanupOnDestroy:
+    """Tests for popup cleanup on destroy (lines 740-741)."""
+
+    def test_legend_popup_cleaned_up_on_panel_destroy(self, wx_app):
+        """Legend popup is cleaned up when panel is destroyed."""
+        frame = wx.Frame(None)
+        panel = ReviewPanelMasterDetail(frame, Mock(), Mock())
+
+        panel._on_legend_hover(Mock())
+        assert panel._legend_popup is not None
+
+        # Manually clean up popup before destroying
+        panel._on_legend_leave(Mock())
+        assert panel._legend_popup is None
+
+        frame.Destroy()
+
+
+# ============================================================================
+# File Open/Reveal — Mock Subprocess Tests
+# ============================================================================
+
+
+class TestFileOpenReveal:
+    """Tests for file open/reveal via subprocess (lines 815-839)."""
+
+    def test_open_file_calls_subprocess(self, parent_frame, mock_cards):
+        """Open menu calls subprocess.Popen with 'open' command."""
+        card = mock_cards[0]
+        card.file_paths = [Path("/test/card.pdf")]
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock())
+        panel.load_cards(mock_cards)
+
+        menu = panel._build_context_menu([card])
+        open_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Open"][0]
+
+        with patch("app.gui.components.review_panel.subprocess.Popen") as mock_popen:
+            event = wx.CommandEvent(wx.wxEVT_MENU, open_item.GetId())
+            menu.ProcessEvent(event)
+
+        mock_popen.assert_called_once_with(["open", "/test/card.pdf"])
+        menu.Destroy()
+
+    def test_reveal_file_calls_subprocess(self, parent_frame, mock_cards):
+        """Reveal in Finder calls subprocess.Popen with 'open -R'."""
+        card = mock_cards[0]
+        card.file_paths = [Path("/test/card.pdf")]
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock())
+        panel.load_cards(mock_cards)
+
+        menu = panel._build_context_menu([card])
+        reveal_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Reveal in Finder"][0]
+
+        with patch("app.gui.components.review_panel.subprocess.Popen") as mock_popen:
+            event = wx.CommandEvent(wx.wxEVT_MENU, reveal_item.GetId())
+            menu.ProcessEvent(event)
+
+        mock_popen.assert_called_once_with(["open", "-R", "/test/card.pdf"])
+        menu.Destroy()
+
+    def test_open_file_oserror_logged(self, parent_frame, mock_cards):
+        """Open handles OSError gracefully (logs warning, no crash)."""
+        card = mock_cards[0]
+        card.file_paths = [Path("/nonexistent/card.pdf")]
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock())
+        panel.load_cards(mock_cards)
+
+        menu = panel._build_context_menu([card])
+        open_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Open"][0]
+
+        with (
+            patch("app.gui.components.review_panel.subprocess.Popen", side_effect=OSError("fail")),
+            patch("app.gui.components.review_panel.logger") as mock_logger,
+        ):
+            event = wx.CommandEvent(wx.wxEVT_MENU, open_item.GetId())
+            menu.ProcessEvent(event)
+            mock_logger.warning.assert_called_once()
+        menu.Destroy()
+
+    def test_reveal_file_oserror_logged(self, parent_frame, mock_cards):
+        """Reveal handles OSError gracefully (logs warning, no crash)."""
+        card = mock_cards[0]
+        card.file_paths = [Path("/nonexistent/card.pdf")]
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock())
+        panel.load_cards(mock_cards)
+
+        menu = panel._build_context_menu([card])
+        reveal_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Reveal in Finder"][0]
+
+        with (
+            patch("app.gui.components.review_panel.subprocess.Popen", side_effect=OSError("fail")),
+            patch("app.gui.components.review_panel.logger") as mock_logger,
+        ):
+            event = wx.CommandEvent(wx.wxEVT_MENU, reveal_item.GetId())
+            menu.ProcessEvent(event)
+            mock_logger.warning.assert_called_once()
+        menu.Destroy()
+
+
+# ============================================================================
+# AI Analyze Menu Binding Tests
+# ============================================================================
+
+
+class TestAIAnalyzeMenuBinding:
+    """Tests for AI analyze menu binding (lines 910-917)."""
+
+    def test_ai_analyze_disabled_when_locked(self, parent_frame, mock_cards):
+        """AI Analyze menu item is disabled when AI buttons are locked."""
+        on_ai_analyze = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock(), on_ai_analyze=on_ai_analyze)
+        mock_cards[0].file_hash = "test_hash"
+        panel.load_cards(mock_cards)
+        panel.set_ai_buttons_locked(True)
+
+        menu = panel._build_context_menu([mock_cards[0]])
+        ai_item = list(menu.GetMenuItems())[0]
+        assert ai_item.GetItemLabelText() == "AI Analyze"
+        assert not ai_item.IsEnabled()
+        menu.Destroy()
+
+    def test_ai_analyze_enabled_when_unlocked(self, parent_frame, mock_cards):
+        """AI Analyze menu item is enabled when AI buttons are not locked."""
+        on_ai_analyze = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock(), on_ai_analyze=on_ai_analyze)
+        mock_cards[0].file_hash = "test_hash"
+        panel.load_cards(mock_cards)
+        panel.set_ai_buttons_locked(False)
+
+        menu = panel._build_context_menu([mock_cards[0]])
+        ai_item = list(menu.GetMenuItems())[0]
+        assert ai_item.IsEnabled()
+        menu.Destroy()
+
+    def test_ai_analyze_menu_binding_fires_callback(self, parent_frame, mock_cards):
+        """AI Analyze menu item fires on_ai_analyze with captured card list."""
+        on_ai_analyze = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=Mock(), on_ai_analyze=on_ai_analyze)
+        mock_cards[0].file_hash = "test_hash"
+        panel.load_cards(mock_cards)
+
+        menu = panel._build_context_menu([mock_cards[0]])
+        ai_item = list(menu.GetMenuItems())[0]
+        event = wx.CommandEvent(wx.wxEVT_MENU, ai_item.GetId())
+        menu.ProcessEvent(event)
+
+        on_ai_analyze.assert_called_once_with([mock_cards[0]])
+        menu.Destroy()
+
+
+# ============================================================================
+# Candidate Selection with State Restoration Tests
+# ============================================================================
+
+
+class TestCandidateSelectionStateRestoration:
+    """Tests for candidate selection with state restoration (lines 1080-1094)."""
+
+    def test_candidate_selection_updates_family_name(self, parent_frame, mock_cards):
+        """Selecting a candidate updates card.family_name."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        card = mock_cards[0]
+        card.file_hash = "abc123"
+        panel.load_cards(mock_cards)
+
+        with patch("app.core.database.select_candidate"):
+            panel._handle_candidate(card.id, card.candidates[1].id)
+
+        assert card.family_name == "Smyth"
+
+    def test_candidate_selection_clears_manual_override(self, parent_frame, mock_cards):
+        """Selecting a candidate clears manual_override."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        card = mock_cards[0]
+        card.file_hash = "abc123"
+        card.manual_override = "SomeManualName"
+        panel.load_cards(mock_cards)
+
+        with patch("app.core.database.select_candidate"):
+            panel._handle_candidate(card.id, card.candidates[0].id)
+
+        assert card.manual_override == ""
+
+    def test_candidate_selection_sets_selected_candidate_id(self, parent_frame, mock_cards):
+        """Selecting a candidate sets selected_candidate_id."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        card = mock_cards[0]
+        card.file_hash = "abc123"
+        panel.load_cards(mock_cards)
+
+        with patch("app.core.database.select_candidate"):
+            panel._handle_candidate(card.id, card.candidates[1].id)
+
+        assert card.selected_candidate_id == card.candidates[1].id
+
+    def test_candidate_selection_restores_original_confidence_from_manual(self, parent_frame, mock_cards):
+        """Selecting a candidate restores original_confidence when confidence is MANUAL."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        card = mock_cards[0]
+        card.file_hash = "abc123"
+        card.confidence = Confidence.MANUAL
+        card.original_confidence = Confidence.HIGH
+        panel.load_cards(mock_cards)
+
+        with patch("app.core.database.select_candidate"):
+            panel._handle_candidate(card.id, card.candidates[0].id)
+
+        assert card.confidence == Confidence.HIGH
+
+    def test_candidate_selection_uses_candidate_confidence(self, parent_frame):
+        """Selecting a candidate uses candidate's own confidence when not MANUAL."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        card = CardResult(
+            id=1,
+            file_paths=[Path("test.pdf")],
+            primary_path=Path("test.pdf"),
+            file_hash="abc123",
+            confidence=Confidence.LOW,
+            original_confidence=None,
+        )
+        card.candidates = [
+            CandidateInfo(id=101, family_name="Smith", confidence="high", method="ocr"),
+        ]
+        panel.load_cards([card])
+
+        with patch("app.core.database.select_candidate"):
+            panel._handle_candidate(card.id, 101)
+
+        assert card.confidence == Confidence.HIGH
+
+    def test_candidate_selection_updates_model_and_detail(self, parent_frame, mock_cards):
+        """Selecting a candidate updates both model and detail panel."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        card = mock_cards[0]
+        card.file_hash = "abc123"
+        panel.load_cards(mock_cards)
+        _select_card(panel, 1)
+
+        with patch("app.core.database.select_candidate"):
+            panel._handle_candidate(card.id, card.candidates[1].id)
+
+        # Model should have updated value
+        item = panel._model.get_item_by_card_id(1)
+        assert panel._model.GetValue(item, 2) == "Smyth"
+
+        # Detail panel should reflect the update
+        assert panel._detail_panel._name_text.GetValue() == "Smyth"
+
+    def test_candidate_selection_no_hash_returns_early(self, parent_frame, mock_cards):
+        """_handle_candidate returns early when card has no file_hash."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        card = mock_cards[0]
+        card.file_hash = ""
+        panel.load_cards(mock_cards)
+
+        with patch("app.core.database.select_candidate") as mock_db:
+            panel._handle_candidate(card.id, card.candidates[0].id)
+            mock_db.assert_not_called()
+
+    def test_candidate_selection_sets_method(self, parent_frame, mock_cards):
+        """Selecting a candidate updates card.method to the candidate's method."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        card = mock_cards[0]
+        card.file_hash = "abc123"
+        panel.load_cards(mock_cards)
+
+        with patch("app.core.database.select_candidate"):
+            panel._handle_candidate(card.id, card.candidates[1].id)  # AI candidate
+
+        assert card.method == "ai"

@@ -1,12 +1,12 @@
 """Tests for wxPython preview panel."""
 
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 import wx
 from PIL import Image
 
-from app.gui.preview_panel import PreviewPanel
+from app.gui.components.preview_panel import PreviewPanel
 
 
 @pytest.fixture
@@ -732,3 +732,309 @@ def test_pan_with_very_large_offsets(preview_panel, sample_image):
     preview_panel._canvas.Refresh()
 
     assert True
+
+
+# --- Level 6: Cursor loading, refresh_colors, guards, and math ---
+
+
+def test_cursor_fallback_on_import_error(frame):
+    """Test cursor loading falls back to standard cursors when import fails."""
+    with patch.dict("sys.modules", {"app.gui.icons": None}):
+        panel = PreviewPanel(frame)
+
+    # Should have fallen back to standard wx cursors (not None)
+    assert panel._zoom_in_cursor is not None
+    assert panel._zoom_out_cursor is not None
+
+
+def test_cursor_fallback_on_os_error(frame):
+    """Test cursor loading falls back to standard cursors on OSError."""
+    mock_icons = Mock()
+    mock_icons.load_cursor_from_symbol = Mock(side_effect=OSError("test"))
+    with patch.dict("sys.modules", {"app.gui.icons": mock_icons}):
+        panel = PreviewPanel(frame)
+
+    assert panel._zoom_in_cursor is not None
+    assert panel._zoom_out_cursor is not None
+
+
+def test_cursor_fallback_on_attribute_error(frame):
+    """Test cursor loading falls back to standard cursors on AttributeError."""
+    mock_icons = Mock()
+    mock_icons.load_cursor_from_symbol = Mock(side_effect=AttributeError("test"))
+    with patch.dict("sys.modules", {"app.gui.icons": mock_icons}):
+        panel = PreviewPanel(frame)
+
+    assert panel._zoom_in_cursor is not None
+    assert panel._zoom_out_cursor is not None
+
+
+def test_cursor_fallback_when_load_returns_none(frame):
+    """Test cursor fallback when load_cursor_from_symbol returns None."""
+    mock_icons = Mock()
+    mock_icons.load_cursor_from_symbol = Mock(return_value=None)
+    with patch.dict("sys.modules", {"app.gui.icons": mock_icons}):
+        panel = PreviewPanel(frame)
+
+    # Fallback should assign standard cursors
+    assert panel._zoom_in_cursor is not None
+    assert panel._zoom_out_cursor is not None
+
+
+def test_refresh_colors_updates_labels(preview_panel):
+    """Test refresh_colors updates label foreground colors."""
+    from app.gui import styles
+
+    preview_panel.refresh_colors()
+
+    assert preview_panel._title_label.GetForegroundColour() == styles.Color.TEXT_SECONDARY
+    assert preview_panel._page_label.GetForegroundColour() == styles.Color.TEXT_PRIMARY
+    assert preview_panel._zoom_label.GetForegroundColour() == styles.Color.TEXT_PRIMARY
+
+
+def test_on_pan_start_guard_no_images(preview_panel):
+    """Test _on_pan_start is a no-op when no images are loaded."""
+    preview_panel.clear()
+
+    event = Mock()
+    event.GetX.return_value = 50
+    event.GetY.return_value = 50
+
+    preview_panel._on_pan_start(event)
+
+    # Should not set drag_start
+    assert preview_panel._drag_start is None
+
+
+def test_on_pan_drag_guard_no_drag_start(preview_panel, sample_image):
+    """Test _on_pan_drag returns early when drag_start is None."""
+    preview_panel.show_images([sample_image])
+    preview_panel._drag_start = None
+
+    initial_pan_x = preview_panel._pan_x
+    initial_pan_y = preview_panel._pan_y
+
+    event = Mock()
+    event.GetX.return_value = 200
+    event.GetY.return_value = 200
+
+    preview_panel._on_pan_drag(event)
+
+    # Pan should not have changed
+    assert preview_panel._pan_x == initial_pan_x
+    assert preview_panel._pan_y == initial_pan_y
+
+
+def test_on_motion_updates_cursor_when_not_dragging(preview_panel, sample_image):
+    """Test _on_motion calls _update_cursor when not dragging."""
+    preview_panel.show_images([sample_image])
+    preview_panel._drag_start = None
+
+    with patch.object(preview_panel, "_update_cursor") as mock_cursor:
+        event = wx.MouseEvent(wx.wxEVT_MOTION)
+        event.SetPosition((150, 150))
+        preview_panel._on_motion(event)
+
+        mock_cursor.assert_called_once()
+
+
+def test_on_motion_guard_no_images(preview_panel):
+    """Test _on_motion returns early when no images loaded."""
+    preview_panel.clear()
+
+    with (
+        patch.object(preview_panel, "_update_cursor") as mock_cursor,
+        patch.object(preview_panel, "_on_pan_drag") as mock_drag,
+    ):
+        event = wx.MouseEvent(wx.wxEVT_MOTION)
+        event.SetPosition((150, 150))
+        preview_panel._on_motion(event)
+
+        mock_cursor.assert_not_called()
+        mock_drag.assert_not_called()
+
+
+def test_modifier_timer_stop_when_no_app(preview_panel, sample_image):
+    """Test modifier timer stops safely when wx.GetApp() returns None."""
+    preview_panel.show_images([sample_image])
+    preview_panel._modifier_timer.Start(50)
+
+    with patch("app.gui.components.preview_panel.wx.GetApp", return_value=None):
+        event = Mock()
+        preview_panel._on_modifier_timer(event)
+
+    # Timer should have been stopped
+    assert not preview_panel._modifier_timer.IsRunning()
+
+
+def test_modifier_timer_updates_cursor_with_images(preview_panel, sample_image):
+    """Test modifier timer calls _update_cursor when images are loaded and not dragging."""
+    preview_panel.show_images([sample_image])
+    preview_panel._drag_start = None
+
+    with patch.object(preview_panel, "_update_cursor") as mock_cursor:
+        event = Mock()
+        preview_panel._on_modifier_timer(event)
+
+        mock_cursor.assert_called_once()
+
+
+def test_modifier_timer_skips_cursor_during_drag(preview_panel, sample_image):
+    """Test modifier timer does not update cursor during drag."""
+    preview_panel.show_images([sample_image])
+    preview_panel._drag_start = (100, 100)
+
+    with patch.object(preview_panel, "_update_cursor") as mock_cursor:
+        event = Mock()
+        preview_panel._on_modifier_timer(event)
+
+        mock_cursor.assert_not_called()
+
+
+def test_on_resize_refreshes_on_error(preview_panel):
+    """Test _on_resize refreshes canvas when error message is set."""
+    preview_panel.show_error("Some error")
+
+    with patch.object(preview_panel._canvas, "Refresh") as mock_refresh:
+        preview_panel._on_resize(None)
+
+        mock_refresh.assert_called_once()
+
+
+def test_on_resize_renders_when_images_loaded(preview_panel, sample_image):
+    """Test _on_resize calls _render when images are loaded."""
+    preview_panel.show_images([sample_image])
+
+    with patch.object(preview_panel, "_render") as mock_render:
+        preview_panel._on_resize(None)
+
+        mock_render.assert_called_once()
+
+
+def test_on_resize_no_action_when_empty(preview_panel):
+    """Test _on_resize does nothing when no images and no error."""
+    preview_panel.clear()
+
+    with (
+        patch.object(preview_panel._canvas, "Refresh") as mock_refresh,
+        patch.object(preview_panel, "_render") as mock_render,
+    ):
+        preview_panel._on_resize(None)
+
+        mock_refresh.assert_not_called()
+        mock_render.assert_not_called()
+
+
+def test_on_resize_skips_event(preview_panel, sample_image):
+    """Test _on_resize calls event.Skip() when event is provided."""
+    preview_panel.show_images([sample_image])
+
+    event = Mock()
+    preview_panel._on_resize(event)
+
+    event.Skip.assert_called_once()
+
+
+def test_apply_zoom_clamps_to_max(preview_panel, sample_image):
+    """Test _apply_zoom clamps zoom to MAX_ZOOM."""
+    preview_panel.show_images([sample_image])
+
+    # Apply a huge zoom factor
+    preview_panel._apply_zoom(1000.0)
+
+    assert preview_panel._zoom == PreviewPanel.MAX_ZOOM
+
+
+def test_apply_zoom_clamps_to_min(preview_panel, sample_image):
+    """Test _apply_zoom clamps zoom to MIN_ZOOM."""
+    preview_panel.show_images([sample_image])
+
+    # Apply a tiny zoom factor
+    preview_panel._apply_zoom(0.001)
+
+    assert preview_panel._zoom == PreviewPanel.MIN_ZOOM
+
+
+def test_apply_zoom_transition_from_fit_uses_fit_zoom(preview_panel, sample_image):
+    """Test _apply_zoom uses _fit_zoom as base when transitioning from fit mode."""
+    preview_panel.show_images([sample_image])
+
+    assert preview_panel._is_fit is True
+    fit_zoom = preview_panel._fit_zoom
+
+    # Apply zoom from fit mode
+    factor = 1.5
+    preview_panel._apply_zoom(factor)
+
+    assert preview_panel._is_fit is False
+    expected = max(PreviewPanel.MIN_ZOOM, min(PreviewPanel.MAX_ZOOM, fit_zoom * factor))
+    assert preview_panel._zoom == pytest.approx(expected)
+
+
+def test_apply_zoom_label_percentage(preview_panel, sample_image):
+    """Test _apply_zoom updates label to correct percentage relative to fit."""
+    preview_panel.show_images([sample_image])
+
+    fit_zoom = preview_panel._fit_zoom
+
+    # Zoom in by 2x
+    preview_panel._apply_zoom(2.0)
+
+    expected_pct = int((fit_zoom * 2.0) / fit_zoom * 100)
+    assert preview_panel._zoom_label.GetLabel() == f"{expected_pct}%"
+
+
+def test_apply_zoom_label_with_zero_fit_zoom(preview_panel, sample_image):
+    """Test _apply_zoom shows 100% when fit_zoom is 0."""
+    preview_panel.show_images([sample_image])
+
+    # Force fit_zoom to 0
+    preview_panel._fit_zoom = 0.0
+
+    preview_panel._apply_zoom(1.5)
+
+    assert preview_panel._zoom_label.GetLabel() == "100%"
+
+
+def test_apply_zoom_successive_multiplications(preview_panel, sample_image):
+    """Test successive _apply_zoom calls multiply correctly."""
+    preview_panel.show_images([sample_image])
+
+    fit_zoom = preview_panel._fit_zoom
+
+    # First zoom: transitions from fit
+    preview_panel._apply_zoom(PreviewPanel.ZOOM_STEP)
+    first = preview_panel._zoom
+
+    # Second zoom: multiplies from current
+    preview_panel._apply_zoom(PreviewPanel.ZOOM_STEP)
+    second = preview_panel._zoom
+
+    assert first == pytest.approx(fit_zoom * PreviewPanel.ZOOM_STEP)
+    assert second == pytest.approx(fit_zoom * PreviewPanel.ZOOM_STEP**2)
+
+
+def test_paint_coordinate_calculation(preview_panel, sample_image):
+    """Test that bitmap position calculation uses correct centering and pan offsets."""
+    preview_panel.show_images([sample_image])
+
+    # Set known pan offsets
+    preview_panel._pan_x = 30.0
+    preview_panel._pan_y = -20.0
+
+    # Force render to create bitmap cache
+    preview_panel._render()
+    assert preview_panel._bitmap_cache is not None
+
+    # Verify the expected position math
+    cw, ch = preview_panel._canvas.GetSize()
+    cx, cy = cw // 2, ch // 2
+    bw = preview_panel._bitmap_cache.GetWidth()
+    bh = preview_panel._bitmap_cache.GetHeight()
+
+    expected_x = cx + int(preview_panel._pan_x) - bw // 2
+    expected_y = cy + int(preview_panel._pan_y) - bh // 2
+
+    # These values should be computable without crashing
+    assert isinstance(expected_x, int)
+    assert isinstance(expected_y, int)

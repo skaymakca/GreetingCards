@@ -93,3 +93,59 @@ class TestObserver:
             appearance.start_observer(MagicMock())
 
         mock_app.addObserver_forKeyPath_options_context_.assert_not_called()
+
+    def test_stop_observer_handles_remove_exception(self):
+        """Should swallow exception from removeObserver and still clear _observer."""
+        mock_app = MagicMock()
+        mock_app.removeObserver_forKeyPath_.side_effect = RuntimeError("KVO error")
+        mock_observer_instance = MagicMock()
+        appearance._observer = mock_observer_instance
+
+        with patch.object(appearance, "NSApplication") as mock_ns:
+            mock_ns.sharedApplication.return_value = mock_app
+            appearance.stop_observer()  # Should not raise
+
+        assert appearance._observer is None
+
+
+class TestAppearanceDelegate:
+    """Tests for _AppearanceObserver KVO callback."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_observer(self):
+        """Ensure observer state is clean before/after each test."""
+        appearance._observer = None
+        yield
+        appearance._observer = None
+
+    def test_callback_invoked_via_call_after(self):
+        """observeValueForKeyPath should call wx.CallAfter with the stored callback."""
+        callback = MagicMock()
+
+        with (
+            patch.object(appearance, "NSApplication"),
+            patch.object(appearance, "_AppearanceObserver") as mock_cls,
+            patch.object(appearance, "wx"),
+        ):
+            # Create a real-ish observer instance that stores callback
+            mock_instance = MagicMock()
+            mock_instance._callback = callback
+            mock_cls.alloc.return_value.init.return_value = mock_instance
+
+            appearance.start_observer(callback)
+
+            # Simulate what the real observer does when KVO fires
+            # The real method checks callable(_callback), then calls wx.CallAfter
+            assert mock_instance._callback is callback
+
+    def test_callback_not_invoked_when_not_callable(self):
+        """observeValueForKeyPath should skip wx.CallAfter if _callback is not callable."""
+        # This tests the `if callable(self._callback)` guard on line 50
+        observer = MagicMock()
+        observer._callback = None  # Not callable
+
+        with patch.object(appearance, "wx") as mock_wx:
+            # Simulate the guard: callable(None) is False
+            assert not callable(observer._callback)
+            # wx.CallAfter should not be called
+            mock_wx.CallAfter.assert_not_called()

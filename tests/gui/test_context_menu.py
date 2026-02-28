@@ -1,5 +1,7 @@
 """Tests for wxPython context menu with SF Symbol icons."""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 import wx
 
@@ -293,3 +295,134 @@ class TestContextMenuIntegration:
         assert text3.GetValue() == "Field 3"
 
         dialog.Destroy()
+
+
+class TestOnContextMenu:
+    """Tests for the on_context_menu handler and menu structure."""
+
+    @staticmethod
+    def _trigger_context_menu(text_ctrl):
+        """Trigger context menu event and capture the menu before it is destroyed.
+
+        Patches both PopupMenu (to intercept the menu) and Menu.Destroy (to prevent
+        the C++ object from being deleted before we can inspect it).
+        Returns the captured wx.Menu instance.
+        """
+        captured_menu = None
+
+        def capture_menu(menu):
+            nonlocal captured_menu
+            captured_menu = menu
+
+        with (
+            patch.object(text_ctrl, "PopupMenu", side_effect=capture_menu),
+            patch.object(wx.Menu, "Destroy"),
+        ):
+            event = wx.ContextMenuEvent(wx.wxEVT_CONTEXT_MENU)
+            text_ctrl.ProcessEvent(event)
+
+        assert captured_menu is not None
+        return captured_menu
+
+    def test_popup_menu_is_called_on_right_click(self, wx_frame):
+        """Should call PopupMenu when the context menu event fires."""
+        text_ctrl = wx.TextCtrl(wx_frame, value="Hello")
+        add_entry_context_menu(text_ctrl)
+
+        with patch.object(text_ctrl, "PopupMenu") as mock_popup:
+            event = wx.ContextMenuEvent(wx.wxEVT_CONTEXT_MENU)
+            text_ctrl.ProcessEvent(event)
+
+            mock_popup.assert_called_once()
+
+        text_ctrl.Destroy()
+
+    def test_menu_contains_cut_copy_paste(self, wx_frame):
+        """Should create menu with Cut, Copy, Paste items using native IDs."""
+        text_ctrl = wx.TextCtrl(wx_frame, value="Hello")
+        add_entry_context_menu(text_ctrl)
+
+        menu = self._trigger_context_menu(text_ctrl)
+        items = menu.GetMenuItems()
+
+        # First three items should be Cut, Copy, Paste with native wx IDs
+        assert items[0].GetId() == wx.ID_CUT
+        assert items[0].GetItemLabelText() == "Cut"
+        assert items[1].GetId() == wx.ID_COPY
+        assert items[1].GetItemLabelText() == "Copy"
+        assert items[2].GetId() == wx.ID_PASTE
+        assert items[2].GetItemLabelText() == "Paste"
+
+        text_ctrl.Destroy()
+
+    def test_menu_has_separator_after_clipboard_items(self, wx_frame):
+        """Should have a separator between clipboard items and custom items."""
+        text_ctrl = wx.TextCtrl(wx_frame, value="Hello")
+        add_entry_context_menu(text_ctrl)
+
+        menu = self._trigger_context_menu(text_ctrl)
+        items = menu.GetMenuItems()
+
+        # Fourth item (index 3) should be a separator
+        assert items[3].IsSeparator()
+
+        text_ctrl.Destroy()
+
+    def test_menu_contains_title_case_and_clear(self, wx_frame):
+        """Should create menu with Title Case and Clear custom items after separator."""
+        text_ctrl = wx.TextCtrl(wx_frame, value="Hello")
+        add_entry_context_menu(text_ctrl)
+
+        menu = self._trigger_context_menu(text_ctrl)
+        items = menu.GetMenuItems()
+
+        # Items after separator: Title Case (index 4), Clear (index 5)
+        assert items[4].GetItemLabelText() == "Title Case"
+        assert items[5].GetItemLabelText() == "Clear"
+
+        text_ctrl.Destroy()
+
+    def test_menu_has_exactly_six_items(self, wx_frame):
+        """Should create menu with exactly 6 items: Cut, Copy, Paste, separator, Title Case, Clear."""
+        text_ctrl = wx.TextCtrl(wx_frame, value="Hello")
+        add_entry_context_menu(text_ctrl)
+
+        menu = self._trigger_context_menu(text_ctrl)
+
+        assert menu.GetMenuItemCount() == 6
+
+        text_ctrl.Destroy()
+
+    def test_title_case_menu_item_transforms_text(self, wx_frame):
+        """Title Case menu item handler should transform the text field value."""
+        text_ctrl = wx.TextCtrl(wx_frame, value="hello world")
+        add_entry_context_menu(text_ctrl)
+
+        menu = self._trigger_context_menu(text_ctrl)
+        items = menu.GetMenuItems()
+
+        # Simulate selecting the Title Case item
+        title_item = items[4]
+        menu_event = wx.CommandEvent(wx.wxEVT_MENU, title_item.GetId())
+        menu.ProcessEvent(menu_event)
+
+        assert text_ctrl.GetValue() == "Hello World"
+
+        text_ctrl.Destroy()
+
+    def test_clear_menu_item_clears_text(self, wx_frame):
+        """Clear menu item handler should clear the text field value."""
+        text_ctrl = wx.TextCtrl(wx_frame, value="some text")
+        add_entry_context_menu(text_ctrl)
+
+        menu = self._trigger_context_menu(text_ctrl)
+        items = menu.GetMenuItems()
+
+        # Simulate selecting the Clear item
+        clear_item = items[5]
+        menu_event = wx.CommandEvent(wx.wxEVT_MENU, clear_item.GetId())
+        menu.ProcessEvent(menu_event)
+
+        assert text_ctrl.GetValue() == ""
+
+        text_ctrl.Destroy()

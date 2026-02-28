@@ -2,7 +2,7 @@
 
 ProcessPoolExecutor for PDF rendering + OCR, asyncio for AI batch, and thread-safety patterns.
 
-**Key files:** `app/core/pdf_worker.py` (subprocess worker), `app/gui/main_window.py` (processing methods), `app/core/ai_analyzer.py`
+**Key files:** `app/core/pipeline/pdf_worker.py` (subprocess worker), `app/gui/main_window.py` (processing methods), `app/core/pipeline/ai_analyzer.py`, `app/core/pipeline/ai_batch.py` (`run_ai_batch_async`), `app/core/pipeline/rate_limit.py` (`RateLimitGate`)
 
 ## Architecture Overview
 
@@ -21,17 +21,17 @@ ProcessPoolExecutor for PDF rendering + OCR, asyncio for AI batch, and thread-sa
  ┌───────▼──────────┐   ┌────────▼───────────┐
  │ ProcessPool      │   │ asyncio.Semaphore   │
  │   Executor       │   │  (3 concurrent)     │
- │ OCR_WORKERS      │   │ + _RateLimitGate    │
+ │ OCR_WORKERS      │   │ + RateLimitGate     │
  └──────────────────┘   └────────────────────┘
 ```
 
 ## PDF Processing: ProcessPoolExecutor
 
 ### Entry Point: `_start_processing()`
-1. Shows ProgressDialog, begins busy cursor
+1. Shows inline progress strip, begins busy cursor
 2. Spawns `threading.Thread(target=_process_cards)`
 
-### Worker: `process_pdf_worker()` in `app/core/pdf_worker.py`
+### Worker: `process_pdf_worker()` in `app/core/pipeline/pdf_worker.py`
 Runs in a **separate process** (via `ProcessPoolExecutor`). Must be module-level (not a method) for pickling. Lives in the core layer since it contains only core logic (PDF rendering, OCR, database ops, image serialization) with zero GUI dependencies.
 
 Each worker:
@@ -78,9 +78,12 @@ All AI analysis (single card, selected, or visible) flows through a single async
 1. `_get_ai_target_cards()` determines scope: 2+ selected → "selected", else → all "visible" cards
 2. Single card from detail panel AI button passes `cards=[card]` directly
 3. Spawns `threading.Thread(target=_run_ai_all)`
-4. Thread runs `asyncio.run(_run_ai_all_async())`
+4. Thread runs `asyncio.run(run_ai_batch_async(...))` from `app/core/pipeline/ai_batch.py`
 5. Async function uses `Semaphore(3)` for concurrent API calls via `analyze_card_with_ai_async()`
 6. Each card processed as an async task via `asyncio.gather()`
+
+`run_ai_batch_async()` accepts `on_progress` and `on_complete` callbacks — MainWindow wraps
+these with `wx.CallAfter()` to dispatch UI updates safely from the background thread.
 
 The menu label and toolbar tooltip update dynamically based on scope:
 - 0-1 selected: "AI Analyze Visible (N)"
@@ -93,16 +96,18 @@ Two layers of retry protect against transient API failures:
 
 1. **SDK-level retry** (`_MAX_RETRIES = 4` in `ai_analyzer.py`): The Anthropic SDK retries 429, 408, 409, and ≥500 errors automatically with exponential backoff + jitter + `retry-after` header parsing. Configured via `AsyncAnthropic(max_retries=4)`.
 
-2. **App-level retry** (in `_run_ai_all_async()`): After SDK retries are exhausted, each card gets one more attempt:
-   - `RateLimitError` → pause the shared `_RateLimitGate`, retry once after pause
+2. **App-level retry** (in `run_ai_batch_async()` — `app/core/pipeline/ai_batch.py`): After SDK retries are exhausted, each card gets one more attempt:
+   - `RateLimitError` → pause the shared `RateLimitGate`, retry once after pause
    - `APITimeoutError` / `APIConnectionError` → retry once after 2s delay
    - `AuthenticationError` → abort all (no retry)
    - Other exceptions → no retry
 
-### `_RateLimitGate` (Thundering Herd Prevention)
+### `RateLimitGate` (Thundering Herd Prevention)
+
+Defined in `app/core/pipeline/rate_limit.py`. Re-imported into `app/gui/main_window.py` as `_RateLimitGate`.
 
 ```python
-class _RateLimitGate:
+class RateLimitGate:
     def __init__(self): self._resume_at = 0
     async def wait_if_paused(self): ...  # sleep until resume_at
     def pause(self, seconds): ...        # set resume_at = max(current, now + seconds)
@@ -148,19 +153,29 @@ wx.CallAfter(lambda: wx.MessageBox(msg, "AI Error", ...))
 
 Note: Python 3.14 clears `except` variables after the block exits. If using lambdas, capture the message string before the lambda.
 
-## Progress Dialog
+## Inline Progress Strip
 
-Both PDF processing and AI batch use `ProgressDialog`:
-- Created on main thread before spawning worker
-- Updated via `wx.CallAfter` from background thread
-- `_progress.finish()` called when complete
-- Guard: `not self._progress.IsBeingDeleted()` prevents updates after dialog is destroyed
+Both PDF processing and AI batch use an inline progress strip (a thin `wx.Panel` between the toolbar and the content area):
+- Built once in `_build_progress_strip()`, hidden by default
+- `_show_progress_strip(total, title)` shows it with gauge range and title
+- `_update_progress_strip(current, message)` called via `wx.CallAfter` from background threads
+- `_hide_progress_strip()` hides and re-layouts when complete
+- The main window stays fully interactive during batch operations (non-modal)
+
+### Disabled Controls During AI Batch
+
+When `_ai_batch_running` is `True`, these controls are disabled:
+- **Toolbar:** Reload, AI Analyze, Rename, Clear (via `_enable_action_tools`)
+- **Menu items:** Mirrored automatically from toolbar state (via `_on_update_action_menu`)
+- **Detail panel AI button:** Locked via `ReviewPanelMasterDetail.set_ai_buttons_locked(True)`
+- **Context menu AI item:** Checks `_ai_buttons_locked` flag when building the menu
+- **Settings Reset DB:** Checks `is_ai_running` callback and shows a warning if running
 
 ## Gotchas
 
 - **spawn method:** `multiprocessing.set_start_method('spawn', force=True)` is required for PyInstaller-bundled apps (fork doesn't work with frozen modules).
 - **Module-level worker:** `process_pdf_worker` is defined at module level in `app/core/pdf_worker.py`, not as a method. Methods can't be pickled for multiprocessing.
-- **Semaphore(3):** Limits concurrent API calls. Combined with `_RateLimitGate` for cross-request coordination — the gate pauses all tasks before semaphore acquisition when a rate limit is hit.
+- **Semaphore(3):** Limits concurrent API calls. Combined with `RateLimitGate` (`app/core/pipeline/rate_limit.py`) for cross-request coordination — the gate pauses all tasks before semaphore acquisition when a rate limit is hit.
 - **asyncio.run() in thread:** Creates a new event loop in the background thread. The main thread's wx event loop is separate.
-- **Busy cursor:** `wx.BeginBusyCursor()` / `wx.EndBusyCursor()` bracket processing. Guard: `if wx.IsBusy()` prevents double-end.
-- **tesserocr C API:** Uses tesserocr (C++ bindings to Tesseract) instead of pytesseract (CLI wrapper). No binary path resolution needed — tesserocr links directly to libtesseract. Tessdata (`eng.traineddata`) is bundled in `_runtime_content/tessdata/` and the path is set deterministically via `_get_tessdata_path()` in `ocr_engine.py` (uses `sys._MEIPASS` when bundled, project root in dev).
+- **Busy cursor:** `wx.BeginBusyCursor()` / `wx.EndBusyCursor()` bracket PDF processing. Guard: `if wx.IsBusy()` prevents double-end. AI batch does not use busy cursor (window stays interactive).
+- **tesserocr C API:** Uses tesserocr (C++ bindings to Tesseract) instead of pytesseract (CLI wrapper). No binary path resolution needed — tesserocr links directly to libtesseract. Tessdata (`eng.traineddata`) is bundled in `_build/runtime_content/tessdata/` (dev) / `_runtime_content/tessdata/` (bundle) and the path is set deterministically via `_get_tessdata_path()` in `pipeline/ocr_engine.py` (uses `sys._MEIPASS` when bundled, project root in dev).

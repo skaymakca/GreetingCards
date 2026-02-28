@@ -2,13 +2,13 @@
 
 Help pages generated from Markdown and displayed in the shared WebView viewer.
 
-**Key files:** `app/gui/help_dialog.py` (thin wrapper), `app/core/help_builder.py` (Markdown → HTML generation), `app/gui/html_viewer.py` (shared viewer — see `docs/architecture/html-viewer.md`)
+**Key files:** `app/gui/dialogs/help.py` (thin wrapper), `app/core/content/help_builder.py` (Markdown → HTML generation), `app/gui/components/html_viewer.py` (shared viewer — see `docs/architecture/html-viewer.md`)
 
 ## How It Works
 
-`help_dialog.py` is a thin wrapper that calls `show_viewer()` with path resolution. `_HELP_REL_PATH = Path("_runtime_content") / "html" / "help"`.
+`app/gui/dialogs/help.py` is a thin wrapper that calls `show_viewer()` with path resolution. `_HELP_REL_PATH = Path("_build/runtime_content") / "html" / "help"`.
 
-`help_builder.py` generates HTML from Markdown source files using the `markdown` library and Jinja2 templates.
+`app/core/content/help_builder.py` generates HTML from Markdown source files using the `markdown` library and Jinja2 templates.
 
 ## Content Structure
 
@@ -43,7 +43,7 @@ To reorder pages, rename the numeric prefixes. To add a page, insert at the desi
 ### Generated output (gitignored)
 
 ```
-_runtime_content/html/
+_build/runtime_content/html/
 ├── help/
 │   ├── index.html                ← Generated home page
 │   ├── page_order.txt            ← Navigation manifest (read at runtime)
@@ -77,16 +77,16 @@ If `title` is omitted, it defaults to the slug converted to title case.
 
 ## Generation Pipeline
 
-`help_builder.py` generates HTML via `make html-content`:
+`help_builder.py` generates HTML via `make content`:
 
 1. Reads Markdown files from `content/html/help/`, parses numeric order from filenames
 2. Validates numbering (contiguous 1..N, no gaps, no duplicates)
 3. Parses YAML frontmatter for title
 4. Converts Markdown to HTML using the `markdown` library
 5. Renders through `content/html/templates/help_page.html.j2` with Jinja2
-6. Writes output to `_runtime_content/html/help/`
+6. Writes output to `_build/runtime_content/html/help/`
 7. Writes `page_order.txt` manifest for runtime toolbar navigation
-8. Copies shared CSS and JS to `_runtime_content/html/common/`
+8. Copies shared CSS and JS to `_build/runtime_content/html/common/`
 
 Every generated page has the same HTML structure:
 
@@ -104,7 +104,7 @@ Sidebar navigation is generated automatically from the filename ordering.
 
 ## Page Navigation
 
-`get_page_order(base_path)` in `help_builder.py` reads `page_order.txt` from the generated output directory. This manifest is written during generation and preserves the numeric filename ordering. The shared viewer toolbar provides Home, Previous, Next navigation. See `docs/architecture/html-viewer.md` for toolbar, search, and manifest details.
+`get_page_order(base_path)` in `content/help_builder.py` reads `page_order.txt` from the generated output directory. This manifest is written during generation and preserves the numeric filename ordering. The shared viewer toolbar provides Home, Previous, Next navigation. See `docs/architecture/html-viewer.md` for toolbar, search, and manifest details.
 
 ## CSS
 
@@ -115,7 +115,7 @@ Sidebar navigation is generated automatically from the filename ordering.
 - Typography, tables, code blocks, keyboard shortcuts
 - Version date and divider styles (used by changelog)
 
-The file is copied to `_runtime_content/html/common/css/viewer.css` during generation. All viewers reference it via relative path.
+The file is copied to `_build/runtime_content/html/common/css/viewer.css` during generation. All viewers reference it via relative path.
 
 ## Menu Integration
 

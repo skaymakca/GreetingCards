@@ -2,7 +2,7 @@
 
 User configuration: API key, AI model selection, and how persistence differs between dev and bundled modes.
 
-**Key files:** `app/core/config.py`, `app/core/paths.py`, `app/gui/settings_dialog.py`
+**Key files:** `app/core/config.py`, `app/core/paths.py`, `app/gui/dialogs/settings.py`
 
 ## Storage Overview
 
@@ -15,16 +15,16 @@ The app uses two persistence mechanisms for different purposes:
 
 Both files live in the same data directory (see below). The plist is read/written via `plistlib`; the database via SQLAlchemy.
 
-## Data Directory by Mode
+## Path Resolution by Mode
 
-Determined by `get_data_dir()` in `app/core/paths.py`:
+All paths are determined by `is_bundled()` in `app/core/paths.py` (checks for `sys._MEIPASS` set by PyInstaller).
 
-| Mode                   | Detection              | Data Directory                                 |
-|------------------------|------------------------|------------------------------------------------|
-| Dev (`python main.py`) | `sys._MEIPASS` not set | `project_root/.local/` (auto-created)          |
-| Bundled (`.app`)       | `sys._MEIPASS` exists  | `~/Library/Application Support/GreetingCards/` |
+| Mode                      | Data dir (prefs + DB)                            | Runtime content (tessdata, HTML, family name DB) |
+|---------------------------|--------------------------------------------------|--------------------------------------------------|
+| Source (`python main.py`) | `project_root/.local/GreetingCards/`             | `project_root/_build/runtime_content/`           |
+| Bundle (`.app`)           | `~/Library/Application Support/GreetingCards/`   | `sys._MEIPASS/_runtime_content/`                 |
 
-Both directories are auto-created on first access.
+Both data directories are auto-created on first access. The modes use separate data directories so that development builds cannot corrupt production data (schema migrations, test resets, etc.).
 
 ## API Key Resolution
 

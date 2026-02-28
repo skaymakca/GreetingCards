@@ -4,32 +4,53 @@ Scans holiday/greeting card PDFs, extracts family names via OCR and AI, and batc
 
 ## Features
 
-- **Multi-source loading** — add PDF files or folders from multiple locations without clearing previous loads; cards accumulate across sessions
-- **Auto-reload** — instantly detects external file changes (e.g., page rotation in Preview) when the app window is re-activated, using mtime comparison to skip unchanged files without reading their contents; also available via File > Reload (Cmd+Shift+R) or the toolbar Reload button; deleted files are removed, modified files are reprocessed
-- **Content-based deduplication** — identical files at different locations are automatically detected (by content hash) and displayed as a single card with multiple file paths
+- **Multi-source loading** — add PDF files or folders from multiple locations without clearing previous loads; cards
+  accumulate across sessions
+- **Auto-reload** — instantly detects external file changes (e.g., page rotation in Preview) when the app window is
+  re-activated, using mtime comparison to skip unchanged files without reading their contents; also available via File >
+  Reload (Cmd+Shift+R) or the toolbar Reload button; deleted files are removed, modified files are reprocessed
+- **Content-based deduplication** — identical files at different locations are automatically detected (by content hash)
+  and displayed as a single card with multiple file paths
 - **PDF rendering** — renders all pages of each PDF using PyMuPDF for preview and analysis
-- **Offline OCR** — extracts text from card images with Tesseract, then pattern-matches family names (e.g. "The Smiths", "Love, John & Jane Smith") at high/medium/low confidence levels
-- **AI analysis** — sends page images to Claude's vision API for name extraction; available per-card, for selected cards (2+), or all visible cards via toolbar/menu; the label dynamically shows scope and count (e.g., "AI Analyze Visible (12)" or "AI Analyze Selected (3)"); choose between Haiku 4.5 (fast/cheap), Sonnet 4.6 (balanced, default), and Opus 4.6 (most capable) in Settings
-- **Intelligent caching** — OCR results, AI results, and manual edits are persisted to a local SQLite database keyed by file content hash, so re-processing the same files (even from different locations) is instant
-- **Smart batch rename** — builds a rename plan with per-directory duplicate detection, shows a confirmation dialog, then renames files to `Holiday Cards Year - FamilyName Family.pdf` (or without "Family" suffix if checkbox is checked)
-- **Per-file options** — checkbox to omit "Family" suffix from individual filenames (e.g., `Holiday Cards 2024 - Smith.pdf` instead of `Holiday Cards 2024 - Smith Family.pdf`)
+- **Offline OCR** — extracts text from card images with Tesseract, then pattern-matches family names (e.g. "The
+  Smiths", "Love, John & Jane Smith") at high/medium/low confidence levels
+- **AI analysis** — sends page images to Claude's vision API for name extraction; available per-card, for selected
+  cards (2+), or all visible cards via toolbar/menu; the label dynamically shows scope and count (e.g., "AI Analyze
+  Visible (12)" or "AI Analyze Selected (3)"); choose between Haiku 4.5 (fast/cheap), Sonnet 4.6 (balanced, default),
+  and Opus 4.6 (most capable) in Settings
+- **Intelligent caching** — OCR results, AI results, and manual edits are persisted to a local SQLite database keyed by
+  file content hash, so re-processing the same files (even from different locations) is instant
+- **Smart batch rename** — builds a rename plan with per-directory duplicate detection, shows a confirmation dialog,
+  then renames files to `Holiday Cards Year - FamilyName Family.pdf` (or without "Family" suffix if checkbox is checked)
+- **Per-file options** — checkbox to omit "Family" suffix from individual filenames (e.g.,
+  `Holiday Cards 2024 - Smith.pdf` instead of `Holiday Cards 2024 - Smith Family.pdf`)
 - **Drag and drop** — drop files or folders (even multiple at once) onto the window to add them
-- **Search and filter** — quick search by filename or family name; sidebar filters by confidence level with Option-click multi-select
-- **Preview with zoom/pan** — scroll wheel zoom at cursor, Shift+Click zoom in, Option+Click zoom out, click-drag pan, +/− buttons, Fit button
-- **Card removal** — remove cards via the Remove button, Edit > Remove (Cmd+Delete), or right-click context menu (non-destructive; files remain on disk)
-- **Right-click context menu** — right-click a card row for Open, Reveal in Finder, and Remove; right-click name fields for Cut, Copy, Paste, Title Case, and Clear
-- **Keyboard navigation** — Up/Down to select cards, Shift+Up/Down to extend selection, Cmd+A to select all, Left/Right to page through previews, Cmd+Delete to remove selected cards, Cmd+F to search, Cmd+O to open files, Cmd+Shift+R to reload, Cmd+Shift+I to AI analyze, Cmd+R to rename, Cmd+, for Settings, Escape to defocus
-- **Help system** — built-in WebView help viewer with 8 pages, cross-page search with highlighted matches, and Previous/Next match navigation
+- **Search and filter** — quick search by filename or family name; sidebar filters by confidence level with Option-click
+  multi-select
+- **Preview with zoom/pan** — scroll wheel zoom at cursor, Shift+Click zoom in, Option+Click zoom out, click-drag
+  pan, +/− buttons, Fit button
+- **Card removal** — remove cards via the Remove button, Edit > Remove (Cmd+Delete), or right-click context menu (
+  non-destructive; files remain on disk)
+- **Right-click context menu** — right-click a card row for Open, Reveal in Finder, and Remove; right-click name fields
+  for Cut, Copy, Paste, Title Case, and Clear
+- **Keyboard navigation** — Up/Down to select cards, Shift+Up/Down to extend selection, Cmd+A to select all, Left/Right
+  to page through previews, Cmd+Delete to remove selected cards, Cmd+F to search, Cmd+O to open files, Cmd+Shift+R to
+  reload, Cmd+Shift+I to AI analyze, Cmd+R to rename, Cmd+, for Settings, Escape to defocus
+- **Help system** — built-in WebView help viewer with 8 pages, cross-page search with highlighted matches, and
+  Previous/Next match navigation
 - **Native macOS UI** — native toolbar, preferences editor (Cmd+,), About dialog, and system colors throughout
-- **API key management** — prompts for the Anthropic API key on first AI use; key is saved to `preferences.plist`; source mode also reads `ANTHROPIC_API_KEY` env var (bundle ignores env var)
-- **AI model selection** — choose between Claude Haiku 4.5, Sonnet 4.6, or Opus 4.6 in Settings; persisted to preferences plist; stale/outdated model IDs are auto-migrated to the current default
+- **API key management** — prompts for the Anthropic API key on first AI use; key is saved to `preferences.plist`;
+  source mode also reads `ANTHROPIC_API_KEY` env var (bundle ignores env var)
+- **AI model selection** — choose between Claude Haiku 4.5, Sonnet 4.6, or Opus 4.6 in Settings; persisted to
+  preferences plist; stale/outdated model IDs are auto-migrated to the current default
 
 ## Prerequisites
 
 - Python 3.14
 - [uv](https://docs.astral.sh/uv/) (`brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`)
 - [pyright](https://github.com/microsoft/pyright) — type checking (`brew install pyright` or `npm i -g pyright`)
-- [Tesseract](https://github.com/tesseract-ocr/tesseract) — required only for benchmark scripts (`brew install tesseract`)
+- [Tesseract](https://github.com/tesseract-ocr/tesseract) — required only for benchmark scripts (
+  `brew install tesseract`)
 
 ## Quick Start
 
@@ -58,7 +79,7 @@ Run `make help` to see all available commands.
 | `make setup-dev`       | Install all dependencies including dev/testing tools                                     |
 | `make run`             | Run the app from source                                                                  |
 | `make test`            | Run all tests                                                                            |
-| `make test-cov`        | Run tests with coverage report (generates `htmlcov/index.html`)                          |
+| `make test-cov`        | Run tests with coverage report (generates `_build/htmlcov/index.html`)                   |
 | `make test-core`       | Run core (non-GUI) tests only                                                            |
 | `make test-gui`        | Run GUI tests only                                                                       |
 | `make build`           | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`) — alias for `make app` |
@@ -82,7 +103,7 @@ Run `make help` to see all available commands.
 | `make pycharm-inspect` | Run PyCharm CLI inspections (skipped if PyCharm is not installed)                        |
 | `make loc`             | Count lines of code in project files (excludes dependencies and build artifacts)         |
 | `make show-scripts`    | Show available script invocations without running them                                   |
-| `make clean`           | Remove `build/` and `dist/` directories                                                  |
+| `make clean`           | Remove `_build/` and `dist/` directories                                                 |
 
 ## Manual setup and commands
 
@@ -138,7 +159,7 @@ make test
 
 # Run with coverage report
 make test-cov
-open htmlcov/index.html
+open _build/htmlcov/index.html
 ```
 
 ### Test Organization
@@ -191,13 +212,19 @@ tests/
 
 ### Current Coverage
 
-- **1393 tests** covering core logic and GUI components
-- **Core** (17 test files): AI analysis, card model, changelog, config, database, filename sanitization, help builder, license discovery, name extraction, name formatting, OCR engine, paths, PDF rendering, PDF worker, renamer, template environment, version
-- **GUI** (14 test files): API key dialog, context menu, dialogs, filter sidebar, help system, icons, main window, preview cursor behavior, preview panel, review panel, settings, styles, utilities
+- **1694 tests** covering core logic and GUI components
+- **Core** (pipeline/, naming/, content/ sub-packages + top-level): AI analysis, card model, changelog, changelog models,
+  config, database, family name cleaning, family name data, family name formatting, filename safety, help builder,
+  license HTML, license models, license sync, name extraction, OCR engine, paths, PDF rendering, PDF worker, renamer,
+  rename filter, template environment, version
+- **GUI** (18 test files): API key dialog, appearance, changelog dialog, context menu, cursors, dialogs, filter sidebar,
+  help dialog, HTML viewer, icons, licenses dialog, main window, preview cursor behavior, preview panel, review panel,
+  settings, styles, utilities
 
 ### Adding Tests
 
 When adding new functionality:
+
 1. Add tests to appropriate file in `tests/core/` or `tests/gui/`
 2. Mark tests with `@pytest.mark.unit` or `@pytest.mark.gui`
 3. Run tests to verify: `make test`
@@ -216,43 +243,52 @@ The app stores OCR results, AI results, and manual name edits in a SQLite databa
 | Dev (running `python main.py`) | `.local/` subdirectory of project root         |
 | Bundled (`.app`)               | `~/Library/Application Support/GreetingCards/` |
 
-**Automatic schema management:** The schema version is a hash computed from all model column definitions at startup. If the models change (columns added, removed, or altered), the hash changes and the database is automatically dropped and recreated. There is no manual migration step — the cache simply rebuilds on next use. This is safe because the database only contains derived/cached data, never source data.
+**Automatic schema management:** The schema version is a hash computed from all model column definitions at startup. If
+the models change (columns added, removed, or altered), the hash changes and the database is automatically dropped and
+recreated. There is no manual migration step — the cache simply rebuilds on next use. This is safe because the database
+only contains derived/cached data, never source data.
 
 ## Scripts
 
-Utility and benchmark scripts live in `scripts/` (a Python package). Run them with `python -m scripts.<name>`. All script dependencies are included in the dev group — run `make setup-dev` first.
+Utility and benchmark scripts live in `scripts/` (a Python package). Run them with `python -m scripts.<name>`. All
+script dependencies are included in the dev group — run `make setup-dev` first.
 
-Output goes to `_script_output/` with timestamped directories (e.g., `20260223_2011-generate_sample_cards/`) so runs don't overwrite each other. Use `-o` to specify a custom output directory instead.
+Output goes to `_build/script_output/` with timestamped directories (e.g., `20260223_2011-generate_sample_cards/`) so
+runs don't overwrite each other. Empty output directories are automatically cleaned up if a script errors out before
+writing any files.
 
 ### Sample Card Generator
 
-`generate_sample_cards` creates a corpus of realistic greeting card PDFs for testing and demos. It uses Claude to generate card metadata (family names, greetings, backstories) and OpenAI's gpt-image-1.5 to generate entire card images in the style of commercial greeting cards (Shutterfly, Snapfish, Minted), with typography baked into the artwork. Generated images are temporary and cleaned up after PDF creation.
+`generate_sample_cards` creates a corpus of realistic greeting card PDFs for testing and demos. It uses a multiphase
+async pipeline — unique family names, batched color schemes, LLM-generated subtitles, then per-card creative content —
+with Claude generating card metadata and OpenAI's gpt-image-1.5 generating entire card images in the style of commercial
+greeting cards (Shutterfly, Snapfish, Minted), with typography baked into the artwork. Generated images are temporary
+and cleaned up after PDF creation.
 
 ```bash
 # Default: 3 cards
 uv run python -m scripts.generate_sample_cards
 
-# 10 cards
-uv run python -m scripts.generate_sample_cards --count=10
-
-# Low-quality images (faster, cheaper)
-uv run python -m scripts.generate_sample_cards --count=5 --image-quality=low
+# 20 cards with capped text concurrency
+uv run python -m scripts.generate_sample_cards --count=20 --text-concurrency=15
 ```
 
-| Flag                    | Description                                                         |
-|-------------------------|---------------------------------------------------------------------|
-| `--count N`             | Number of cards to generate (default: 3)                            |
-| `--ai-model MODEL`      | Claude model for metadata generation (default: `claude-sonnet-4-6`) |
-| `--image-model MODEL`   | OpenAI image model (default: `gpt-image-1.5`)                       |
-| `--image-quality LEVEL` | `low`, `medium`, or `high` (default: `high`)                        |
-| `--seed N`              | Seed for soft reproducibility via prompt                            |
-| `--no-open`             | Don't open output folder when done                                  |
+| Flag                     | Description                                                         |
+|--------------------------|---------------------------------------------------------------------|
+| `--count N`              | Number of cards to generate (default: 3)                            |
+| `--ai-model MODEL`       | Claude model for metadata generation (default: `claude-sonnet-4-6`) |
+| `--image-model MODEL`    | OpenAI image model (default: `gpt-image-1.5`)                       |
+| `--image-concurrency N`  | Max concurrent OpenAI image requests (default: 5)                   |
+| `--text-concurrency N`   | Max concurrent Claude spec-generation requests (default: 10)        |
+| `--no-image-compression` | Embed images as lossless PNG instead of JPEG (Q75)                  |
+| `--no-open`              | Don't open output folder when done                                  |
 
 **Required API keys:** `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`.
 
 ### Benchmarks
 
-The benchmark scripts take a corpus directory (folder of PDF files) as a positional argument. The OCR benchmarks also require the [Tesseract CLI](https://github.com/tesseract-ocr/tesseract) (`brew install tesseract` on macOS).
+The benchmark scripts take a corpus directory (folder of PDF files) as a positional argument. The OCR benchmarks also
+require the [Tesseract CLI](https://github.com/tesseract-ocr/tesseract) (`brew install tesseract` on macOS).
 
 | Script                                 | Description                                                                                                                                                                                                       |
 |----------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -273,14 +309,50 @@ uv run python -m scripts.benchmark.ocr_concurrency ~/Desktop/Cards
 # All scripts support --help, --no-open, and custom output dirs (-o)
 ```
 
-Each benchmark generates a self-contained HTML report (with sorting, filtering, and heatmap coloring) and a CSV export in `_script_output/`.
+Each benchmark generates a self-contained HTML report (with sorting, filtering, and heatmap coloring) and a CSV export
+in `_build/script_output/`.
+
+### Appearance Toggle
+
+`dark_mode_cycler` switches macOS between dark and light mode every 5 seconds until interrupted with Ctrl-C.
+Useful for testing live appearance change handling in the app.
+
+```bash
+uv run python -m scripts.dark_mode_cycler
+```
+
+### Diagnostic Card Generator
+
+`generate_diagnostic_cards` generates PDF cards with specific family names for testing OCR accuracy.
+
+```bash
+uv run python -m scripts.generate_diagnostic_cards
+```
+
+### Profiling
+
+`profiling` profiles the PDF processing pipeline and generates performance reports.
+
+```bash
+uv run python -m scripts.profiling ~/Desktop/Cards
+```
+
+### Family Name Database Builder
+
+`build_family_name_db` builds the family name database from multiple sources (Census, Faker, Smashew).
+
+```bash
+uv run python -m scripts.build_family_name_db
+```
 
 ## IDE Setup (PyCharm)
 
 The `.idea/` directory is committed with shared project settings:
 
-- **Inspection profile** — custom dictionary, inline `# noinspection` suppressions for wxPython/SQLAlchemy false positives, and scope-based suppression for Markdown file reference warnings
-- **Inspection scope** — "Markdown and Other Inspection Suppressions" disables `MarkdownUnresolvedFileReference` for `*.md` files, since help page links (`pages/*.html`) are resolved at build time, not on disk
+- **Inspection profile** — custom dictionary, inline `# noinspection` suppressions for wxPython/SQLAlchemy false
+  positives, and scope-based suppression for Markdown file reference warnings
+- **Inspection scope** — "Markdown and Other Inspection Suppressions" disables `MarkdownUnresolvedFileReference` for
+  `*.md` files, since help page links (`pages/*.html`) are resolved at build time, not on disk
 - **Custom dictionary** — project-specific words (technical terms, proper names) to suppress spell-check false positives
 
 User-specific files (`workspace.xml`, etc.) are excluded via `.idea/.gitignore`.
@@ -296,12 +368,21 @@ make pycharm-inspect
 PYCHARM_APP="/custom/path/PyCharm.app" make pycharm-inspect
 ```
 
-This launches PyCharm's headless inspection runner against the project using the shared `Project_Default` profile. Results are written to `/tmp/pycharm-inspect-out/` as XML files. The target auto-detects PyCharm (Professional or Community) in `~/Applications` (JetBrains Toolbox) first, then `/Applications`, and skips gracefully if neither is found.
+This launches PyCharm's headless inspection runner against the project using the shared `Project_Default` profile.
+Results are written to `/tmp/pycharm-inspect-out/` as XML files. The target auto-detects PyCharm (Professional or
+Community) in `~/Applications` (JetBrains Toolbox) first, then `/Applications`, and skips gracefully if neither is
+found.
 
-> **Note:** The CLI runner starts a full IDE instance in headless mode, so it takes a minute or two. Some inspections (e.g., Grazie grammar) may not produce results in headless mode. For the most complete results, use Code > Inspect Code inside the IDE.
+> **Note:** The CLI runner starts a full IDE instance in headless mode, so it takes a minute or two. Some inspections (
+> e.g., Grazie grammar) may not produce results in headless mode. For the most complete results, use Code > Inspect Code
+> inside the IDE.
 
-> **Caveat:** The headless instance may reset your IDE theme to the default when you next launch PyCharm. This is a known side effect of running `inspect.sh`.
+> **Caveat:** The headless instance may reset your IDE theme to the default when you next launch PyCharm. This is a
+> known side effect of running `inspect.sh`.
 
-> **Tip:** If you're writing Markdown with file paths that should resolve on disk, temporarily re-enable `MarkdownUnresolvedFileReference` in Settings > Editor > Inspections to catch broken links. The scope only suppresses it for the help content files where paths are intentionally unresolvable.
+> **Tip:** If you're writing Markdown with file paths that should resolve on disk, temporarily re-enable
+`MarkdownUnresolvedFileReference` in Settings > Editor > Inspections to catch broken links. The scope only suppresses it
+> for the help content files where paths are intentionally unresolvable.
 
-See [`docs/architecture/pycharm-inspections.md`](docs/architecture/pycharm-inspections.md) for the full suppression inventory.
+See [`docs/architecture/pycharm-inspections.md`](docs/architecture/pycharm-inspections.md) for the full suppression
+inventory.

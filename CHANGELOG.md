@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.11.0 — Name Intelligence & Smoother Workflow (2026-02-27)
+
+Better name recognition, non-blocking AI analysis, and selection reliability.
+
+- Non-modal progress strip replaces the blocking dialog during AI analysis — browse and review results as they arrive
+- Master family name database with 213,000+ surnames provides proper display forms (O'Brien, van der Berg, etc.) and improves OCR name accuracy
+- Expanded name filter blocklist prevents greeting card phrases, print services (Shutterfly, Minted), and holidays from being suggested as family names
+- Card selection is preserved across refresh when no filters are active
+- Fixed stale selection after AI analysis completes and filters auto-reset
+- Fixed progress gauge color appearing incorrectly in dark mode
+- A single failing PDF no longer aborts the entire processing run
+
 ## 0.10.0 — Dark Mode & Reliability (2026-02-25)
 
 Dark mode support, database reliability, smarter API handling, and broad quality improvements.

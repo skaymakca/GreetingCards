@@ -12,6 +12,7 @@ title: Shortcuts
 - <kbd>Cmd+R</kbd> — Rename Files
 - <kbd>Cmd+,</kbd> — Open Settings
 - <kbd>Cmd+F</kbd> — Focus search/filter field
+- <kbd>Cmd+W</kbd> — Close Help / What's New / Licenses windows
 - <kbd>Esc</kbd> — Defocus text entries or clear search
 
 ## Navigation
