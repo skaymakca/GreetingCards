@@ -6,9 +6,9 @@ with open('pyproject.toml', 'rb') as _f:
     __version__ = tomllib.load(_f)['project']['version']
 __commit__ = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode().strip()
 
-datas = [('_build/runtime_content', '_runtime_content')]
+datas = [('_build/runtime_content', '_runtime_content'), ('content/sdef/GreetingCards.sdef', '.')]
 binaries = []
-hiddenimports = []
+hiddenimports = ['AppKit', 'Foundation', 'objc']
 
 # Collect wxPython dependencies
 tmp_ret = collect_all('wx')
@@ -67,9 +67,12 @@ app = BUNDLE(
     coll,
     name='Greeting Cards.app',
     icon='_build/runtime_content/icon.icns',
-    bundle_identifier='com.greetingcards.app',
+    bundle_identifier='com.kaymakcalan.app.greetingcards',
     info_plist={
         'CFBundleShortVersionString': __version__,
         'CFBundleVersion': __commit__,
+        'NSAppleScriptEnabled': True,
+        'OSAScriptingDefinition': 'GreetingCards.sdef',
+        'NSAppleEventsUsageDescription': 'Greeting Cards supports AppleScript automation for batch processing, AI analysis, and card management.',
     },
 )

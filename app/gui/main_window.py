@@ -1,6 +1,5 @@
 """wxPython Main Window for Greeting Cards application."""
 
-import asyncio
 import logging
 import threading
 import time
@@ -12,18 +11,11 @@ import wx.adv
 
 logger = logging.getLogger(__name__)
 
-from app.core.config import get_api_key
 from app.core.constants import OCR_WORKERS
-from app.core.database import (
-    clear_ai_results,
-    set_manual_name,
-)
 from app.core.naming.rename_filter import RESOLVED_MESSAGES, filter_completed_renames
 from app.core.naming.renamer import build_rename_plan, execute_rename_plan
-from app.core.pipeline.ai_batch import run_ai_batch_async
 from app.core.pipeline.card_processor import (
     derive_folders,
-    load_card_state_from_db,
     scan_for_pdfs,
     worker_result_to_card,
 )
@@ -34,19 +26,19 @@ from app.gui.components.filter_sidebar import FilterSidebar
 from app.gui.components.preview_panel import PreviewPanel
 from app.gui.components.review_panel import ReviewPanelMasterDetail
 from app.gui.components.toolbar import ToolbarManager
-from app.gui.dialogs import CompletionDialog, ErrorListDialog, RenameConfirmDialog
-from app.gui.dialogs.api_key import show_api_key_dialog
+from app.gui.dialogs import CompletionDialog, RenameConfirmDialog
 from app.gui.dialogs.settings import create_preferences_editor, get_commit_hash
+from app.gui.main_window_mixins import AIMixin, AppleEventsMixin, FilterMixin, SelectionMixin
 from app.gui.styles import Color, Font, Layout
 from app.gui.utils import plural as _plural
-from app.models.card import CardResult, Confidence, RenameResult
+from app.models.card import CardResult, RenameResult
 
 # Alias for backward compatibility with tests that import from main_window
 _RESOLVED_MESSAGES = RESOLVED_MESSAGES
 
 
 # noinspection PyMethodMayBeStatic,PyUnusedLocal,PyTypeChecker,PyUnresolvedReferences,PyBroadException
-class MainWindow:
+class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
     """Main application window with toolbar and content panels."""
 
     def __init__(self) -> None:
@@ -258,118 +250,6 @@ class MainWindow:
     ) -> None:
         """Enable or disable action toolbar tools. Pass None to leave unchanged."""
         self._toolbar_mgr.enable_action_tools(reload=reload, ai=ai, rename=rename, clear=clear)
-
-    def _on_search_text(self, event: wx.CommandEvent) -> None:
-        """Filter cards as user types in search field."""
-        self._refresh_display()
-
-    def _on_search_cancel(self, event: wx.CommandEvent) -> None:
-        """Clear filter when cancel button clicked."""
-        self._search_ctrl.ChangeValue("")
-        self._refresh_display()
-
-    def _on_category_filter_change(self, filter_keys: list[str]) -> None:
-        """Handle sidebar category filter change.
-
-        Args:
-            filter_keys: List of selected category filters (e.g., ["high", "manual"])
-        """
-        self._current_category_filters = filter_keys
-        self._refresh_display()
-
-    def _on_folder_filter_change(self, filter_keys: list[str]) -> None:
-        """Handle sidebar folder filter change.
-
-        Args:
-            filter_keys: List of selected folder filters (e.g., ["all_folders"] or ["/path/to/dir"])
-        """
-        self._current_folder_filters = filter_keys
-        self._refresh_display()
-
-    def _refresh_display(self) -> None:
-        """Refresh sidebar counts and cards table using cross-filtered pipeline.
-
-        Re-entrancy-free: sidebar count updates may auto-reset internal filter
-        state (e.g. when all selected categories go to zero count). We sync
-        MainWindow's filter state from sidebar after count updates, then
-        recompute display. If display is still empty but search has results,
-        auto-reset checkbox filters (keep search text).
-        """
-        search_cards = self._get_search_filtered_cards()
-
-        # Capture filter state BEFORE sidebar sync / auto-reset may clear them
-        had_active_filters = self._has_active_filters()
-
-        # First pass: compute cross-filtered counts
-        folder_filtered = self._apply_folder_filters(search_cards)
-        category_filtered = self._apply_category_filters(search_cards)
-        self._sidebar.update_category_counts(folder_filtered)
-        self._sidebar.update_folder_counts(category_filtered)
-
-        # Sync filter state back (sidebar may have auto-reset empty categories/folders)
-        self._current_category_filters = self._sidebar.get_selected_category_filters()
-        self._current_folder_filters = self._sidebar.get_selected_folder_filters()
-
-        # Recompute display with synced filters
-        folder_filtered = self._apply_folder_filters(search_cards)
-        display_cards = self._apply_category_filters(folder_filtered)
-
-        # Auto-reset checkbox filters when display is empty but cards exist
-        if not display_cards and search_cards:
-            self._current_category_filters = ["all"]
-            self._current_folder_filters = self._sidebar.get_selected_folder_filters()
-            self._sidebar.set_category_filters(["all"])
-            self._sidebar.set_folder_filters(self._current_folder_filters)
-            # Recompute with reset filters
-            folder_filtered = self._apply_folder_filters(search_cards)
-            display_cards = self._apply_category_filters(folder_filtered)
-            # Update counts to reflect reset state
-            self._sidebar.update_category_counts(folder_filtered)
-            self._sidebar.update_folder_counts(display_cards)
-
-        self._review_panel.load_cards(display_cards, preserve_selection=not had_active_filters)
-
-        # Toggle overlay vs content area based on whether any cards exist at all
-        self._set_empty_state(not self._cards_by_hash)
-
-    def _has_active_filters(self) -> bool:
-        """Return True if any search or filter is narrowing the view."""
-        if self._search_ctrl.GetValue().strip():
-            return True
-        if "all" not in self._current_category_filters:
-            return True
-        return "all_folders" not in self._current_folder_filters
-
-    def _get_search_filtered_cards(self) -> list[CardResult]:
-        """Get cards filtered by search query only."""
-        cards = list(self._cards_by_hash.values())
-        query = self._search_ctrl.GetValue().lower().strip()
-        if query:
-            cards = [c for c in cards if query in c.filename.lower() or query in c.family_name.lower()]
-        return cards
-
-    def _apply_folder_filters(self, cards: list[CardResult]) -> list[CardResult]:
-        """Apply sidebar folder filters to a card list."""
-        if "all_folders" in self._current_folder_filters:
-            return cards
-        folder_set = set(self._current_folder_filters)
-        return [c for c in cards if any(str(p.parent) in folder_set for p in c.file_paths)]
-
-    def _apply_category_filters(self, cards: list[CardResult]) -> list[CardResult]:
-        """Apply sidebar category filters to a card list."""
-        if "all" not in self._current_category_filters:
-            filtered: list[CardResult] = []
-            for filter_key in self._current_category_filters:
-                if filter_key == "manual":
-                    filtered.extend(c for c in cards if c.confidence == Confidence.MANUAL)
-                elif filter_key == "high":
-                    filtered.extend(c for c in cards if c.confidence == Confidence.HIGH)
-                elif filter_key == "needs_review":
-                    filtered.extend(c for c in cards if c.confidence in (Confidence.MEDIUM, Confidence.LOW))
-                elif filter_key == "errors":
-                    filtered.extend(c for c in cards if c.error or c.confidence == Confidence.NONE)
-            cards = list({c.id: c for c in filtered}.values())
-        return sorted(cards, key=lambda c: c.filename.lower())
 
     def _build_content_area(self) -> wx.SplitterWindow:
         """Build three-column Mail.app style layout: [sidebar | review | preview]."""
@@ -686,42 +566,6 @@ class MainWindow:
         else:
             self._show_info_message("All files up to date", wx.ICON_INFORMATION)
 
-    def _on_clear_ai_results(self, event: wx.CommandEvent) -> None:
-        """Clear AI results for selected or visible cards."""
-        if not self._cards_by_hash:
-            return
-
-        cards, scope = self._get_target_cards()
-        if not cards:
-            return
-
-        n = len(cards)
-        scope_word = "selected" if scope == "selected" else "visible"
-        result = wx.MessageBox(
-            f"This will clear AI results for {n} {scope_word} card(s).\n\n"
-            "OCR results, manual entries, and preferences preserved.\n"
-            "Cards can be re-analyzed afterwards.\n\n"
-            "Continue?",
-            "Clear AI Results",
-            wx.YES_NO | wx.ICON_QUESTION,
-            self._frame,
-        )
-        if result != wx.YES:
-            return
-
-        file_hashes = [card.file_hash for card in cards if card.file_hash]
-        changed = clear_ai_results(file_hashes)
-
-        # Reload card state from DB
-        for card in cards:
-            if card.file_hash:
-                load_card_state_from_db(card)
-
-        self._refresh_display()
-        self._show_info_message(
-            f"AI results cleared for {n} card(s). {changed} reverted to OCR names.", wx.ICON_INFORMATION
-        )
-
     def _start_processing(self, files: list[Path] | None = None) -> None:
         """Start processing PDFs in background.
 
@@ -844,249 +688,6 @@ class MainWindow:
             f"Processing complete\n{_plural(count, 'card')} loaded",
             wx.ICON_INFORMATION,
         )
-
-    def _on_card_select(self, card_id: int | None) -> None:
-        """Handle card selection - update preview panel."""
-        if card_id is None:
-            self._preview_panel.clear()
-            return
-
-        card = self._get_card_by_id(card_id)
-        if not card:
-            return
-
-        if card.error:
-            self._preview_panel.show_error(card.error, card.filename)
-        elif card.page_images:
-            self._preview_panel.show_images(card.page_images, card.filename)
-        elif card.preview_image:
-            self._preview_panel.show_images([card.preview_image], card.filename)
-        else:
-            self._preview_panel.clear()
-
-    def _on_name_change(self, card_id: int, new_name: str) -> None:
-        """Handle manual name edit in review panel."""
-        card = self._get_card_by_id(card_id)
-        if not card:
-            return
-
-        # Update card object
-        if new_name:
-            # Save original confidence before marking as manual
-            if card.confidence != Confidence.MANUAL:
-                card.original_confidence = card.confidence
-            card.confidence = Confidence.MANUAL
-            card.method = "manual"
-            card.family_name = new_name
-            card.manual_override = new_name
-            card.selected_candidate_id = None
-
-            # Save to database
-            if card.file_hash:
-                set_manual_name(card.file_hash, new_name, card.remove_family)
-        else:
-            # User cleared the name — revert to pre-manual state
-            card.manual_override = ""
-
-            # Clear manual name in database
-            if card.file_hash:
-                set_manual_name(card.file_hash, "", card.remove_family)
-
-            # Reload state from DB to get the best candidate name
-            load_card_state_from_db(card)
-
-        # Update review panel
-        self._review_panel.update_card(card_id, card)
-
-        # Debounce: restart 1-second timer on each keystroke
-        self._edit_debounce_timer.Stop()
-        self._edit_debounce_timer.StartOnce(Layout.DEBOUNCE_MS)
-
-    def _on_card_edited(self, card_id: int) -> None:
-        """Handle discrete card edits (e.g. candidate selection) that change confidence."""
-        self._refresh_display()
-
-    def _on_remove_card(self, file_hash: str) -> None:
-        """Remove a card from the in-memory table (non-destructive — does not delete files).
-
-        Args:
-            file_hash: The content hash of the card to remove
-        """
-        card = self._cards_by_hash.get(file_hash)
-        if not card:
-            return
-
-        # Remove all path → hash mappings for this card, then the card itself
-        for path in list(card.file_paths):
-            self._unlink_path(path)
-
-        # Refresh display (handles filter counts, list reload, empty state)
-        self._refresh_display()
-
-    def _on_remove_menu(self, event: wx.CommandEvent) -> None:
-        """Handle Edit > Remove — remove all selected cards."""
-        for card_id in list(self._review_panel.selected_card_ids):
-            card = self._get_card_by_id(card_id)
-            if card:
-                for path in list(card.file_paths):
-                    self._unlink_path(path)
-        self._refresh_display()
-
-    def _on_update_remove_menu(self, event: wx.UpdateUIEvent) -> None:
-        """Enable Remove menu item only when cards are selected."""
-        event.Enable(bool(self._review_panel.selected_card_ids))
-
-    def _on_edit_debounce_fire(self, event: wx.TimerEvent) -> None:
-        """Fire after user stops typing for 1 second — refresh filters."""
-        self._refresh_display()
-
-    def _ensure_api_key(self) -> bool:
-        """Check for an API key; prompt the user if missing. Returns True if a key is available."""
-        if get_api_key():
-            return True
-
-        # Show info bar with warning (no auto-dismiss for important warnings)
-        self._show_info_message(
-            "API key not configured\nUse Settings to add your Anthropic API key",
-            wx.ICON_WARNING,
-            duration_ms=0,  # Don't auto-dismiss warnings
-        )
-
-        # Also show dialog for immediate action
-        api_key = show_api_key_dialog(self._frame)
-        if api_key is not None:
-            self._sidebar.dismiss_notification()
-            return True
-
-        return False
-
-    def _get_target_cards(self) -> tuple[list[CardResult], str]:
-        """Return (cards, scope) based on selection state.
-
-        If 2+ cards are selected, returns those cards with scope "selected".
-        Otherwise, returns all visible (filtered) cards with scope "visible".
-        """
-        selected_ids = self._review_panel.selected_card_ids
-        if len(selected_ids) >= 2:
-            cards = self._review_panel.get_cards_by_ids(selected_ids)
-            return cards, "selected"
-        return self._review_panel.get_cards(), "visible"
-
-    def _on_ai_request(self, card_id: int) -> None:
-        """Handle AI button click for single card — delegates to batch path."""
-        if self._ai_batch_running:
-            return
-        card = self._get_card_by_id(card_id)
-        if not card or card.error:
-            return
-
-        if not card.page_images and not card.preview_image:
-            wx.MessageBox(
-                "No preview image available for AI analysis.", "No Image", wx.OK | wx.ICON_WARNING, self._frame
-            )
-            return
-
-        if not self._ensure_api_key():
-            return
-
-        # Disable AI button before delegating (after API key check so
-        # cancelling the key dialog doesn't leave the button stuck disabled)
-        self._review_panel.set_ai_button_state(card_id, "disabled")
-
-        self._start_ai_all(cards=[card], title="AI Analysis")
-
-    def _start_ai_all(self, cards: list[CardResult] | None = None, title: str | None = None) -> None:
-        """Start AI analysis for given cards, selected cards, or all visible cards.
-
-        Args:
-            cards: Explicit card list (e.g. single card from detail button).
-                   If None, determines scope from selection state.
-            title: Progress dialog title. If None, auto-generated from scope.
-        """
-        if not self._cards_by_hash:
-            return
-
-        if not self._ensure_api_key():
-            return
-
-        # Determine target cards and title
-        if cards is None:
-            cards, scope = self._get_target_cards()
-            n = len(cards)
-            if scope == "selected":
-                title = f"AI Analysis \u2014 {n} Selected"
-            else:
-                title = f"AI Analysis \u2014 {n} Cards"
-        elif title is None:
-            title = "AI Analysis"
-
-        if not cards:
-            return
-
-        self._ai_target_cards = cards
-        self._ai_batch_running = True
-
-        # Disable toolbar tools and lock AI buttons in review panel
-        self._enable_action_tools(reload=False, ai=False, rename=False, clear=False)
-        self._review_panel.set_ai_buttons_locked(True)
-
-        # Show progress strip
-        total = len(cards)
-        self._show_progress_strip(total, title)
-
-        # Start background thread
-        thread = threading.Thread(target=self._run_ai_all, daemon=True)
-        thread.start()
-
-    def _run_ai_all(self) -> None:
-        """Run async AI batch processing in background thread."""
-        try:
-            asyncio.run(
-                run_ai_batch_async(
-                    self._ai_target_cards,
-                    on_progress=lambda c, t, f, i, card: wx.CallAfter(self._update_ai_all_progress, c, t, f, i, card),
-                    on_complete=lambda errors, aborted: wx.CallAfter(self._ai_all_complete, errors, aborted),
-                )
-            )
-        except Exception as e:
-            error_msg = str(e)
-            logger.error("AI batch processing failed: %s", error_msg)
-            wx.CallAfter(self._ai_all_complete, [("Batch", error_msg)])
-        except BaseException:
-            # Ensure flag is always cleared (e.g. KeyboardInterrupt, SystemExit)
-            wx.CallAfter(self._ai_all_complete, [])
-            raise
-
-    def _update_ai_all_progress(
-        self, completed: int, total: int, filename: str, card_id: int, card: CardResult | None
-    ) -> None:
-        """Update progress during batch AI processing."""
-        self._update_progress_strip(completed, f"AI analyzing: {filename}")
-
-        if card is not None:
-            self._review_panel.update_card(card_id, card)
-
-    def _ai_all_complete(self, errors: list[tuple[str, str]], auth_aborted: bool = False) -> None:
-        """Called when batch AI processing completes."""
-        self._ai_batch_running = False
-        self._hide_progress_strip()
-
-        # Unlock AI buttons in review panel and re-enable toolbar tools
-        self._review_panel.set_ai_buttons_locked(False)
-        self._enable_action_tools(reload=True, ai=True, rename=True, clear=True)
-
-        # Update sidebar counts and cards table (confidence levels may have changed)
-        self._refresh_display()
-
-        if errors:
-            suffix = " (auth error)" if auth_aborted else " (with errors)"
-            dialog = ErrorListDialog(self._frame, f"AI Analysis{suffix}", errors, auth_aborted)
-            dialog.ShowModal()
-            dialog.Destroy()
-        else:
-            # Show success message with auto-dismiss
-            count = len(self._ai_target_cards) or len(self._cards_by_hash)
-            self._show_info_message(f"Analysis complete\n{_plural(count, 'card')} analyzed", wx.ICON_INFORMATION)
 
     def _start_rename(self) -> None:
         """Start rename workflow."""

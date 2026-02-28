@@ -1518,7 +1518,7 @@ def test_on_name_change_revert_to_original(wx_app):
     )
 
     with (
-        patch("app.gui.main_window.set_manual_name"),
+        patch("app.gui.main_window_mixins.selection_mixin.set_manual_name"),
         patch("app.core.pipeline.card_processor.get_card_state", return_value=mock_state),
     ):
         window._on_name_change(0, "")
@@ -1560,7 +1560,7 @@ def test_on_name_change_revert_ai_analyzed(wx_app):
     )
 
     with (
-        patch("app.gui.main_window.set_manual_name"),
+        patch("app.gui.main_window_mixins.selection_mixin.set_manual_name"),
         patch("app.core.pipeline.card_processor.get_card_state", return_value=mock_state),
     ):
         window._on_name_change(0, "")
@@ -1588,7 +1588,7 @@ def test_on_name_change_revert_no_original_confidence(wx_app):
     window._hash_by_path = {Path("/test/card.pdf"): "h1"}
 
     with (
-        patch("app.gui.main_window.set_manual_name"),
+        patch("app.gui.main_window_mixins.selection_mixin.set_manual_name"),
         patch("app.core.pipeline.card_processor.get_card_state", return_value=None),
     ):
         window._on_name_change(0, "")
@@ -1991,7 +1991,7 @@ def test_on_name_change_missing_card(wx_app):
     from unittest.mock import patch
 
     window = MainWindow()
-    with patch("app.gui.main_window.set_manual_name") as mock_db:
+    with patch("app.gui.main_window_mixins.selection_mixin.set_manual_name") as mock_db:
         window._on_name_change(999, "Smith")
         mock_db.assert_not_called()
 
@@ -3301,8 +3301,8 @@ def test_on_clear_ai_results_confirm_clear_refresh(wx_app):
 
     with (
         patch("app.gui.main_window.wx.MessageBox", return_value=wx.YES) as mock_msg_box,
-        patch("app.gui.main_window.clear_ai_results", return_value=1) as mock_clear,
-        patch("app.gui.main_window.load_card_state_from_db") as mock_reload,
+        patch("app.gui.main_window_mixins.ai_mixin.clear_ai_results", return_value=1) as mock_clear,
+        patch("app.gui.main_window_mixins.ai_mixin.load_card_state_from_db") as mock_reload,
         patch.object(window, "_refresh_display") as mock_refresh,
         patch.object(window, "_show_info_message") as mock_info,
     ):
@@ -3334,7 +3334,7 @@ def test_on_clear_ai_results_cancelled_does_nothing(wx_app):
 
     with (
         patch("app.gui.main_window.wx.MessageBox", return_value=wx.NO),
-        patch("app.gui.main_window.clear_ai_results") as mock_clear,
+        patch("app.gui.main_window_mixins.ai_mixin.clear_ai_results") as mock_clear,
     ):
         window._on_clear_ai_results(wx.CommandEvent())
         mock_clear.assert_not_called()
@@ -3438,7 +3438,7 @@ def test_ensure_api_key_returns_true_when_key_exists(wx_app):
 
     window = MainWindow()
 
-    with patch("app.gui.main_window.get_api_key", return_value="sk-test-key"):
+    with patch("app.gui.main_window_mixins.ai_mixin.get_api_key", return_value="sk-test-key"):
         assert window._ensure_api_key() is True
 
     window._frame.Destroy()
@@ -3451,9 +3451,9 @@ def test_ensure_api_key_shows_warning_and_dialog_when_no_key(wx_app):
     window = MainWindow()
 
     with (
-        patch("app.gui.main_window.get_api_key", return_value=""),
+        patch("app.gui.main_window_mixins.ai_mixin.get_api_key", return_value=""),
         patch.object(window, "_show_info_message") as mock_info,
-        patch("app.gui.main_window.show_api_key_dialog", return_value=None) as mock_dialog,
+        patch("app.gui.main_window_mixins.ai_mixin.show_api_key_dialog", return_value=None) as mock_dialog,
     ):
         result = window._ensure_api_key()
         assert result is False
@@ -3471,9 +3471,9 @@ def test_ensure_api_key_returns_true_after_dialog_entry(wx_app):
     window = MainWindow()
 
     with (
-        patch("app.gui.main_window.get_api_key", return_value=""),
+        patch("app.gui.main_window_mixins.ai_mixin.get_api_key", return_value=""),
         patch.object(window, "_show_info_message"),
-        patch("app.gui.main_window.show_api_key_dialog", return_value="sk-new-key"),
+        patch("app.gui.main_window_mixins.ai_mixin.show_api_key_dialog", return_value="sk-new-key"),
     ):
         result = window._ensure_api_key()
         assert result is True
@@ -3669,7 +3669,7 @@ def test_ai_all_complete_re_enables_tools_shows_errors(wx_app):
     window._show_progress_strip(1, "Testing...")
 
     with (
-        patch("app.gui.main_window.ErrorListDialog") as mock_dialog_cls,
+        patch("app.gui.main_window_mixins.ai_mixin.ErrorListDialog") as mock_dialog_cls,
         patch.object(window, "_refresh_display"),
     ):
         mock_dialog = MagicMock()

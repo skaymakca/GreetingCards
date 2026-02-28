@@ -48,6 +48,8 @@ addopts = [
 ]
 markers = [
     "display: Tests that need a real display server (skipped in headless CI)",
+    "integration: End-to-end tests requiring built app bundle",
+    "applescript: Tests that send Apple Events via osascript",
 ]
 filterwarnings = [
     "ignore:builtin type .* has no __module__:DeprecationWarning",
