@@ -330,10 +330,14 @@ class TestRegistration:
 
 
 def _make_event(
-    direct: str | None = None, new_name: str | None = None, rank: int | None = None, new_value: bool | None = None
+    direct: str | None = None,
+    new_name: str | None = None,
+    rank: int | None = None,
+    new_value: bool | None = None,
+    year: str | None = None,
 ) -> MagicMock:
     """Build a mock Apple Event descriptor with given param values."""
-    from app.core.apple_events import _K_AE_DIRECT_OBJECT, _K_NEW_NAME, _K_NEW_VALUE, _K_RANK
+    from app.core.apple_events import _K_AE_DIRECT_OBJECT, _K_NEW_NAME, _K_NEW_VALUE, _K_RANK, _K_YEAR
 
     def param_descriptor(keyword):
         if keyword == _K_AE_DIRECT_OBJECT and direct is not None:
@@ -344,6 +348,8 @@ def _make_event(
             return _make_descriptor(int32_value=rank)
         if keyword == _K_NEW_VALUE and new_value is not None:
             return _make_descriptor(boolean_value=new_value)
+        if keyword == _K_YEAR and year is not None:
+            return _make_descriptor(string_value=year)
         return None
 
     event = MagicMock()
@@ -456,3 +462,179 @@ class TestHandlerSetModel:
             handler.handleSetModel_reply_(event, reply)
         result = json.loads(mock_reply.call_args[0][1])
         assert result["success"] is True
+
+
+# ── Handler: rename card ─────────────────────────────────────────────────
+
+
+class TestHandlerRenameCard:
+    """Tests for handleRenameCard_reply_."""
+
+    @pytest.fixture
+    def handler(self):
+        return AppleEventHandler.alloc().initWithWindow_(MagicMock())
+
+    def test_missing_filename(self, handler):
+        event = _make_event(new_name="Smith")  # no direct/filename
+        reply = MagicMock()
+        with patch("app.core.apple_events._set_text_reply") as mock_reply:
+            handler.handleRenameCard_reply_(event, reply)
+        mock_reply.assert_called_once()
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is False
+        assert "error" in result
+
+    def test_missing_name(self, handler):
+        event = _make_event(direct="test.pdf")  # no new_name
+        reply = MagicMock()
+        with patch("app.core.apple_events._set_text_reply") as mock_reply:
+            handler.handleRenameCard_reply_(event, reply)
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is False
+
+    def test_delegates_to_window(self, handler):
+        expected = {"success": True, "new_filename": "Smith 2025.pdf"}
+        handler._window.rename_card_for_script.return_value = expected
+        event = _make_event(direct="test.pdf", new_name="Smith", year="2025")
+        reply = MagicMock()
+        with patch("app.core.apple_events._set_text_reply") as mock_reply:
+            handler.handleRenameCard_reply_(event, reply)
+        handler._window.rename_card_for_script.assert_called_once_with("test.pdf", "Smith", "2025")
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is True
+        assert result["new_filename"] == "Smith 2025.pdf"
+
+
+# ── Handler: reload ──────────────────────────────────────────────────────
+
+
+class TestHandlerReload:
+    """Tests for handleReload_reply_."""
+
+    @pytest.fixture
+    def handler(self):
+        return AppleEventHandler.alloc().initWithWindow_(MagicMock())
+
+    def test_delegates_to_window(self, handler):
+        with (
+            patch("app.core.apple_events._call_on_main_thread", return_value={"success": True, "changed": False}),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleReload_reply_(MagicMock(), MagicMock())
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is True
+
+    def test_timeout_returns_error(self, handler):
+        with (
+            patch("app.core.apple_events._call_on_main_thread", return_value=None),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleReload_reply_(MagicMock(), MagicMock())
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is False
+        assert "timeout" in result["error"].lower()
+
+
+# ── Handler: clear all ───────────────────────────────────────────────────
+
+
+class TestHandlerClearAll:
+    """Tests for handleClearAll_reply_."""
+
+    @pytest.fixture
+    def handler(self):
+        return AppleEventHandler.alloc().initWithWindow_(MagicMock())
+
+    def test_delegates_to_window(self, handler):
+        with (
+            patch("app.core.apple_events._call_on_main_thread", return_value={"success": True}),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleClearAll_reply_(MagicMock(), MagicMock())
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is True
+
+    def test_timeout_returns_error(self, handler):
+        with (
+            patch("app.core.apple_events._call_on_main_thread", return_value=None),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleClearAll_reply_(MagicMock(), MagicMock())
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is False
+        assert "timeout" in result["error"].lower()
+
+
+# ── Handler: analyze cards ───────────────────────────────────────────────
+
+
+class TestHandlerAnalyzeCards:
+    """Tests for handleAnalyzeCards_reply_."""
+
+    @pytest.fixture
+    def handler(self):
+        return AppleEventHandler.alloc().initWithWindow_(MagicMock())
+
+    def test_delegates_to_window(self, handler):
+        expected = {"success": True, "queued": 1}
+        with (
+            patch("app.core.apple_events._call_on_main_thread", return_value=expected) as mock_call,
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleAnalyzeCards_reply_(_make_event(direct="test.pdf"), MagicMock())
+        # Verify the inner function calls analyze_for_script with the filename
+        mock_call.assert_called_once()
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is True
+
+    def test_no_filename_passes_none(self, handler):
+        captured: list = []
+
+        def capture_fn(fn):
+            captured.append(fn)
+            return fn()
+
+        handler._window.analyze_for_script.return_value = {"success": True, "queued": 0}
+        with (
+            patch("app.core.apple_events._call_on_main_thread", side_effect=capture_fn),
+            patch("app.core.apple_events._set_text_reply"),
+        ):
+            handler.handleAnalyzeCards_reply_(_make_event(), MagicMock())
+        handler._window.analyze_for_script.assert_called_once_with(None)
+
+
+# ── Handler: clear AI results ────────────────────────────────────────────
+
+
+class TestHandlerClearAiResults:
+    """Tests for handleClearAiResults_reply_."""
+
+    @pytest.fixture
+    def handler(self):
+        return AppleEventHandler.alloc().initWithWindow_(MagicMock())
+
+    def test_delegates_to_window(self, handler):
+        expected = {"success": True, "cleared": 1}
+        with (
+            patch("app.core.apple_events._call_on_main_thread", return_value=expected) as mock_call,
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleClearAiResults_reply_(_make_event(direct="test.pdf"), MagicMock())
+        mock_call.assert_called_once()
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is True
+
+    def test_no_filename_passes_none(self, handler):
+        captured: list = []
+
+        def capture_fn(fn):
+            captured.append(fn)
+            return fn()
+
+        handler._window.clear_ai_for_script.return_value = {"success": True, "cleared": 0}
+        with (
+            patch("app.core.apple_events._call_on_main_thread", side_effect=capture_fn),
+            patch("app.core.apple_events._set_text_reply"),
+        ):
+            handler.handleClearAiResults_reply_(_make_event(), MagicMock())
+        handler._window.clear_ai_for_script.assert_called_once_with(None)

@@ -235,7 +235,7 @@ tests/
 
 ### Current Coverage
 
-- **2057 tests** covering core logic, GUI components, and scripts
+- **2068 tests** covering core logic, GUI components, and scripts
 - **Core** (pipeline/, naming/, content/ sub-packages + top-level): AI analysis, AI batch, card model, card processor,
   changelog, changelog models, config, database, family name cleaning, family name data, family name formatting,
   filename safety, help builder, license HTML, license models, license sync, name extraction, OCR engine, paths,
