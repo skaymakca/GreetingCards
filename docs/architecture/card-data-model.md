@@ -2,7 +2,7 @@
 
 CardResult lifecycle, content-based deduplication, and state management.
 
-**Key files:** `app/models/card.py`, `app/core/card_store.py` (in-memory state), `app/core/card_service.py` (mutations + DB persistence), `app/core/database.py` (DB models)
+**Key files:** `app/models/card.py`, `app/core/card_store.py` (in-memory state), `app/core/card_service.py` (mutations + DB persistence), `app/core/rename_service.py` (rename orchestration), `app/core/processing_service.py` (PDF processing orchestration), `app/core/database.py` (DB models)
 
 ## Core Data Structures
 
@@ -101,12 +101,15 @@ CardStore
 
 **Mutations** (thread-safe via internal lock): `add_or_update()`, `register_new_pdfs()`, `unlink_path()`, `update_path_mapping()`, `clear()`
 
+**Composite operations** (main thread): `filter_and_register(pdf_paths)` — filters out already-loaded paths, registers new ones, returns `(new_pdfs, skipped_pdfs)`. `compute_reload_diff(mtime_only)` — iterates loaded paths, detects deletions and content modifications, returns `(deleted_paths, modified_paths)` with side effects (unlinking deleted, detaching modified).
+
 ## CardService — Mutations + DB Persistence
 
 `CardService` (`app/core/card_service.py`) orchestrates card field mutations with database persistence. Each method combines in-memory updates on the CardResult with DB calls, ensuring the two stay in sync. Runs exclusively on the main (UI) thread.
 
 ```
 CardService
+├── reset()                              # Reset database + clear in-memory state
 ├── set_name(card_id, name)              # Manual name override + DB persist
 ├── select_candidate(card_id, cand_id)   # Select candidate + DB persist
 ├── select_candidate_by_rank(card_id, rank)  # By 1-based rank
@@ -115,6 +118,30 @@ CardService
 ```
 
 **Why separate from CardStore:** CardStore is a pure in-memory container with thread-safety concerns (background PDF worker). CardService handles business operations that require database access and runs only on the main thread — no locking needed.
+
+## RenameService — Rename Orchestration
+
+`RenameService` (`app/core/rename_service.py`) consolidates rename execution and path-mapping updates that were previously duplicated in MainWindow and AppleEventsMixin.
+
+```
+RenameService
+├── execute(plan)            # Execute rename plan + update store path mappings
+└── rename_card(card, name, year)  # Single-card rename for Apple Events scripting
+```
+
+`execute()` calls `execute_rename_plan()` then updates `CardStore.update_path_mapping()` for each resolved result. `rename_card()` temporarily sets the card's `manual_override`, builds a plan, executes it, and rolls back on total failure.
+
+## ProcessingService — PDF Processing Orchestration
+
+`ProcessingService` (`app/core/processing_service.py`) manages the `ProcessPoolExecutor` lifecycle and worker dispatch. Zero wxPython dependency — the caller wraps callbacks with `wx.CallAfter`.
+
+```
+ProcessingService
+└── process_files(files, on_progress, on_complete)
+        # Runs synchronously in calling thread
+        # Caller is responsible for launching background thread
+        # Calls store.add_or_update() for each result
+```
 
 ## Content-Based Deduplication
 
@@ -167,9 +194,8 @@ PDF file on disk
 
 Cards accumulate from multiple sources. `_load_paths()`:
 - Scans paths recursively for PDFs
-- Filters out already-loaded paths via `CardStore.has_path()`
-- Registers new PDFs via `CardStore.register_new_pdfs()`, does NOT clear existing cards
-- Processes only new PDFs
+- Calls `CardStore.filter_and_register()` to separate new vs already-loaded paths and register new ones
+- Processes only new PDFs via `ProcessingService`
 
 `_clear_all()` resets everything — calls `CardStore.clear()`, resets sidebar, preview. Also triggered by the Clear toolbar button.
 
@@ -177,7 +203,7 @@ Cards accumulate from multiple sources. `_load_paths()`:
 
 ### Reload
 
-`_reload_cards()` re-checks all currently loaded paths without scanning folders for new files. It runs a diff against the CardStore's `_hash_by_path` snapshot:
+`_reload_cards()` re-checks all currently loaded paths without scanning folders for new files. It delegates to `CardStore.compute_reload_diff()` which runs a diff against the `_hash_by_path` snapshot:
 
 1. **Deleted files** (path no longer exists) — path is removed via `CardStore.unlink_path()`. If the card has no remaining paths, it's removed from `_cards_by_hash`.
 2. **Modified files** (path exists, `compute_file_hash()` returns a different hash) — the path is detached from the old card (same cleanup as deletion), then added to a reprocessing list.
@@ -191,7 +217,7 @@ Triggered by: File > Reload (Cmd+Shift+R), toolbar Reload button, or automatical
 
 ## Rename Flow
 
-After renaming, `CardStore.update_path_mapping()` is called to map new paths to the same hash, updating `_hash_by_path`, `_mtime_by_path`, `_pdf_files`, and the card's `file_paths`.
+After renaming, `RenameService.execute()` calls `CardStore.update_path_mapping()` for each resolved result, updating `_hash_by_path`, `_mtime_by_path`, `_pdf_files`, and the card's `file_paths`.
 
 ### Post-Rename Selective Removal
 After the completion dialog, `_remove_completed_results()` selectively cleans up:

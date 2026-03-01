@@ -703,3 +703,129 @@ class TestEdgeCases:
         assert is_new is True
         assert card.id == 0
         assert store.count == 1
+
+
+class TestFilterAndRegister:
+    """Tests for filter_and_register."""
+
+    def test_separates_new_and_existing_paths(self) -> None:
+        store = CardStore()
+        wr = _make_worker_result(pdf_path="/tmp/existing.pdf", file_hash="hash1")
+        store.add_or_update(wr, Path("/tmp/existing.pdf"))
+
+        new_pdfs, skipped = store.filter_and_register([Path("/tmp/existing.pdf"), Path("/tmp/new.pdf")])
+
+        assert new_pdfs == [Path("/tmp/new.pdf")]
+        assert skipped == [Path("/tmp/existing.pdf")]
+
+    def test_registers_new_pdfs(self) -> None:
+        store = CardStore()
+        new_pdfs, skipped = store.filter_and_register([Path("/tmp/a.pdf"), Path("/tmp/b.pdf")])
+
+        assert new_pdfs == [Path("/tmp/a.pdf"), Path("/tmp/b.pdf")]
+        assert skipped == []
+
+    def test_empty_input(self) -> None:
+        store = CardStore()
+        new_pdfs, skipped = store.filter_and_register([])
+
+        assert new_pdfs == []
+        assert skipped == []
+
+    def test_all_already_loaded(self) -> None:
+        store = CardStore()
+        wr1 = _make_worker_result(pdf_path="/tmp/a.pdf", file_hash="h1")
+        wr2 = _make_worker_result(pdf_path="/tmp/b.pdf", file_hash="h2")
+        store.add_or_update(wr1, Path("/tmp/a.pdf"))
+        store.add_or_update(wr2, Path("/tmp/b.pdf"))
+
+        new_pdfs, skipped = store.filter_and_register([Path("/tmp/a.pdf"), Path("/tmp/b.pdf")])
+
+        assert new_pdfs == []
+        assert skipped == [Path("/tmp/a.pdf"), Path("/tmp/b.pdf")]
+
+
+class TestComputeReloadDiff:
+    """Tests for compute_reload_diff."""
+
+    def test_detects_deleted_files(self, tmp_path: Path) -> None:
+        """Deleted files should be returned and unlinked from the store."""
+        store = CardStore()
+        pdf_file = tmp_path / "card.pdf"
+        pdf_file.write_bytes(b"%PDF-1.4 test")
+
+        wr = _make_worker_result(pdf_path=str(pdf_file), file_hash="hash1")
+        store.add_or_update(wr, pdf_file)
+
+        # Delete the file
+        pdf_file.unlink()
+
+        deleted, modified = store.compute_reload_diff()
+
+        assert deleted == [pdf_file]
+        assert modified == []
+        assert store.count == 0  # Should have been unlinked
+
+    def test_detects_modified_files(self, tmp_path: Path) -> None:
+        """Files with changed content should be returned as modified."""
+        store = CardStore()
+        pdf_file = tmp_path / "card.pdf"
+        pdf_file.write_bytes(b"%PDF-1.4 original")
+
+        wr = _make_worker_result(pdf_path=str(pdf_file), file_hash="original_hash")
+        store.add_or_update(wr, pdf_file)
+
+        # Modify the file content (hash will differ)
+        pdf_file.write_bytes(b"%PDF-1.4 modified content")
+
+        deleted, modified = store.compute_reload_diff()
+
+        assert deleted == []
+        assert modified == [pdf_file]
+        # Path should have been detached from old card
+        assert store.get_hash_for_path(pdf_file) is None
+
+    def test_unchanged_files_skipped(self, tmp_path: Path) -> None:
+        """Unchanged files should not appear in either list."""
+        from app.core.database import compute_file_hash
+
+        store = CardStore()
+        pdf_file = tmp_path / "card.pdf"
+        pdf_file.write_bytes(b"%PDF-1.4 test")
+        real_hash = compute_file_hash(pdf_file)
+
+        wr = _make_worker_result(pdf_path=str(pdf_file), file_hash=real_hash)
+        store.add_or_update(wr, pdf_file)
+
+        deleted, modified = store.compute_reload_diff()
+
+        assert deleted == []
+        assert modified == []
+        assert store.count == 1  # Still there
+
+    def test_mtime_prefilter_skips_unchanged_mtime(self, tmp_path: Path) -> None:
+        """With mtime_only=True, files with unchanged mtime should be skipped."""
+        from app.core.database import compute_file_hash
+
+        store = CardStore()
+        pdf_file = tmp_path / "card.pdf"
+        pdf_file.write_bytes(b"%PDF-1.4 test")
+        real_hash = compute_file_hash(pdf_file)
+
+        wr = _make_worker_result(pdf_path=str(pdf_file), file_hash=real_hash)
+        store.add_or_update(wr, pdf_file)
+
+        # mtime hasn't changed, so should be skipped
+        deleted, modified = store.compute_reload_diff(mtime_only=True)
+
+        assert deleted == []
+        assert modified == []
+
+    def test_empty_store(self) -> None:
+        """Empty store should return empty lists."""
+        store = CardStore()
+
+        deleted, modified = store.compute_reload_diff()
+
+        assert deleted == []
+        assert modified == []

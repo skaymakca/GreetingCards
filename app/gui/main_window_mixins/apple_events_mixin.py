@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.core.config import get_ai_model, get_api_key
-from app.core.naming.rename_filter import RESOLVED_MESSAGES
-from app.core.naming.renamer import build_rename_plan, execute_rename_plan
 from app.core.pipeline.card_processor import scan_for_pdfs
 from app.gui.main_window_mixins._protocol import MainWindowProtocol
 from app.models.card import CardResult
@@ -56,18 +54,13 @@ class AppleEventsMixin:
 
     def load_paths_for_script(self: MainWindowProtocol, paths: list[str]) -> dict:
         """Load PDFs from file/folder paths. Returns JSON dict with success and count."""
-        path_objects = [Path(p) for p in paths]
-
-        # Scan all paths for PDFs
         all_pdfs: list[Path] = []
-        for path in path_objects:
-            all_pdfs.extend(scan_for_pdfs(path))
+        for p in paths:
+            all_pdfs.extend(scan_for_pdfs(Path(p)))
 
-        # Filter already loaded
-        new_pdfs = [p for p in all_pdfs if not self._card_store.has_path(p)]
+        new_pdfs, _ = self._card_store.filter_and_register(all_pdfs)
 
         if new_pdfs:
-            self._card_store.register_new_pdfs(new_pdfs)
             self._start_processing(new_pdfs)
 
         return {"success": True, "count": len(new_pdfs)}
@@ -82,28 +75,7 @@ class AppleEventsMixin:
         if not year_str or not year_str.isdigit() or len(year_str) != 4:
             return {"success": False, "old_path": "", "new_path": "", "error": f"Invalid year: {year_str}"}
 
-        # Temporarily set the card's display name for rename
-        old_override = card.manual_override
-        old_family = card.family_name
-        old_method = card.method
-        old_confidence = card.confidence
-
-        card.manual_override = new_name
-
-        plan = build_rename_plan([card], year_str)
-        results = execute_rename_plan(plan)
-
-        # Update tracking dicts for successful renames
-        for result in results:
-            if result.success and result.message in RESOLVED_MESSAGES:
-                self._card_store.update_path_mapping(result.old_path, result.new_path)
-
-        # Restore override if rename didn't use it (e.g. skip)
-        if not any(r.success for r in results):
-            card.manual_override = old_override
-            card.family_name = old_family
-            card.method = old_method
-            card.confidence = old_confidence
+        results = self._rename_service.rename_card(card, new_name, year_str)
 
         self._refresh_display()
 

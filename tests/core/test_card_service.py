@@ -396,3 +396,23 @@ class TestClearAiResults:
         assert result == 0
         mock_clear.assert_called_once_with([])  # type: ignore[union-attr]
         mock_load.assert_not_called()  # type: ignore[union-attr]
+
+
+# ── reset ──
+
+
+class TestReset:
+    """Tests for CardService.reset()."""
+
+    @patch("app.core.database.reset_database")
+    def test_reset_clears_store_and_db(self, mock_reset_db: object) -> None:
+        """reset() should call reset_database() and clear the store."""
+        card = _make_card()
+        store, service = _make_store_and_service(card)
+        assert store.count == 1
+
+        service.reset()
+
+        mock_reset_db.assert_called_once()  # type: ignore[union-attr]
+        assert store.count == 0
+        assert store.is_empty

@@ -37,12 +37,11 @@ def test_folder_state_management(wx_app):
 
 
 def test_year_default_value(wx_app):
-    """Test year field defaults to last year."""
+    """Test year control defaults to last year."""
     from datetime import datetime
 
     window = MainWindow()
     expected_year = datetime.now().year - 1
-    assert window._year == expected_year
     assert window._year_ctrl.GetValue() == str(expected_year)
     window._frame.Destroy()
 
@@ -2081,22 +2080,22 @@ def test_load_sf_symbol_bad_image_caches_none(wx_app):
 
 
 class TestResolvedMessages:
-    """Tests for _RESOLVED_MESSAGES constant used in hash mapping."""
+    """Tests for RESOLVED_MESSAGES constant used in hash mapping."""
 
     def test_resolved_messages_contains_renamed(self):
-        from app.gui.main_window import _RESOLVED_MESSAGES
+        from app.core.naming.rename_filter import RESOLVED_MESSAGES
 
-        assert "Renamed" in _RESOLVED_MESSAGES
+        assert "Renamed" in RESOLVED_MESSAGES
 
     def test_resolved_messages_contains_already_named(self):
-        from app.gui.main_window import _RESOLVED_MESSAGES
+        from app.core.naming.rename_filter import RESOLVED_MESSAGES
 
-        assert "Already named correctly" in _RESOLVED_MESSAGES
+        assert "Already named correctly" in RESOLVED_MESSAGES
 
     def test_resolved_messages_size(self):
-        from app.gui.main_window import _RESOLVED_MESSAGES
+        from app.core.naming.rename_filter import RESOLVED_MESSAGES
 
-        assert len(_RESOLVED_MESSAGES) == 2
+        assert len(RESOLVED_MESSAGES) == 2
 
 
 # ============================================================================
@@ -3760,7 +3759,7 @@ def test_on_rename_execute_plan_update_paths(wx_app):
     with (
         patch("app.gui.main_window.build_rename_plan", return_value=[MagicMock()]),
         patch("app.gui.main_window.RenameConfirmDialog") as mock_confirm_cls,
-        patch("app.gui.main_window.execute_rename_plan", return_value=results),
+        patch("app.core.rename_service.execute_rename_plan", return_value=results),
         patch("app.gui.main_window.CompletionDialog") as mock_completion_cls,
         patch.object(window, "_remove_completed_results") as mock_remove,
     ):

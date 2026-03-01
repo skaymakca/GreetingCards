@@ -506,7 +506,6 @@ class DetailPanel(wx.Panel):
             return
 
         new_name = self._name_text.GetValue()
-        self._current_card.manual_override = new_name
 
         if self._on_name_change:
             self._on_name_change(self._current_card.id, new_name)
@@ -517,7 +516,6 @@ class DetailPanel(wx.Panel):
             return
 
         new_value = self._remove_family_check.GetValue()
-        self._current_card.remove_family = new_value
 
         if self._on_checkbox_toggle:
             self._on_checkbox_toggle(self._current_card.id, new_value)

@@ -23,6 +23,13 @@ class CardService:
     def __init__(self, store: CardStore) -> None:
         self._store = store
 
+    def reset(self) -> None:
+        """Reset database and clear in-memory state."""
+        from app.core.database import reset_database
+
+        reset_database()
+        self._store.clear()
+
     def set_name(self, card_id: int, name: str) -> CardResult | None:
         """Set or clear a manual name override on a card.
 

@@ -290,8 +290,8 @@ class TestRenameCardForScript:
         mock_result = RenameResult(old_path, new_path, True, "Renamed", card=card)
 
         with (
-            patch("app.gui.main_window_mixins.apple_events_mixin.build_rename_plan"),
-            patch("app.gui.main_window_mixins.apple_events_mixin.execute_rename_plan", return_value=[mock_result]),
+            patch("app.core.rename_service.build_rename_plan"),
+            patch("app.core.rename_service.execute_rename_plan", return_value=[mock_result]),
         ):
             result = window.rename_card_for_script("test.pdf", "Smith", "2025")
 
@@ -307,8 +307,8 @@ class TestRenameCardForScript:
         mock_result = RenameResult(card.primary_path, Path("/tmp/out.pdf"), True, "Renamed", card=card)
 
         with (
-            patch("app.gui.main_window_mixins.apple_events_mixin.build_rename_plan") as mock_plan,
-            patch("app.gui.main_window_mixins.apple_events_mixin.execute_rename_plan", return_value=[mock_result]),
+            patch("app.core.rename_service.build_rename_plan") as mock_plan,
+            patch("app.core.rename_service.execute_rename_plan", return_value=[mock_result]),
         ):
             window.rename_card_for_script("test.pdf", "Smith", "2024")
             # Verify build_rename_plan was called with the custom year
@@ -323,8 +323,8 @@ class TestRenameCardForScript:
         mock_result = RenameResult(card.primary_path, Path("/tmp/out.pdf"), False, "Permission denied", card=card)
 
         with (
-            patch("app.gui.main_window_mixins.apple_events_mixin.build_rename_plan"),
-            patch("app.gui.main_window_mixins.apple_events_mixin.execute_rename_plan", return_value=[mock_result]),
+            patch("app.core.rename_service.build_rename_plan"),
+            patch("app.core.rename_service.execute_rename_plan", return_value=[mock_result]),
         ):
             result = window.rename_card_for_script("test.pdf", "Smith", "2025")
 

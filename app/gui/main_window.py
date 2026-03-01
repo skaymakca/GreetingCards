@@ -13,14 +13,14 @@ logger = logging.getLogger(__name__)
 
 from app.core.card_service import CardService
 from app.core.card_store import CardStore
-from app.core.constants import OCR_WORKERS
-from app.core.naming.rename_filter import RESOLVED_MESSAGES, filter_completed_renames
-from app.core.naming.renamer import build_rename_plan, execute_rename_plan
+from app.core.naming.rename_filter import filter_completed_renames
+from app.core.naming.renamer import build_rename_plan
 from app.core.pipeline.card_processor import (
     derive_folders,
     scan_for_pdfs,
 )
-from app.core.pipeline.pdf_worker import process_pdf_worker
+from app.core.processing_service import ProcessingService
+from app.core.rename_service import RenameService
 from app.gui.components.drop_target import DropOverlay as _DropOverlay
 from app.gui.components.drop_target import FileDropTarget
 from app.gui.components.filter_sidebar import FilterSidebar
@@ -33,9 +33,6 @@ from app.gui.main_window_mixins import AIMixin, AppleEventsMixin, FilterMixin, S
 from app.gui.styles import Color, Font, Layout
 from app.gui.utils import plural as _plural
 from app.models.card import CardResult, RenameResult
-
-# Alias for backward compatibility with tests that import from main_window
-_RESOLVED_MESSAGES = RESOLVED_MESSAGES
 
 
 # noinspection PyMethodMayBeStatic,PyUnusedLocal,PyTypeChecker,PyUnresolvedReferences,PyBroadException
@@ -50,7 +47,8 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         # State - Content-based deduplication (multi-load architecture)
         self._card_store = CardStore()
         self._card_service = CardService(self._card_store)
-        self._year = datetime.now().year - 1
+        self._rename_service = RenameService(self._card_store)
+        self._processing_service = ProcessingService(self._card_store)
         self._current_category_filters = ["all"]  # Current sidebar category filters
         self._current_folder_filters = ["all_folders"]  # Current sidebar folder filters
         self._ai_target_cards: list[CardResult] = []  # Cards for current AI batch
@@ -380,26 +378,14 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
             auto_process: Whether to start processing immediately
         """
         # 1. Scan all paths for PDFs (recursive for folders)
-        all_pdfs = []
+        all_pdfs: list[Path] = []
         for path in paths:
             all_pdfs.extend(scan_for_pdfs(path))
 
-        # 2. Filter out already-loaded paths (same path won't load twice)
-        new_pdfs = []
-        skipped_pdfs = []
+        # 2. Filter + register via CardStore
+        new_pdfs, skipped_pdfs = self._card_store.filter_and_register(all_pdfs)
 
-        for pdf_path in all_pdfs:
-            if self._card_store.has_path(pdf_path):
-                # This exact path is already loaded (regardless of content)
-                skipped_pdfs.append(pdf_path)
-            else:
-                # New path - will process and check hash later
-                new_pdfs.append(pdf_path)
-
-        # 3. Update state (accumulate, don't replace)
-        self._card_store.register_new_pdfs(new_pdfs)
-
-        # 4. Show feedback
+        # 3. Show feedback
         if new_pdfs or skipped_pdfs:
             msg = f"Found {_plural(len(new_pdfs), 'new PDF')}"
             if skipped_pdfs:
@@ -438,9 +424,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
     def _on_reset_database(self) -> None:
         """Handle database reset from preferences — reset DB then clear UI."""
-        from app.core.database import reset_database
-
-        reset_database()
+        self._card_service.reset()
         self._clear_all()
 
     def _unlink_path(self, path: Path) -> None:
@@ -460,44 +444,13 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
                 still fall through to hash comparison.
                 When False (manual reload), every file is hash-checked.
         """
-        from app.core.database import compute_file_hash
-
         if not self._card_store.has_paths:
             return
 
         # Update cooldown timestamp (prevents rapid re-triggers from EVT_ACTIVATE)
         self._last_reload_time = time.monotonic()
 
-        # Snapshot current paths (dict may mutate during iteration)
-        loaded_paths = self._card_store.get_all_paths()
-        deleted_paths: list[Path] = []
-        needs_processing: list[Path] = []
-
-        for path in loaded_paths:
-            if not path.exists():
-                # File was deleted externally
-                self._unlink_path(path)
-                deleted_paths.append(path)
-            else:
-                # mtime pre-filter: skip files whose mtime hasn't changed
-                if mtime_only:
-                    try:
-                        current_mtime = path.stat().st_mtime
-                    except OSError:
-                        continue
-                    if current_mtime == self._card_store.get_mtime_for_path(path):
-                        continue  # mtime unchanged → skip hash check
-
-                # File exists — check if content changed
-                old_hash = self._card_store.get_hash_for_path(path)
-                try:
-                    new_hash = compute_file_hash(path)
-                except OSError:
-                    continue  # Can't read file, skip
-                if new_hash != old_hash:
-                    # Content changed — remove from old card
-                    self._card_store.remove_hash_for_path(path)
-                    needs_processing.append(path)
+        deleted_paths, needs_processing = self._card_store.compute_reload_diff(mtime_only=mtime_only)
 
         if needs_processing:
             # Re-add to pdf_files and process (dedup handled by _process_cards)
@@ -556,42 +509,19 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         thread.start()
 
     def _process_cards(self) -> None:
-        """Process PDFs using ProcessPoolExecutor (runs in background thread)."""
-        import multiprocessing
-        from concurrent.futures import ProcessPoolExecutor, as_completed
+        """Process PDFs using ProcessingService (runs in background thread)."""
 
-        # Set spawn method for PyInstaller
-        try:
-            multiprocessing.set_start_method("spawn", force=True)
-        except RuntimeError as exc:
-            if "context has already been set" not in str(exc):
-                raise
+        def _on_progress(completed: int, total: int, filename: str) -> None:
+            wx.CallAfter(self._update_processing_progress, completed, total, filename)
 
-        total = len(self._processing_files)
-        pdf_paths_str = [str(p) for p in self._processing_files]
-        completed = 0
+        def _on_complete() -> None:
+            wx.CallAfter(self._processing_complete)
 
-        with ProcessPoolExecutor(max_workers=min(total, OCR_WORKERS)) as executor:
-            futures = {executor.submit(process_pdf_worker, path_str): path_str for path_str in pdf_paths_str}
-            for future in as_completed(futures):
-                try:
-                    worker_result = future.result()
-                except Exception:
-                    path_str = futures[future]
-                    logger.exception("Worker failed for %s", path_str)
-                    completed += 1
-                    wx.CallAfter(self._update_processing_progress, completed, total, Path(path_str).name)
-                    continue
-                pdf_path = Path(worker_result.pdf_path)
-
-                # Content-based deduplication via CardStore (thread-safe)
-                card, _ = self._card_store.add_or_update(worker_result, pdf_path)
-
-                # Update UI (thread-safe with wx.CallAfter)
-                completed += 1
-                wx.CallAfter(self._update_processing_progress, completed, total, card.filename)
-
-        wx.CallAfter(self._processing_complete)
+        self._processing_service.process_files(
+            self._processing_files,
+            on_progress=_on_progress,
+            on_complete=_on_complete,
+        )
 
     def _update_processing_progress(self, current: int, total: int, name: str) -> None:
         """Update progress strip from background thread."""
@@ -639,13 +569,8 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         # Show confirmation dialog
         dialog = RenameConfirmDialog(self._frame, plan)
         if dialog.ShowModal() == wx.ID_OK:
-            # Execute rename
-            results = execute_rename_plan(plan)
-
-            # Update path mappings for renamed files
-            for result in results:
-                if result.success and result.message in _RESOLVED_MESSAGES:
-                    self._card_store.update_path_mapping(result.old_path, result.new_path)
+            # Execute rename via service (updates path mappings automatically)
+            results = self._rename_service.execute(plan)
 
             # Show completion
             errors = sum(1 for r in results if not r.success)

@@ -186,6 +186,64 @@ class CardStore:
                 self._id_to_card.pop(card.id, None)
         return file_hash
 
+    def filter_and_register(self, pdf_paths: list[Path]) -> tuple[list[Path], list[Path]]:
+        """Filter out already-loaded paths and register new ones.
+
+        Returns (new_pdfs, skipped_pdfs).
+        """
+        new_pdfs: list[Path] = []
+        skipped_pdfs: list[Path] = []
+        for path in pdf_paths:
+            if self.has_path(path):
+                skipped_pdfs.append(path)
+            else:
+                new_pdfs.append(path)
+        self.register_new_pdfs(new_pdfs)
+        return new_pdfs, skipped_pdfs
+
+    def compute_reload_diff(self, *, mtime_only: bool = False) -> tuple[list[Path], list[Path]]:
+        """Compute deleted and content-modified paths.
+
+        Returns (deleted_paths, modified_paths).
+
+        For deleted paths, calls ``unlink_path`` to clean up tracking state.
+        For modified paths, calls ``remove_hash_for_path`` so the path can
+        be re-processed with fresh content.
+
+        Args:
+            mtime_only: When True, use mtime as a fast pre-filter — files
+                whose mtime hasn't changed are skipped without hashing.
+        """
+        from app.core.database import compute_file_hash
+
+        loaded_paths = self.get_all_paths()
+        deleted_paths: list[Path] = []
+        modified_paths: list[Path] = []
+
+        for path in loaded_paths:
+            if not path.exists():
+                self.unlink_path(path)
+                deleted_paths.append(path)
+            else:
+                if mtime_only:
+                    try:
+                        current_mtime = path.stat().st_mtime
+                    except OSError:
+                        continue
+                    if current_mtime == self.get_mtime_for_path(path):
+                        continue
+
+                old_hash = self.get_hash_for_path(path)
+                try:
+                    new_hash = compute_file_hash(path)
+                except OSError:
+                    continue
+                if new_hash != old_hash:
+                    self.remove_hash_for_path(path)
+                    modified_paths.append(path)
+
+        return deleted_paths, modified_paths
+
     def clear(self) -> None:
         """Clear all state."""
         self._cards_by_hash.clear()
