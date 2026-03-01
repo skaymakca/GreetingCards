@@ -138,39 +138,38 @@ class RenameResult:
 
 @dataclass
 class CardResult:
-    id: int  # Unique, monotonically increasing identifier
-    file_paths: list[Path] = field(default_factory=list)  # All paths with same content
-    primary_path: Path = field(default_factory=Path)  # First path found
+    # ── Identity ──
+    id: int
+    file_paths: list[Path] = field(default_factory=list)
+    primary_path: Path = field(default_factory=Path)
+    file_hash: str = ""
+
+    # ── Name resolution (persisted to DB) ──
     family_name: str = ""
     confidence: Confidence = Confidence.NONE
-    alternates: list[str] = field(default_factory=list)  # Just names for backward compat
-    candidates: list[CandidateInfo] = field(default_factory=list)
-    ocr_text: str = ""
-    preview_image: Image.Image | None = None  # first page (for AI analysis)
-    page_images: list[Image.Image] = field(default_factory=list)  # all pages
-    manual_override: str = ""
-    ai_analyzed: bool = False
-    file_hash: str = ""
-    original_confidence: Confidence | None = None  # Confidence before manual override
-    remove_family: bool = False  # If True, omit "Family" suffix from filename
-    selected_candidate_id: int | None = None  # ID of selected candidate from DB (None if manual or missing)
     method: MethodStr = "missing"
-    error: str = ""  # Non-empty when PDF processing failed (corrupt, encrypted, etc.)
+    candidates: list[CandidateInfo] = field(default_factory=list)
+    selected_candidate_id: int | None = None
+    manual_override: str = ""
+    remove_family: bool = False
+    alternates: list[str] = field(default_factory=list)
+
+    # ── Processing artifacts ──
+    ocr_text: str = ""
+    preview_image: Image.Image | None = None
+    page_images: list[Image.Image] = field(default_factory=list)
+    ai_analyzed: bool = False
+    error: str = ""
+
+    # ── UI state (not persisted, GUI bookkeeping) ──
+    ui_original_confidence: Confidence | None = None
+
+    # ── Properties (model) ──
 
     @property
     def pdf_path(self) -> Path:
         """Backward compatibility - returns primary path."""
         return self.primary_path
-
-    @property
-    def display_name(self) -> str:
-        if self.manual_override:
-            return self.manual_override
-        return self.family_name
-
-    @property
-    def filename(self) -> str:
-        return self.primary_path.name
 
     def target_filename(self, year: str) -> str:
         year = year.strip()
@@ -185,3 +184,15 @@ class CardResult:
         if not self.remove_family and not name.lower().endswith("family"):
             name = f"{name} Family"
         return f"Holiday Cards {year} - {name}.pdf"
+
+    # ── Properties (view convenience) ──
+
+    @property
+    def display_name(self) -> str:
+        if self.manual_override:
+            return self.manual_override
+        return self.family_name
+
+    @property
+    def filename(self) -> str:
+        return self.primary_path.name

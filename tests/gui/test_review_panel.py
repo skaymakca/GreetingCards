@@ -46,7 +46,7 @@ def mock_cards():
         family_name="Smith",
         confidence=Confidence.HIGH,
         method="ocr",
-        original_confidence=Confidence.HIGH,
+        ui_original_confidence=Confidence.HIGH,
         remove_family=True,
     )
     card1.candidates = [
@@ -63,7 +63,7 @@ def mock_cards():
         family_name="Johnson",
         confidence=Confidence.MEDIUM,
         method="ai",
-        original_confidence=Confidence.MEDIUM,
+        ui_original_confidence=Confidence.MEDIUM,
         remove_family=False,
     )
     card2.candidates = [
@@ -79,7 +79,7 @@ def mock_cards():
         family_name="Williams",
         confidence=Confidence.LOW,
         method="ocr",
-        original_confidence=Confidence.LOW,
+        ui_original_confidence=Confidence.LOW,
         remove_family=True,
     )
     cards.append(card3)
@@ -92,7 +92,7 @@ def mock_cards():
         family_name="",
         confidence=Confidence.NONE,
         method="missing",
-        original_confidence=Confidence.NONE,
+        ui_original_confidence=Confidence.NONE,
         remove_family=False,
     )
     cards.append(card4)
@@ -105,7 +105,7 @@ def mock_cards():
         family_name="Brown",
         confidence=Confidence.MANUAL,
         method="manual",
-        original_confidence=Confidence.HIGH,
+        ui_original_confidence=Confidence.HIGH,
         remove_family=True,
     )
     cards.append(card5)
@@ -118,7 +118,7 @@ def mock_cards():
         family_name="",
         confidence=Confidence.NONE,
         method="missing",
-        original_confidence=Confidence.NONE,
+        ui_original_confidence=Confidence.NONE,
         remove_family=False,
     )
     card6.error = "Failed to process"
@@ -1835,13 +1835,13 @@ class TestHandleCheckboxCandidate:
             panel._handle_candidate(999, 101)  # Non-existent card
             mock_db.assert_not_called()
 
-    def test_handle_candidate_restores_original_confidence(self, parent_frame, mock_cards):
+    def test_handle_candidate_restores_ui_original_confidence(self, parent_frame, mock_cards):
         """_handle_candidate restores original confidence from MANUAL (lines 728-729)."""
         panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
         card = mock_cards[0]
         card.file_hash = "abc123"
         card.confidence = Confidence.MANUAL
-        card.original_confidence = Confidence.HIGH
+        card.ui_original_confidence = Confidence.HIGH
         panel.load_cards(mock_cards)
 
         with patch("app.core.database.select_candidate"):
@@ -1859,7 +1859,7 @@ class TestHandleCheckboxCandidate:
             primary_path=Path("test.pdf"),
             file_hash="abc123",
             confidence=Confidence.LOW,
-            original_confidence=None,  # No original to restore
+            ui_original_confidence=None,  # No original to restore
         )
         card.candidates = [
             CandidateInfo(id=101, family_name="Smith", confidence="invalid_value", method="ocr"),
@@ -2885,13 +2885,13 @@ class TestCandidateSelectionStateRestoration:
 
         assert card.selected_candidate_id == card.candidates[1].id
 
-    def test_candidate_selection_restores_original_confidence_from_manual(self, parent_frame, mock_cards):
-        """Selecting a candidate restores original_confidence when confidence is MANUAL."""
+    def test_candidate_selection_restores_ui_original_confidence_from_manual(self, parent_frame, mock_cards):
+        """Selecting a candidate restores ui_original_confidence when confidence is MANUAL."""
         panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
         card = mock_cards[0]
         card.file_hash = "abc123"
         card.confidence = Confidence.MANUAL
-        card.original_confidence = Confidence.HIGH
+        card.ui_original_confidence = Confidence.HIGH
         panel.load_cards(mock_cards)
 
         with patch("app.core.database.select_candidate"):
@@ -2908,7 +2908,7 @@ class TestCandidateSelectionStateRestoration:
             primary_path=Path("test.pdf"),
             file_hash="abc123",
             confidence=Confidence.LOW,
-            original_confidence=None,
+            ui_original_confidence=None,
         )
         card.candidates = [
             CandidateInfo(id=101, family_name="Smith", confidence="high", method="ocr"),

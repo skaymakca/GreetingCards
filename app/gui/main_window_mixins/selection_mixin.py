@@ -47,7 +47,7 @@ class SelectionMixin:
         if new_name:
             # Save original confidence before marking as manual
             if card.confidence != Confidence.MANUAL:
-                card.original_confidence = card.confidence
+                card.ui_original_confidence = card.confidence
             card.confidence = Confidence.MANUAL
             card.method = "manual"
             card.family_name = new_name

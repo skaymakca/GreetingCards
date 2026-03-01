@@ -1499,7 +1499,7 @@ def test_on_name_change_revert_to_original(wx_app):
     card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
     card.family_name = "Smith"
     card.confidence = Confidence.MANUAL
-    card.original_confidence = Confidence.HIGH
+    card.ui_original_confidence = Confidence.HIGH
     card.method = "manual"
     card.manual_override = "Jones"
     card.file_hash = "h1"
@@ -1541,7 +1541,7 @@ def test_on_name_change_revert_ai_analyzed(wx_app):
     card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
     card.family_name = "Smith"
     card.confidence = Confidence.MANUAL
-    card.original_confidence = Confidence.HIGH
+    card.ui_original_confidence = Confidence.HIGH
     card.method = "manual"
     card.manual_override = "Jones"
     card.ai_analyzed = True
@@ -1579,7 +1579,7 @@ def test_on_name_change_revert_no_original_confidence(wx_app):
     window = MainWindow()
     card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
     card.confidence = Confidence.MANUAL
-    card.original_confidence = None
+    card.ui_original_confidence = None
     card.method = "manual"
     card.manual_override = "Test"
     card.file_hash = "h1"

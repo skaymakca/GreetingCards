@@ -874,8 +874,8 @@ class ReviewPanelMasterDetail(wx.Panel):
                 card.method = cand.method
 
                 # Restore original confidence
-                if card.confidence == Confidence.MANUAL and card.original_confidence:
-                    card.confidence = card.original_confidence
+                if card.confidence == Confidence.MANUAL and card.ui_original_confidence:
+                    card.confidence = card.ui_original_confidence
                 else:
                     try:
                         card.confidence = Confidence(cand.confidence)

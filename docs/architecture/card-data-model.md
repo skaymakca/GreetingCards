@@ -10,30 +10,42 @@ CardResult lifecycle, content-based deduplication, and state management.
 
 The primary object representing a loaded greeting card. Created during PDF processing, lives in `MainWindow._cards_by_hash`.
 
+Fields are organized into four sections. No prefix = domain model (the default majority); `ui_` prefix = view-only state (the exception).
+
 ```
 CardResult
+│
+│ ── Identity ──
 ├── id: int                    # Monotonically increasing, unique per session
 ├── file_paths: list[Path]     # All paths with identical content (1+)
 ├── primary_path: Path         # First path discovered
 ├── file_hash: str             # SHA256 of file content
+│
+│ ── Name resolution (persisted to DB) ──
 ├── family_name: str           # Current best name (from DB candidate or manual)
 ├── confidence: Confidence     # HIGH | MEDIUM | LOW | MANUAL | NONE
 ├── method: str                # 'ocr' | 'ai' | 'manual' | 'missing'
 ├── candidates: list[CandidateInfo]  # All name candidates from DB
 ├── selected_candidate_id: int?      # Which candidate is active
 ├── manual_override: str       # User-typed name (overrides family_name in display)
-├── original_confidence: Confidence?  # Saved before manual override
 ├── remove_family: bool        # Omit "Family" suffix in filename
 ├── alternates: list[str]      # Alternative display name forms
+│
+│ ── Processing artifacts ──
+├── ocr_text: str              # Raw OCR output
 ├── preview_image: PIL.Image   # First page render (for AI)
 ├── page_images: list[Image]   # All page renders
-├── ocr_text: str              # Raw OCR output
 ├── ai_analyzed: bool          # Has AI been run
 ├── error: str                 # Non-empty on processing failure
-└── @property display_name     # manual_override if set, else family_name
-    @property filename         # primary_path.name
-    @property pdf_path         # alias for primary_path
+│
+│ ── UI state (not persisted, GUI bookkeeping) ──
+├── ui_original_confidence: Confidence?  # Saved before manual override
+│
+│ ── Properties ──
+└── @property pdf_path         # alias for primary_path
     target_filename(year)      # "Holiday Cards {year} - {Name} Family.pdf"
+    @property display_name     # manual_override if set, else family_name
+    @property filename         # primary_path.name
 ```
 
 ### Confidence Enum
@@ -163,4 +175,4 @@ After the completion dialog, `_remove_completed_results()` selectively cleans up
 - **CardResult.id is session-scoped:** IDs are monotonically increasing starting from 0 each session. They are NOT database IDs.
 - **file_hash is the canonical key:** All DB operations use `file_hash`, not `id` or path. Cards survive renames because the hash doesn't change.
 - **display_name vs family_name:** `display_name` (property) returns `manual_override` if set, else `family_name`. Always use `display_name` for UI display.
-- **original_confidence:** Saved when user starts manual edit, restored when selecting a candidate from dropdown. Prevents losing the OCR/AI confidence level.
+- **ui_original_confidence:** Saved when user starts manual edit, restored when selecting a candidate from dropdown. Prevents losing the OCR/AI confidence level. Prefixed `ui_` because it is purely GUI bookkeeping — never persisted to the database, never read or written by core code.

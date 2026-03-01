@@ -135,7 +135,7 @@ class AppleEventsMixin:
 
         if name:
             if card.confidence != Confidence.MANUAL:
-                card.original_confidence = card.confidence
+                card.ui_original_confidence = card.confidence
             card.confidence = Confidence.MANUAL
             card.method = "manual"
             card.family_name = name
