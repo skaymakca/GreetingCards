@@ -235,13 +235,125 @@ class TestSummarizeResults:
             RenameResult(Path("/a/f1.pdf"), Path("/a/new1.pdf"), True, "Renamed"),
             RenameResult(Path("/a/f2.pdf"), Path("/a/new2.pdf"), True, "Renamed"),
             RenameResult(Path("/a/f3.pdf"), Path("/a/f3.pdf"), True, "Already named correctly"),
-            RenameResult(Path("/a/f4.pdf"), Path("/a/f4.pdf"), False, "Permission denied"),
+            RenameResult(Path("/b/f4.pdf"), Path("/b/f4.pdf"), False, "Permission denied"),
         ]
         result = RenameService.summarize_results(results)
         assert result["renamed"] == 2
         assert result["skipped"] == 1
         assert result["errors"] == 1
+        assert result["directory_count"] == 2
 
     def test_empty_results(self) -> None:
         result = RenameService.summarize_results([])
-        assert result == {"renamed": 0, "skipped": 0, "errors": 0}
+        assert result == {"renamed": 0, "skipped": 0, "errors": 0, "directory_count": 0}
+
+    def test_directory_count_uses_new_path_for_success(self) -> None:
+        """directory_count should use new_path for successful results."""
+        results = [
+            RenameResult(Path("/old/f1.pdf"), Path("/new/f1.pdf"), True, "Renamed"),
+        ]
+        result = RenameService.summarize_results(results)
+        assert result["directory_count"] == 1
+
+    def test_directory_count_uses_old_path_for_failure(self) -> None:
+        """directory_count should use old_path for failed results."""
+        results = [
+            RenameResult(Path("/old/f1.pdf"), Path("/new/f1.pdf"), False, "Error"),
+        ]
+        result = RenameService.summarize_results(results)
+        assert result["directory_count"] == 1
+
+
+# ── build_plan ──
+
+
+class TestBuildPlan:
+    """Tests for RenameService.build_plan()."""
+
+    def test_delegates_to_build_rename_plan(self) -> None:
+        """build_plan should wrap build_rename_plan."""
+        card = _make_card()
+        with patch("app.core.rename_service.build_rename_plan") as mock_build:
+            mock_build.return_value = [
+                RenamePlanItem(Path("/tmp/card.pdf"), Path("/tmp/new.pdf"), "ok", card=card),
+            ]
+            plan = RenameService.build_plan([card], "2025")
+
+        mock_build.assert_called_once_with([card], "2025")
+        assert len(plan) == 1
+        assert plan[0].status == "ok"
+
+
+# ── format_plan_summary ──
+
+
+class TestFormatPlanSummary:
+    """Tests for RenameService.format_plan_summary()."""
+
+    def test_renames_only(self) -> None:
+        plan = [
+            RenamePlanItem(Path("/a/f1.pdf"), Path("/a/new1.pdf"), "ok"),
+            RenamePlanItem(Path("/a/f2.pdf"), Path("/a/new2.pdf"), "ok"),
+        ]
+        assert RenameService.format_plan_summary(plan) == "2 rename(s)"
+
+    def test_all_statuses_multi_dir(self) -> None:
+        plan = [
+            RenamePlanItem(Path("/a/f1.pdf"), Path("/a/new1.pdf"), "ok"),
+            RenamePlanItem(Path("/a/f2.pdf"), Path("/a/f2.pdf"), "duplicate"),
+            RenamePlanItem(Path("/b/f3.pdf"), Path("/b/f3.pdf"), "skip_same"),
+            RenamePlanItem(Path("/b/f4.pdf"), Path("/b/f4.pdf"), "skip_error"),
+        ]
+        result = RenameService.format_plan_summary(plan)
+        assert "1 rename(s)" in result
+        assert "1 duplicate(s)" in result
+        assert "1 skipped" in result
+        assert "1 error(s)" in result
+        assert "across 2 directories" in result
+
+    def test_empty_plan(self) -> None:
+        assert RenameService.format_plan_summary([]) == "0 rename(s)"
+
+
+# ── format_results_summary ──
+
+
+class TestFormatResultsSummary:
+    """Tests for RenameService.format_results_summary()."""
+
+    def test_no_errors(self) -> None:
+        results = [
+            RenameResult(Path("/a/f1.pdf"), Path("/a/new1.pdf"), True, "Renamed"),
+            RenameResult(Path("/a/f2.pdf"), Path("/a/f2.pdf"), True, "Already named correctly"),
+        ]
+        assert RenameService.format_results_summary(results) == "1 renamed, 1 skipped"
+
+    def test_with_errors(self) -> None:
+        results = [
+            RenameResult(Path("/a/f1.pdf"), Path("/a/new1.pdf"), True, "Renamed"),
+            RenameResult(Path("/a/f2.pdf"), Path("/a/f2.pdf"), False, "Error"),
+        ]
+        assert RenameService.format_results_summary(results) == "1 renamed, 0 skipped, 1 failed"
+
+    def test_empty_results(self) -> None:
+        assert RenameService.format_results_summary([]) == "0 renamed, 0 skipped"
+
+
+# ── get_completed_paths ──
+
+
+class TestGetCompletedPaths:
+    """Tests for RenameService.get_completed_paths()."""
+
+    def test_returns_resolved_paths(self) -> None:
+        results = [
+            RenameResult(Path("/a/f1.pdf"), Path("/a/new1.pdf"), True, "Renamed"),
+            RenameResult(Path("/a/f2.pdf"), Path("/a/f2.pdf"), True, "Already named correctly"),
+            RenameResult(Path("/a/f3.pdf"), Path("/a/f3.pdf"), False, "Error"),
+            RenameResult(Path("/a/f4.pdf"), Path("/a/f4.pdf"), True, "Skipped: no name"),
+        ]
+        paths = RenameService.get_completed_paths(results)
+        assert paths == {Path("/a/new1.pdf"), Path("/a/f2.pdf")}
+
+    def test_empty_results(self) -> None:
+        assert RenameService.get_completed_paths([]) == set()

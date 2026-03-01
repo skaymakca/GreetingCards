@@ -201,16 +201,7 @@ class RenameConfirmDialog(wx.Dialog):
 
         # Summary counts
         counts = RenameService.summarize_plan(plan)
-
-        summary = f"{counts['ok']} rename(s)"
-        if counts["duplicate"]:
-            summary += f", {counts['duplicate']} duplicate(s)"
-        if counts["skip"]:
-            summary += f", {counts['skip']} skipped"
-        if counts["error"]:
-            summary += f", {counts['error']} error(s)"
-        if counts["directory_count"] > 1:
-            summary += f" across {counts['directory_count']} directories"
+        summary = RenameService.format_plan_summary(plan)
 
         self._summary_label = wx.StaticText(self, label=summary)
         self._summary_label.SetFont(styles.Font.BODY())
@@ -410,9 +401,7 @@ class CompletionDialog(wx.Dialog):
         sizer.AddSpacer(_HEADER_GAP)
 
         # Summary counts
-        summary = f"{counts['renamed']} renamed, {counts['skipped']} skipped"
-        if counts["errors"]:
-            summary += f", {counts['errors']} failed"
+        summary = RenameService.format_results_summary(results)
 
         self._summary_label = wx.StaticText(self, label=summary)
         self._summary_label.SetFont(styles.Font.BODY())
@@ -425,8 +414,7 @@ class CompletionDialog(wx.Dialog):
         visible = [r for r in results if not r.success or r.message == "Renamed"]
 
         # Show full paths only when multiple directories
-        directories = {(r.new_path if r.success else r.old_path).parent for r in results}
-        multi_dir = len(directories) > 1
+        multi_dir = counts["directory_count"] > 1
 
         # Prepare data and colors
         data = []

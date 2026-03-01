@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 from app.core.card_service import CardService
 from app.core.card_store import CardStore
-from app.core.naming.rename_filter import filter_completed_renames
-from app.core.naming.renamer import build_rename_plan, validate_year
+from app.core.constants import RELOAD_COOLDOWN
+from app.core.naming.renamer import validate_year
 from app.core.pipeline.card_processor import (
     derive_folders,
     scan_for_pdfs,
@@ -577,8 +577,8 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
             wx.MessageBox("Please enter a valid 4-digit year.", "Invalid Year", wx.OK | wx.ICON_WARNING, self._frame)
             return
 
-        # Build rename plan
-        plan = build_rename_plan(cards, year_str)
+        # Build rename plan via service
+        plan = self._rename_service.build_plan(cards, year_str)
 
         # Show confirmation dialog
         dialog = RenameConfirmDialog(self._frame, plan)
@@ -587,8 +587,8 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
             results = self._rename_service.execute(plan)
 
             # Show completion
-            errors = sum(1 for r in results if not r.success)
-            title = "Rename Complete" if not errors else "Rename Complete (with errors)"
+            counts = RenameService.summarize_results(results)
+            title = "Rename Complete" if not counts["errors"] else "Rename Complete (with errors)"
             completion = CompletionDialog(self._frame, title, results)
             completion.ShowModal()
             completion.Destroy()
@@ -605,7 +605,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         resolved. Paths that failed or had no name are kept for the user to address.
         """
         # Collect paths to remove (use new_path — that's where the file is now)
-        paths_to_remove = filter_completed_renames(results)
+        paths_to_remove = self._rename_service.get_completed_paths(results)
 
         if not paths_to_remove:
             return
@@ -671,8 +671,6 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
     # --- End dark mode ---
 
-    _RELOAD_COOLDOWN = 2.0  # seconds between auto-reloads
-
     def _on_frame_activate(self, event: wx.ActivateEvent) -> None:
         """Auto-reload cards when the app window is re-activated."""
         event.Skip()
@@ -684,7 +682,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         if not self._toolbar.GetToolEnabled(self._reload_id):
             return
         now = time.monotonic()
-        if now - self._last_reload_time < self._RELOAD_COOLDOWN:
+        if now - self._last_reload_time < RELOAD_COOLDOWN:
             return
         self._last_reload_time = now
         self._reload_cards(mtime_only=True)
