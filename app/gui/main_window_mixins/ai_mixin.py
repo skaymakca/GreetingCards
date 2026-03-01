@@ -8,6 +8,7 @@ import threading
 
 import wx
 
+from app.core.card_service import CardService
 from app.core.config import get_api_key
 from app.core.pipeline.ai_batch import run_ai_batch_async
 from app.gui.dialogs import ErrorListDialog
@@ -25,6 +26,14 @@ class AIMixin:
     Methods use ``self: MainWindowProtocol`` to declare the interface they
     depend on.  At runtime ``self`` is always the full ``MainWindow`` instance.
     """
+
+    def _get_action_menu_label(self: MainWindowProtocol, base: str, shortcut: str) -> str:
+        """Build dynamic menu label like 'AI Analyze Selected (3)\\tCtrl+Shift+I'."""
+        if self._card_store.is_empty:
+            return f"{base}{shortcut}"
+        cards, scope = self._get_target_cards()
+        scope_label = "Selected" if scope == "selected" else "Visible"
+        return f"{base} {scope_label} ({len(cards)}){shortcut}"
 
     def _on_clear_ai_results(self: MainWindowProtocol, event: wx.CommandEvent) -> None:
         """Clear AI results for selected or visible cards."""
@@ -93,10 +102,10 @@ class AIMixin:
         if self._ai_batch_running:
             return
         card = self._get_card_by_id(card_id)
-        if not card or card.error:
+        if not card:
             return
 
-        if not card.page_images and not card.preview_image:
+        if not CardService.is_ai_eligible(card):
             wx.MessageBox(
                 "No preview image available for AI analysis.", "No Image", wx.OK | wx.ICON_WARNING, self._frame
             )

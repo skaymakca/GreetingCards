@@ -6,7 +6,29 @@ These are pure functions — no state, no UI dependencies.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from app.models.card import CardResult, Confidence
+
+
+def count_by_category(cards: list[CardResult]) -> dict[str, int]:
+    """Count cards per confidence category. Keys match apply_category_filters."""
+    return {
+        "all": len(cards),
+        "manual": sum(1 for c in cards if c.confidence == Confidence.MANUAL),
+        "high": sum(1 for c in cards if c.confidence == Confidence.HIGH),
+        "needs_review": sum(1 for c in cards if c.confidence in (Confidence.MEDIUM, Confidence.LOW)),
+        "errors": sum(1 for c in cards if c.error or c.confidence == Confidence.NONE),
+    }
+
+
+def count_by_folder(cards: list[CardResult], folder_keys: list[str]) -> dict[str, int]:
+    """Count cards per folder. Keys are str(path.parent) matching apply_folder_filters."""
+    counts: dict[str, int] = {"all_folders": len(cards)}
+    for key in folder_keys:
+        folder_path = Path(key)
+        counts[key] = sum(1 for c in cards if any(p.parent == folder_path for p in c.file_paths))
+    return counts
 
 
 def search_filter(cards: list[CardResult], query: str) -> list[CardResult]:

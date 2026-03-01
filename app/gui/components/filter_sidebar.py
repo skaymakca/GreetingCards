@@ -5,8 +5,9 @@ from pathlib import Path
 
 import wx
 
+from app.core.filter_service import count_by_category, count_by_folder
 from app.gui import styles
-from app.models.card import CardResult, Confidence
+from app.models.card import CardResult
 
 _SIDEBAR_MIN_WIDTH = 175
 _SIDEBAR_PAD = 10
@@ -328,13 +329,7 @@ class FilterSidebar(wx.Panel):
         Args:
             cards: Cards filtered by search + folder selection (for cross-filtered counts)
         """
-        counts = {
-            "all": len(cards),
-            "manual": sum(1 for c in cards if c.confidence == Confidence.MANUAL),
-            "high": sum(1 for c in cards if c.confidence == Confidence.HIGH),
-            "needs_review": sum(1 for c in cards if c.confidence in (Confidence.MEDIUM, Confidence.LOW)),
-            "errors": sum(1 for c in cards if c.error or c.confidence == Confidence.NONE),
-        }
+        counts = count_by_category(cards)
 
         self._category_card_counts = counts
         self._category_disabled_keys.clear()
@@ -367,11 +362,7 @@ class FilterSidebar(wx.Panel):
         if not self._folder_keys:
             return
 
-        # Count cards per folder
-        counts: dict[str, int] = {"all_folders": len(cards)}
-        for key in self._folder_keys[1:]:  # skip "all_folders"
-            folder_path = Path(key)
-            counts[key] = sum(1 for c in cards if any(p.parent == folder_path for p in c.file_paths))
+        counts = count_by_folder(cards, self._folder_keys[1:])
 
         self._folder_disabled_keys.clear()
 

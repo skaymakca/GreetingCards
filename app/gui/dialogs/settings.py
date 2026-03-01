@@ -1,6 +1,5 @@
 """Preferences pages for native macOS Preferences editor."""
 
-import subprocess
 from collections.abc import Callable
 
 import wx
@@ -11,21 +10,6 @@ from app.gui import styles
 _PREFS_PAD = 20
 _PREFS_WIDTH = 480
 _STATUS_DISPLAY_MS = 3000
-
-
-def get_commit_hash() -> str:
-    """Get short git commit hash, or empty string if unavailable."""
-    try:
-        return (
-            subprocess.check_output(
-                ["git", "rev-parse", "--short", "HEAD"],
-                stderr=subprocess.DEVNULL,
-            )
-            .decode()
-            .strip()
-        )
-    except OSError, subprocess.SubprocessError:
-        return ""
 
 
 # noinspection PyAttributeOutsideInit,PyUnusedLocal

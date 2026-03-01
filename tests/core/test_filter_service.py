@@ -6,7 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from app.core.filter_service import apply_category_filters, apply_folder_filters, search_filter
+from app.core.filter_service import (
+    apply_category_filters,
+    apply_folder_filters,
+    count_by_category,
+    count_by_folder,
+    search_filter,
+)
 from app.models.card import CardResult, Confidence
 
 
@@ -293,3 +299,84 @@ class TestApplyCategoryFilters:
         result = apply_category_filters(cards, category_keys)
         filenames = [c.filename for c in result]
         assert filenames == sorted(filenames, key=str.lower)
+
+
+# ---------------------------------------------------------------------------
+# count_by_category
+# ---------------------------------------------------------------------------
+
+
+class TestCountByCategory:
+    def test_counts_all_categories(self) -> None:
+        cards = [
+            _card(1, path="/f/a.pdf", confidence=Confidence.MANUAL),
+            _card(2, path="/f/b.pdf", confidence=Confidence.HIGH),
+            _card(3, path="/f/c.pdf", confidence=Confidence.MEDIUM),
+            _card(4, path="/f/d.pdf", confidence=Confidence.LOW),
+            _card(5, path="/f/e.pdf", confidence=Confidence.NONE),
+            _card(6, path="/f/f.pdf", confidence=Confidence.HIGH, error="bad"),
+        ]
+        counts = count_by_category(cards)
+        assert counts["all"] == 6
+        assert counts["manual"] == 1
+        assert counts["high"] == 2  # cards 2 and 6 (error card is also HIGH)
+        assert counts["needs_review"] == 2  # MEDIUM + LOW
+        assert counts["errors"] == 2  # NONE + error string
+
+    def test_empty_cards(self) -> None:
+        counts = count_by_category([])
+        assert counts == {"all": 0, "manual": 0, "high": 0, "needs_review": 0, "errors": 0}
+
+    def test_consistency_with_apply_category_filters(self) -> None:
+        """count_by_category counts should match apply_category_filters results."""
+        cards = [
+            _card(1, path="/f/a.pdf", confidence=Confidence.MANUAL),
+            _card(2, path="/f/b.pdf", confidence=Confidence.HIGH),
+            _card(3, path="/f/c.pdf", confidence=Confidence.MEDIUM),
+            _card(4, path="/f/d.pdf", confidence=Confidence.NONE),
+        ]
+        counts = count_by_category(cards)
+        for key in ("manual", "high", "needs_review", "errors"):
+            filtered = apply_category_filters(cards, [key])
+            assert counts[key] == len(filtered), f"Mismatch for {key}"
+
+
+# ---------------------------------------------------------------------------
+# count_by_folder
+# ---------------------------------------------------------------------------
+
+
+class TestCountByFolder:
+    def test_counts_per_folder(self) -> None:
+        cards = [
+            _card(1, path="/folder_a/file1.pdf"),
+            _card(2, path="/folder_a/file2.pdf"),
+            _card(3, path="/folder_b/file3.pdf"),
+        ]
+        counts = count_by_folder(cards, ["/folder_a", "/folder_b"])
+        assert counts["all_folders"] == 3
+        assert counts["/folder_a"] == 2
+        assert counts["/folder_b"] == 1
+
+    def test_empty_cards(self) -> None:
+        counts = count_by_folder([], ["/folder_a"])
+        assert counts["all_folders"] == 0
+        assert counts["/folder_a"] == 0
+
+    def test_card_with_multiple_paths(self) -> None:
+        """Card with paths in multiple folders should be counted in each."""
+        card = CardResult(
+            id=1,
+            file_paths=[Path("/folder_a/dup1.pdf"), Path("/folder_b/dup2.pdf")],
+            primary_path=Path("/folder_a/dup1.pdf"),
+            family_name="Test",
+            confidence=Confidence.HIGH,
+        )
+        counts = count_by_folder([card], ["/folder_a", "/folder_b"])
+        assert counts["/folder_a"] == 1
+        assert counts["/folder_b"] == 1
+
+    def test_no_folder_keys(self) -> None:
+        cards = [_card(1, path="/folder/file.pdf")]
+        counts = count_by_folder(cards, [])
+        assert counts == {"all_folders": 1}

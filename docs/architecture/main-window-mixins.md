@@ -103,7 +103,8 @@ AI batch analysis workflow.
 | `_on_clear_ai_results` | Prompts + delegates to `CardService.clear_ai_results()` |
 | `_ensure_api_key` | Checks for API key, shows dialog if missing |
 | `_get_target_cards` | Returns (cards, scope) based on selection state |
-| `_on_ai_request` | Handles single-card AI button click |
+| `_on_ai_request` | Handles single-card AI button click (uses `CardService.is_ai_eligible`) |
+| `_get_action_menu_label` | Builds dynamic menu label like "AI Analyze Selected (3)\tCtrl+Shift+I" |
 | `_start_ai_all` | Entry point: validates, locks UI, starts background thread |
 | `_run_ai_all` | Runs `run_ai_batch_async` on the background thread |
 | `_update_ai_all_progress` | Progress callback (called via `wx.CallAfter`) |
@@ -133,18 +134,18 @@ patch("app.core.card_service.clear_ai_results")
 patch("app.core.card_service.load_card_state_from_db")
 
 # ✅ Functions imported directly by mixin modules
-patch("app.gui.main_window_mixins.apple_events_mixin.scan_for_pdfs")
 patch("app.gui.main_window_mixins.apple_events_mixin.get_api_key")
 
 # ✅ wx symbols — wx is the global module object
 patch("app.gui.main_window.wx.MessageBox")
 
 # ✅ Functions that stay in main_window.py
+patch("app.gui.main_window.scan_for_pdfs")    # used by _load_paths
 patch("app.gui.main_window.build_rename_plan")
 patch("app.gui.main_window.RenameConfirmDialog")
 ```
 
-**Key change:** Mixins no longer import DB functions directly. Instead they delegate to `self._card_service`, which imports the DB functions in `app/core/card_service.py`. Patches for DB operations must target `app.core.card_service.*`, not the mixin modules.
+**Key change:** Mixins no longer import DB functions directly. Instead they delegate to `self._card_service`, which imports the DB functions in `app/core/card_service.py`. Patches for DB operations must target `app.core.card_service.*`, not the mixin modules. Similarly, `load_paths_for_script` now delegates to `_load_paths` in `main_window.py`, so `scan_for_pdfs` patches target `app.gui.main_window`, not the apple events mixin.
 
 ---
 
@@ -156,8 +157,9 @@ The following groups remain in `app/gui/main_window.py` (~850 lines):
 - UI builders: `_build_ui`, `_build_content_area`, `_build_progress_strip`
 - Progress strip management: `_show_progress_strip`, `_update_progress_strip`, `_hide_progress_strip`
 - Drop target: `_setup_drop_target`, `_on_drop`, `_on_drag_over`, `_on_drag_leave`
-- File loading: `_load_paths`, `_clear_all`, `_unlink_path`, `_reload_cards` (delegates state ops to `CardStore`)
+- File loading: `_load_paths` (returns count), `_clear_all`, `_unlink_path`, `_reload_cards` (returns bool), `_get_year` (delegates state ops to `CardStore`)
 - OCR processing: `_start_processing`, `_process_cards`, `_processing_complete` (delegates dedup to `CardStore.add_or_update`)
+- Folder refresh: `_refresh_folders` — updates sidebar folders, syncs filter state, and refreshes display (replaces 3 inline occurrences)
 - Rename workflow: `_start_rename`, `_remove_completed_results` (delegates path updates to `CardStore`)
 - Dark mode: `_on_appearance_changed`, `_refresh_toolbar_icons`
 - Keyboard/close handlers: `_on_key_press`, `_on_frame_activate`, `_on_close`

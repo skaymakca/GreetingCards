@@ -112,10 +112,15 @@ CardService
 ├── reset()                              # Reset database + clear in-memory state
 ├── set_name(card_id, name)              # Manual name override + DB persist
 ├── select_candidate(card_id, cand_id)   # Select candidate + DB persist
-├── select_candidate_by_rank(card_id, rank)  # By 1-based rank
+├── select_candidate_by_rank(card_id, rank)  # By 1-based rank → CardResult | str | None
 ├── set_remove_family(card_id, value)    # Toggle flag + DB persist
-└── clear_ai_results(cards)              # Delete AI data + reload from DB
+├── clear_ai_results(cards)              # Delete AI data + reload from DB
+└── is_ai_eligible(card) [static]        # True if card can be sent for AI analysis
 ```
+
+**`select_candidate_by_rank`** returns `CardResult` on success, an error `str` on validation failure (invalid rank), or `None` if the card is not found. Callers (e.g. the scripting bridge) can check `isinstance(result, str)` to report the error without duplicating validation logic.
+
+**`is_ai_eligible`** checks that a card has no error and has at least one image (`page_images` or `preview_image`). Used by both the GUI AI button handler and the scripting bridge's `analyze` command to avoid duplicating eligibility logic.
 
 **Why separate from CardStore:** CardStore is a pure in-memory container with thread-safety concerns (background PDF worker). CardService handles business operations that require database access and runs only on the main thread — no locking needed.
 
@@ -126,10 +131,14 @@ CardService
 ```
 RenameService
 ├── execute(plan)            # Execute rename plan + update store path mappings
-└── rename_card(card, name, year)  # Single-card rename for Apple Events scripting
+├── rename_card(card, name, year)  # Single-card rename for Apple Events scripting
+├── summarize_plan(plan) [static]  # Count ok/duplicate/error/skip/directory_count
+└── summarize_results(results) [static]  # Count renamed/skipped/errors
 ```
 
 `execute()` calls `execute_rename_plan()` then updates `CardStore.update_path_mapping()` for each resolved result. `rename_card()` temporarily sets the card's `manual_override`, builds a plan, executes it, and rolls back on total failure.
+
+`summarize_plan()` and `summarize_results()` are pure functions that compute summary dicts from a plan or results list. Used by `RenameConfirmDialog` and `CompletionDialog` to avoid duplicating counting logic in the GUI layer.
 
 ## ProcessingService — PDF Processing Orchestration
 
@@ -192,10 +201,11 @@ PDF file on disk
 
 ## Multi-Load Architecture
 
-Cards accumulate from multiple sources. `_load_paths()`:
+Cards accumulate from multiple sources. `_load_paths(paths, auto_process=True) -> int`:
 - Scans paths recursively for PDFs
 - Calls `CardStore.filter_and_register()` to separate new vs already-loaded paths and register new ones
 - Processes only new PDFs via `ProcessingService`
+- Returns the count of new PDFs found (used by the scripting bridge)
 
 `_clear_all()` resets everything — calls `CardStore.clear()`, resets sidebar, preview. Also triggered by the Clear toolbar button.
 
@@ -203,7 +213,7 @@ Cards accumulate from multiple sources. `_load_paths()`:
 
 ### Reload
 
-`_reload_cards()` re-checks all currently loaded paths without scanning folders for new files. It delegates to `CardStore.compute_reload_diff()` which runs a diff against the `_hash_by_path` snapshot:
+`_reload_cards(mtime_only=False) -> bool` re-checks all currently loaded paths without scanning folders for new files. Returns `True` if anything changed (files deleted or modified), `False` otherwise. The scripting bridge uses the return value to report whether a reload had any effect. It delegates to `CardStore.compute_reload_diff()` which runs a diff against the `_hash_by_path` snapshot:
 
 1. **Deleted files** (path no longer exists) — path is removed via `CardStore.unlink_path()`. If the card has no remaining paths, it's removed from `_cards_by_hash`.
 2. **Modified files** (path exists, `compute_file_hash()` returns a different hash) — the path is detached from the old card (same cleanup as deletion), then added to a reprocessing list.

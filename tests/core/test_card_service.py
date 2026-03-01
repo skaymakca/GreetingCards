@@ -261,25 +261,28 @@ class TestSelectCandidateByRank:
         assert card.selected_candidate_id == 10
 
     @patch("app.core.card_service.select_candidate")
-    def test_rank_zero_returns_none(self, mock_select_candidate: object) -> None:
-        """Rank 0 is invalid and returns None."""
+    def test_rank_zero_returns_error_string(self, mock_select_candidate: object) -> None:
+        """Rank 0 is invalid and returns descriptive error string."""
         card = _make_card()
         _, service = _make_store_and_service(card)
 
         result = service.select_candidate_by_rank(card.id, 0)
 
-        assert result is None
+        assert isinstance(result, str)
+        assert "Invalid rank 0" in result
         mock_select_candidate.assert_not_called()  # type: ignore[union-attr]
 
     @patch("app.core.card_service.select_candidate")
-    def test_rank_exceeds_candidates_returns_none(self, mock_select_candidate: object) -> None:
-        """Rank greater than number of candidates returns None."""
+    def test_rank_exceeds_candidates_returns_error_string(self, mock_select_candidate: object) -> None:
+        """Rank greater than number of candidates returns descriptive error string."""
         card = _make_card()  # 2 candidates
         _, service = _make_store_and_service(card)
 
         result = service.select_candidate_by_rank(card.id, 3)
 
-        assert result is None
+        assert isinstance(result, str)
+        assert "Invalid rank 3" in result
+        assert "2 candidates" in result
         mock_select_candidate.assert_not_called()  # type: ignore[union-attr]
 
     @patch("app.core.card_service.select_candidate")
@@ -396,6 +399,38 @@ class TestClearAiResults:
         assert result == 0
         mock_clear.assert_called_once_with([])  # type: ignore[union-attr]
         mock_load.assert_not_called()  # type: ignore[union-attr]
+
+
+# ── reset ──
+
+
+class TestIsAiEligible:
+    """Tests for CardService.is_ai_eligible()."""
+
+    def test_card_with_error_is_not_eligible(self) -> None:
+        card = _make_card()
+        card.error = "corrupt PDF"
+        assert CardService.is_ai_eligible(card) is False
+
+    def test_card_with_page_images_is_eligible(self) -> None:
+        from PIL import Image
+
+        card = _make_card()
+        card.page_images = [Image.new("RGB", (10, 10))]
+        assert CardService.is_ai_eligible(card) is True
+
+    def test_card_with_preview_image_is_eligible(self) -> None:
+        from PIL import Image
+
+        card = _make_card()
+        card.preview_image = Image.new("RGB", (10, 10))
+        assert CardService.is_ai_eligible(card) is True
+
+    def test_card_with_no_images_is_not_eligible(self) -> None:
+        card = _make_card()
+        card.page_images = []
+        card.preview_image = None
+        assert CardService.is_ai_eligible(card) is False
 
 
 # ── reset ──

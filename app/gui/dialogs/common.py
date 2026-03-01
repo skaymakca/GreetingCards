@@ -5,6 +5,7 @@ from pathlib import Path
 import wx
 import wx.dataview as dv
 
+from app.core.rename_service import RenameService
 from app.gui import styles
 from app.models.card import (
     STATUS_DUPLICATE,
@@ -199,23 +200,17 @@ class RenameConfirmDialog(wx.Dialog):
         sizer.AddSpacer(_HEADER_GAP)
 
         # Summary counts
-        ok_count = sum(1 for item in plan if item.status == STATUS_OK)
-        dup_count = sum(1 for item in plan if item.status == STATUS_DUPLICATE)
-        error_count = sum(1 for item in plan if item.status == STATUS_SKIP_ERROR)
-        skip_count = sum(1 for item in plan if item.status in {STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME})
+        counts = RenameService.summarize_plan(plan)
 
-        # Count unique directories
-        directories = {item.old_path.parent for item in plan}
-
-        summary = f"{ok_count} rename(s)"
-        if dup_count:
-            summary += f", {dup_count} duplicate(s)"
-        if skip_count:
-            summary += f", {skip_count} skipped"
-        if error_count:
-            summary += f", {error_count} error(s)"
-        if len(directories) > 1:
-            summary += f" across {len(directories)} directories"
+        summary = f"{counts['ok']} rename(s)"
+        if counts["duplicate"]:
+            summary += f", {counts['duplicate']} duplicate(s)"
+        if counts["skip"]:
+            summary += f", {counts['skip']} skipped"
+        if counts["error"]:
+            summary += f", {counts['error']} error(s)"
+        if counts["directory_count"] > 1:
+            summary += f" across {counts['directory_count']} directories"
 
         self._summary_label = wx.StaticText(self, label=summary)
         self._summary_label.SetFont(styles.Font.BODY())
@@ -235,7 +230,7 @@ class RenameConfirmDialog(wx.Dialog):
         _SKIP_STATUSES = {STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR}
 
         # Show full paths only when multiple directories
-        multi_dir = len(directories) > 1
+        multi_dir = counts["directory_count"] > 1
 
         # Prepare data and colors
         data = []
@@ -399,9 +394,7 @@ class CompletionDialog(wx.Dialog):
         super().__init__(parent, title=title, size=(650, 420), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
 
         # Compute counts
-        renamed = sum(1 for r in results if r.success and r.message == "Renamed")
-        skipped = sum(1 for r in results if r.success and r.message != "Renamed")
-        errors = sum(1 for r in results if not r.success)
+        counts = RenameService.summarize_results(results)
 
         # Main sizer
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -417,9 +410,9 @@ class CompletionDialog(wx.Dialog):
         sizer.AddSpacer(_HEADER_GAP)
 
         # Summary counts
-        summary = f"{renamed} renamed, {skipped} skipped"
-        if errors:
-            summary += f", {errors} failed"
+        summary = f"{counts['renamed']} renamed, {counts['skipped']} skipped"
+        if counts["errors"]:
+            summary += f", {counts['errors']} failed"
 
         self._summary_label = wx.StaticText(self, label=summary)
         self._summary_label.SetFont(styles.Font.BODY())

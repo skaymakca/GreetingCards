@@ -19,6 +19,7 @@ from app.core.pipeline.card_processor import (
     derive_folders,
     scan_for_pdfs,
 )
+from app.core.platform import get_commit_hash
 from app.core.processing_service import ProcessingService
 from app.core.rename_service import RenameService
 from app.gui.components.drop_target import DropOverlay as _DropOverlay
@@ -28,7 +29,7 @@ from app.gui.components.preview_panel import PreviewPanel
 from app.gui.components.review_panel import ReviewPanelMasterDetail
 from app.gui.components.toolbar import ToolbarManager
 from app.gui.dialogs import CompletionDialog, RenameConfirmDialog
-from app.gui.dialogs.settings import create_preferences_editor, get_commit_hash
+from app.gui.dialogs.settings import create_preferences_editor
 from app.gui.main_window_mixins import AIMixin, AppleEventsMixin, FilterMixin, SelectionMixin
 from app.gui.styles import Color, Font, Layout
 from app.gui.utils import plural as _plural
@@ -370,12 +371,15 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         if paths:
             self._load_paths(paths, auto_process=True)
 
-    def _load_paths(self, paths: list[Path], auto_process: bool = True) -> None:
+    def _load_paths(self, paths: list[Path], auto_process: bool = True) -> int:
         """Load PDFs from multiple files/folders (accumulating, not replacing).
 
         Args:
             paths: List of file or folder paths
             auto_process: Whether to start processing immediately
+
+        Returns:
+            Count of new PDFs found.
         """
         # 1. Scan all paths for PDFs (recursive for folders)
         all_pdfs: list[Path] = []
@@ -397,6 +401,8 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         # 5. Process new PDFs
         if new_pdfs and auto_process:
             self._start_processing(new_pdfs)
+
+        return len(new_pdfs)
 
     def _clear_all(self) -> None:
         """Clear all loaded cards (from all sources) and reset UI."""
@@ -427,11 +433,21 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         self._card_service.reset()
         self._clear_all()
 
+    def _get_year(self) -> str:
+        """Return the year value from the year control, stripped."""
+        return self._year_ctrl.GetValue().strip()
+
+    def _refresh_folders(self) -> None:
+        """Update sidebar folders, sync filter state, and refresh display."""
+        self._sidebar.update_folders(derive_folders(self._card_store.get_all_cards()))
+        self._current_folder_filters = self._sidebar.get_selected_folder_filters()
+        self._refresh_display()
+
     def _unlink_path(self, path: Path) -> None:
         """Remove a path from all tracking dicts and its associated card."""
         self._card_store.unlink_path(path)
 
-    def _reload_cards(self, *, mtime_only: bool = False) -> None:
+    def _reload_cards(self, *, mtime_only: bool = False) -> bool:
         """Re-check all loaded paths for modifications and deletions.
 
         Diff-based reload: iterates over currently loaded paths only.
@@ -443,9 +459,12 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
                 entirely without computing a hash. Files with changed mtime
                 still fall through to hash comparison.
                 When False (manual reload), every file is hash-checked.
+
+        Returns:
+            True if anything changed (files modified or deleted).
         """
         if not self._card_store.has_paths:
-            return
+            return False
 
         # Update cooldown timestamp (prevents rapid re-triggers from EVT_ACTIVATE)
         self._last_reload_time = time.monotonic()
@@ -464,19 +483,20 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
             if n_mod:
                 parts.append(f"{_plural(n_mod, 'file')} reprocessing")
             self._show_info_message("Reload: " + ", ".join(parts), wx.ICON_INFORMATION)
+            return True
         elif deleted_paths:
             # Only deletions — update UI
-            self._sidebar.update_folders(derive_folders(self._card_store.get_all_cards()))
-            self._current_folder_filters = self._sidebar.get_selected_folder_filters()
-            self._refresh_display()
+            self._refresh_folders()
             if self._card_store.is_empty:
                 self._enable_action_tools(reload=False, ai=False, rename=False, clear=False)
             self._show_info_message(
                 f"Reload: {_plural(len(deleted_paths), 'file')} removed",
                 wx.ICON_INFORMATION,
             )
+            return True
         else:
             self._show_info_message("All files up to date", wx.ICON_INFORMATION)
+            return False
 
     def _start_processing(self, files: list[Path] | None = None) -> None:
         """Start processing PDFs in background.
@@ -535,14 +555,8 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
         self._hide_progress_strip()
 
-        # Update folder section FIRST (creates checkboxes before _refresh_display populates counts)
-        self._sidebar.update_folders(derive_folders(self._card_store.get_all_cards()))
-        # Sync main window state — update_folders resets sidebar to "all_folders"
-        # but doesn't fire callback, so we must sync manually
-        self._current_folder_filters = self._sidebar.get_selected_folder_filters()
-
-        # Now refresh display (folder checkboxes exist, counts will populate)
-        self._refresh_display()
+        # Update folder section, sync filter state, and refresh display
+        self._refresh_folders()
 
         # Enable toolbar tools
         self._enable_action_tools(reload=True, ai=True, rename=True, clear=True)
@@ -557,7 +571,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
     def _start_rename(self) -> None:
         """Start rename workflow."""
         cards = self._review_panel.get_cards()
-        year_str = self._year_ctrl.GetValue().strip()
+        year_str = self._get_year()
 
         if not validate_year(year_str):
             wx.MessageBox("Please enter a valid 4-digit year.", "Invalid Year", wx.OK | wx.ICON_WARNING, self._frame)
@@ -601,9 +615,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
             self._unlink_path(path)
 
         # Rebuild folder list and refresh display
-        self._sidebar.update_folders(derive_folders(self._card_store.get_all_cards()))
-        self._current_folder_filters = self._sidebar.get_selected_folder_filters()
-        self._refresh_display()
+        self._refresh_folders()
 
         # Disable toolbar tools if no cards remain
         if self._card_store.is_empty:

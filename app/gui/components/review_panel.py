@@ -25,12 +25,12 @@ Benefits:
 """
 
 import logging
-import subprocess
 from collections.abc import Callable
 
 import wx
 import wx.dataview as dv
 
+from app.core.platform import open_file, reveal_in_finder
 from app.gui.context_menu import add_entry_context_menu
 from app.gui.dialogs.common import display_path as _display_path
 from app.gui.icons import load_menu_icon, load_sf_symbol
@@ -805,10 +805,7 @@ class ReviewPanelMasterDetail(wx.Panel):
 
         def _open_files(evt, _paths=tuple(all_paths)):
             for p in _paths:
-                try:
-                    subprocess.Popen(["open", p])
-                except OSError as e:
-                    logger.warning("Failed to open %s: %s", p, e)
+                open_file(p)
 
         menu.Bind(wx.EVT_MENU, _open_files, open_item)
 
@@ -816,10 +813,7 @@ class ReviewPanelMasterDetail(wx.Panel):
 
             def _reveal_files(evt, _paths=tuple(all_paths)):
                 for p in _paths:
-                    try:
-                        subprocess.Popen(["open", "-R", p])
-                    except OSError as e:
-                        logger.warning("Failed to reveal %s: %s", p, e)
+                    reveal_in_finder(p)
 
             menu.Bind(
                 wx.EVT_MENU, _reveal_files, reveal_item

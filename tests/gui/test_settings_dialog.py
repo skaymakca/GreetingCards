@@ -8,20 +8,7 @@ from app.gui.dialogs.settings import (
     AdvancedPreferencesPage,
     GeneralPreferencesPage,
     create_preferences_editor,
-    get_commit_hash,
 )
-
-
-class TestGetCommitHash:
-    """Tests for get_commit_hash."""
-
-    @patch("app.gui.dialogs.settings.subprocess.check_output", return_value=b"abc1234\n")
-    def test_commit_hash(self, mock_git, wx_app):
-        assert get_commit_hash() == "abc1234"
-
-    @patch("app.gui.dialogs.settings.subprocess.check_output", side_effect=FileNotFoundError("no git"))
-    def test_commit_hash_fallback(self, mock_git, wx_app):
-        assert get_commit_hash() == ""
 
 
 class TestGeneralPreferencesPage:

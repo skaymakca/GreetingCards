@@ -232,7 +232,7 @@ class TestLoadPathsForScript:
         fake_pdfs = [Path("/tmp/a.pdf"), Path("/tmp/b.pdf")]
 
         with (
-            patch("app.gui.main_window_mixins.apple_events_mixin.scan_for_pdfs", return_value=fake_pdfs),
+            patch("app.gui.main_window.scan_for_pdfs", return_value=fake_pdfs),
             patch.object(window, "_start_processing") as mock_proc,
         ):
             result = window.load_paths_for_script(["/tmp/cards"])
@@ -247,7 +247,7 @@ class TestLoadPathsForScript:
 
         with (
             patch(
-                "app.gui.main_window_mixins.apple_events_mixin.scan_for_pdfs",
+                "app.gui.main_window.scan_for_pdfs",
                 return_value=[existing, Path("/tmp/b.pdf")],
             ),
             patch.object(window, "_start_processing"),
@@ -257,7 +257,7 @@ class TestLoadPathsForScript:
         assert result["count"] == 1
 
     def test_nonexistent_returns_zero(self, window):
-        with patch("app.gui.main_window_mixins.apple_events_mixin.scan_for_pdfs", return_value=[]):
+        with patch("app.gui.main_window.scan_for_pdfs", return_value=[]):
             result = window.load_paths_for_script(["/nonexistent"])
         assert result["success"] is True
         assert result["count"] == 0
@@ -337,7 +337,10 @@ class TestRenameCardForScript:
 
 class TestAnalyzeForScript:
     def test_all_cards(self, window):
+        from PIL import Image
+
         card = _make_card()
+        card.preview_image = Image.new("RGB", (10, 10))
         _inject_card(window, card)
 
         with (
@@ -434,11 +437,19 @@ class TestReloadForScript:
         card = _make_card()
         _inject_card(window, card)
 
-        with patch.object(window, "_reload_cards"):
+        with patch.object(window, "_reload_cards", return_value=False):
             result = window.reload_for_script()
-        # Since _reload_cards is mocked and doesn't modify state, hashes remain same
         assert result["success"] is True
         assert result["changed"] is False
+
+    def test_reload_with_changes(self, window):
+        card = _make_card()
+        _inject_card(window, card)
+
+        with patch.object(window, "_reload_cards", return_value=True):
+            result = window.reload_for_script()
+        assert result["success"] is True
+        assert result["changed"] is True
 
 
 # ── clear_all_for_script ─────────────────────────────────────────────────

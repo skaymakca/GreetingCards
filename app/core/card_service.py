@@ -23,6 +23,13 @@ class CardService:
     def __init__(self, store: CardStore) -> None:
         self._store = store
 
+    @staticmethod
+    def is_ai_eligible(card: CardResult) -> bool:
+        """True if card can be sent for AI analysis (no error, has images)."""
+        if card.error:
+            return False
+        return bool(card.page_images or card.preview_image)
+
     def reset(self) -> None:
         """Reset database and clear in-memory state."""
         from app.core.database import reset_database
@@ -97,18 +104,18 @@ class CardService:
         select_candidate(card.file_hash, candidate_id, card.remove_family)
         return card
 
-    def select_candidate_by_rank(self, card_id: int, rank: int) -> CardResult | None:
+    def select_candidate_by_rank(self, card_id: int, rank: int) -> CardResult | str | None:
         """Select a candidate by 1-based rank order.
 
-        Validates rank is within bounds, then delegates to select_candidate().
-
-        Returns the updated card, or None if card_id not found or rank invalid.
+        Returns:
+            Updated CardResult on success, error string on validation failure,
+            None if card not found.
         """
         card = self._store.get_by_id(card_id)
         if card is None:
             return None
         if rank < 1 or rank > len(card.candidates):
-            return None
+            return f"Invalid rank {rank}: card has {len(card.candidates)} candidates"
 
         cand = card.candidates[rank - 1]
         return self.select_candidate(card_id, cand.id)

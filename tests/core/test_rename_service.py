@@ -195,3 +195,53 @@ class TestRenameCard:
         assert len(results) == 2
         # No rollback — at least one succeeded
         assert card.manual_override == "NewName"
+
+
+# ── summarize_plan ──
+
+
+class TestSummarizePlan:
+    """Tests for RenameService.summarize_plan()."""
+
+    def test_counts_all_statuses(self) -> None:
+        plan = [
+            RenamePlanItem(Path("/a/f1.pdf"), Path("/a/new1.pdf"), "ok"),
+            RenamePlanItem(Path("/a/f2.pdf"), Path("/a/new2.pdf"), "ok"),
+            RenamePlanItem(Path("/a/f3.pdf"), Path("/a/f3.pdf"), "duplicate"),
+            RenamePlanItem(Path("/b/f4.pdf"), Path("/b/f4.pdf"), "skip_error"),
+            RenamePlanItem(Path("/b/f5.pdf"), Path("/b/f5.pdf"), "skip_no_name"),
+            RenamePlanItem(Path("/b/f6.pdf"), Path("/b/f6.pdf"), "skip_same"),
+        ]
+        result = RenameService.summarize_plan(plan)
+        assert result["ok"] == 2
+        assert result["duplicate"] == 1
+        assert result["error"] == 1
+        assert result["skip"] == 2
+        assert result["directory_count"] == 2
+
+    def test_empty_plan(self) -> None:
+        result = RenameService.summarize_plan([])
+        assert result == {"ok": 0, "duplicate": 0, "error": 0, "skip": 0, "directory_count": 0}
+
+
+# ── summarize_results ──
+
+
+class TestSummarizeResults:
+    """Tests for RenameService.summarize_results()."""
+
+    def test_counts_all_outcomes(self) -> None:
+        results = [
+            RenameResult(Path("/a/f1.pdf"), Path("/a/new1.pdf"), True, "Renamed"),
+            RenameResult(Path("/a/f2.pdf"), Path("/a/new2.pdf"), True, "Renamed"),
+            RenameResult(Path("/a/f3.pdf"), Path("/a/f3.pdf"), True, "Already named correctly"),
+            RenameResult(Path("/a/f4.pdf"), Path("/a/f4.pdf"), False, "Permission denied"),
+        ]
+        result = RenameService.summarize_results(results)
+        assert result["renamed"] == 2
+        assert result["skipped"] == 1
+        assert result["errors"] == 1
+
+    def test_empty_results(self) -> None:
+        result = RenameService.summarize_results([])
+        assert result == {"renamed": 0, "skipped": 0, "errors": 0}
