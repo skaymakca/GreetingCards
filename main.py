@@ -30,7 +30,7 @@ def main():
 
     from app.core.apple_events import register_apple_event_handlers, register_quit_handler
 
-    _ae_handler = register_apple_event_handlers(window)  # 14 GrCd handlers; prevent GC
+    _ae_handler = register_apple_event_handlers(window, main_thread_dispatch=wx.CallAfter)
     assert _ae_handler is not None  # prevent "not accessed" warning
 
     # Defer aevt/quit registration until after MainLoop starts so our handler

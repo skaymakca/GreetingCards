@@ -26,7 +26,7 @@ AppleEventHandler  (NSObject subclass — app/core/apple_events.py)
   │    2. Wrap action in closure, call _call_on_main_thread  │
   │    3. _set_text_reply(reply, json.dumps(result))         │
   └─────────────────────────────────────────────────────────┘
-        │  (main-thread dispatch via wx.CallAfter if needed)
+        │  (main-thread dispatch via injected callable if needed)
         ▼
 AppleEventsMixin  (app/gui/main_window_mixins/apple_events_mixin.py)
   ┌─────────────────────────────────────────────────────────┐
@@ -44,7 +44,7 @@ Registration happens in `main.py` in two phases:
 
 ```python
 # Phase 1 — before MainLoop: register all 14 GrCd handlers
-_ae_handler = register_apple_event_handlers(window)
+_ae_handler = register_apple_event_handlers(window, main_thread_dispatch=wx.CallAfter)
 assert _ae_handler is not None          # keeps reference alive (prevents GC)
 
 # Phase 2 — deferred until after MainLoop starts
@@ -52,6 +52,8 @@ wx.CallAfter(register_quit_handler, _ae_handler)
 ```
 
 **Why two phases?** wxPython re-installs its own `aevt/quit` handler during `MainLoop()` startup. Registering our quit handler via `wx.CallAfter` ensures it runs after `MainLoop` begins, so our handler overwrites wxPython's.
+
+**`main_thread_dispatch` parameter:** The core layer (`app/core/apple_events.py`) must not import `wx`. Instead, the GUI layer injects its main-thread dispatcher (e.g. `wx.CallAfter`) via this keyword argument. The callable is stored module-wide and used by `_call_on_main_thread()` as a safety net for non-main-thread dispatch. Tests can pass `None` (the default) or a synchronous callable.
 
 **Why keep `_ae_handler` in scope?** Python's GC would collect the `NSObject` subclass instance if nothing holds a reference. The `_ae_handler` local in `main()` keeps it alive for the process lifetime.
 
@@ -114,16 +116,21 @@ See the JSON Schema file for strict type definitions with `"additionalProperties
 Apple Events are dispatched by macOS on the application's main run loop, which is the same thread wxPython uses. In practice, all `handle*_reply_` calls already arrive on the main thread — `_call_on_main_thread` is a safety net for the case where this ever changes.
 
 ```python
+_main_thread_dispatch: Callable | None = None  # injected by register_apple_event_handlers()
+
 def _call_on_main_thread(func):
     if threading.current_thread() is threading.main_thread():
         return func()            # fast path — no overhead
+
+    if _main_thread_dispatch is None:
+        raise RuntimeError("No main-thread dispatcher registered")
 
     result_holder: list = []
     done = threading.Event()
     def _wrapper():
         result_holder.append(func())
         done.set()
-    wx.CallAfter(_wrapper)
+    _main_thread_dispatch(_wrapper)  # e.g. wx.CallAfter — injected, not imported
     if not done.wait(timeout=30):
         logger.error("_call_on_main_thread timed out after 30s")
         return None              # caller converts None → {"error": "timeout"}

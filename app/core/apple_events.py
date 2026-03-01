@@ -13,13 +13,14 @@ import json
 import logging
 import struct
 import threading
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import objc
 from AppKit import NSAppleEventManager
 from Foundation import NSAppleEventDescriptor
 
-from app.core.config import AI_MODELS, save_ai_model
+from app.core.config import AI_MODELS
 from app.models.card import CardResult
 
 if TYPE_CHECKING:
@@ -195,13 +196,18 @@ def _status_to_json(window: MainWindow) -> str:
 # Main-thread safety wrapper
 # ---------------------------------------------------------------------------
 
+# Injected by register_apple_event_handlers() — the GUI layer passes its
+# main-thread dispatcher (e.g. wx.CallAfter) so the core layer never imports wx.
+_main_thread_dispatch: Callable | None = None
+
 
 def _call_on_main_thread(func):
     """Call func on the main thread. If already on main thread, call directly."""
     if threading.current_thread() is threading.main_thread():
         return func()
     # Safety net — should never happen for AE handlers in a GUI app
-    import wx
+    if _main_thread_dispatch is None:
+        raise RuntimeError("No main-thread dispatcher registered — call register_apple_event_handlers() first")
 
     result_holder: list = []
     done = threading.Event()
@@ -210,7 +216,7 @@ def _call_on_main_thread(func):
         result_holder.append(func())
         done.set()
 
-    wx.CallAfter(_wrapper)
+    _main_thread_dispatch(_wrapper)
     if not done.wait(timeout=30):
         logger.error("_call_on_main_thread timed out after 30s")
         return None
@@ -432,8 +438,14 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
             _set_text_reply(reply, json.dumps({"success": False, "error": f"Unknown model: {model_id}"}))
             return
 
-        save_ai_model(model_id)
-        _set_text_reply(reply, json.dumps({"success": True}))
+        def _do():
+            return self._window.set_ai_model_for_script(model_id)
+
+        result = _call_on_main_thread(_do)
+        if result is None:
+            _set_text_reply(reply, json.dumps({"success": False, "error": "Main thread timeout"}))
+        else:
+            _set_text_reply(reply, json.dumps(result))
 
     # -- Lifecycle ---------------------------------------------------------
 
@@ -465,13 +477,25 @@ _HANDLER_MAP: dict[str, str] = {
 }
 
 
-def register_apple_event_handlers(window: MainWindow) -> AppleEventHandler:
+def register_apple_event_handlers(
+    window: MainWindow,
+    *,
+    main_thread_dispatch: Callable | None = None,
+) -> AppleEventHandler:
     """Register all 14 GrCd Apple Event handlers with NSAppleEventManager.
+
+    Args:
+        window: The MainWindow instance for handler callbacks.
+        main_thread_dispatch: Callable to dispatch work to the main thread
+            (e.g. ``wx.CallAfter``). Stored module-wide for ``_call_on_main_thread``.
 
     Returns the handler instance (caller must retain a reference to prevent GC).
     The aevt/quit handler must be registered separately via register_quit_handler()
     after MainLoop starts, to overwrite wxPython's own aevt/quit handler.
     """
+    global _main_thread_dispatch
+    _main_thread_dispatch = main_thread_dispatch
+
     handler = AppleEventHandler.alloc().initWithWindow_(window)
     mgr = NSAppleEventManager.sharedAppleEventManager()
     event_class = ae_keyword("GrCd")

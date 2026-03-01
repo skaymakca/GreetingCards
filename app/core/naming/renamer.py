@@ -15,6 +15,11 @@ from app.models.card import (
 logger = logging.getLogger(__name__)
 
 
+def validate_year(year_str: str) -> bool:
+    """Return True if year_str is a valid 4-digit year."""
+    return bool(year_str) and year_str.isdigit() and len(year_str) == 4
+
+
 def _is_same_file(a: Path, b: Path) -> bool:
     try:
         return a.samefile(b)

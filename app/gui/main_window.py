@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 from app.core.card_service import CardService
 from app.core.card_store import CardStore
 from app.core.naming.rename_filter import filter_completed_renames
-from app.core.naming.renamer import build_rename_plan
+from app.core.naming.renamer import build_rename_plan, validate_year
 from app.core.pipeline.card_processor import (
     derive_folders,
     scan_for_pdfs,
@@ -559,7 +559,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         cards = self._review_panel.get_cards()
         year_str = self._year_ctrl.GetValue().strip()
 
-        if not year_str or not year_str.isdigit() or len(year_str) != 4:
+        if not validate_year(year_str):
             wx.MessageBox("Please enter a valid 4-digit year.", "Invalid Year", wx.OK | wx.ICON_WARNING, self._frame)
             return
 

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.core.config import get_ai_model, get_api_key
+from app.core.config import get_ai_model, get_api_key, save_ai_model
+from app.core.naming.renamer import validate_year
 from app.core.pipeline.card_processor import scan_for_pdfs
 from app.gui.main_window_mixins._protocol import MainWindowProtocol
 from app.models.card import CardResult
@@ -72,7 +73,7 @@ class AppleEventsMixin:
             return {"success": False, "old_path": "", "new_path": "", "error": f"Card not found: {filename}"}
 
         year_str = year or self._year_ctrl.GetValue().strip()
-        if not year_str or not year_str.isdigit() or len(year_str) != 4:
+        if not validate_year(year_str):
             return {"success": False, "old_path": "", "new_path": "", "error": f"Invalid year: {year_str}"}
 
         results = self._rename_service.rename_card(card, new_name, year_str)
@@ -187,6 +188,11 @@ class AppleEventsMixin:
     def clear_all_for_script(self: MainWindowProtocol) -> dict:
         """Clear all loaded cards and reset UI."""
         self._clear_all()
+        return {"success": True}
+
+    def set_ai_model_for_script(self: MainWindowProtocol, model_id: str) -> dict:
+        """Set the active AI model. Returns result dict."""
+        save_ai_model(model_id)
         return {"success": True}
 
     def quit_for_script(self: MainWindowProtocol) -> None:

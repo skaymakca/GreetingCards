@@ -452,14 +452,14 @@ class TestHandlerSetModel:
     """Tests for handleSetModel_reply_ success path."""
 
     def test_valid_model_returns_success(self):
-        handler = AppleEventHandler.alloc().initWithWindow_(MagicMock())
+        window = MagicMock()
+        window.set_ai_model_for_script.return_value = {"success": True}
+        handler = AppleEventHandler.alloc().initWithWindow_(window)
         event = _make_event(direct="claude-haiku-4-5")
         reply = MagicMock()
-        with (
-            patch("app.core.apple_events._set_text_reply") as mock_reply,
-            patch("app.core.apple_events.save_ai_model"),
-        ):
+        with patch("app.core.apple_events._set_text_reply") as mock_reply:
             handler.handleSetModel_reply_(event, reply)
+        window.set_ai_model_for_script.assert_called_once_with("claude-haiku-4-5")
         result = json.loads(mock_reply.call_args[0][1])
         assert result["success"] is True
 

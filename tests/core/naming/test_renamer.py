@@ -9,6 +9,7 @@ from app.core.naming.renamer import (
     _read_directory_names,
     build_rename_plan,
     execute_rename_plan,
+    validate_year,
 )
 from app.models.card import (
     STATUS_DUPLICATE,
@@ -20,6 +21,29 @@ from app.models.card import (
     Confidence,
     RenamePlanItem,
 )
+
+
+class TestValidateYear:
+    """Tests for validate_year()."""
+
+    def test_valid_four_digit_year(self):
+        assert validate_year("2024") is True
+        assert validate_year("1999") is True
+
+    def test_empty_string(self):
+        assert validate_year("") is False
+
+    def test_non_digit(self):
+        assert validate_year("abcd") is False
+        assert validate_year("20ab") is False
+
+    def test_wrong_length(self):
+        assert validate_year("24") is False
+        assert validate_year("20245") is False
+
+    def test_whitespace(self):
+        assert validate_year("    ") is False
+        assert validate_year(" 2024") is False
 
 
 def _make_card(
