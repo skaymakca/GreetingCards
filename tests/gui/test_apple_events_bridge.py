@@ -43,11 +43,12 @@ def _make_card(
 
 
 def _inject_card(window, card: CardResult) -> None:
-    """Inject a card into the window's state dictionaries."""
-    window._cards_by_hash[card.file_hash] = card
-    window._id_to_card[card.id] = card
+    """Inject a card into the window's card store."""
+    store = window._card_store
+    store._cards_by_hash[card.file_hash] = card
+    store._id_to_card[card.id] = card
     for p in card.file_paths:
-        window._hash_by_path[p] = card.file_hash
+        store._hash_by_path[p] = card.file_hash
 
 
 # ── _find_card_by_filename ──────────────────────────────────────────────
@@ -130,7 +131,7 @@ class TestSetCardNameForScript:
         card = _make_card()
         _inject_card(window, card)
 
-        with patch("app.gui.main_window_mixins.apple_events_mixin.set_manual_name"):
+        with patch("app.core.card_service.set_manual_name"):
             result = window.set_card_name_for_script("test.pdf", "Jones")
 
         assert result["success"] is True
@@ -144,8 +145,8 @@ class TestSetCardNameForScript:
         _inject_card(window, card)
 
         with (
-            patch("app.gui.main_window_mixins.apple_events_mixin.set_manual_name"),
-            patch("app.gui.main_window_mixins.apple_events_mixin.load_card_state_from_db"),
+            patch("app.core.card_service.set_manual_name"),
+            patch("app.core.card_service.load_card_state_from_db"),
         ):
             result = window.set_card_name_for_script("test.pdf", "")
 
@@ -161,7 +162,7 @@ class TestSetCardNameForScript:
         card = _make_card()
         _inject_card(window, card)
 
-        with patch("app.gui.main_window_mixins.apple_events_mixin.set_manual_name") as mock_db:
+        with patch("app.core.card_service.set_manual_name") as mock_db:
             window.set_card_name_for_script("test.pdf", "NewName")
             mock_db.assert_called_once_with("abc123", "NewName", card.remove_family)
 
@@ -179,7 +180,7 @@ class TestSelectCandidateForScript:
         )
         _inject_card(window, card)
 
-        with patch("app.core.database.select_candidate"):
+        with patch("app.core.card_service.select_candidate"):
             result = window.select_candidate_for_script("test.pdf", 2)
 
         assert result["success"] is True
@@ -211,7 +212,7 @@ class TestSetRemoveFamilyForScript:
         card = _make_card()
         _inject_card(window, card)
 
-        with patch("app.core.database.update_remove_family"):
+        with patch("app.core.card_service.update_remove_family"):
             result = window.set_remove_family_for_script("test.pdf", True)
 
         assert result["success"] is True
@@ -242,7 +243,7 @@ class TestLoadPathsForScript:
 
     def test_skips_already_loaded(self, window):
         existing = Path("/tmp/a.pdf")
-        window._hash_by_path[existing] = "hash_a"
+        window._card_store._hash_by_path[existing] = "hash_a"
 
         with (
             patch(
@@ -392,8 +393,8 @@ class TestClearAiForScript:
         _inject_card(window, card)
 
         with (
-            patch("app.gui.main_window_mixins.apple_events_mixin.clear_ai_results", return_value=1) as mock_clear,
-            patch("app.gui.main_window_mixins.apple_events_mixin.load_card_state_from_db"),
+            patch("app.core.card_service.clear_ai_results", return_value=1) as mock_clear,
+            patch("app.core.card_service.load_card_state_from_db"),
         ):
             result = window.clear_ai_for_script(None)
 
@@ -406,8 +407,8 @@ class TestClearAiForScript:
         _inject_card(window, card)
 
         with (
-            patch("app.gui.main_window_mixins.apple_events_mixin.clear_ai_results", return_value=1),
-            patch("app.gui.main_window_mixins.apple_events_mixin.load_card_state_from_db"),
+            patch("app.core.card_service.clear_ai_results", return_value=1),
+            patch("app.core.card_service.load_card_state_from_db"),
         ):
             result = window.clear_ai_for_script("test.pdf")
 
@@ -447,11 +448,11 @@ class TestClearAllForScript:
     def test_clears_state(self, window):
         card = _make_card()
         _inject_card(window, card)
-        assert len(window._cards_by_hash) == 1
+        assert len(window._card_store._cards_by_hash) == 1
 
         result = window.clear_all_for_script()
         assert result["success"] is True
-        assert len(window._cards_by_hash) == 0
+        assert len(window._card_store._cards_by_hash) == 0
 
 
 # ── quit_for_script ──────────────────────────────────────────────────────

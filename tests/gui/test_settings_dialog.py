@@ -181,21 +181,19 @@ class TestAdvancedPreferencesPage:
         assert isinstance(panel, wx.Panel)
         panel.Destroy()
 
-    @patch("app.gui.dialogs.settings.reset_database")
     @patch("app.gui.dialogs.settings.wx.MessageBox", return_value=wx.OK)
-    def test_reset_card_data_confirmed(self, mock_msgbox, mock_reset, wx_app, wx_frame):
+    def test_reset_card_data_confirmed(self, mock_msgbox, wx_app, wx_frame):
         callback = MagicMock()
         page = AdvancedPreferencesPage(on_db_reset=callback)
         page._reset_card_data(None)
-        mock_reset.assert_called_once()
         callback.assert_called_once()
 
-    @patch("app.gui.dialogs.settings.reset_database")
     @patch("app.gui.dialogs.settings.wx.MessageBox", return_value=wx.CANCEL)
-    def test_reset_card_data_cancelled(self, mock_msgbox, mock_reset, wx_app, wx_frame):
-        page = AdvancedPreferencesPage()
+    def test_reset_card_data_cancelled(self, mock_msgbox, wx_app, wx_frame):
+        callback = MagicMock()
+        page = AdvancedPreferencesPage(on_db_reset=callback)
         page._reset_card_data(None)
-        mock_reset.assert_not_called()
+        callback.assert_not_called()
 
 
 class TestCreatePreferencesEditor:

@@ -570,6 +570,8 @@ class ReviewPanelMasterDetail(wx.Panel):
         on_card_edited: Callable[[int], None] | None = None,
         on_remove: Callable[[str], None] | None = None,
         on_ai_analyze: Callable[[list[CardResult]], None] | None = None,
+        on_checkbox_toggle: Callable[[int, bool], None] | None = None,
+        on_candidate_select: Callable[[int, int], None] | None = None,
     ):
         super().__init__(parent)
         self._on_select = on_select
@@ -578,6 +580,8 @@ class ReviewPanelMasterDetail(wx.Panel):
         self._on_card_edited = on_card_edited
         self._on_remove = on_remove
         self._on_ai_analyze = on_ai_analyze
+        self._on_checkbox_toggle = on_checkbox_toggle
+        self._on_candidate_select = on_candidate_select
         self._selected_card_ids: list[int] = []
         self._cards_by_id: dict[int, CardResult] = {}
         self._drag_highlight = False
@@ -851,51 +855,13 @@ class ReviewPanelMasterDetail(wx.Panel):
 
     def _handle_checkbox(self, card_id: int, new_value: bool) -> None:
         """Handle checkbox toggle from detail panel."""
-        card = self._cards_by_id.get(card_id)
-        if card and card.file_hash:
-            from app.core.database import update_remove_family
-
-            update_remove_family(card.file_hash, new_value)
+        if self._on_checkbox_toggle:
+            self._on_checkbox_toggle(card_id, new_value)
 
     def _handle_candidate(self, card_id: int, candidate_id: int) -> None:
         """Handle candidate selection from detail panel."""
-        card = self._cards_by_id.get(card_id)
-        if not card or not card.file_hash:
-            return
-
-        from app.core.database import select_candidate
-
-        # Find the candidate
-        for cand in card.candidates:
-            if cand.id == candidate_id:
-                card.family_name = cand.family_name
-                card.manual_override = ""
-                card.selected_candidate_id = candidate_id
-                card.method = cand.method
-
-                # Restore original confidence
-                if card.confidence == Confidence.MANUAL and card.ui_original_confidence:
-                    card.confidence = card.ui_original_confidence
-                else:
-                    try:
-                        card.confidence = Confidence(cand.confidence)
-                    except ValueError:
-                        logger.debug(
-                            "Unknown confidence %r for candidate %d, defaulting to MEDIUM", cand.confidence, cand.id
-                        )
-                        card.confidence = Confidence.MEDIUM
-
-                break
-
-        # Update DB
-        select_candidate(card.file_hash, candidate_id, card.remove_family)
-
-        # Update UI
-        self._model.update_card(card_id, card)
-        self._detail_panel.load_card(card)
-
-        if self._on_card_edited:
-            self._on_card_edited(card_id)
+        if self._on_candidate_select:
+            self._on_candidate_select(card_id, candidate_id)
 
     def refresh_colors(self) -> None:
         """Re-apply mode-dependent colors after an appearance change."""

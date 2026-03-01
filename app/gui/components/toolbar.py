@@ -273,7 +273,7 @@ class ToolbarManager:
             }
             if event.GetId() in scoped_labels:
                 base, shortcut = scoped_labels[event.GetId()]
-                if enabled and w._cards_by_hash:
+                if enabled and not w._card_store.is_empty:
                     cards, scope = w._get_target_cards()
                     n = len(cards)
                     scope_label = "Selected" if scope == "selected" else "Visible"

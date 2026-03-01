@@ -624,14 +624,15 @@ class VisualTestFrame(wx.Frame):
 
         window = MainWindow()
         window.run()
-        # Inject mock cards into the main window's internal state
+        # Inject mock cards into the main window's internal card store
         for card in self._cards:
             fake_hash = f"mock_hash_{card.id}"
             card.file_hash = fake_hash
-            window._cards_by_hash[fake_hash] = card
+            window._card_store._cards_by_hash[fake_hash] = card
+            window._card_store._id_to_card[card.id] = card
             for fp in card.file_paths:
-                window._hash_by_path[fp] = fake_hash
-        window._next_card_id = len(self._cards) + 1
+                window._card_store._hash_by_path[fp] = fake_hash
+        window._card_store._next_card_id = len(self._cards) + 1
         folders = list({fp.parent for c in self._cards for fp in c.file_paths})
         window._sidebar.update_folders(sorted(folders))
         window._refresh_display()

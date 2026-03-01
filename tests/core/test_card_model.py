@@ -32,33 +32,6 @@ class TestConfidence:
     def test_values(self, member, value):
         assert member.value == value
 
-    @pytest.mark.parametrize(
-        "member,expected_color",
-        [
-            (Confidence.HIGH, "#34C759"),
-            (Confidence.MEDIUM, "#FF9500"),
-            (Confidence.LOW, "#FF3B30"),
-            (Confidence.MANUAL, "#1E90FF"),
-            (Confidence.NONE, "#6E6E73"),
-        ],
-    )
-    def test_colors(self, member, expected_color):
-        assert member.color() == expected_color
-
-    @pytest.mark.parametrize("member", list(Confidence))
-    def test_tooltip_non_empty(self, member):
-        tooltip = member.tooltip()
-        assert isinstance(tooltip, str)
-        assert len(tooltip) > 0
-
-    def test_all_members_have_colors(self):
-        for member in Confidence:
-            assert member.color().startswith("#")
-
-    def test_all_members_have_tooltips(self):
-        for member in Confidence:
-            assert member.tooltip()
-
 
 class TestCandidateInfo:
     """Tests for CandidateInfo dataclass."""

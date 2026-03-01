@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import wx
 
+from app.core import filter_service
 from app.gui.main_window_mixins._protocol import MainWindowProtocol
-from app.models.card import CardResult, Confidence
+from app.models.card import CardResult
 
 
 class FilterMixin:
@@ -86,7 +87,7 @@ class FilterMixin:
         self._review_panel.load_cards(display_cards, preserve_selection=not had_active_filters)
 
         # Toggle overlay vs content area based on whether any cards exist at all
-        self._set_empty_state(not self._cards_by_hash)
+        self._set_empty_state(self._card_store.is_empty)
 
     def _has_active_filters(self: MainWindowProtocol) -> bool:
         """Return True if any search or filter is narrowing the view."""
@@ -98,31 +99,14 @@ class FilterMixin:
 
     def _get_search_filtered_cards(self: MainWindowProtocol) -> list[CardResult]:
         """Get cards filtered by search query only."""
-        cards = list(self._cards_by_hash.values())
-        query = self._search_ctrl.GetValue().lower().strip()
-        if query:
-            cards = [c for c in cards if query in c.filename.lower() or query in c.family_name.lower()]
-        return cards
+        cards = self._card_store.get_all_cards()
+        query = self._search_ctrl.GetValue()
+        return filter_service.search_filter(cards, query)
 
     def _apply_folder_filters(self: MainWindowProtocol, cards: list[CardResult]) -> list[CardResult]:
         """Apply sidebar folder filters to a card list."""
-        if "all_folders" in self._current_folder_filters:
-            return cards
-        folder_set = set(self._current_folder_filters)
-        return [c for c in cards if any(str(p.parent) in folder_set for p in c.file_paths)]
+        return filter_service.apply_folder_filters(cards, self._current_folder_filters)
 
     def _apply_category_filters(self: MainWindowProtocol, cards: list[CardResult]) -> list[CardResult]:
         """Apply sidebar category filters to a card list."""
-        if "all" not in self._current_category_filters:
-            filtered: list[CardResult] = []
-            for filter_key in self._current_category_filters:
-                if filter_key == "manual":
-                    filtered.extend(c for c in cards if c.confidence == Confidence.MANUAL)
-                elif filter_key == "high":
-                    filtered.extend(c for c in cards if c.confidence == Confidence.HIGH)
-                elif filter_key == "needs_review":
-                    filtered.extend(c for c in cards if c.confidence in (Confidence.MEDIUM, Confidence.LOW))
-                elif filter_key == "errors":
-                    filtered.extend(c for c in cards if c.error or c.confidence == Confidence.NONE)
-            cards = list({c.id: c for c in filtered}.values())
-        return sorted(cards, key=lambda c: c.filename.lower())
+        return filter_service.apply_category_filters(cards, self._current_category_filters)

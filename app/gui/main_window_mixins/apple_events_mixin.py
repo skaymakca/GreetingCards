@@ -5,12 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.core.config import get_ai_model, get_api_key
-from app.core.database import clear_ai_results, select_candidate, set_manual_name, update_remove_family
 from app.core.naming.rename_filter import RESOLVED_MESSAGES
 from app.core.naming.renamer import build_rename_plan, execute_rename_plan
-from app.core.pipeline.card_processor import load_card_state_from_db, scan_for_pdfs
+from app.core.pipeline.card_processor import scan_for_pdfs
 from app.gui.main_window_mixins._protocol import MainWindowProtocol
-from app.models.card import CardResult, Confidence
+from app.models.card import CardResult
 
 
 class AppleEventsMixin:
@@ -35,19 +34,14 @@ class AppleEventsMixin:
 
     def _find_card_by_filename(self: MainWindowProtocol, filename: str) -> CardResult | None:
         """Find a card by filename (case-insensitive match on any file_path)."""
-        lower = filename.lower()
-        for card in self._cards_by_hash.values():
-            for p in card.file_paths:
-                if p.name.lower() == lower:
-                    return card
-        return None
+        return self._card_store.find_by_filename(filename)
 
     def get_status_for_script(self: MainWindowProtocol) -> dict:
         """Return current app status as a dict."""
         return {
             "is_processing": self.is_processing,
             "is_analyzing": self.is_ai_running,
-            "loaded_count": len(self._cards_by_hash),
+            "loaded_count": self._card_store.count,
             "current_model": get_ai_model(),
             "year": self._year_ctrl.GetValue().strip(),
         }
@@ -58,7 +52,7 @@ class AppleEventsMixin:
 
     def get_all_cards_for_script(self: MainWindowProtocol) -> list[CardResult]:
         """Return all loaded cards."""
-        return list(self._cards_by_hash.values())
+        return self._card_store.get_all_cards()
 
     def load_paths_for_script(self: MainWindowProtocol, paths: list[str]) -> dict:
         """Load PDFs from file/folder paths. Returns JSON dict with success and count."""
@@ -70,10 +64,10 @@ class AppleEventsMixin:
             all_pdfs.extend(scan_for_pdfs(path))
 
         # Filter already loaded
-        new_pdfs = [p for p in all_pdfs if p not in self._hash_by_path]
+        new_pdfs = [p for p in all_pdfs if not self._card_store.has_path(p)]
 
         if new_pdfs:
-            self._pdf_files.update(new_pdfs)
+            self._card_store.register_new_pdfs(new_pdfs)
             self._start_processing(new_pdfs)
 
         return {"success": True, "count": len(new_pdfs)}
@@ -102,11 +96,7 @@ class AppleEventsMixin:
         # Update tracking dicts for successful renames
         for result in results:
             if result.success and result.message in RESOLVED_MESSAGES:
-                if result.old_path in self._hash_by_path:
-                    file_hash = self._hash_by_path.pop(result.old_path)
-                    self._hash_by_path[result.new_path] = file_hash
-                if result.old_path in self._mtime_by_path:
-                    self._mtime_by_path[result.new_path] = self._mtime_by_path.pop(result.old_path)
+                self._card_store.update_path_mapping(result.old_path, result.new_path)
 
         # Restore override if rename didn't use it (e.g. skip)
         if not any(r.success for r in results):
@@ -133,23 +123,9 @@ class AppleEventsMixin:
         if card is None:
             return {"success": False, "error": f"Card not found: {filename}"}
 
-        if name:
-            if card.confidence != Confidence.MANUAL:
-                card.ui_original_confidence = card.confidence
-            card.confidence = Confidence.MANUAL
-            card.method = "manual"
-            card.family_name = name
-            card.manual_override = name
-            card.selected_candidate_id = None
-            if card.file_hash:
-                set_manual_name(card.file_hash, name, card.remove_family)
-        else:
-            card.manual_override = ""
-            if card.file_hash:
-                set_manual_name(card.file_hash, "", card.remove_family)
-            load_card_state_from_db(card)
-
-        self._review_panel.update_card(card.id, card)
+        updated = self._card_service.set_name(card.id, name)
+        if updated:
+            self._review_panel.update_card(card.id, updated)
         self._refresh_display()
         return {"success": True}
 
@@ -162,21 +138,9 @@ class AppleEventsMixin:
         if rank < 1 or rank > len(card.candidates):
             return {"success": False, "error": f"Invalid rank {rank}: card has {len(card.candidates)} candidates"}
 
-        cand = card.candidates[rank - 1]
-        card.family_name = cand.family_name
-        card.manual_override = ""
-        card.selected_candidate_id = cand.id
-        card.method = cand.method
-
-        try:
-            card.confidence = Confidence(cand.confidence)
-        except ValueError:
-            card.confidence = Confidence.MEDIUM
-
-        if card.file_hash:
-            select_candidate(card.file_hash, cand.id, card.remove_family)
-
-        self._review_panel.update_card(card.id, card)
+        updated = self._card_service.select_candidate_by_rank(card.id, rank)
+        if updated:
+            self._review_panel.update_card(card.id, updated)
         self._refresh_display()
         return {"success": True}
 
@@ -186,17 +150,15 @@ class AppleEventsMixin:
         if card is None:
             return {"success": False, "error": f"Card not found: {filename}"}
 
-        card.remove_family = value
-        if card.file_hash:
-            update_remove_family(card.file_hash, value)
-
-        self._review_panel.update_card(card.id, card)
+        updated = self._card_service.set_remove_family(card.id, value)
+        if updated:
+            self._review_panel.update_card(card.id, updated)
         self._refresh_display()
         return {"success": True}
 
     def analyze_for_script(self: MainWindowProtocol, filename: str | None) -> dict:
         """Start AI analysis. Returns dict with success and count of cards queued."""
-        if not self._cards_by_hash:
+        if self._card_store.is_empty:
             return {"success": False, "error": "No cards loaded"}
 
         if not get_api_key():
@@ -210,7 +172,7 @@ class AppleEventsMixin:
                 return {"success": False, "error": f"No images available for: {filename}"}
             cards = [card]
         else:
-            cards = [c for c in self._cards_by_hash.values() if not c.error]
+            cards = [c for c in self._card_store.get_all_cards() if not c.error]
 
         if not cards:
             return {"success": False, "error": "No eligible cards to analyze"}
@@ -226,33 +188,28 @@ class AppleEventsMixin:
                 return {"success": False, "error": f"Card not found: {filename}"}
             cards = [card]
         else:
-            cards = list(self._cards_by_hash.values())
+            cards = self._card_store.get_all_cards()
 
         if not cards:
             return {"success": True, "count": 0}
 
-        file_hashes = [c.file_hash for c in cards if c.file_hash]
-        changed = clear_ai_results(file_hashes)
-
-        for card in cards:
-            if card.file_hash:
-                load_card_state_from_db(card)
+        changed = self._card_service.clear_ai_results(cards)
 
         self._refresh_display()
         return {"success": True, "count": changed}
 
     def reload_for_script(self: MainWindowProtocol) -> dict:
         """Trigger manual reload. Returns dict with success and changed flag."""
-        if not self._hash_by_path:
+        if not self._card_store.has_paths:
             return {"success": False, "error": "No paths loaded"}
 
-        old_count = len(self._cards_by_hash)
-        old_hashes = set(self._cards_by_hash.keys())
+        old_count = self._card_store.count
+        old_hashes = {c.file_hash for c in self._card_store.get_all_cards() if c.file_hash}
         self._reload_cards(mtime_only=False)
 
         # Detect changes by comparing state
-        new_hashes = set(self._cards_by_hash.keys())
-        changed = old_hashes != new_hashes or old_count != len(self._cards_by_hash)
+        new_hashes = {c.file_hash for c in self._card_store.get_all_cards() if c.file_hash}
+        changed = old_hashes != new_hashes or old_count != self._card_store.count
         return {"success": True, "changed": changed}
 
     def clear_all_for_script(self: MainWindowProtocol) -> dict:

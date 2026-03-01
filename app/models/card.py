@@ -23,34 +23,6 @@ class Confidence(Enum):
     MANUAL = "manual"
     NONE = "none"
 
-    _COLOR_MAP: dict[Confidence, str]
-    _TOOLTIP_MAP: dict[Confidence, str]
-
-    def color(self) -> str:
-        """Return the color for this confidence level."""
-        return self._COLOR_MAP[self]
-
-    def tooltip(self) -> str:
-        """Return the tooltip description for this confidence level."""
-        return self._TOOLTIP_MAP[self]
-
-
-# Class-level lookup tables (avoid dict recreation on every call)
-Confidence._COLOR_MAP = {
-    Confidence.HIGH: "#34C759",  # SUCCESS green
-    Confidence.MEDIUM: "#FF9500",  # WARNING orange
-    Confidence.LOW: "#FF3B30",  # ERROR red
-    Confidence.MANUAL: "#1E90FF",  # MANUAL_BLUE
-    Confidence.NONE: "#6E6E73",  # TEXT_SECONDARY gray
-}
-Confidence._TOOLTIP_MAP = {
-    Confidence.HIGH: "High confidence — strong pattern match or AI result",
-    Confidence.MEDIUM: "Medium confidence — partial pattern match",
-    Confidence.LOW: "Low confidence — weak/fallback match",
-    Confidence.MANUAL: "Manually entered name",
-    Confidence.NONE: "No name extracted",
-}
-
 
 @dataclass
 class PdfWorkerResult:

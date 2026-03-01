@@ -38,7 +38,7 @@ class FilterMixin:
 
 `MainWindowProtocol` (in `_protocol.py`) is a `typing.Protocol` that lists every attribute and method that mixins depend on. It has three categories:
 
-1. **Attributes** — state owned by `MainWindow.__init__` (e.g. `_cards_by_hash`, `_frame`, `_sidebar`)
+1. **Attributes** — state owned by `MainWindow.__init__` (e.g. `_card_store`, `_card_service`, `_frame`, `_sidebar`)
 2. **Core methods** — infrastructure that stays in `main_window.py` (e.g. `_set_empty_state`, `_start_processing`)
 3. **Cross-mixin calls** — methods defined in one mixin but called by another (e.g. `_refresh_display` defined in `FilterMixin`, called by `SelectionMixin` and `AIMixin`)
 
@@ -80,14 +80,16 @@ Search field and sidebar filter logic.
 
 ### SelectionMixin (`selection_mixin.py`) — Group F
 
-Card selection, name edits, and card removal.
+Card selection, name edits, card removal, and review panel callbacks. Delegates mutations to `CardService`.
 
 | Method | Purpose |
 |--------|---------|
 | `_on_card_select` | Updates preview panel when a card is selected |
-| `_on_name_change` | Handles manual name edits with DB persistence + debounce |
+| `_on_name_change` | Delegates to `CardService.set_name()` + debounce timer |
+| `_on_checkbox_toggle` | Callback from review panel — delegates to `CardService.set_remove_family()` |
+| `_on_candidate_select` | Callback from review panel — delegates to `CardService.select_candidate()` |
 | `_on_card_edited` | Handles discrete edits (e.g. candidate selection) |
-| `_on_remove_card` | Removes a card by hash (non-destructive, no file deletion) |
+| `_on_remove_card` | Removes a card via `CardStore` (non-destructive, no file deletion) |
 | `_on_remove_menu` | Removes all selected cards (Edit > Remove) |
 | `_on_update_remove_menu` | Enables/disables the Remove menu item |
 | `_on_edit_debounce_fire` | Fires after 1-second idle to refresh sidebar counts |
@@ -98,7 +100,7 @@ AI batch analysis workflow.
 
 | Method | Purpose |
 |--------|---------|
-| `_on_clear_ai_results` | Prompts + clears AI results for selected/visible cards |
+| `_on_clear_ai_results` | Prompts + delegates to `CardService.clear_ai_results()` |
 | `_ensure_api_key` | Checks for API key, shows dialog if missing |
 | `_get_target_cards` | Returns (cards, scope) based on selection state |
 | `_on_ai_request` | Handles single-card AI button click |
@@ -111,6 +113,7 @@ AI batch analysis workflow.
 
 Scripting bridge called from `app/core/apple_events.py` on the main thread.
 Provides 2 properties (`is_processing`, `is_ai_running`) and 14 bridge methods.
+Delegates mutations to `CardService` and queries to `CardStore`.
 
 See [`docs/architecture/apple-events.md`](apple-events.md) for the full command
 reference, JSON schemas, threading details, and test coverage breakdown.
@@ -119,21 +122,29 @@ reference, JSON schemas, threading details, and test coverage breakdown.
 
 ## Test Patching
 
-Tests that mock functions used by mixin methods must patch at the **mixin module level**, not `app.gui.main_window`. Examples:
+Tests must patch at the module where the function is **imported** (looked up at call time):
 
 ```python
-# ✅ Correct — patch where the function is imported in the mixin
-patch("app.gui.main_window_mixins.selection_mixin.set_manual_name")
-patch("app.gui.main_window_mixins.ai_mixin.get_api_key")
-patch("app.gui.main_window_mixins.apple_events_mixin.scan_for_pdfs")
+# ✅ DB functions used by CardService — patch at card_service module level
+patch("app.core.card_service.set_manual_name")
+patch("app.core.card_service.select_candidate")
+patch("app.core.card_service.update_remove_family")
+patch("app.core.card_service.clear_ai_results")
+patch("app.core.card_service.load_card_state_from_db")
 
-# ✅ Still correct for wx symbols — wx is the global module object
+# ✅ Functions imported directly by mixin modules
+patch("app.gui.main_window_mixins.apple_events_mixin.scan_for_pdfs")
+patch("app.gui.main_window_mixins.apple_events_mixin.get_api_key")
+
+# ✅ wx symbols — wx is the global module object
 patch("app.gui.main_window.wx.MessageBox")
 
-# ✅ Still correct for functions that stay in main_window.py
+# ✅ Functions that stay in main_window.py
 patch("app.gui.main_window.build_rename_plan")
 patch("app.gui.main_window.RenameConfirmDialog")
 ```
+
+**Key change:** Mixins no longer import DB functions directly. Instead they delegate to `self._card_service`, which imports the DB functions in `app/core/card_service.py`. Patches for DB operations must target `app.core.card_service.*`, not the mixin modules.
 
 ---
 
@@ -141,13 +152,13 @@ patch("app.gui.main_window.RenameConfirmDialog")
 
 The following groups remain in `app/gui/main_window.py` (~850 lines):
 
-- `__init__` and all widget/state initialization
+- `__init__` — creates `CardStore`, `CardService`, all widgets/state
 - UI builders: `_build_ui`, `_build_content_area`, `_build_progress_strip`
 - Progress strip management: `_show_progress_strip`, `_update_progress_strip`, `_hide_progress_strip`
 - Drop target: `_setup_drop_target`, `_on_drop`, `_on_drag_over`, `_on_drag_leave`
-- File loading: `_load_paths`, `_clear_all`, `_unlink_path`, `_reload_cards`
-- OCR processing: `_start_processing`, `_process_cards`, `_processing_complete`
-- Rename workflow: `_start_rename`, `_remove_completed_results`
+- File loading: `_load_paths`, `_clear_all`, `_unlink_path`, `_reload_cards` (delegates state ops to `CardStore`)
+- OCR processing: `_start_processing`, `_process_cards`, `_processing_complete` (delegates dedup to `CardStore.add_or_update`)
+- Rename workflow: `_start_rename`, `_remove_completed_results` (delegates path updates to `CardStore`)
 - Dark mode: `_on_appearance_changed`, `_refresh_toolbar_icons`
 - Keyboard/close handlers: `_on_key_press`, `_on_frame_activate`, `_on_close`
 - `run()` — main event loop entry point

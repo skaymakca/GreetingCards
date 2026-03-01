@@ -11,13 +11,14 @@ import wx.adv
 
 logger = logging.getLogger(__name__)
 
+from app.core.card_service import CardService
+from app.core.card_store import CardStore
 from app.core.constants import OCR_WORKERS
 from app.core.naming.rename_filter import RESOLVED_MESSAGES, filter_completed_renames
 from app.core.naming.renamer import build_rename_plan, execute_rename_plan
 from app.core.pipeline.card_processor import (
     derive_folders,
     scan_for_pdfs,
-    worker_result_to_card,
 )
 from app.core.pipeline.pdf_worker import process_pdf_worker
 from app.gui.components.drop_target import DropOverlay as _DropOverlay
@@ -47,18 +48,13 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         self._frame.SetMinSize(Layout.MIN_FRAME_SIZE)
 
         # State - Content-based deduplication (multi-load architecture)
-        self._next_card_id = 0  # Monotonically increasing ID counter
-        self._cards_by_hash: dict[str, CardResult] = {}  # hash → Card (1:1)
-        self._id_to_card: dict[int, CardResult] = {}  # id → Card (mirror of _cards_by_hash)
-        self._hash_by_path: dict[Path, str] = {}  # path → hash (many:1)
-        self._mtime_by_path: dict[Path, float] = {}  # path → st_mtime (for fast pre-filter)
-        self._pdf_files: set[Path] = set()
+        self._card_store = CardStore()
+        self._card_service = CardService(self._card_store)
         self._year = datetime.now().year - 1
         self._current_category_filters = ["all"]  # Current sidebar category filters
         self._current_folder_filters = ["all_folders"]  # Current sidebar folder filters
         self._ai_target_cards: list[CardResult] = []  # Cards for current AI batch
         self._processing_files: list[Path] = []  # Files currently being processed
-        self._state_lock = threading.Lock()  # Protects _cards_by_hash, _hash_by_path, _next_card_id
 
         # Preferences editor (lazy-init)
         self._prefs_editor: wx.PreferencesEditor | None = None
@@ -106,25 +102,8 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         self._frame.Bind(wx.EVT_ACTIVATE, self._on_frame_activate)
 
     def _get_card_by_id(self, card_id: int) -> CardResult | None:
-        """Get card by ID.
-
-        O(1) via _id_to_card mirror in production (populated by _process_cards).
-        Falls back to a linear scan only when _id_to_card is out of sync (e.g.
-        in tests that assign _cards_by_hash directly).
-
-        Args:
-            card_id: Card ID to find
-
-        Returns:
-            CardResult if found, None otherwise
-        """
-        card = self._id_to_card.get(card_id)
-        if card is not None:
-            return card
-        for c in self._cards_by_hash.values():
-            if c is not None and c.id == card_id:
-                return c
-        return None
+        """Get card by ID. O(1) lookup via CardStore."""
+        return self._card_store.get_by_id(card_id)
 
     def _on_select_all(self, event: wx.CommandEvent) -> None:
         """Handle Select All — route to text field if focused, else select all cards."""
@@ -138,7 +117,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         """Show the native macOS Preferences editor."""
         if self._prefs_editor is None:
             self._prefs_editor = create_preferences_editor(
-                on_db_reset=self._clear_all,
+                on_db_reset=self._on_reset_database,
                 is_ai_running=lambda: self._ai_batch_running,
             )
         self._prefs_editor.Show(self._frame)
@@ -275,6 +254,8 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
             on_card_edited=self._on_card_edited,
             on_remove=self._on_remove_card,
             on_ai_analyze=lambda cards: self._start_ai_all(cards=cards),
+            on_checkbox_toggle=self._on_checkbox_toggle,
+            on_candidate_select=self._on_candidate_select,
         )
 
         # Preview panel
@@ -408,7 +389,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         skipped_pdfs = []
 
         for pdf_path in all_pdfs:
-            if pdf_path in self._hash_by_path:
+            if self._card_store.has_path(pdf_path):
                 # This exact path is already loaded (regardless of content)
                 skipped_pdfs.append(pdf_path)
             else:
@@ -416,7 +397,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
                 new_pdfs.append(pdf_path)
 
         # 3. Update state (accumulate, don't replace)
-        self._pdf_files.update(new_pdfs)
+        self._card_store.register_new_pdfs(new_pdfs)
 
         # 4. Show feedback
         if new_pdfs or skipped_pdfs:
@@ -433,13 +414,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
     def _clear_all(self) -> None:
         """Clear all loaded cards (from all sources) and reset UI."""
-        # Clear all state (multi-load architecture)
-        self._cards_by_hash.clear()
-        self._id_to_card.clear()
-        self._hash_by_path.clear()
-        self._mtime_by_path.clear()
-        self._pdf_files = set()
-        self._next_card_id = 0
+        self._card_store.clear()
 
         self._review_panel.load_cards([])
         self._preview_panel.clear()
@@ -461,23 +436,16 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         # Show confirmation
         self._show_info_message("All cards cleared", wx.ICON_INFORMATION)
 
-    def _unlink_path(self, path: Path) -> None:
-        """Remove a path from all tracking dicts and its associated card.
+    def _on_reset_database(self) -> None:
+        """Handle database reset from preferences — reset DB then clear UI."""
+        from app.core.database import reset_database
 
-        Pops path from _hash_by_path, _mtime_by_path, and _pdf_files.
-        Removes path from its card's file_paths list and deletes the card
-        from _cards_by_hash if it has no remaining paths.
-        """
-        file_hash = self._hash_by_path.pop(path, None)
-        self._mtime_by_path.pop(path, None)
-        self._pdf_files.discard(path)
-        if file_hash and file_hash in self._cards_by_hash:
-            card = self._cards_by_hash[file_hash]
-            if path in card.file_paths:
-                card.file_paths.remove(path)
-            if not card.file_paths:
-                del self._cards_by_hash[file_hash]
-                self._id_to_card.pop(card.id, None)
+        reset_database()
+        self._clear_all()
+
+    def _unlink_path(self, path: Path) -> None:
+        """Remove a path from all tracking dicts and its associated card."""
+        self._card_store.unlink_path(path)
 
     def _reload_cards(self, *, mtime_only: bool = False) -> None:
         """Re-check all loaded paths for modifications and deletions.
@@ -494,14 +462,14 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         """
         from app.core.database import compute_file_hash
 
-        if not self._hash_by_path:
+        if not self._card_store.has_paths:
             return
 
         # Update cooldown timestamp (prevents rapid re-triggers from EVT_ACTIVATE)
         self._last_reload_time = time.monotonic()
 
         # Snapshot current paths (dict may mutate during iteration)
-        loaded_paths = set(self._hash_by_path.keys())
+        loaded_paths = self._card_store.get_all_paths()
         deleted_paths: list[Path] = []
         needs_processing: list[Path] = []
 
@@ -517,32 +485,23 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
                         current_mtime = path.stat().st_mtime
                     except OSError:
                         continue
-                    if current_mtime == self._mtime_by_path.get(path):
+                    if current_mtime == self._card_store.get_mtime_for_path(path):
                         continue  # mtime unchanged → skip hash check
 
                 # File exists — check if content changed
-                old_hash = self._hash_by_path[path]
+                old_hash = self._card_store.get_hash_for_path(path)
                 try:
                     new_hash = compute_file_hash(path)
                 except OSError:
                     continue  # Can't read file, skip
                 if new_hash != old_hash:
                     # Content changed — remove from old card
-                    self._hash_by_path.pop(path, None)
-                    self._mtime_by_path.pop(path, None)
-                    self._pdf_files.discard(path)
-                    if old_hash in self._cards_by_hash:
-                        card = self._cards_by_hash[old_hash]
-                        if path in card.file_paths:
-                            card.file_paths.remove(path)
-                        if not card.file_paths:
-                            del self._cards_by_hash[old_hash]
-                            self._id_to_card.pop(card.id, None)
+                    self._card_store.remove_hash_for_path(path)
                     needs_processing.append(path)
 
         if needs_processing:
-            # Re-add to _pdf_files and process (dedup handled by _process_cards)
-            self._pdf_files.update(needs_processing)
+            # Re-add to pdf_files and process (dedup handled by _process_cards)
+            self._card_store.register_new_pdfs(needs_processing)
             self._start_processing(needs_processing)
             n_del = len(deleted_paths)
             n_mod = len(needs_processing)
@@ -554,10 +513,10 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
             self._show_info_message("Reload: " + ", ".join(parts), wx.ICON_INFORMATION)
         elif deleted_paths:
             # Only deletions — update UI
-            self._sidebar.update_folders(derive_folders(self._cards_by_hash.values()))
+            self._sidebar.update_folders(derive_folders(self._card_store.get_all_cards()))
             self._current_folder_filters = self._sidebar.get_selected_folder_filters()
             self._refresh_display()
-            if not self._cards_by_hash:
+            if self._card_store.is_empty:
                 self._enable_action_tools(reload=False, ai=False, rename=False, clear=False)
             self._show_info_message(
                 f"Reload: {_plural(len(deleted_paths), 'file')} removed",
@@ -570,9 +529,9 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         """Start processing PDFs in background.
 
         Args:
-            files: Specific files to process. If None, processes self._pdf_files.
+            files: Specific files to process. If None, processes all known PDF paths.
         """
-        files_to_process = files or self._pdf_files
+        files_to_process = files or list(self._card_store.get_all_paths())
         if not files_to_process:
             return
 
@@ -624,33 +583,9 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
                     wx.CallAfter(self._update_processing_progress, completed, total, Path(path_str).name)
                     continue
                 pdf_path = Path(worker_result.pdf_path)
-                file_hash = worker_result.file_hash
 
-                # Content-based deduplication: check if we already have this content
-                with self._state_lock:
-                    if file_hash and file_hash in self._cards_by_hash:
-                        # Duplicate content - add path to existing card
-                        existing_card = self._cards_by_hash[file_hash]
-                        if pdf_path not in existing_card.file_paths:
-                            existing_card.file_paths.append(pdf_path)
-                        card = existing_card
-                    else:
-                        # New content - create new card
-                        card_id = self._next_card_id
-                        self._next_card_id += 1
-
-                        card = worker_result_to_card(worker_result, card_id)
-                        if file_hash is not None:
-                            self._cards_by_hash[file_hash] = card
-                            self._id_to_card[card.id] = card
-
-                    # Always update path → hash mapping
-                    if file_hash is not None:
-                        self._hash_by_path[pdf_path] = file_hash
-                        try:
-                            self._mtime_by_path[pdf_path] = pdf_path.stat().st_mtime
-                        except OSError:
-                            pass  # File vanished; reload will re-check
+                # Content-based deduplication via CardStore (thread-safe)
+                card, _ = self._card_store.add_or_update(worker_result, pdf_path)
 
                 # Update UI (thread-safe with wx.CallAfter)
                 completed += 1
@@ -671,7 +606,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         self._hide_progress_strip()
 
         # Update folder section FIRST (creates checkboxes before _refresh_display populates counts)
-        self._sidebar.update_folders(derive_folders(self._cards_by_hash.values()))
+        self._sidebar.update_folders(derive_folders(self._card_store.get_all_cards()))
         # Sync main window state — update_folders resets sidebar to "all_folders"
         # but doesn't fire callback, so we must sync manually
         self._current_folder_filters = self._sidebar.get_selected_folder_filters()
@@ -683,7 +618,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         self._enable_action_tools(reload=True, ai=True, rename=True, clear=True)
 
         # Show success message
-        count = len(self._cards_by_hash)
+        count = self._card_store.count
         self._show_info_message(
             f"Processing complete\n{_plural(count, 'card')} loaded",
             wx.ICON_INFORMATION,
@@ -707,14 +642,10 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
             # Execute rename
             results = execute_rename_plan(plan)
 
-            # Update _hash_by_path and _mtime_by_path mappings for renamed files
+            # Update path mappings for renamed files
             for result in results:
                 if result.success and result.message in _RESOLVED_MESSAGES:
-                    if result.old_path in self._hash_by_path:
-                        file_hash = self._hash_by_path.pop(result.old_path)
-                        self._hash_by_path[result.new_path] = file_hash
-                    if result.old_path in self._mtime_by_path:
-                        self._mtime_by_path[result.new_path] = self._mtime_by_path.pop(result.old_path)
+                    self._card_store.update_path_mapping(result.old_path, result.new_path)
 
             # Show completion
             errors = sum(1 for r in results if not r.success)
@@ -745,12 +676,12 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
             self._unlink_path(path)
 
         # Rebuild folder list and refresh display
-        self._sidebar.update_folders(derive_folders(self._cards_by_hash.values()))
+        self._sidebar.update_folders(derive_folders(self._card_store.get_all_cards()))
         self._current_folder_filters = self._sidebar.get_selected_folder_filters()
         self._refresh_display()
 
         # Disable toolbar tools if no cards remain
-        if not self._cards_by_hash:
+        if self._card_store.is_empty:
             self._enable_action_tools(reload=False, ai=False, rename=False, clear=False)
             self._search_ctrl.SetValue("")
 
@@ -810,7 +741,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         event.Skip()
         if not event.GetActive():
             return
-        if not self._hash_by_path:
+        if not self._card_store.has_paths:
             return
         # Skip if processing is in progress (reload tool is disabled)
         if not self._toolbar.GetToolEnabled(self._reload_id):

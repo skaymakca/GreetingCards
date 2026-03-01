@@ -102,7 +102,7 @@ class TestOnUpdateActionMenu:
 
         # Enable AI tool and simulate cards
         window._toolbar.EnableTool(window._ai_all_id, True)
-        window._cards_by_hash = {"h1": MagicMock()}
+        window._card_store._cards_by_hash["h1"] = MagicMock()
         window._get_target_cards = MagicMock(return_value=([MagicMock(), MagicMock()], "visible"))
 
         event = MagicMock(spec=wx.UpdateUIEvent)
@@ -123,7 +123,7 @@ class TestOnUpdateActionMenu:
         mgr = ToolbarManager(window)
 
         window._toolbar.EnableTool(window._ai_all_id, True)
-        window._cards_by_hash = {"h1": MagicMock()}
+        window._card_store._cards_by_hash["h1"] = MagicMock()
         window._get_target_cards = MagicMock(return_value=([MagicMock()], "selected"))
 
         event = MagicMock(spec=wx.UpdateUIEvent)

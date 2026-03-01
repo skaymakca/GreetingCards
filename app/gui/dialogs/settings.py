@@ -6,7 +6,6 @@ from collections.abc import Callable
 import wx
 
 from app.core.config import AI_MODELS, get_ai_model, get_api_key, save_ai_model, save_api_key
-from app.core.database import reset_database
 from app.gui import styles
 
 _PREFS_PAD = 20
@@ -227,15 +226,14 @@ class AdvancedPreferencesPage(wx.StockPreferencesPage):
         if result != wx.OK:
             return
 
-        reset_database()
+        if self._on_db_reset:
+            self._on_db_reset()
+
         wx.MessageBox(
             "All card data has been reset.",
             "Reset Complete",
             wx.OK | wx.ICON_INFORMATION,
         )
-
-        if self._on_db_reset:
-            self._on_db_reset()
 
 
 def create_preferences_editor(

@@ -12,6 +12,8 @@ from typing import Protocol
 
 import wx
 
+from app.core.card_service import CardService
+from app.core.card_store import CardStore
 from app.gui.components.filter_sidebar import FilterSidebar
 from app.gui.components.preview_panel import PreviewPanel
 from app.gui.components.review_panel import ReviewPanelMasterDetail
@@ -35,12 +37,11 @@ class MainWindowProtocol(Protocol):
     _review_panel: ReviewPanelMasterDetail
     _preview_panel: PreviewPanel
 
-    # --- Card state ---
-    _cards_by_hash: dict[str, CardResult]
-    _id_to_card: dict[int, CardResult]
-    _hash_by_path: dict[Path, str]
-    _mtime_by_path: dict[Path, float]
-    _pdf_files: set[Path]
+    # --- Services ---
+    _card_store: CardStore
+    _card_service: CardService
+
+    # --- Orchestration state ---
     _processing_files: list[Path]
 
     # --- Filter state ---

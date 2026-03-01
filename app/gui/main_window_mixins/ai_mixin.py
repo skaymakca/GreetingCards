@@ -9,9 +9,7 @@ import threading
 import wx
 
 from app.core.config import get_api_key
-from app.core.database import clear_ai_results
 from app.core.pipeline.ai_batch import run_ai_batch_async
-from app.core.pipeline.card_processor import load_card_state_from_db
 from app.gui.dialogs import ErrorListDialog
 from app.gui.dialogs.api_key import show_api_key_dialog
 from app.gui.main_window_mixins._protocol import MainWindowProtocol
@@ -30,7 +28,7 @@ class AIMixin:
 
     def _on_clear_ai_results(self: MainWindowProtocol, event: wx.CommandEvent) -> None:
         """Clear AI results for selected or visible cards."""
-        if not self._cards_by_hash:
+        if self._card_store.is_empty:
             return
 
         cards, scope = self._get_target_cards()
@@ -51,13 +49,7 @@ class AIMixin:
         if result != wx.YES:
             return
 
-        file_hashes = [card.file_hash for card in cards if card.file_hash]
-        changed = clear_ai_results(file_hashes)
-
-        # Reload card state from DB
-        for card in cards:
-            if card.file_hash:
-                load_card_state_from_db(card)
+        changed = self._card_service.clear_ai_results(cards)
 
         self._refresh_display()
         self._show_info_message(
@@ -129,7 +121,7 @@ class AIMixin:
                    If None, determines scope from selection state.
             title: Progress dialog title. If None, auto-generated from scope.
         """
-        if not self._cards_by_hash:
+        if self._card_store.is_empty:
             return
 
         if not self._ensure_api_key():
@@ -216,5 +208,5 @@ class AIMixin:
             dialog.Destroy()
         else:
             # Show success message with auto-dismiss
-            count = len(self._ai_target_cards) or len(self._cards_by_hash)
+            count = len(self._ai_target_cards) or self._card_store.count
             self._show_info_message(f"Analysis complete\n{_plural(count, 'card')} analyzed", wx.ICON_INFORMATION)

@@ -4,11 +4,8 @@ from __future__ import annotations
 
 import wx
 
-from app.core.database import set_manual_name
-from app.core.pipeline.card_processor import load_card_state_from_db
 from app.gui.main_window_mixins._protocol import MainWindowProtocol
 from app.gui.styles import Layout
-from app.models.card import Confidence
 
 
 class SelectionMixin:
@@ -39,34 +36,9 @@ class SelectionMixin:
 
     def _on_name_change(self: MainWindowProtocol, card_id: int, new_name: str) -> None:
         """Handle manual name edit in review panel."""
-        card = self._get_card_by_id(card_id)
-        if not card:
+        card = self._card_service.set_name(card_id, new_name)
+        if card is None:
             return
-
-        # Update card object
-        if new_name:
-            # Save original confidence before marking as manual
-            if card.confidence != Confidence.MANUAL:
-                card.ui_original_confidence = card.confidence
-            card.confidence = Confidence.MANUAL
-            card.method = "manual"
-            card.family_name = new_name
-            card.manual_override = new_name
-            card.selected_candidate_id = None
-
-            # Save to database
-            if card.file_hash:
-                set_manual_name(card.file_hash, new_name, card.remove_family)
-        else:
-            # User cleared the name — revert to pre-manual state
-            card.manual_override = ""
-
-            # Clear manual name in database
-            if card.file_hash:
-                set_manual_name(card.file_hash, "", card.remove_family)
-
-            # Reload state from DB to get the best candidate name
-            load_card_state_from_db(card)
 
         # Update review panel
         self._review_panel.update_card(card_id, card)
@@ -74,6 +46,20 @@ class SelectionMixin:
         # Debounce: restart 1-second timer on each keystroke
         self._edit_debounce_timer.Stop()
         self._edit_debounce_timer.StartOnce(Layout.DEBOUNCE_MS)
+
+    def _on_checkbox_toggle(self: MainWindowProtocol, card_id: int, value: bool) -> None:
+        """Handle Remove Family checkbox toggle from review panel."""
+        card = self._card_service.set_remove_family(card_id, value)
+        if card:
+            self._review_panel.update_card(card_id, card)
+        self._refresh_display()
+
+    def _on_candidate_select(self: MainWindowProtocol, card_id: int, candidate_id: int) -> None:
+        """Handle candidate selection from review panel."""
+        card = self._card_service.select_candidate(card_id, candidate_id)
+        if card:
+            self._review_panel.update_card(card_id, card)
+        self._refresh_display()
 
     def _on_card_edited(self: MainWindowProtocol, card_id: int) -> None:
         """Handle discrete card edits (e.g. candidate selection) that change confidence."""
@@ -85,7 +71,7 @@ class SelectionMixin:
         Args:
             file_hash: The content hash of the card to remove
         """
-        card = self._cards_by_hash.get(file_hash)
+        card = self._card_store.get_by_hash(file_hash)
         if not card:
             return
 
