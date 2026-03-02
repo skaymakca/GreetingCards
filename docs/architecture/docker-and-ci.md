@@ -58,8 +58,9 @@ GitHub Actions CI is defined in `.github/workflows/ci.yml`. It uses a shared com
 
 `.github/actions/setup-build-env/action.yml` installs:
 
-1. Python 3.14 + uv (`astral-sh/setup-uv@v6` with `python-version` and `cache-python: true` — caches both the Python
-   installation and the uv dependency cache across runs)
+1. Python 3.14 + uv (`astral-sh/setup-uv@v6` with `python-version` and `prune-cache: false` — caches the uv dependency
+   cache across runs; pruning is disabled because `uv cache prune --ci` removes nearly all cached packages, making
+   subsequent cache restores useless)
 2. System dependencies: `tesseract`, `leptonica`, `pkg-config`, `lcov` (`gerlero/brew-install@v1` — caches Homebrew
    packages across runs)
 3. Project dependencies (`uv sync`)
