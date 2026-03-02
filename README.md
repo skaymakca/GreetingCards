@@ -80,16 +80,13 @@ Run `make help` to see all available commands.
 | `make setup-dev`       | Install all dependencies including dev/testing tools                                        |
 | `make run`             | Run the app from source                                                                     |
 | `make test`            | Run tests (no args shows help; `make test T="core --cov -x"`)                               |
-| `make test-cov`        | Run all tests with coverage (timestamped output in `_build/coverage/`, flat + grouped HTML) |
-| `make test-cov-open`   | Run all tests with coverage and open HTML reports in browser                                |
 | `make tessdata`        | Download tessdata (eng.traineddata) for OCR                                                 |
 | `make content`         | Generate runtime content (HTML, data files, images)                                         |
 | `make licenses-sync`   | Sync license registry from uv.lock + .dist-info                                             |
 | `make visual-test`     | Run visual test harness from source                                                         |
 | `make visual-test-app` | Build and run visual test harness as `.app` bundle (logs visible)                           |
 | `make dmg`             | Build the distributable DMG installer (→ `dist/Greeting Cards - X.Y.Z.dmg`)                 |
-| `make build`           | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`) — alias for `make app`    |
-| `make app`             | Build the macOS `.app` bundle (same as `make build`)                                        |
+| `make app`             | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`)                           |
 | `make app-run`         | Build and run the `.app` bundle with logs visible in terminal                               |
 | `make icon`            | Generate `icon.icns` from `icon.png` (auto-run by build)                                    |
 | `make version`         | Print the current version                                                                   |
@@ -164,7 +161,7 @@ make setup-dev
 make test
 
 # Run with coverage and open HTML reports in browser
-make test-cov-open
+make test T="default --cov --open"
 ```
 
 ### Test Organization
@@ -237,8 +234,8 @@ tests/
 | `make test T="gui scripts"`                                         | Combine multiple scopes            |
 | `make test T="core -x"`                                             | Stop on first failure              |
 | `make test T="core -k family_name"`                                 | Keyword filter                     |
-| `make test-cov`                                                     | All tests with coverage reports    |
-| `make test-cov-open`                                                | Coverage + open in browser         |
+| `make test T="default --cov"`                                       | All tests with coverage reports    |
+| `make test T="default --cov --open"`                                | Coverage + open in browser         |
 | `uv run pytest tests/core/naming/test_family_name_formatting.py -v` | Run specific test file             |
 
 ### Current Coverage
@@ -265,7 +262,7 @@ When adding new functionality:
 1. Add tests to appropriate file in `tests/core/` or `tests/gui/`
 2. Mark tests with `@pytest.mark.unit` or `@pytest.mark.gui`
 3. Run tests to verify: `make test`
-4. Check coverage: `make test-cov`
+4. Check coverage: `make test T="default --cov"`
 
 See `tests/core/naming/test_family_name_formatting.py` for examples of comprehensive test organization with parameterization.
 

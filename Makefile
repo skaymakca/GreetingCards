@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev run app app-run build clean icon content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-cov-open tessdata pyright mypy lint lint-fix format format-check security check pycharm-inspect show-scripts visual-test visual-test-app dmg docker-build docker-test docker-shell
+.PHONY: help setup setup-dev run app app-run clean icon content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test tessdata pyright mypy lint lint-fix format format-check security check pycharm-inspect show-scripts visual-test visual-test-app dmg docker-build docker-test docker-shell
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -38,12 +38,6 @@ run: content tessdata ## Run the app from source
 
 test: ## Run tests (no args shows help; make test T="core --cov -x")
 	@uv run python scripts/run_tests.py $(T)
-
-test-cov: ## Run all tests with coverage reports
-	@uv run python scripts/run_tests.py default --cov
-
-test-cov-open: ## Run all tests with coverage, open in browser
-	@uv run python scripts/run_tests.py default --cov --open
 
 pyright: ## Run pyright type checking
 	pyright app/ scripts/ main.py
@@ -92,8 +86,6 @@ pycharm-inspect: ## Run PyCharm inspections (requires PyCharm; skipped if not in
 			echo "$$xml_count inspection result file(s). Open in PyCharm: Code > Inspect Code > Load Results."; \
 		fi; \
 	fi
-
-build: app ## Build the macOS .app bundle (alias for 'app')
 
 LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister
 

@@ -319,5 +319,5 @@ mock_client.messages.create = AsyncMock(side_effect=[names_msg, schemes_msg, sub
 
 - `make test T=scripts` — run `tests/scripts/` only (fast, ~1s)
 - `make test T=default` — run core + gui + scripts tests
-- `make test-cov` — full suite with coverage for both `app/` and `scripts/`
+- `make test T="default --cov"` — full suite with coverage for both `app/` and `scripts/`
 - `make test T="core --cov"` — single scope with coverage

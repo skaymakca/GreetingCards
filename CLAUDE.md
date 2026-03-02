@@ -113,7 +113,7 @@ pip install package-name
 - ✅ Use the `run_in_background` parameter on the Bash tool
 
 ### Prefer make targets and dedicated tools
-- Use `make check`, `make lint`, `make build` etc. — single simple commands
+- Use `make check`, `make lint`, `make app` etc. — single simple commands
 - Use Read/Write/Edit/Grep/Glob tools instead of cat/echo/sed/grep/find
 
 ### General principle
