@@ -57,6 +57,8 @@ filterwarnings = [
 ]
 
 [tool.pyright]
+venvPath = "."
+venv = ".venv"
 include = ["app", "tests", "scripts", "main.py"]
 exclude = ["dist", "_build", ".venv", "scripts/dmg/dmgbuild_settings.py"]
 reportArgumentType = false
