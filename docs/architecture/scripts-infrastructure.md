@@ -5,7 +5,7 @@
 ```
 scripts/
   __init__.py              # Empty (makes scripts/ a Python package)
-  helpers.py               # Shared utilities: output dirs, API key validation
+  helpers.py               # Shared utilities: output dirs
   dark_mode_cycler.py      # Standalone: toggles macOS dark/light mode every 5s
   reformat_md_tables.py    # Standalone: reformat Markdown tables for PyCharm
   run_tests.py             # Test runner: scopes, coverage, pytest arg builder
@@ -32,7 +32,7 @@ scripts/build_family_name_db/
 
 scripts/dmg/
   __init__.py
-  __main__.py              # Entry point + orchestration (build app → create DMG via dmgbuild)
+  __main__.py              # Entry point + orchestration (create DMG from existing .app via dmgbuild)
   background.py            # Generates gradient PNG background for DMG window
   readme.py                # Generates RTF readme for DMG (RTFD package)
   dmgbuild_settings.py     # dmgbuild configuration (window layout, icons)
@@ -282,6 +282,7 @@ Self-contained HTML reports with:
 Scripts with pure logic or mockable I/O:
 
 - **`scripts/helpers.py`** — `_make_output_dir` timestamped dir creation; `script_output_dir` keeps non-empty dirs on error, removes empty dirs, re-raises
+- **`scripts/run_tests.py`** — scope resolution, composite scope expansion, `--run-integration` injection, coverage argument building
 - **`scripts/build_family_name_db/`** — `_unicode.py` mapping table; `merger.py` normalize/ascii_fold/merge_sources/apply_overrides/write_tsv/`_sanity_check`; all three source downloaders (census, faker_names, smashew) with in-memory zip/network mocks
 - **`scripts/dmg/`** — `readme.py` RTF generation (escape, inline bold, body rendering, RTFD package); `background.py` gradient and PNG generation; `__main__.py` version reading and `dmgbuild` orchestration
 - **`scripts/generate_diagnostic_cards/cli.py`** — `_create_diagnostic_pdf` fitz mock; `main()` argument parsing

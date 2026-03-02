@@ -36,7 +36,7 @@ Scans holiday/greeting card PDFs, extracts family names via OCR and AI, and batc
 - **Keyboard navigation** — Up/Down to select cards, Shift+Up/Down to extend selection, Cmd+A to select all, Left/Right
   to page through previews, Cmd+Delete to remove selected cards, Cmd+F to search, Cmd+O to open files, Cmd+Shift+R to
   reload, Cmd+Shift+I to AI analyze, Cmd+R to rename, Cmd+, for Settings, Escape to defocus
-- **Help system** — built-in WebView help viewer with 8 pages, cross-page search with highlighted matches, and
+- **Help system** — built-in WebView help viewer with 9 pages, cross-page search with highlighted matches, and
   Previous/Next match navigation
 - **Native macOS UI** — native toolbar, preferences editor (Cmd+,), About dialog, and system colors throughout
 - **API key management** — prompts for the Anthropic API key on first AI use; key is saved to `preferences.plist`;
@@ -73,43 +73,43 @@ make test T=default
 
 Run `make help` to see all available commands.
 
-| Command                | Description                                                                                 |
-|------------------------|---------------------------------------------------------------------------------------------|
-| `make help`            | Show all available make commands                                                            |
-| `make setup`           | Install production dependencies (creates venv automatically)                                |
-| `make setup-dev`       | Install all dependencies including dev/testing tools                                        |
-| `make run`             | Run the app from source                                                                     |
-| `make test`            | Run tests (no args shows help; `make test T="core --cov -x"`)                               |
-| `make tessdata`        | Download tessdata (eng.traineddata) for OCR                                                 |
-| `make content`         | Generate runtime content (HTML, data files, images)                                         |
-| `make licenses-sync`   | Sync license registry from uv.lock + .dist-info                                             |
-| `make visual-test`     | Run visual test harness from source                                                         |
-| `make visual-test-app` | Build and run visual test harness as `.app` bundle (logs visible)                           |
-| `make dmg`             | Build the distributable DMG installer (→ `dist/Greeting Cards - X.Y.Z.dmg`)                 |
-| `make app`             | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`)                           |
-| `make app-run`         | Build and run the `.app` bundle with logs visible in terminal                               |
-| `make icon`            | Generate `icon.icns` from `icon.png` (auto-run by build)                                    |
-| `make version`         | Print the current version                                                                   |
-| `make bump-patch`      | Bump patch version (e.g. 0.5.0 → 0.5.1)                                                     |
-| `make bump-minor`      | Bump minor version (e.g. 0.5.1 → 0.6.0)                                                     |
-| `make bump-major`      | Bump major version (e.g. 0.6.0 → 1.0.0)                                                     |
-| `make tag`             | Create git tag `vX.Y.Z` from current version                                                |
-| `make tag-push`        | Push all tags to remote                                                                     |
-| `make check`           | Run all static checks (pyright + mypy + ruff lint + format + bandit)                        |
-| `make pyright`         | Run pyright type checking on app/ and scripts/                                              |
-| `make mypy`            | Run mypy type checking on app/ and scripts/                                                 |
-| `make lint`            | Run ruff linter                                                                             |
-| `make lint-fix`        | Run ruff linter with auto-fix                                                               |
-| `make format`          | Format code with ruff                                                                       |
-| `make format-check`    | Check formatting without making changes                                                     |
-| `make security`        | Run bandit security scan on app/ and scripts/                                               |
-| `make pycharm-inspect` | Run PyCharm CLI inspections (skipped if PyCharm is not installed)                           |
-| `make loc`             | Count lines of code in project files (excludes dependencies and build artifacts)            |
-| `make show-scripts`    | Show available script invocations without running them                                      |
-| `make docker-build`    | Build the Linux test image                                                                  |
-| `make docker-test`     | Run core + scripts tests in Linux container                                                 |
-| `make docker-shell`    | Interactive shell in Linux container                                                        |
-| `make clean`           | Remove `_build/` and `dist/` directories                                                    |
+| Command                | Description                                                                      |
+|------------------------|----------------------------------------------------------------------------------|
+| `make help`            | Show all available make commands                                                 |
+| `make setup`           | Install production dependencies (creates venv automatically)                     |
+| `make setup-dev`       | Install all dependencies including dev/testing tools                             |
+| `make run`             | Run the app from source                                                          |
+| `make test`            | Run tests (no args shows help; `make test T="core --cov -x"`)                    |
+| `make tessdata`        | Download tessdata (eng.traineddata) for OCR                                      |
+| `make content`         | Generate runtime content (HTML, data files, images)                              |
+| `make licenses-sync`   | Sync license registry from uv.lock + .dist-info                                  |
+| `make visual-test`     | Run visual test harness from source                                              |
+| `make visual-test-app` | Build and run visual test harness as `.app` bundle (logs visible)                |
+| `make dmg`             | Build the distributable DMG installer (→ `dist/Greeting Cards - X.Y.Z.dmg`)      |
+| `make app`             | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`)                |
+| `make app-run`         | Build and run the `.app` bundle with logs visible in terminal                    |
+| `make icon`            | Generate `icon.icns` from `icon.png` (auto-run by build)                         |
+| `make version`         | Print the current version                                                        |
+| `make bump-patch`      | Bump patch version (e.g. 0.5.0 → 0.5.1)                                          |
+| `make bump-minor`      | Bump minor version (e.g. 0.5.1 → 0.6.0)                                          |
+| `make bump-major`      | Bump major version (e.g. 0.6.0 → 1.0.0)                                          |
+| `make tag`             | Create git tag `vX.Y.Z` from current version                                     |
+| `make tag-push`        | Push all tags to remote                                                          |
+| `make check`           | Run all static checks (pyright + mypy + ruff lint + format + bandit)             |
+| `make pyright`         | Run pyright type checking on app/ and scripts/                                   |
+| `make mypy`            | Run mypy type checking on app/ and scripts/                                      |
+| `make lint`            | Run ruff linter                                                                  |
+| `make lint-fix`        | Run ruff linter with auto-fix                                                    |
+| `make format`          | Format code with ruff                                                            |
+| `make format-check`    | Check formatting without making changes                                          |
+| `make security`        | Run bandit security scan on app/ and scripts/                                    |
+| `make pycharm-inspect` | Run PyCharm CLI inspections (skipped if PyCharm is not installed)                |
+| `make loc`             | Count lines of code in project files (excludes dependencies and build artifacts) |
+| `make show-scripts`    | Show available script invocations without running them                           |
+| `make docker-build`    | Build the Linux test image                                                       |
+| `make docker-test`     | Run core + scripts tests in Linux container                                      |
+| `make docker-shell`    | Interactive shell in Linux container                                             |
+| `make clean`           | Remove `_build/` and `dist/` directories                                         |
 
 ## Manual setup and commands
 
@@ -220,6 +220,7 @@ tests/
 │   └── test_applescript.py          # End-to-end AppleScript integration (--run-integration)
 └── scripts/
     ├── test_helpers.py              # script_output_dir lifecycle
+    ├── test_run_tests.py            # test runner scopes and argument building
     ├── build_family_name_db/        # merger, unicode, Census/Faker/Smashew sources
     ├── dmg/                         # readme RTF, background PNG, dmgbuild orchestration
     ├── generate_diagnostic_cards/   # CLI argument parsing, PDF creation
@@ -232,6 +233,7 @@ tests/
 | Command                                                             | What it does                       |
 |---------------------------------------------------------------------|------------------------------------|
 | `make test T=default`                                               | Run core + gui + scripts tests     |
+| `make test T=all`                                                   | All tests including integration    |
 | `make test T=core`                                                  | Run only core tests (fast, no GUI) |
 | `make test T=gui`                                                   | Run only GUI tests                 |
 | `make test T="gui scripts"`                                         | Combine multiple scopes            |
@@ -451,11 +453,11 @@ platform-specific issues (e.g., path handling, Tesseract integration) that macOS
 
 ### Commands
 
-| Command              | Description                                                            |
-|----------------------|------------------------------------------------------------------------|
-| `make docker-build`  | Build the Linux test image (Python 3.14-slim + Tesseract + uv)        |
-| `make docker-test`   | Run core + scripts tests in the Linux container                        |
-| `make docker-shell`  | Open an interactive shell in the container for debugging                |
+| Command             | Description                                                    |
+|---------------------|----------------------------------------------------------------|
+| `make docker-build` | Build the Linux test image (Python 3.14-slim + Tesseract + uv) |
+| `make docker-test`  | Run core + scripts tests in the Linux container                |
+| `make docker-shell` | Open an interactive shell in the container for debugging       |
 
 ### What runs in the container
 
@@ -485,10 +487,10 @@ See [`docs/architecture/docker-and-ci.md`](docs/architecture/docker-and-ci.md) f
 
 CI runs on GitHub Actions (`.github/workflows/ci.yml`) with two jobs:
 
-| Job     | Trigger                  | What it does                                                                        |
-|---------|--------------------------|-------------------------------------------------------------------------------------|
-| `check` | Every push (all branches) | Runs `make check` (pyright + mypy + ruff lint + format-check + bandit)              |
-| `test`  | PRs to `main` only       | Static checks + `make app` build + full test suite with coverage (`make test T=...`) |
+| Job     | Trigger                   | What it does                                                                         |
+|---------|---------------------------|--------------------------------------------------------------------------------------|
+| `check` | Every push (all branches) | Runs `make check` (pyright + mypy + ruff lint + format-check + bandit)               |
+| `test`  | PRs to `main` only        | Static checks + `make app` build + full test suite with coverage (`make test T=...`) |
 
 Both jobs run on `macos-26` runners with Python 3.14, uv, Tesseract, and lcov installed via a shared composite action
 (`.github/actions/setup-build-env/action.yml`).

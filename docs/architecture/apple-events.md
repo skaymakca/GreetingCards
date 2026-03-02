@@ -2,8 +2,8 @@
 
 **Key files:**
 
-- `app/core/apple_events.py` — Core handler layer: `NSAppleEventManager` registration, param extraction, reply helpers, JSON serialization, `_call_on_main_thread` safety wrapper (~350 lines)
-- `app/gui/main_window_mixins/apple_events_mixin.py` — Mixin bridge layer: 2 properties + 14 bridge methods called on the main thread (~270 lines)
+- `app/core/apple_events.py` — Core handler layer: `NSAppleEventManager` registration, param extraction, reply helpers, JSON serialization, `_call_on_main_thread` safety wrapper (~560 lines)
+- `app/gui/main_window_mixins/apple_events_mixin.py` — Mixin bridge layer: 2 properties + 14 bridge methods called on the main thread (~190 lines)
 
 **Bundle ID:** `com.kaymakcalan.app.greetingcards`
 

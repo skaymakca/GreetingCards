@@ -54,6 +54,7 @@ _build/runtime_content/html/
 │       ├── card-list.html
 │       ├── preview.html
 │       ├── shortcuts.html
+│       ├── ai-models.html
 │       ├── scripting.html
 │       └── tips.html
 └── common/

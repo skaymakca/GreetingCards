@@ -136,23 +136,16 @@ RenameService
 ├── build_plan(cards, year) [static]            # Wrap build_rename_plan()
 ├── execute(plan)                               # Execute rename plan + update store path mappings
 ├── rename_card(card, name, year)               # Single-card rename for Apple Events scripting
-├── summarize_plan(plan) [static]               # Count ok/duplicate/error/skip/directory_count
-├── summarize_results(results) [static]         # Count renamed/skipped/errors/directory_count
-├── format_plan_summary(plan) [static]          # User-facing plan summary string
-├── format_results_summary(results) [static]    # User-facing results summary string
 ├── get_completed_paths(results) [static]       # Resolved paths (wraps filter_completed_renames)
 ├── validate_year(year_str) [static]            # Wrap validate_year() for year input validation
-├── filter_visible_results(results) [static]    # Filter results for completion dialog display
-├── get_plan_item_display(item) [static]        # (label, category) classification for plan items
-├── is_skip_status(item) [static]               # True if item should show '-' instead of new path
 ├── INVALID_FILENAME_CHARS [class attr]         # Frozenset of invalid filename characters
 ```
 
 `build_plan()` wraps `build_rename_plan()` so GUI callers don't import core naming internals directly. `execute()` calls `execute_rename_plan()` then updates `CardStore.update_path_mapping()` for each resolved result. `rename_card()` temporarily sets the card's `manual_override`, builds a plan, executes it, and rolls back on total failure.
 
-`summarize_plan()` and `summarize_results()` are pure functions that compute summary dicts from a plan or results list. `format_plan_summary()` and `format_results_summary()` format those dicts into user-facing strings. Used by `RenameConfirmDialog` and `CompletionDialog` to avoid duplicating counting and formatting logic in the GUI layer.
-
 `get_completed_paths()` wraps `filter_completed_renames()` so the GUI doesn't import `rename_filter` directly.
+
+**Rename presentation helpers** (`summarize_plan`, `summarize_results`, `format_plan_summary`, `format_results_summary`, `filter_visible_results`, `get_plan_item_display`, `is_skip_status`) live in `app/gui/rename_display.py`, not in `RenameService`. They are standalone functions used by `RenameConfirmDialog` and `CompletionDialog`.
 
 ## ProcessingService — PDF Processing Orchestration
 
