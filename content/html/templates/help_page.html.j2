@@ -12,3 +12,9 @@
 {% block content %}
 {{ body_html|safe }}
 {% endblock %}
+{% block body_end %}
+{% if has_highlight %}
+<script>// noinspection JSUnresolvedReference
+hljs.highlightAll();</script>
+{% endif %}
+{% endblock %}

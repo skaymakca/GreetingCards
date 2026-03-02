@@ -7,8 +7,6 @@ from typing import Final, Literal
 
 from PIL import Image
 
-from app.core.naming.filename_safety import sanitize_for_filename
-
 # Constrained value types for database-layer fields
 MethodStr = Literal["ocr", "ai", "manual", "missing"]
 ConfidenceStr = Literal["high", "medium", "low", "manual", "none"]
@@ -23,33 +21,20 @@ class Confidence(Enum):
     MANUAL = "manual"
     NONE = "none"
 
-    _COLOR_MAP: dict[Confidence, str]
-    _TOOLTIP_MAP: dict[Confidence, str]
 
-    def color(self) -> str:
-        """Return the color for this confidence level."""
-        return self._COLOR_MAP[self]
+class RenameOutcome(Enum):
+    """Machine-readable outcome of a single rename operation.
 
-    def tooltip(self) -> str:
-        """Return the tooltip description for this confidence level."""
-        return self._TOOLTIP_MAP[self]
+    Used by business logic (rename_filter, rename_service) for control flow.
+    Display text is derived from these values in the GUI layer.
+    """
 
-
-# Class-level lookup tables (avoid dict recreation on every call)
-Confidence._COLOR_MAP = {
-    Confidence.HIGH: "#34C759",  # SUCCESS green
-    Confidence.MEDIUM: "#FF9500",  # WARNING orange
-    Confidence.LOW: "#FF3B30",  # ERROR red
-    Confidence.MANUAL: "#1E90FF",  # MANUAL_BLUE
-    Confidence.NONE: "#6E6E73",  # TEXT_SECONDARY gray
-}
-Confidence._TOOLTIP_MAP = {
-    Confidence.HIGH: "High confidence — strong pattern match or AI result",
-    Confidence.MEDIUM: "Medium confidence — partial pattern match",
-    Confidence.LOW: "Low confidence — weak/fallback match",
-    Confidence.MANUAL: "Manually entered name",
-    Confidence.NONE: "No name extracted",
-}
+    RENAMED = "renamed"
+    ALREADY_CORRECT = "already_correct"
+    SKIP_NO_NAME = "skip_no_name"
+    SKIP_ERROR = "skip_error"
+    ERROR_TARGET_EXISTS = "error_target_exists"
+    ERROR_OS = "error_os"
 
 
 @dataclass
@@ -66,11 +51,9 @@ class PdfWorkerResult:
     family_name: str = ""
     confidence: ConfidenceStr = "none"
     method: MethodStr = "missing"
-    alternates: list[str] = field(default_factory=list)
     candidates: list[CandidateInfo] = field(default_factory=list)
     remove_family: bool = False
     selected_candidate_id: int | None = None
-    ocr_text: str = ""
     error: str = ""
     preview_image_bytes: bytes | None = None
     page_images_bytes: list[bytes] = field(default_factory=list)
@@ -84,6 +67,15 @@ class CandidateInfo:
     family_name: str
     method: CandidateMethodStr
     confidence: CandidateConfidenceStr
+
+    @property
+    def display_label(self) -> str:
+        """Formatted label for presentation in choice lists.
+
+        This is a display-only value — do not use as a lookup key.
+        Use ``id`` for programmatic lookups.
+        """
+        return f"{self.family_name} ({self.method.upper()} - {self.confidence.capitalize()})"
 
 
 @dataclass
@@ -106,13 +98,22 @@ class NameMatch:
     confidence: Confidence
 
 
-# Rename plan status
-RenameStatusStr = Literal["ok", "skip_no_name", "skip_same", "skip_error", "duplicate"]
-STATUS_OK: Final[RenameStatusStr] = "ok"
-STATUS_SKIP_NO_NAME: Final[RenameStatusStr] = "skip_no_name"
-STATUS_SKIP_SAME: Final[RenameStatusStr] = "skip_same"
-STATUS_SKIP_ERROR: Final[RenameStatusStr] = "skip_error"
-STATUS_DUPLICATE: Final[RenameStatusStr] = "duplicate"
+class RenameStatus(Enum):
+    """Status of a rename plan item."""
+
+    OK = "ok"
+    SKIP_NO_NAME = "skip_no_name"
+    SKIP_SAME = "skip_same"
+    SKIP_ERROR = "skip_error"
+    DUPLICATE = "duplicate"
+
+
+# Backward-compat aliases
+STATUS_OK: Final[RenameStatus] = RenameStatus.OK
+STATUS_SKIP_NO_NAME: Final[RenameStatus] = RenameStatus.SKIP_NO_NAME
+STATUS_SKIP_SAME: Final[RenameStatus] = RenameStatus.SKIP_SAME
+STATUS_SKIP_ERROR: Final[RenameStatus] = RenameStatus.SKIP_ERROR
+STATUS_DUPLICATE: Final[RenameStatus] = RenameStatus.DUPLICATE
 
 
 @dataclass
@@ -121,46 +122,62 @@ class RenamePlanItem:
 
     old_path: Path
     new_path: Path
-    status: RenameStatusStr
+    status: RenameStatus
     card: CardResult | None = None  # Back-reference to source card
 
 
 @dataclass
 class RenameResult:
-    """Result of executing a rename operation."""
+    """Result of executing a rename operation.
+
+    ``outcome`` is the machine-readable result. Display text should be
+    derived from ``outcome`` in the presentation layer; ``message`` is
+    retained for backward compatibility during transition.
+    """
 
     old_path: Path
     new_path: Path
     success: bool
     message: str
+    outcome: RenameOutcome = RenameOutcome.RENAMED
     card: CardResult | None = None  # Back-reference to source card
 
 
 @dataclass
 class CardResult:
-    id: int  # Unique, monotonically increasing identifier
-    file_paths: list[Path] = field(default_factory=list)  # All paths with same content
-    primary_path: Path = field(default_factory=Path)  # First path found
+    # ── Identity ──
+    id: int
+    file_paths: list[Path] = field(default_factory=list)
+    primary_path: Path = field(default_factory=Path)
+    file_hash: str = ""
+
+    # ── Name resolution (persisted to DB) ──
     family_name: str = ""
     confidence: Confidence = Confidence.NONE
-    alternates: list[str] = field(default_factory=list)  # Just names for backward compat
-    candidates: list[CandidateInfo] = field(default_factory=list)
-    ocr_text: str = ""
-    preview_image: Image.Image | None = None  # first page (for AI analysis)
-    page_images: list[Image.Image] = field(default_factory=list)  # all pages
-    manual_override: str = ""
-    ai_analyzed: bool = False
-    file_hash: str = ""
-    original_confidence: Confidence | None = None  # Confidence before manual override
-    remove_family: bool = False  # If True, omit "Family" suffix from filename
-    selected_candidate_id: int | None = None  # ID of selected candidate from DB (None if manual or missing)
     method: MethodStr = "missing"
-    error: str = ""  # Non-empty when PDF processing failed (corrupt, encrypted, etc.)
+    candidates: list[CandidateInfo] = field(default_factory=list)
+    selected_candidate_id: int | None = None
+    manual_override: str = ""
+    remove_family: bool = False
+
+    # ── Processing artifacts ──
+    preview_image: Image.Image | None = None
+    page_images: list[Image.Image] = field(default_factory=list)
+    ai_analyzed: bool = False
+    error: str = ""
+
+    # ── Transient selection state (not persisted) ──
+    # Saved when manual edit starts; restored when candidate re-selected.
+    original_confidence: Confidence | None = None
+
+    # ── Properties (model) ──
 
     @property
     def pdf_path(self) -> Path:
         """Backward compatibility - returns primary path."""
         return self.primary_path
+
+    # ── Properties ──
 
     @property
     def display_name(self) -> str:
@@ -169,19 +186,17 @@ class CardResult:
         return self.family_name
 
     @property
+    def best_preview_images(self) -> list[Image.Image]:
+        """Return the best available preview images, or empty list.
+
+        Priority: multi-page images > single preview image > empty.
+        """
+        if self.page_images:
+            return self.page_images
+        if self.preview_image:
+            return [self.preview_image]
+        return []
+
+    @property
     def filename(self) -> str:
         return self.primary_path.name
-
-    def target_filename(self, year: str) -> str:
-        year = year.strip()
-        if not year:
-            return ""
-        name = self.display_name.strip() if self.display_name else ""
-        if not name:
-            return ""
-        # Sanitize filesystem-invalid characters (safety net)
-        name = sanitize_for_filename(name)
-        # Only append "Family" if checkbox is not checked and name doesn't already end with it
-        if not self.remove_family and not name.lower().endswith("family"):
-            name = f"{name} Family"
-        return f"Holiday Cards {year} - {name}.pdf"

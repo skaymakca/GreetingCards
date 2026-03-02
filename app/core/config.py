@@ -16,7 +16,13 @@ _MODEL_KEY = "AI_MODEL"
 
 @dataclass(frozen=True)
 class ModelInfo:
-    """Metadata for an available AI model."""
+    """Metadata for an available AI model.
+
+    Contains both technical (model_id, cost_cents) and presentation
+    (label, description, speed, quality) fields. These are consumed by
+    both the Settings GUI and the Apple Events scripting layer — splitting
+    into separate types would require a mapping table with no clear benefit.
+    """
 
     model_id: str
     label: str

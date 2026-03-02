@@ -681,7 +681,7 @@ def _build_scoring_prompt(texts: list[str], pass_num: int) -> tuple[str, str]:
     if pass_num == 1:
         system = (
             "You score OCR-extracted text from greeting cards. "
-            "You ALWAYS respond with ONLY a JSON object mapping config number to score — no explanation, no commentary, no markdown. "
+            "You ALWAYS respond with ONLY a JSON object mapping config number to score — no explanation, no commentary, no Markdown. "
             f'The object must have exactly {n} keys ("1" through "{n}"), each value an integer 0-100.'
         )
         user = (
@@ -697,7 +697,7 @@ def _build_scoring_prompt(texts: list[str], pass_num: int) -> tuple[str, str]:
     else:
         system = (
             "You score OCR-extracted text from greeting cards. "
-            "You ALWAYS respond with ONLY a JSON object mapping config number to score — no explanation, no commentary, no markdown. "
+            "You ALWAYS respond with ONLY a JSON object mapping config number to score — no explanation, no commentary, no Markdown. "
             f'The object must have exactly {n} keys ("1" through "{n}"), each value an integer 0-100.'
         )
         user = (

@@ -703,19 +703,6 @@ class TestUpdateMethods:
         # Detail panel should show update
         assert panel._detail_panel._name_text.GetValue() == "Updated"
 
-    def test_update_dot_changes_confidence(self, parent_frame, mock_cards):
-        """update_dot updates confidence color."""
-        on_select = Mock()
-        on_ai = Mock()
-        panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
-        panel.load_cards(mock_cards)
-
-        # Update confidence
-        panel.update_dot(1, Confidence.LOW)
-
-        # Verify card confidence changed
-        assert panel._cards_by_id[1].confidence == Confidence.LOW
-
     def test_get_cards_returns_all(self, parent_frame, mock_cards):
         """get_cards returns all cards."""
         on_select = Mock()
@@ -788,7 +775,7 @@ class TestNameCharFiltering:
         """_on_name_char blocks every filesystem-invalid character."""
         from app.core.naming.filename_safety import INVALID_FILENAME_CHARS
 
-        detail = DetailPanel(parent_frame, None, None, None, None)
+        detail = DetailPanel(parent_frame, None, None, None, None, invalid_chars=INVALID_FILENAME_CHARS)
         for char in INVALID_FILENAME_CHARS:
             event = Mock(spec=wx.KeyEvent)
             event.GetUnicodeKey.return_value = ord(char)
@@ -875,8 +862,8 @@ class TestAIButtonState:
         _select_card(panel, 1)
 
         # Disable then enable
-        panel.set_ai_button_state(1, "disabled")
-        panel.set_ai_button_state(1, "normal")
+        panel.set_ai_button_state(1, False)
+        panel.set_ai_button_state(1, True)
 
         assert panel._detail_panel._ai_btn.IsEnabled()
 
@@ -888,7 +875,7 @@ class TestAIButtonState:
         panel.load_cards(mock_cards)
         _select_card(panel, 1)
 
-        panel.set_ai_button_state(1, "disabled")
+        panel.set_ai_button_state(1, False)
 
         assert not panel._detail_panel._ai_btn.IsEnabled()
 
@@ -901,7 +888,7 @@ class TestAIButtonState:
         _select_card(panel, 1)
 
         # Card 1 is selected, try to disable card 2's button
-        panel.set_ai_button_state(2, "disabled")
+        panel.set_ai_button_state(2, False)
 
         # Button should still be enabled (card 1 is selected)
         assert panel._detail_panel._ai_btn.IsEnabled()
@@ -1174,22 +1161,18 @@ class TestMultiPathCardDisplay:
         assert panel.selected_card_id is None
         on_select.assert_called_with(None)
 
-    def test_handle_candidate_fires_on_card_edited(self, parent_frame, mock_cards):
-        """Selecting a candidate fires on_card_edited callback."""
+    def test_handle_candidate_fires_on_candidate_select(self, parent_frame, mock_cards):
+        """Selecting a candidate fires on_candidate_select callback."""
         on_select = Mock()
         on_ai = Mock()
-        on_card_edited = Mock()
-        panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai, on_card_edited=on_card_edited)
+        on_candidate_select = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai, on_candidate_select=on_candidate_select)
         panel.load_cards(mock_cards)
 
-        # Card 1 has candidates — set up hash so _handle_candidate works
         card = mock_cards[0]
-        card.file_hash = "test_hash"
+        panel._handle_candidate(card.id, card.candidates[0].id)
 
-        with patch("app.core.database.select_candidate"):
-            panel._handle_candidate(card.id, card.candidates[0].id)
-
-        on_card_edited.assert_called_once_with(card.id)
+        on_candidate_select.assert_called_once_with(card.id, card.candidates[0].id)
 
     def test_blue_text_for_multi_path_card(self, wx_app, parent_frame):
         """Filename shows in blue for multi-path cards."""
@@ -1434,7 +1417,7 @@ class TestContextMenu:
         # Open is after AI Analyze + separator
         open_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Open"][0]
 
-        with patch("app.gui.components.review_panel.subprocess.Popen") as mock_popen:
+        with patch("app.core.platform.subprocess.Popen") as mock_popen:
             event = wx.CommandEvent(wx.wxEVT_MENU, open_item.GetId())
             menu.ProcessEvent(event)
 
@@ -1453,7 +1436,7 @@ class TestContextMenu:
         menu = panel._build_context_menu([card])
         reveal_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Reveal in Finder"][0]
 
-        with patch("app.gui.components.review_panel.subprocess.Popen") as mock_popen:
+        with patch("app.core.platform.subprocess.Popen") as mock_popen:
             event = wx.CommandEvent(wx.wxEVT_MENU, reveal_item.GetId())
             menu.ProcessEvent(event)
 
@@ -1472,7 +1455,7 @@ class TestContextMenu:
         menu = panel._build_context_menu([mock_cards[0], mock_cards[1]])
         open_item = [it for it in menu.GetMenuItems() if "Open" in it.GetItemLabelText()][0]
 
-        with patch("app.gui.components.review_panel.subprocess.Popen") as mock_popen:
+        with patch("app.core.platform.subprocess.Popen") as mock_popen:
             event = wx.CommandEvent(wx.wxEVT_MENU, open_item.GetId())
             menu.ProcessEvent(event)
 
@@ -1804,73 +1787,41 @@ class TestReviewPanelKeyboard:
 
 
 class TestHandleCheckboxCandidate:
-    """Tests for _handle_checkbox and _handle_candidate coverage gaps."""
+    """Tests for _handle_checkbox and _handle_candidate callback delegation."""
 
-    def test_handle_checkbox_calls_db(self, parent_frame, mock_cards):
-        """_handle_checkbox calls update_remove_family in DB (lines 706-709)."""
-        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
-        mock_cards[0].file_hash = "abc123"
+    def test_handle_checkbox_calls_callback(self, parent_frame, mock_cards):
+        """_handle_checkbox calls on_checkbox_toggle callback."""
+        on_toggle = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_checkbox_toggle=on_toggle)
         panel.load_cards(mock_cards)
 
-        with patch("app.core.database.update_remove_family") as mock_db:
-            panel._handle_checkbox(mock_cards[0].id, True)
-            mock_db.assert_called_once_with("abc123", True)
+        panel._handle_checkbox(mock_cards[0].id, True)
+        on_toggle.assert_called_once_with(mock_cards[0].id, True)
 
-    def test_handle_checkbox_no_hash_skips_db(self, parent_frame, mock_cards):
-        """_handle_checkbox skips DB call when card has no hash."""
-        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
-        mock_cards[0].file_hash = ""
-        panel.load_cards(mock_cards)
-
-        with patch("app.core.database.update_remove_family") as mock_db:
-            panel._handle_checkbox(mock_cards[0].id, True)
-            mock_db.assert_not_called()
-
-    def test_handle_candidate_no_card_returns(self, parent_frame, mock_cards):
-        """_handle_candidate returns early when card not found (line 715)."""
+    def test_handle_checkbox_no_callback_is_noop(self, parent_frame, mock_cards):
+        """_handle_checkbox is a no-op when no callback is set."""
         panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
         panel.load_cards(mock_cards)
 
-        with patch("app.core.database.select_candidate") as mock_db:
-            panel._handle_candidate(999, 101)  # Non-existent card
-            mock_db.assert_not_called()
+        # Should not raise
+        panel._handle_checkbox(mock_cards[0].id, True)
 
-    def test_handle_candidate_restores_original_confidence(self, parent_frame, mock_cards):
-        """_handle_candidate restores original confidence from MANUAL (lines 728-729)."""
-        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
-        card = mock_cards[0]
-        card.file_hash = "abc123"
-        card.confidence = Confidence.MANUAL
-        card.original_confidence = Confidence.HIGH
+    def test_handle_candidate_calls_callback(self, parent_frame, mock_cards):
+        """_handle_candidate calls on_candidate_select callback."""
+        on_select_cand = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_candidate_select=on_select_cand)
         panel.load_cards(mock_cards)
 
-        with patch("app.core.database.select_candidate"):
-            panel._handle_candidate(card.id, card.candidates[0].id)
+        panel._handle_candidate(mock_cards[0].id, 101)
+        on_select_cand.assert_called_once_with(mock_cards[0].id, 101)
 
-        assert card.confidence == Confidence.HIGH
-
-    def test_handle_candidate_fallback_confidence(self, parent_frame):
-        """_handle_candidate falls back to Confidence(cand.confidence) or MEDIUM (lines 731-734)."""
+    def test_handle_candidate_no_callback_is_noop(self, parent_frame, mock_cards):
+        """_handle_candidate is a no-op when no callback is set."""
         panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+        panel.load_cards(mock_cards)
 
-        card = CardResult(
-            id=1,
-            file_paths=[Path("test.pdf")],
-            primary_path=Path("test.pdf"),
-            file_hash="abc123",
-            confidence=Confidence.LOW,
-            original_confidence=None,  # No original to restore
-        )
-        card.candidates = [
-            CandidateInfo(id=101, family_name="Smith", confidence="invalid_value", method="ocr"),
-        ]
-        panel.load_cards([card])
-
-        with patch("app.core.database.select_candidate"):
-            panel._handle_candidate(card.id, 101)
-
-        # Invalid confidence string → ValueError → falls back to MEDIUM
-        assert card.confidence == Confidence.MEDIUM
+        # Should not raise
+        panel._handle_candidate(999, 101)
 
 
 # ============================================================================
@@ -2592,8 +2543,8 @@ class TestSelectionValidationGuards:
         event = Mock()
         detail._on_candidate(event)  # Should not crash
 
-    def test_on_candidate_with_unknown_label_no_crash(self, parent_frame, mock_cards):
-        """_on_candidate with a label not in _candidate_map does nothing (line 542-544)."""
+    def test_on_candidate_with_unknown_index_no_crash(self, parent_frame, mock_cards):
+        """_on_candidate with an index not in _candidate_map does nothing."""
         called = []
         detail = DetailPanel(
             parent_frame,
@@ -2726,7 +2677,7 @@ class TestFileOpenReveal:
         menu = panel._build_context_menu([card])
         open_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Open"][0]
 
-        with patch("app.gui.components.review_panel.subprocess.Popen") as mock_popen:
+        with patch("app.core.platform.subprocess.Popen") as mock_popen:
             event = wx.CommandEvent(wx.wxEVT_MENU, open_item.GetId())
             menu.ProcessEvent(event)
 
@@ -2743,7 +2694,7 @@ class TestFileOpenReveal:
         menu = panel._build_context_menu([card])
         reveal_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Reveal in Finder"][0]
 
-        with patch("app.gui.components.review_panel.subprocess.Popen") as mock_popen:
+        with patch("app.core.platform.subprocess.Popen") as mock_popen:
             event = wx.CommandEvent(wx.wxEVT_MENU, reveal_item.GetId())
             menu.ProcessEvent(event)
 
@@ -2761,8 +2712,8 @@ class TestFileOpenReveal:
         open_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Open"][0]
 
         with (
-            patch("app.gui.components.review_panel.subprocess.Popen", side_effect=OSError("fail")),
-            patch("app.gui.components.review_panel.logger") as mock_logger,
+            patch("app.core.platform.subprocess.Popen", side_effect=OSError("fail")),
+            patch("app.core.platform.logger") as mock_logger,
         ):
             event = wx.CommandEvent(wx.wxEVT_MENU, open_item.GetId())
             menu.ProcessEvent(event)
@@ -2780,8 +2731,8 @@ class TestFileOpenReveal:
         reveal_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Reveal in Finder"][0]
 
         with (
-            patch("app.gui.components.review_panel.subprocess.Popen", side_effect=OSError("fail")),
-            patch("app.gui.components.review_panel.logger") as mock_logger,
+            patch("app.core.platform.subprocess.Popen", side_effect=OSError("fail")),
+            patch("app.core.platform.logger") as mock_logger,
         ):
             event = wx.CommandEvent(wx.wxEVT_MENU, reveal_item.GetId())
             menu.ProcessEvent(event)
@@ -2845,118 +2796,92 @@ class TestAIAnalyzeMenuBinding:
 # ============================================================================
 
 
-class TestCandidateSelectionStateRestoration:
-    """Tests for candidate selection with state restoration (lines 1080-1094)."""
+class TestCandidateSelectionCallbacks:
+    """Tests for candidate selection callback delegation.
 
-    def test_candidate_selection_updates_family_name(self, parent_frame, mock_cards):
-        """Selecting a candidate updates card.family_name."""
-        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+    Card mutation logic is now tested in tests/core/test_card_service.py.
+    These tests verify the review panel correctly delegates to callbacks.
+    """
+
+    def test_candidate_selection_fires_callback(self, parent_frame, mock_cards):
+        """Selecting a candidate calls on_candidate_select callback."""
+        on_candidate = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_candidate_select=on_candidate)
         card = mock_cards[0]
-        card.file_hash = "abc123"
         panel.load_cards(mock_cards)
 
-        with patch("app.core.database.select_candidate"):
-            panel._handle_candidate(card.id, card.candidates[1].id)
+        panel._handle_candidate(card.id, card.candidates[1].id)
 
-        assert card.family_name == "Smyth"
+        on_candidate.assert_called_once_with(card.id, card.candidates[1].id)
 
-    def test_candidate_selection_clears_manual_override(self, parent_frame, mock_cards):
-        """Selecting a candidate clears manual_override."""
-        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
+    def test_checkbox_toggle_fires_callback(self, parent_frame, mock_cards):
+        """Toggling checkbox calls on_checkbox_toggle callback."""
+        on_toggle = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_checkbox_toggle=on_toggle)
         card = mock_cards[0]
-        card.file_hash = "abc123"
-        card.manual_override = "SomeManualName"
         panel.load_cards(mock_cards)
 
-        with patch("app.core.database.select_candidate"):
-            panel._handle_candidate(card.id, card.candidates[0].id)
+        panel._handle_checkbox(card.id, True)
 
-        assert card.manual_override == ""
+        on_toggle.assert_called_once_with(card.id, True)
 
-    def test_candidate_selection_sets_selected_candidate_id(self, parent_frame, mock_cards):
-        """Selecting a candidate sets selected_candidate_id."""
-        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
-        card = mock_cards[0]
-        card.file_hash = "abc123"
+
+class TestCardListModelOverrides:
+    """Tests for CardListModel DataView model overrides."""
+
+    def test_get_column_type_returns_string(self, parent_frame):
+        """GetColumnType returns 'string' for all columns (line 200)."""
+        model = CardListModel()
+        assert model.GetColumnType(0) == "string"
+        assert model.GetColumnType(1) == "string"
+        assert model.GetColumnType(2) == "string"
+
+    def test_set_value_returns_false(self, parent_frame, mock_cards):
+        """SetValue always returns False (read-only model, line 222)."""
+        model = CardListModel()
+        model.load_cards(mock_cards)
+        item = model.ObjectToItem(0)
+        assert model.SetValue("test", item, 0) is False
+        assert model.SetValue("test", item, 1) is False
+        assert model.SetValue("test", item, 2) is False
+
+    def test_get_attr_returns_false_for_other_columns(self, parent_frame, mock_cards):
+        """GetAttr returns False for columns other than 0 and 1 (line 237)."""
+        model = CardListModel()
+        model.load_cards(mock_cards)
+        item = model.ObjectToItem(0)
+        attr = dv.DataViewItemAttr()
+        # Column 3+ should return False
+        assert model.GetAttr(item, 3, attr) is False
+
+
+class TestDefaultDotColor:
+    """Tests for _default_dot_color function (line 59)."""
+
+    def test_returns_text_primary_color(self, parent_frame):
+        """_default_dot_color returns TEXT_PRIMARY color."""
+        from app.gui.components.review_panel import _default_dot_color
+
+        color = _default_dot_color()
+        assert isinstance(color, wx.Colour)
+
+
+class TestDetailPanelCandidateSelect:
+    """Tests for DetailPanel._on_candidate callback (line 563)."""
+
+    def test_candidate_select_fires_callback(self, parent_frame, mock_cards):
+        """Selecting a candidate fires the on_candidate_select callback."""
+        on_candidate = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_candidate_select=on_candidate)
         panel.load_cards(mock_cards)
 
-        with patch("app.core.database.select_candidate"):
-            panel._handle_candidate(card.id, card.candidates[1].id)
-
-        assert card.selected_candidate_id == card.candidates[1].id
-
-    def test_candidate_selection_restores_original_confidence_from_manual(self, parent_frame, mock_cards):
-        """Selecting a candidate restores original_confidence when confidence is MANUAL."""
-        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
         card = mock_cards[0]
-        card.file_hash = "abc123"
-        card.confidence = Confidence.MANUAL
-        card.original_confidence = Confidence.HIGH
-        panel.load_cards(mock_cards)
+        _select_card(panel, card.id)
 
-        with patch("app.core.database.select_candidate"):
-            panel._handle_candidate(card.id, card.candidates[0].id)
+        # Simulate selecting the second candidate in the choice widget
+        detail = panel._detail_panel
+        if detail._candidates_choice.GetCount() > 1:
+            detail._candidates_choice.SetSelection(1)
+            detail._on_candidate(Mock())
 
-        assert card.confidence == Confidence.HIGH
-
-    def test_candidate_selection_uses_candidate_confidence(self, parent_frame):
-        """Selecting a candidate uses candidate's own confidence when not MANUAL."""
-        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
-        card = CardResult(
-            id=1,
-            file_paths=[Path("test.pdf")],
-            primary_path=Path("test.pdf"),
-            file_hash="abc123",
-            confidence=Confidence.LOW,
-            original_confidence=None,
-        )
-        card.candidates = [
-            CandidateInfo(id=101, family_name="Smith", confidence="high", method="ocr"),
-        ]
-        panel.load_cards([card])
-
-        with patch("app.core.database.select_candidate"):
-            panel._handle_candidate(card.id, 101)
-
-        assert card.confidence == Confidence.HIGH
-
-    def test_candidate_selection_updates_model_and_detail(self, parent_frame, mock_cards):
-        """Selecting a candidate updates both model and detail panel."""
-        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
-        card = mock_cards[0]
-        card.file_hash = "abc123"
-        panel.load_cards(mock_cards)
-        _select_card(panel, 1)
-
-        with patch("app.core.database.select_candidate"):
-            panel._handle_candidate(card.id, card.candidates[1].id)
-
-        # Model should have updated value
-        item = panel._model.get_item_by_card_id(1)
-        assert panel._model.GetValue(item, 2) == "Smyth"
-
-        # Detail panel should reflect the update
-        assert panel._detail_panel._name_text.GetValue() == "Smyth"
-
-    def test_candidate_selection_no_hash_returns_early(self, parent_frame, mock_cards):
-        """_handle_candidate returns early when card has no file_hash."""
-        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
-        card = mock_cards[0]
-        card.file_hash = ""
-        panel.load_cards(mock_cards)
-
-        with patch("app.core.database.select_candidate") as mock_db:
-            panel._handle_candidate(card.id, card.candidates[0].id)
-            mock_db.assert_not_called()
-
-    def test_candidate_selection_sets_method(self, parent_frame, mock_cards):
-        """Selecting a candidate updates card.method to the candidate's method."""
-        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())
-        card = mock_cards[0]
-        card.file_hash = "abc123"
-        panel.load_cards(mock_cards)
-
-        with patch("app.core.database.select_candidate"):
-            panel._handle_candidate(card.id, card.candidates[1].id)  # AI candidate
-
-        assert card.method == "ai"
+            on_candidate.assert_called_once()

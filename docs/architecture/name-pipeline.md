@@ -2,7 +2,7 @@
 
 OCR extraction through AI analysis, cleaning, formatting, database storage, and rename.
 
-**Key files:** `app/core/naming/family_name/` (cleaning, formatting, data lookup), `app/core/naming/extractor.py`, `app/core/pipeline/ai_analyzer.py`, `app/core/naming/filename_safety.py` (filename sanitization only), `app/core/database.py`, `app/core/naming/renamer.py`
+**Key files:** `app/core/naming/family_name/` (cleaning, formatting, data lookup), `app/core/naming/extractor.py`, `app/core/pipeline/ai_analyzer.py`, `app/core/naming/filename_safety.py` (filename sanitization only), `app/core/database.py`, `app/core/naming/renamer.py`, `app/core/naming/rename_filter.py` (post-rename filtering), `app/gui/rename_display.py` (rename presentation helpers)
 
 ## Pipeline Overview
 
@@ -34,7 +34,7 @@ PDF file
     │   └─ Auto-select best candidate (AI high > OCR high)
     │
     └─ Rename:
-        target_filename(year) → "Holiday Cards {year} - {Name} Family.pdf"
+        build_target_filename(card, year) → "Holiday Cards {year} - {Name} Family.pdf"
         build_rename_plan() → per-directory dedup
         execute_rename_plan() → actual file renames
 ```
@@ -198,7 +198,7 @@ raw_ai_results (file_hash FK, unique)
 
 When candidates are added (via `_add_candidate_inline` or `add_candidate`), the cleaning pipeline is called with lazy imports:
 ```python
-from app.core.family_name import clean_and_filter_family_names, smart_title_case_family_name
+from app.core.naming.family_name import clean_and_filter_family_names, smart_title_case_family_name
 cleaned = clean_and_filter_family_names([family_name])
 clean_name = smart_title_case_family_name(cleaned[0])
 ```
@@ -237,10 +237,28 @@ if new_path == file_path:
 ```
 
 ### Execution
-`execute_rename_plan()` performs actual renames and updates each card's `file_paths` and `primary_path` in-place for consistency. Each `RenameResult` carries a `card` back-reference (from the plan item) so the caller can trace results back to their source cards.
+`execute_rename_plan()` performs actual renames and updates each card's `file_paths` and `primary_path` in-place for consistency. Each `RenameResult` carries a `card` back-reference (from the plan item) and a `RenameOutcome` enum so the caller can trace results back to their source cards.
+
+### RenameOutcome Enum
+
+Each `RenameResult` has an `outcome` field (`app/models/card.RenameOutcome`) for machine-readable status:
+
+| Outcome               | Meaning                           |
+|-----------------------|-----------------------------------|
+| `RENAMED`             | File was successfully renamed     |
+| `ALREADY_CORRECT`     | File already has the correct name |
+| `SKIP_NO_NAME`        | No family name extracted          |
+| `SKIP_ERROR`          | Card had processing error         |
+| `ERROR_TARGET_EXISTS` | Target name already exists        |
+| `ERROR_OS`            | OS-level rename failure           |
+
+`RESOLVED_OUTCOMES` (`app/core/naming/rename_filter.py`) is a `frozenset({RENAMED, ALREADY_CORRECT})` — the outcomes that count as "done." Used by `RenameService.execute()` for path-mapping updates and by `MainWindow._remove_completed_results()` for post-rename cleanup.
 
 ### Post-Rename Cleanup
-`MainWindow._remove_completed_results()` selectively removes resolved paths (renamed or already correct) from cards. Cards with no remaining paths are deleted. Failed or unresolved paths (no name, errors) are kept for the user to address.
+`MainWindow._remove_completed_results()` selectively removes resolved paths (those with outcomes in `RESOLVED_OUTCOMES`) from cards. Cards with no remaining paths are deleted. Failed or unresolved paths (no name, errors) are kept for the user to address.
+
+### Rename Presentation (`app/gui/rename_display.py`)
+Presentation helpers for the rename confirmation and completion dialogs live in `app/gui/rename_display.py` (GUI layer, not core). Functions: `summarize_plan()`, `format_plan_summary()`, `summarize_results()`, `format_results_summary()`, `get_plan_item_display()`, `is_skip_status()`, `filter_visible_results()`.
 
 ## Gotchas
 

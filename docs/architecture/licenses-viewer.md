@@ -3,11 +3,11 @@
 Generates comprehensive license HTML from a layered system: config files, `uv.lock`, `.dist-info` metadata, and committed license texts.
 
 **Key files:**
-- `app/core/content/license_models.py` — dataclasses (PackageCategory, SystemDep, PackageOverride, LicenseConfig, DiscoveredPackage, LicenseRegistry)
+- `app/core/content/license_models.py` — dataclasses (PackageCategory, BundledDep, PackageOverride, LicenseConfig, DiscoveredPackage, LicenseRegistry)
 - `app/core/content/license_sync.py` — registry sync: reads `uv.lock` + `.dist-info` → writes `registry.toml`
 - `app/core/content/license_html.py` — HTML generation: reads `registry.toml` → generates HTML via Jinja2
 - `app/gui/dialogs/licenses.py` — viewer only (~30 lines)
-- `content/licenses/config.toml` — manual configuration: `[[system]]` seeds and `[[package]]` overrides
+- `content/licenses/config.toml` — manual configuration: `[[bundled]]` seeds (non-pip deps) and `[[package]]` overrides
 - `content/licenses/manual/` — handwritten license texts (committed, never auto-modified)
 
 ## Directory Structure
@@ -15,7 +15,7 @@ Generates comprehensive license HTML from a layered system: config files, `uv.lo
 ```
 content/                         ← Committed source assets
 └── licenses/
-    ├── config.toml              ← [[system]] seeds + [[package]] overrides
+    ├── config.toml              ← [[bundled]] seeds (non-pip) + [[package]] overrides
     └── manual/                  ← Hand-written license texts
         ├── python.txt
         └── tesseract.txt
@@ -31,7 +31,7 @@ _build/                          ← Gitignored generated artifacts
     ├── licenses/                ← Generated HTML output (bundled in app)
     │   ├── index.html
     │   ├── greeting-cards.html
-    │   ├── system.html
+    │   ├── bundled.html
     │   ├── runtime.html
     │   ├── development.html
     │   ├── transitive.html
@@ -45,10 +45,10 @@ _build/                          ← Gitignored generated artifacts
 
 `content/licenses/config.toml` uses two array-of-tables sections:
 
-### `[[system]]` — Seeds for dependencies not in `uv.lock`
+### `[[bundled]]` — Seeds for bundled dependencies not in `uv.lock`
 
 ```toml
-[[system]]
+[[bundled]]
 slug = "python"
 display = "Python"
 version = "3.14"
@@ -75,7 +75,7 @@ Available override fields: `display`, `category`, `license_type`, `homepage`, `n
 
 **Phase 1: `sync_registry()`** (entry point for `make licenses-sync`):
 
-1. Reads `content/licenses/config.toml` for system deps and package overrides
+1. Reads `content/licenses/config.toml` for bundled deps and package overrides
 2. Computes SHA-256 hash of `uv.lock`
 3. Parses `uv.lock` (TOML) for all package names, versions, and dependency edges
 4. Finds greeting-cards direct deps in `uv.lock` → Runtime category
@@ -113,7 +113,7 @@ Licenses are grouped into **category pages** (6 files). Each category page conta
 |-----------------------|------------------------------------------------------------|
 | `index.html`          | Overview with dependency type explanations, summary tables |
 | `greeting-cards.html` | App's own BSD 3-Clause license                             |
-| `system.html`         | Python and Tesseract (not in uv.lock)                      |
+| `bundled.html`        | Python, Tesseract, Highlight.js (not in uv.lock)           |
 | `runtime.html`        | Libraries the app directly imports                         |
 | `development.html`    | Testing, development, and build tools                      |
 | `transitive.html`     | Dependencies pulled in by other packages                   |
@@ -131,22 +131,22 @@ All data structures use Python dataclasses from `app/core/content/license_models
 | Class               | Purpose                                                                          |
 |---------------------|----------------------------------------------------------------------------------|
 | `PackageCategory`   | Enum: RUNTIME, DEVELOPMENT, TRANSITIVE                                           |
-| `SystemDep`         | Python, Tesseract (not in uv.lock); includes `url` field                         |
+| `BundledDep`        | Non-pip bundled deps (Python, Tesseract, Highlight.js); includes `url` field     |
 | `PackageOverride`   | Partial entry from config.toml; non-empty fields override auto-discovered values |
-| `LicenseConfig`     | Parsed from config.toml: system deps + package overrides                         |
+| `LicenseConfig`     | Parsed from config.toml: bundled deps + package overrides                        |
 | `DiscoveredPackage` | One per package with version, license, category, text file path, homepage        |
-| `LicenseRegistry`   | Full resolved state: hash + system deps + packages                               |
+| `LicenseRegistry`   | Full resolved state: hash + bundled deps + packages                              |
 
 ## Data Sources
 
 | Source                              | Data                                                                     |
 |-------------------------------------|--------------------------------------------------------------------------|
-| `content/licenses/config.toml`      | System dep seeds, package overrides (display name, category, etc.)       |
+| `content/licenses/config.toml`      | Bundled dep seeds, package overrides (display name, category, etc.)      |
 | `uv.lock`                           | Package names, versions, dependency graph; greeting-cards deps = Runtime |
 | `pyproject.toml`                    | Dev dependency group → Development category                              |
 | `.dist-info/METADATA`               | License type, homepage URL                                               |
 | `.dist-info/licenses/` or `LICENSE` | Full license text                                                        |
-| `content/licenses/manual/*.txt`     | Hand-written license texts for system deps                               |
+| `content/licenses/manual/*.txt`     | Hand-written license texts for bundled deps                              |
 | `LICENSE` (repo root)               | App's own license text                                                   |
 
 ## Package Categories
@@ -175,7 +175,7 @@ Templates use `autoescape=True` for safety. Data is passed as dicts for template
 ```
 Home
 Greeting Cards
-System
+Bundled
 Runtime
 Development
 Transitive

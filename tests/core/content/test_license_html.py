@@ -89,7 +89,7 @@ class TestGenerateLicensesHtml:
 
         # Minimal config.toml
         (source_dir / "config.toml").write_text(
-            '[[system]]\nslug = "python"\ndisplay = "Python"\nversion = "3.14"\nlicense_type = "PSF"\n',
+            '[[bundled]]\nslug = "python"\ndisplay = "Python"\nversion = "3.14"\nlicense_type = "PSF"\n',
             encoding="utf-8",
         )
         (manual_dir / "python.txt").write_text("Python Software Foundation License", encoding="utf-8")
@@ -136,7 +136,7 @@ class TestGenerateLicensesHtml:
         assert html_dir.exists()
         assert (html_dir / "index.html").exists()
         assert (html_dir / "greeting-cards.html").exists()
-        assert (html_dir / "system.html").exists()
+        assert (html_dir / "bundled.html").exists()
         assert (html_dir / "runtime.html").exists()
         assert (html_dir / "development.html").exists()
         assert (html_dir / "transitive.html").exists()
@@ -150,8 +150,8 @@ class TestGenerateLicensesHtml:
         gc = (html_dir / "greeting-cards.html").read_text(encoding="utf-8")
         assert "BSD 3-Clause" in gc
 
-        # Verify system page has Python
-        sys_page = (html_dir / "system.html").read_text(encoding="utf-8")
+        # Verify bundled page has Python
+        sys_page = (html_dir / "bundled.html").read_text(encoding="utf-8")
         assert "Python" in sys_page
 
         # Verify registry was created
@@ -165,7 +165,7 @@ class TestGenerateLicensesHtml:
         manual_dir = source_dir / "manual"
         manual_dir.mkdir()
         (source_dir / "config.toml").write_text(
-            '[[system]]\nslug = "python"\ndisplay = "Python"\nversion = "3.14"\nlicense_type = "PSF"\n',
+            '[[bundled]]\nslug = "python"\ndisplay = "Python"\nversion = "3.14"\nlicense_type = "PSF"\n',
             encoding="utf-8",
         )
         (manual_dir / "python.txt").write_text("PSF License", encoding="utf-8")
@@ -205,7 +205,7 @@ class TestGenerateLicensesHtml:
 
         # Config with override that has license_type
         (source_dir / "config.toml").write_text(
-            '[[system]]\nslug = "python"\ndisplay = "Python"\n'
+            '[[bundled]]\nslug = "python"\ndisplay = "Python"\n'
             'version = "3.14"\nlicense_type = "PSF"\n\n'
             '[[package]]\nname = "anthropic"\nlicense_type = "MIT Override"\n'
             'homepage = "https://override.example.com"\n',

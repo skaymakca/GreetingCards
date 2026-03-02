@@ -134,14 +134,14 @@ class TestGetPageOrder:
 
     def test_has_expected_page_count(self):
         page_order = get_page_order(_get_help_base_path())
-        assert len(page_order) == 8
+        assert len(page_order) == 9
 
     def test_all_pages_are_html(self):
         page_order = get_page_order(_get_help_base_path())
         assert all(p.endswith(".html") for p in page_order)
 
     def test_order_matches_nav_order(self):
-        """Page order should follow the numeric prefix in markdown filenames."""
+        """Page order should follow the numeric prefix in Markdown filenames."""
         page_order = get_page_order(_get_help_base_path())
         expected = [
             "index.html",
@@ -151,6 +151,7 @@ class TestGetPageOrder:
             "pages/preview.html",
             "pages/shortcuts.html",
             "pages/ai-models.html",
+            "pages/scripting.html",
             "pages/tips.html",
         ]
         assert page_order == expected
@@ -329,7 +330,7 @@ class TestHelpToolbar:
         """Page order should list all expected help pages."""
         page_order = get_page_order(_get_help_base_path())
         assert page_order[0] == "index.html"
-        assert len(page_order) == 8
+        assert len(page_order) == 9
         assert all(p.endswith(".html") for p in page_order)
 
 
@@ -454,7 +455,7 @@ class TestReadHelpPages:
     def test_reads_all_pages(self):
         content_dir = Path(__file__).resolve().parent.parent.parent / "content" / "html"
         pages = _read_help_pages(content_dir)
-        assert len(pages) == 8
+        assert len(pages) == 9
 
     def test_pages_sorted_by_order(self):
         content_dir = Path(__file__).resolve().parent.parent.parent / "content" / "html"

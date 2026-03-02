@@ -2,7 +2,10 @@
 
 import wx
 
+# Read-only content builder — no service facade needed
 from app.core.content.license_html import get_page_order
+
+# Stateless path utility — no service facade needed
 from app.core.paths import get_runtime_content_path
 from app.gui.components.html_viewer import show_viewer
 

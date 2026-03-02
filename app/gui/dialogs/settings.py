@@ -1,12 +1,10 @@
 """Preferences pages for native macOS Preferences editor."""
 
-import subprocess
 from collections.abc import Callable
 
 import wx
 
-from app.core.config import AI_MODELS, get_ai_model, get_api_key, save_ai_model, save_api_key
-from app.core.database import reset_database
+from app.core.services.config_service import ConfigService
 from app.gui import styles
 
 _PREFS_PAD = 20
@@ -14,27 +12,22 @@ _PREFS_WIDTH = 480
 _STATUS_DISPLAY_MS = 3000
 
 
-def get_commit_hash() -> str:
-    """Get short git commit hash, or empty string if unavailable."""
-    try:
-        return (
-            subprocess.check_output(
-                ["git", "rev-parse", "--short", "HEAD"],
-                stderr=subprocess.DEVNULL,
-            )
-            .decode()
-            .strip()
-        )
-    except OSError, subprocess.SubprocessError:
-        return ""
-
-
 # noinspection PyAttributeOutsideInit,PyUnusedLocal
 class GeneralPreferencesPage(wx.StockPreferencesPage):
     """General preferences page with API key management."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        get_api_key: Callable[[], str | None],
+        save_api_key: Callable[[str], None],
+        get_ai_model: Callable[[], str],
+        save_ai_model: Callable[[str], None],
+    ) -> None:
         super().__init__(wx.StockPreferencesPage.Kind_General)
+        self._get_api_key = get_api_key
+        self._save_api_key_cb = save_api_key
+        self._get_ai_model = get_ai_model
+        self._save_ai_model_cb = save_ai_model
 
     def CreateWindow(self, parent: wx.Window) -> wx.Panel:
         """Create the preferences panel. May be called multiple times."""
@@ -56,7 +49,7 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
 
         self._key_entry = wx.TextCtrl(panel, style=wx.TE_PASSWORD | wx.TE_PROCESS_ENTER)
         self._key_entry.SetFont(styles.Font.BODY())
-        current_key = get_api_key()
+        current_key = self._get_api_key()
         if current_key:
             self._key_entry.SetValue(current_key)
         self._key_entry.Bind(wx.EVT_TEXT_ENTER, self._save_api_key)
@@ -88,12 +81,13 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
         sizer.AddSpacer(8)
 
         # Model dropdown
-        model_labels = [f"{m.label} \u2014 {m.description}" for m in AI_MODELS]
+        models = ConfigService.get_available_models()
+        model_labels = [f"{m.label} \u2014 {m.description}" for m in models]
         self._model_choice = wx.Choice(panel, choices=model_labels)
         self._model_choice.SetMaxSize(wx.Size(340, -1))
 
-        current_model = get_ai_model()
-        for i, m in enumerate(AI_MODELS):
+        current_model = self._get_ai_model()
+        for i, m in enumerate(models):
             if m.model_id == current_model:
                 self._model_choice.SetSelection(i)
                 break
@@ -116,7 +110,7 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
             return
         idx = self._model_choice.GetSelection()
         if idx != wx.NOT_FOUND:
-            save_ai_model(AI_MODELS[idx].model_id)
+            self._save_ai_model_cb(ConfigService.get_available_models()[idx].model_id)
 
     def _save_api_key(self, event: wx.CommandEvent) -> None:
         """Save API key and show status."""
@@ -125,7 +119,7 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
             return
         key = self._key_entry.GetValue().strip()
         if key:
-            save_api_key(key)
+            self._save_api_key_cb(key)
             self._key_status.SetLabel("Saved")
             self._key_status.SetForegroundColour(styles.Color.SUCCESS)
         else:
@@ -227,31 +221,46 @@ class AdvancedPreferencesPage(wx.StockPreferencesPage):
         if result != wx.OK:
             return
 
-        reset_database()
+        if self._on_db_reset:
+            self._on_db_reset()
+
         wx.MessageBox(
             "All card data has been reset.",
             "Reset Complete",
             wx.OK | wx.ICON_INFORMATION,
         )
 
-        if self._on_db_reset:
-            self._on_db_reset()
-
 
 def create_preferences_editor(
     on_db_reset: Callable[[], None] | None = None,
     is_ai_running: Callable[[], bool] | None = None,
+    *,
+    get_api_key: Callable[[], str | None],
+    save_api_key: Callable[[str], None],
+    get_ai_model: Callable[[], str],
+    save_ai_model: Callable[[str], None],
 ) -> wx.PreferencesEditor:
     """Create and return a wx.PreferencesEditor with all preference pages.
 
     Args:
         on_db_reset: Optional callback when database is reset
         is_ai_running: Optional callback to check if AI batch is running
+        get_api_key: Callback to retrieve the API key
+        save_api_key: Callback to persist the API key
+        get_ai_model: Callback to retrieve the AI model
+        save_ai_model: Callback to persist the AI model
 
     Returns:
         wx.PreferencesEditor instance
     """
     editor = wx.PreferencesEditor("Greeting Cards")
-    editor.AddPage(GeneralPreferencesPage())
+    editor.AddPage(
+        GeneralPreferencesPage(
+            get_api_key=get_api_key,
+            save_api_key=save_api_key,
+            get_ai_model=get_ai_model,
+            save_ai_model=save_ai_model,
+        )
+    )
     editor.AddPage(AdvancedPreferencesPage(on_db_reset=on_db_reset, is_ai_running=is_ai_running))
     return editor

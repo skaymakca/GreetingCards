@@ -6,18 +6,64 @@
 scripts/
   __init__.py              # Empty (makes scripts/ a Python package)
   helpers.py               # Shared utilities: output dirs, API key validation
+  dark_mode_cycler.py      # Standalone: toggles macOS dark/light mode every 5s
+  reformat_md_tables.py    # Standalone: reformat Markdown tables for PyCharm
+  run_tests.py             # Test runner: scopes, coverage, pytest arg builder
   visual_test.py           # Visual test harness (standalone, not a package)
 
-scripts/<name>/            # Each script is a sub-package
-  __init__.py              # Empty
-  __main__.py              # Entry point: enables `python -m scripts.<name>`
-
 scripts/benchmark/
-  __init__.py              # Empty
+  __init__.py
   common.py                # Shared benchmark infrastructure (Config, OCR, HTML reports)
   ocr_concurrency.py       # OCR concurrency model comparison
   ocr_configuration_quality.py  # Tesseract config space exhaustive search
   pre_processing_concurrency.py # Preprocessing pipeline benchmarking
+
+scripts/build_family_name_db/
+  __init__.py
+  __main__.py              # Entry point
+  cli.py                   # Orchestration: download sources → merge → write TSV
+  merger.py                # Normalize, merge, apply overrides, write TSV
+  _unicode.py              # Unicode → ASCII mapping table
+  sources/
+    census.py              # US Census surname data downloader
+    faker_names.py         # Faker library name extractor
+    smashew.py             # smashew/NameDatabases GitHub downloader
+  benchmark_compression.py # Benchmarks file format/compression options (not tested)
+
+scripts/dmg/
+  __init__.py
+  __main__.py              # Entry point + orchestration (build app → create DMG via dmgbuild)
+  background.py            # Generates gradient PNG background for DMG window
+  readme.py                # Generates RTF readme for DMG (RTFD package)
+  dmgbuild_settings.py     # dmgbuild configuration (window layout, icons)
+
+scripts/generate_diagnostic_cards/
+  __init__.py
+  __main__.py              # Entry point
+  cli.py                   # CLI: create PDFs with fixed family name text for OCR testing
+
+scripts/generate_sample_cards/
+  __init__.py
+  __main__.py              # Entry point
+  cli.py                   # CLI: top-level orchestration and argument parsing
+  models.py                # Dataclasses: CardSpec, ImageSpec, GenerationJob
+  display.py               # Rich live-table progress display
+  pdf_composer.py          # Assembles final PDF from generated image + metadata
+  image_generator.py       # OpenAI image API calls with rate limiting and retry
+  spec_generator.py        # Multiphase async pipeline: names → schemes → subtitles → content
+  spec_generators/
+    card_content.py        # Claude: per-card creative content generation
+    color_schemes.py       # Claude: batched color scheme generation
+    constants.py           # Static lists (themes, styles, occasions)
+    family_names.py        # Claude: unique family name selection
+    formatting.py          # Deterministic field assignment from spec
+    subtitles.py           # Claude: batched subtitle generation
+    utils.py               # JSON extraction from LLM responses
+
+scripts/profiling/
+  __init__.py
+  __main__.py              # Entry point
+  cli.py                   # Profiles PDF processing pipeline with pyinstrument
 ```
 
 ## Package Structure
@@ -33,6 +79,8 @@ Each script package follows the same pattern:
 1. `__main__.py` imports and calls `main()` from the package's CLI module
 2. The CLI module defines `main()` as the sync entry point
 3. For async scripts, `main()` calls `asyncio.run(async_main())`
+
+**Exceptions:** `scripts/dmg/` puts orchestration directly in `__main__.py` (no separate `cli.py`). `scripts/benchmark/` has no `__main__.py` — its scripts are standalone modules run individually (e.g., `python -m scripts.benchmark.ocr_concurrency`).
 
 This structure allows scripts to be multi-file packages while remaining invocable as modules.
 
@@ -220,3 +268,56 @@ Self-contained HTML reports with:
 
 - `mean_std(values)` — returns (mean, standard_deviation)
 - `fmt_mean_std(mean, std)` — formatted string "M +/- S"
+
+---
+
+## Testing
+
+### Test directory
+
+`tests/scripts/` mirrors the `scripts/` directory structure. Each sub-package has its own `tests/scripts/<name>/` directory with `__init__.py` and focused test modules.
+
+### What's tested
+
+Scripts with pure logic or mockable I/O:
+
+- **`scripts/helpers.py`** — `_make_output_dir` timestamped dir creation; `script_output_dir` keeps non-empty dirs on error, removes empty dirs, re-raises
+- **`scripts/build_family_name_db/`** — `_unicode.py` mapping table; `merger.py` normalize/ascii_fold/merge_sources/apply_overrides/write_tsv/`_sanity_check`; all three source downloaders (census, faker_names, smashew) with in-memory zip/network mocks
+- **`scripts/dmg/`** — `readme.py` RTF generation (escape, inline bold, body rendering, RTFD package); `background.py` gradient and PNG generation; `__main__.py` version reading and `dmgbuild` orchestration
+- **`scripts/generate_diagnostic_cards/cli.py`** — `_create_diagnostic_pdf` fitz mock; `main()` argument parsing
+- **`scripts/generate_sample_cards/`** — `models.py` dataclasses; `display.py` Rich table layout; `pdf_composer.py` fitz page creation; `image_generator.py` rate limiting, retry, prompt building, OpenAI API; `spec_generator.py` full pipeline; `cli.py` API key validation and card processing
+- **`scripts/generate_sample_cards/spec_generators/`** — `utils.py` JSON extraction; `constants.py` list integrity; `formatting.py` deterministic field assignment; `family_names.py`, `color_schemes.py`, `subtitles.py`, `card_content.py` — all Anthropic API calls mocked
+
+### What's NOT tested and why
+
+| Script                                                  | Reason                                                                                                                 |
+|---------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+| `scripts/benchmark/`                                    | Requires a real PDF corpus and OCR engines (tesseract/OpenCV); measurement tools, not business logic                   |
+| `scripts/profiling/`                                    | Requires real PDF files and pyinstrument; measures performance, not correctness                                        |
+| `scripts/visual_test.py`                                | Is itself a testing tool for manual GUI inspection                                                                     |
+| `scripts/dark_mode_cycler.py`                           | Trivial macOS utility — a single `osascript` call in a loop                                                            |
+| `scripts/build_family_name_db/cli.py`                   | Integration orchestrator that downloads real Census/GitHub data; individual sources and merger are tested in isolation |
+| `scripts/build_family_name_db/benchmark_compression.py` | Benchmarking utility for file format selection                                                                         |
+
+### API mocking
+
+All Anthropic and OpenAI calls are mocked via `unittest.mock.patch` + `AsyncMock`. No tests hit real APIs or the network. The standard mock pattern:
+
+```python
+mock_msg = MagicMock()
+mock_msg.content = [MagicMock(text='["Smith", "Jones"]')]
+mock_client = MagicMock()
+mock_client.messages.create = AsyncMock(return_value=mock_msg)
+```
+
+For sequential multi-phase responses (spec generator pipeline), pass a list to `side_effect`:
+```python
+mock_client.messages.create = AsyncMock(side_effect=[names_msg, schemes_msg, subtitles_msg, *content_msgs])
+```
+
+### Makefile targets
+
+- `make test T=scripts` — run `tests/scripts/` only (fast, ~1s)
+- `make test T=default` — run core + gui + scripts tests
+- `make test-cov` — full suite with coverage for both `app/` and `scripts/`
+- `make test T="core --cov"` — single scope with coverage

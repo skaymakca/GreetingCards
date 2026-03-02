@@ -1,20 +1,15 @@
 """Tests for app.core.database module."""
 
 import hashlib
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
 import app.core.database as db_mod
 from app.core.database import (
-    Base,
     Candidate,
     Card,
     RawAIResult,
-    RawOCRResult,
     Settings,
     _add_candidate_inline,
     _compute_schema_version,
@@ -41,34 +36,9 @@ from app.core.database import (
 
 
 @pytest.fixture(autouse=True)
-def in_memory_db():
-    """Override database globals to use an in-memory SQLite database for each test."""
-    engine = create_engine("sqlite:///:memory:", echo=False)
-    session_factory = sessionmaker(bind=engine)
-
-    # Save originals
-    orig_engine = db_mod._engine
-    orig_session = db_mod._Session
-
-    # Override module globals
-    db_mod._engine = engine
-    db_mod._Session = session_factory
-
-    # Create schema
-    Base.metadata.create_all(engine)
-    session = session_factory()
-    session.add(Settings(key="schema_version", value=_compute_schema_version()))
-    session.commit()
-    session.close()
-
-    yield engine
-
-    # Clean up
-    engine.dispose()
-
-    # Restore
-    db_mod._engine = orig_engine
-    db_mod._Session = orig_session
+def _use_in_memory_db(in_memory_db):
+    """Use shared in-memory DB fixture for all tests in this module."""
+    return in_memory_db
 
 
 class TestSchemaVersion:
@@ -83,6 +53,57 @@ class TestSchemaVersion:
         v1 = _compute_schema_version()
         v2 = _compute_schema_version()
         assert v1 == v2
+
+
+class TestEnsureSchemaOrphanedTables:
+    """Tests for _ensure_schema orphaned table cleanup (lines 185-188)."""
+
+    def test_drops_orphaned_tables(self):
+        """_ensure_schema drops tables not in current SQLAlchemy metadata."""
+        from sqlalchemy import text
+
+        engine = db_mod._get_engine()
+
+        # Create an orphaned table that's not in metadata
+        with engine.begin() as conn:
+            conn.execute(text("CREATE TABLE IF NOT EXISTS orphaned_test_table (id INTEGER PRIMARY KEY)"))
+
+        # Force schema mismatch by setting wrong version
+        session_factory = db_mod._get_session_factory()
+        session = session_factory()
+        try:
+            row = session.query(Settings).filter_by(key="schema_version").first()
+            if row:
+                row.value = "0000000000000000"  # Force mismatch
+                session.commit()
+        finally:
+            session.close()
+
+        # Re-run ensure_schema — should drop the orphaned table
+        _ensure_schema()
+
+        from sqlalchemy import inspect as sa_inspect
+
+        inspector = sa_inspect(engine)
+        tables = inspector.get_table_names()
+        assert "orphaned_test_table" not in tables
+
+
+class TestResetDatabaseExceptionRollback:
+    """Tests for reset_database exception rollback path (lines 232-234)."""
+
+    def test_reset_database_commits_schema_version(self):
+        """reset_database creates schema version setting."""
+        reset_database()
+
+        session_factory = db_mod._get_session_factory()
+        session = session_factory()
+        try:
+            row = session.query(Settings).filter_by(key="schema_version").first()
+            assert row is not None
+            assert len(row.value) == 16
+        finally:
+            session.close()
 
 
 class TestCreateOrUpdateCard:
@@ -478,6 +499,100 @@ class TestEnsureSchema:
         # Verify orphaned table was dropped
         inspector = inspect(db_mod._engine)
         assert "orphan_table" not in inspector.get_table_names()
+
+
+class TestEnsureSchemaCurrentVersion:
+    """Test _ensure_schema early return when schema version matches (line 170)."""
+
+    def test_current_schema_returns_early(self):
+        """When schema version already matches, _ensure_schema returns without recreating."""
+        from sqlalchemy import inspect as sa_inspect
+
+        # Verify schema is already current (the fixture sets it up)
+        session = db_mod._Session()
+        row = session.query(Settings).filter_by(key="schema_version").first()
+        assert row is not None
+        assert row.value == _compute_schema_version()
+        session.close()
+
+        # Get table names before
+        inspector = sa_inspect(db_mod._engine)
+        tables_before = set(inspector.get_table_names())
+
+        # Call _ensure_schema again — should hit line 170 (early return)
+        _ensure_schema()
+
+        # Tables should be unchanged (no drop/recreate)
+        inspector = sa_inspect(db_mod._engine)
+        tables_after = set(inspector.get_table_names())
+        assert tables_before == tables_after
+
+
+class TestEnsureSchemaCommitFailure:
+    """Test _ensure_schema rollback on commit failure (lines 197-199)."""
+
+    def test_commit_failure_rolls_back_and_reraises(self):
+        """When session.commit() fails in _ensure_schema, it rolls back and re-raises."""
+        from unittest.mock import MagicMock, patch
+
+        # Force schema mismatch so _ensure_schema rebuilds
+        session = db_mod._Session()
+        row = session.query(Settings).filter_by(key="schema_version").first()
+        row.value = "badhash000000000"
+        session.commit()
+        session.close()
+
+        # Create a mock session whose commit raises
+        mock_session = MagicMock()
+        mock_session.commit.side_effect = RuntimeError("commit failed")
+
+        original_factory = db_mod._Session
+        calls: list[int] = [0]
+
+        def mock_factory() -> object:
+            # First call (for version check) returns real session,
+            # second call (for writing version) returns mock
+            calls[0] += 1
+            if calls[0] <= 1:
+                return original_factory()
+            return mock_session
+
+        with (
+            patch.object(db_mod, "_Session", side_effect=mock_factory),
+            pytest.raises(RuntimeError, match="commit failed"),
+        ):
+            _ensure_schema()
+
+        mock_session.rollback.assert_called_once()
+
+        # Restore schema for subsequent tests
+        db_mod._Session = original_factory
+        _ensure_schema()
+
+
+class TestResetDatabaseCommitFailure:
+    """Test reset_database rollback on commit failure (lines 232-234)."""
+
+    def test_commit_failure_rolls_back_and_reraises(self):
+        """When session.commit() fails in reset_database, it rolls back and re-raises."""
+        from unittest.mock import MagicMock, patch
+
+        mock_session = MagicMock()
+        mock_session.commit.side_effect = RuntimeError("commit failed")
+
+        original_factory = db_mod._Session
+
+        with (
+            patch.object(db_mod, "_Session", return_value=mock_session),
+            pytest.raises(RuntimeError, match="commit failed"),
+        ):
+            reset_database()
+
+        mock_session.rollback.assert_called_once()
+
+        # Restore for subsequent tests
+        db_mod._Session = original_factory
+        _ensure_schema()
 
 
 class TestResetDatabase:

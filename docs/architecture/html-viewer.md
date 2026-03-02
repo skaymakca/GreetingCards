@@ -27,7 +27,7 @@ This benefits all three consumers — help pages, changelog, and license pages c
 
 | Consumer  | Key file                       | Singleton key | Content                                 |
 |-----------|--------------------------------|---------------|-----------------------------------------|
-| Help      | `app/gui/dialogs/help.py`      | `"help"`      | Generated from markdown                 |
+| Help      | `app/gui/dialogs/help.py`      | `"help"`      | Generated from Markdown                 |
 | Changelog | `app/gui/dialogs/changelog.py` | `"changelog"` | Generated from `CHANGELOG.md`           |
 | Licenses  | `app/gui/dialogs/licenses.py`  | `"licenses"`  | Generated from `uv.lock` + `.dist-info` |
 
@@ -47,13 +47,19 @@ Three-layer architecture with debounce and 3-character minimum:
 ### Layer 1: Python Text Index
 At window creation, `_build_page_index()` reads all HTML files and builds `dict[str, str]` (path → lowercase plain text). `_TextExtractor(HTMLParser)` only captures text inside `<div class="content">`, skipping sidebar, script, and style elements.
 
-### Layer 2: Python Search Logic
-Search state managed via closures: `search_pages`, `page_cursor`, `match_cursor`, `pending_mark`, `pending_focus`, `last_query`.
+### Layer 2: Python Search Logic (`_SearchController`)
+Search state is owned by a `_SearchController` class (same file). `HTMLViewerWindow.__init__` creates the controller and wires toolbar/search events to its methods. The controller holds all search state: `_search_pages`, `_page_cursor`, `_match_cursor`, `_pending_mark`, `_pending_focus`, `_last_query`, and the debounce timer.
 
-Key functions:
-- `_mark_all()` — calls `shlMark(query)` via `RunScript` and updates `last_query`. Only called when the query changes.
+Key methods:
+- `_mark_all()` — calls `shlMark(query)` via `RunScript` and updates `_last_query`. Only called when the query changes.
 - `_focus_match(idx)` — calls `shlFocus(idx)` via `RunScript` to move the current-match cursor. Called on prev/next without re-marking.
-- `_navigate_to_page()` — if same page, only re-marks when query changed, then focuses. If different page, sets `pending_mark`/`pending_focus` flags for `on_page_loaded`.
+- `_navigate_to_page()` — if same page, only re-marks when query changed, then focuses. If different page, sets `_pending_mark`/`_pending_focus` flags for `on_page_loaded`.
+- `run_search(query)` — core search logic: builds match list from page index, navigates to first matching page.
+- `clear()` — resets all search state and clears highlights.
+- `current_page_info()` — returns `(index, rel_path)` of the current page. Also used by navigation buttons.
+- `stop()` — stops the debounce timer and sets `_page_ready = False` (called on frame close/destroy).
+
+Navigation handlers (`on_home`, `on_prev`, `on_next`) stay as closures in `HTMLViewerWindow.__init__` — they call `search.clear()` and navigate, but don't own search state.
 
 ### Layer 3: JavaScript Highlighting
 

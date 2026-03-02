@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev run app build clean icon content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-core test-gui tessdata pyright mypy lint lint-fix format format-check security check pycharm-inspect show-scripts visual-test visual-test-app
+.PHONY: help setup setup-dev run app app-run build clean icon content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-cov-open tessdata pyright mypy lint lint-fix format format-check security check pycharm-inspect show-scripts visual-test visual-test-app dmg
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -36,19 +36,14 @@ $(TESSDATA_ENG):
 run: content tessdata ## Run the app from source
 	uv run python main.py
 
-test: ## Run all tests
-	uv run pytest -v
+test: ## Run tests (no args shows help; make test T="core --cov -x")
+	@uv run python scripts/run_tests.py $(T)
 
-test-cov: ## Run tests with coverage report
-	uv run pytest --cov=app --cov-report=html:_build/htmlcov --cov-report=term-missing
-	@echo ""
-	@echo "Coverage report generated: _build/htmlcov/index.html"
+test-cov: ## Run all tests with coverage reports
+	@uv run python scripts/run_tests.py default --cov
 
-test-core: ## Run core (non-GUI) tests only
-	uv run pytest tests/core/ -v
-
-test-gui: ## Run GUI tests only
-	uv run pytest tests/gui/ -v
+test-cov-open: ## Run all tests with coverage, open in browser
+	@uv run python scripts/run_tests.py default --cov --open
 
 pyright: ## Run pyright type checking
 	pyright app/ scripts/ main.py
@@ -106,6 +101,8 @@ content: ## Generate runtime content (HTML, data files, images)
 	@mkdir -p _build/runtime_content/html/common/css _build/runtime_content/html/common/js _build/runtime_content/images _build/runtime_content/data
 	@cp content/html/common/css/viewer.css _build/runtime_content/html/common/css/viewer.css
 	@cp content/html/common/js/search.js _build/runtime_content/html/common/js/search.js
+	@cp content/html/common/css/highlight.css _build/runtime_content/html/common/css/highlight.css
+	@cp content/html/common/js/highlight.min.js _build/runtime_content/html/common/js/highlight.min.js
 	@cp content/images/drop-target-background.png _build/runtime_content/images/drop-target-background.png
 	@gzip -c content/data/family_name_database.tsv > _build/runtime_content/data/family_name_database.tsv.gz
 	uv run python -c "from app.core.content.help_builder import generate_help_html; generate_help_html()"
@@ -227,8 +224,17 @@ show-scripts: ## Show available script invocations (does not run them)
 	@echo "    uv run python -m scripts.profiling ~/Desktop/Cards"
 	@echo "    uv run python -m scripts.profiling ~/Desktop/Cards --limit 10"
 	@echo ""
+	@echo "  \033[36mreformat_md_tables\033[0m           Reformat markdown tables for PyCharm"
+	@echo "    uv run python -m scripts.reformat_md_tables docs/**/*.md README.md CLAUDE.md"
+	@echo ""
+	@echo "  \033[36mdmg\033[0m                          Build the distributable DMG installer"
+	@echo "    uv run python -m scripts.dmg"
+	@echo ""
 	@echo "  All scripts support --help."
 	@echo "  Output goes to _build/script_output/ with timestamped directories."
+
+dmg: app ## Build the distributable DMG installer (→ dist/Greeting Cards - X.Y.Z.dmg)
+	uv run python -m scripts.dmg
 
 clean: ## Remove build artifacts
 	@$(LSREGISTER) -u "dist/Greeting Cards.app" 2>/dev/null || true

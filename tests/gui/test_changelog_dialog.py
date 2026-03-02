@@ -1,5 +1,6 @@
 """Tests for changelog parsing, HTML generation, and the show_changelog dialog."""
 
+import re
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -10,7 +11,7 @@ from app.core.content.changelog import (
     _group_by_minor,
     _parse_changelog,
 )
-from app.core.content.changelog_models import ChangelogGroup, ChangelogVersion
+from app.core.content.changelog_models import ChangelogVersion
 
 # --- show_changelog dialog tests ---
 
@@ -198,7 +199,7 @@ First release of the app.
         text = md_path.read_text(encoding="utf-8")
         result = _parse_changelog(text)
         assert len(result) >= 3
-        assert result[0].version == "0.11.0"
+        assert re.fullmatch(r"\d+\.\d+\.\d+", result[0].version)
 
     def test_html_entities_escaped(self):
         md = '## 1.0.0\n\nUse <html> & "quotes".\n'

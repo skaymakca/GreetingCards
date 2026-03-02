@@ -67,7 +67,17 @@ function shlMark(query) {
     const lq = query.toLowerCase();
     const qLen = query.length;
     const walker = document.createTreeWalker(
-        content, NodeFilter.SHOW_TEXT, null);
+        content, NodeFilter.SHOW_TEXT, {
+            acceptNode: function(node) {
+                /* Skip text inside <pre> elements (code blocks) */
+                let p = node.parentNode;
+                while (p && p !== content) {
+                    if (p.nodeName === 'PRE') return NodeFilter.FILTER_REJECT;
+                    p = p.parentNode;
+                }
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        });
     const allMatches = [];
     while (walker.nextNode()) {
         const node = walker.currentNode;

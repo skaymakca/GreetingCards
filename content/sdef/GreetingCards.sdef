@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE dictionary SYSTEM "file://localhost/System/Library/DTDs/sdef.dtd">
+
+<!--
+    Greeting Cards scripting definition.
+
+    Suite code: GrCd
+    Bundle ID:  com.kaymakcalan.app.greetingcards
+-->
+
+<dictionary title="Greeting Cards Terminology">
+
+    <!-- Standard Suite (required for quit, etc.) -->
+    <suite name="Standard Suite" code="????" description="Common commands for all applications.">
+        <command name="quit" code="aevtquit" description="Quit the application."/>
+    </suite>
+
+    <!-- Greeting Cards Suite -->
+    <suite name="Greeting Cards Suite" code="GrCd"
+           description="Commands for loading, querying, and manipulating greeting cards.">
+
+        <!-- ============================================================ -->
+        <!-- Loading & Status                                              -->
+        <!-- ============================================================ -->
+
+        <command name="load paths" code="GrCdLdPa"
+                 description="Load PDFs from files and/or folders. Returns JSON with success and count.">
+            <direct-parameter description="List of file or folder paths to load."
+                              type="text" list="yes"/>
+            <result description="JSON with success and count of new PDFs found." type="text"/>
+        </command>
+
+        <command name="get status" code="GrCdGtSt"
+                 description="Get application status as JSON.">
+            <result description="JSON with is_processing, is_analyzing, loaded_count, current_model, year."
+                    type="text"/>
+        </command>
+
+        <command name="reload" code="GrCdRlCd"
+                 description="Trigger manual reload of all loaded paths. Returns JSON with success and changed flag.">
+            <result description="JSON with success and changed fields." type="text"/>
+        </command>
+
+        <command name="clear all" code="GrCdClAl"
+                 description="Clear all loaded cards and reset the UI.">
+            <result description="JSON with success true." type="text"/>
+        </command>
+
+        <!-- ============================================================ -->
+        <!-- Card Queries                                                  -->
+        <!-- ============================================================ -->
+
+        <command name="get card info" code="GrCdInCd"
+                 description="Get detailed card state as JSON.">
+            <direct-parameter description="Filename of the card to query." type="text"/>
+            <result description="JSON with filename, hash, candidates, confidence, etc." type="text"/>
+        </command>
+
+        <command name="get loaded cards" code="GrCdLsCd"
+                 description="Get summary of all loaded cards as JSON array.">
+            <result description="JSON array of card summaries." type="text"/>
+        </command>
+
+        <!-- ============================================================ -->
+        <!-- Card Mutations                                                -->
+        <!-- ============================================================ -->
+
+        <command name="rename card" code="GrCdRnCd"
+                 description="Rename a loaded card on disk.">
+            <direct-parameter description="Filename of the card to rename." type="text"/>
+            <parameter name="to" code="newN" description="New family name for the card." type="text">
+                <cocoa key="newName"/>
+            </parameter>
+            <parameter name="year" code="year" description="4-digit year (defaults to UI year control)."
+                       type="text" optional="yes">
+                <cocoa key="year"/>
+            </parameter>
+            <result description="JSON with success, old_path, new_path, error." type="text"/>
+        </command>
+
+        <command name="set card name" code="GrCdStNm"
+                 description="Set or clear a manual name override for a card.">
+            <direct-parameter description="Filename of the card." type="text"/>
+            <parameter name="to" code="newN" description="New name (empty string clears override)." type="text">
+                <cocoa key="newName"/>
+            </parameter>
+            <result description="JSON with success or error." type="text"/>
+        </command>
+
+        <command name="select candidate" code="GrCdSlCa"
+                 description="Select a candidate by 1-based rank order.">
+            <direct-parameter description="Filename of the card." type="text"/>
+            <parameter name="rank" code="rank" description="1-based rank of the candidate to select."
+                       type="integer">
+                <cocoa key="rank"/>
+            </parameter>
+            <result description="JSON with success or error." type="text"/>
+        </command>
+
+        <command name="set remove family" code="GrCdStRF"
+                 description="Toggle the Remove Family checkbox for a card.">
+            <direct-parameter description="Filename of the card." type="text"/>
+            <parameter name="to" code="newV" description="True to remove Family suffix, false to keep it."
+                       type="boolean">
+                <cocoa key="newValue"/>
+            </parameter>
+            <result description="JSON with success or error." type="text"/>
+        </command>
+
+        <!-- ============================================================ -->
+        <!-- AI Operations                                                 -->
+        <!-- ============================================================ -->
+
+        <command name="analyze cards" code="GrCdAnCd"
+                 description="Start AI analysis. Analyzes a single card if filename given, otherwise all loaded cards.">
+            <direct-parameter description="Optional filename to analyze a single card."
+                              type="text" optional="yes"/>
+            <result description="JSON with success and count of cards queued, or error." type="text"/>
+        </command>
+
+        <command name="clear ai results" code="GrCdClAi"
+                 description="Clear AI results. Clears a single card if filename given, otherwise all loaded cards.">
+            <direct-parameter description="Optional filename to clear a single card."
+                              type="text" optional="yes"/>
+            <result description="JSON with success and count of cards affected, or error." type="text"/>
+        </command>
+
+        <!-- ============================================================ -->
+        <!-- Model Management                                              -->
+        <!-- ============================================================ -->
+
+        <command name="get models" code="GrCdGtMo"
+                 description="Get list of available AI models as JSON array.">
+            <result description="JSON array of model objects with model_id, label, description, speed, quality."
+                    type="text"/>
+        </command>
+
+        <command name="set model" code="GrCdStMo"
+                 description="Set the active AI model.">
+            <direct-parameter description="Model ID to activate (e.g. claude-sonnet-4-6)." type="text"/>
+            <result description="JSON with success or error." type="text"/>
+        </command>
+
+    </suite>
+
+</dictionary>

@@ -7,6 +7,7 @@ Consolidates cleaning logic previously scattered across ``ai_analyzer.py``,
 import re
 
 from app.core.naming.family_name.data import family_name_db, filtered_names
+from app.core.naming.filename_safety import sanitize_for_filename
 
 
 def strip_plural_family_name(name: str) -> str:
@@ -106,8 +107,6 @@ def clean_and_filter_family_names(names: list[str]) -> list[str]:
 
     This is the single entry point for cleaning raw name candidates.
     """
-    from app.core.naming.filename_safety import sanitize_for_filename
-
     cleaned: list[str] = []
     for name in names:
         if not name:

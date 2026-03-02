@@ -19,14 +19,15 @@ from pathlib import Path
 from typing import Any
 
 import tomli_w
+from packaging.requirements import Requirement
 
 from app.core.content.license_models import (
+    BundledDep,
     DiscoveredPackage,
     LicenseConfig,
     LicenseRegistry,
     PackageCategory,
     PackageOverride,
-    SystemDep,
 )
 from app.core.paths import get_project_root as _get_project_root
 
@@ -54,8 +55,8 @@ def load_config(licenses_dir: Path) -> LicenseConfig:
     config_path = licenses_dir / "config.toml"
     data = tomllib.loads(config_path.read_text(encoding="utf-8"))
 
-    system_deps = [
-        SystemDep(
+    bundled_deps = [
+        BundledDep(
             slug=sd["slug"],
             display=sd["display"],
             version=sd.get("version", ""),
@@ -63,7 +64,7 @@ def load_config(licenses_dir: Path) -> LicenseConfig:
             notes=sd.get("notes", ""),
             url=sd.get("url", ""),
         )
-        for sd in data.get("system", [])
+        for sd in data.get("bundled", [])
     ]
 
     package_overrides: dict[str, PackageOverride] = {}
@@ -81,7 +82,7 @@ def load_config(licenses_dir: Path) -> LicenseConfig:
     exclude = set(data.get("exclude", []))
 
     return LicenseConfig(
-        system_deps=system_deps,
+        bundled_deps=bundled_deps,
         package_overrides=package_overrides,
         exclude=exclude,
     )
@@ -159,16 +160,16 @@ def _extract_license_type(dist_info: Path) -> str:
     if not metadata_path.exists():
         return "Unknown"
 
-    text = metadata_path.read_text(encoding="utf-8", errors="replace")
-    for line in text.splitlines():
+    lines = metadata_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    classifier_fallback: str | None = None
+    for line in lines:
         if line.startswith("License:") and len(line) > 10:
             lic = line[8:].strip()
             if lic and lic.lower() != "unknown":
                 return lic
-    for line in text.splitlines():
-        if "Classifier: License :: OSI Approved ::" in line:
-            return line.split("::")[-1].strip()
-    return "See LICENSE file"
+        if classifier_fallback is None and "Classifier: License :: OSI Approved ::" in line:
+            classifier_fallback = line.split("::")[-1].strip()
+    return classifier_fallback or "See LICENSE file"
 
 
 def _extract_homepage(dist_info: Path) -> str:
@@ -177,10 +178,11 @@ def _extract_homepage(dist_info: Path) -> str:
     if not metadata_path.exists():
         return ""
 
-    text = metadata_path.read_text(encoding="utf-8", errors="replace")
-    # Check Project-URL fields first (modern format)
-    for line in text.splitlines():
+    lines = metadata_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    home_page_fallback: str | None = None
+    for line in lines:
         low = line.lower()
+        # Check Project-URL fields first (modern format)
         if low.startswith("project-url:"):
             parts = line[12:].split(",", 1)
             if len(parts) == 2:
@@ -188,13 +190,12 @@ def _extract_homepage(dist_info: Path) -> str:
                 url = parts[1].strip()
                 if label in ("homepage", "home", "repository", "source"):
                     return url
-    # Fall back to Home-page field
-    for line in text.splitlines():
-        if line.startswith("Home-page:"):
+        # Capture Home-page field as fallback
+        if home_page_fallback is None and line.startswith("Home-page:"):
             url = line[10:].strip()
             if url and url.lower() != "unknown":
-                return url
-    return ""
+                home_page_fallback = url
+    return home_page_fallback or ""
 
 
 # ---------------------------------------------------------------------------
@@ -324,8 +325,6 @@ def sync_registry() -> LicenseRegistry:
     pyproject = tomllib.loads((project_root / "pyproject.toml").read_text(encoding="utf-8"))
     dev_names: set[str] = set()
     for dep_str in pyproject.get("dependency-groups", {}).get("dev", []):
-        from packaging.requirements import Requirement
-
         req = Requirement(dep_str)
         dev_names.add(req.name.lower())
 
@@ -410,15 +409,15 @@ def sync_registry() -> LicenseRegistry:
     registry = LicenseRegistry(
         uv_lock_hash=uv_lock_hash,
         generated_at=datetime.now(UTC).isoformat(timespec="seconds"),
-        system_deps=config.system_deps,
+        bundled_deps=config.bundled_deps,
         packages=discovered,
     )
 
     _write_registry_toml(build_dir, registry)
     logger.info(
-        "Synced registry: %d packages, %d system deps",
+        "Synced registry: %d packages, %d bundled deps",
         len(discovered),
-        len(config.system_deps),
+        len(config.bundled_deps),
     )
     return registry
 
@@ -439,7 +438,7 @@ def _write_registry_toml(licenses_dir: Path, registry: LicenseRegistry) -> None:
             "uv_lock_hash": registry.uv_lock_hash,
             "generated_at": registry.generated_at,
         },
-        "system": [
+        "bundled": [
             {
                 "slug": sd.slug,
                 "display": sd.display,
@@ -449,7 +448,7 @@ def _write_registry_toml(licenses_dir: Path, registry: LicenseRegistry) -> None:
                 "url": sd.url,
                 "text_file": f"manual/{sd.slug}.txt",
             }
-            for sd in registry.system_deps
+            for sd in registry.bundled_deps
         ],
         "package": [
             {

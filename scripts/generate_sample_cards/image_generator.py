@@ -6,6 +6,7 @@ import asyncio
 import base64
 import logging
 import time
+import urllib.request
 from pathlib import Path
 
 import anthropic
@@ -236,8 +237,6 @@ async def generate_image_openai_async(
                     output_path.write_bytes(img_bytes)
                     return True
                 elif image_data.url:
-                    import urllib.request
-
                     urllib.request.urlretrieve(image_data.url, output_path)
                     return True
 

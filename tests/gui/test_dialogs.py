@@ -22,6 +22,7 @@ from app.models.card import (
     STATUS_SKIP_ERROR,
     STATUS_SKIP_NO_NAME,
     STATUS_SKIP_SAME,
+    RenameOutcome,
     RenamePlanItem,
     RenameResult,
 )
@@ -432,25 +433,36 @@ class TestErrorListDialog:
     """Tests for ErrorListDialog."""
 
     def test_creation(self, wx_app, wx_frame):
-        errors = [("card1.pdf", "Rate limit"), ("card2.pdf", "Timeout")]
+        from app.core.pipeline.ai_analyzer import AIError, AIErrorKind
+
+        errors = [
+            AIError(kind=AIErrorKind.RATE_LIMIT, detail="Rate limit"),
+            AIError(kind=AIErrorKind.TIMEOUT, detail="Timeout"),
+        ]
         dlg = ErrorListDialog(wx_frame, "Errors", errors)
         assert dlg.GetTitle() == "Errors"
         dlg.Destroy()
 
     def test_auth_aborted(self, wx_app, wx_frame):
-        errors = [("card1.pdf", "Invalid API key")]
+        from app.core.pipeline.ai_analyzer import AIError, AIErrorKind
+
+        errors = [AIError(kind=AIErrorKind.AUTH, detail="Invalid API key")]
         dlg = ErrorListDialog(wx_frame, "Errors", errors, auth_aborted=True)
         assert dlg is not None
         dlg.Destroy()
 
     def test_single_error(self, wx_app, wx_frame):
-        errors = [("test.pdf", "Connection failed")]
+        from app.core.pipeline.ai_analyzer import AIError, AIErrorKind
+
+        errors = [AIError(kind=AIErrorKind.CONNECTION, detail="Connection failed")]
         dlg = ErrorListDialog(wx_frame, "Error", errors)
         assert dlg is not None
         dlg.Destroy()
 
     def test_many_errors(self, wx_app, wx_frame):
-        errors = [(f"card{i}.pdf", f"Error {i}") for i in range(20)]
+        from app.core.pipeline.ai_analyzer import AIError, AIErrorKind
+
+        errors = [AIError(kind=AIErrorKind.UNKNOWN, detail=f"Error {i}") for i in range(20)]
         dlg = ErrorListDialog(wx_frame, "Errors", errors)
         assert dlg is not None
         dlg.Destroy()
@@ -464,9 +476,27 @@ class TestCompletionDialog:
 
     def _make_results(self):
         return [
-            RenameResult(Path("/cards/card1.pdf"), Path("/cards/Smith Family.pdf"), True, "Renamed"),
-            RenameResult(Path("/cards/card2.pdf"), Path("/cards/card2.pdf"), True, "Skipped (same name)"),
-            RenameResult(Path("/cards/card3.pdf"), Path("/cards/Jones Family.pdf"), False, "Permission denied"),
+            RenameResult(
+                Path("/cards/card1.pdf"),
+                Path("/cards/Smith Family.pdf"),
+                True,
+                "",
+                outcome=RenameOutcome.RENAMED,
+            ),
+            RenameResult(
+                Path("/cards/card2.pdf"),
+                Path("/cards/card2.pdf"),
+                True,
+                "",
+                outcome=RenameOutcome.ALREADY_CORRECT,
+            ),
+            RenameResult(
+                Path("/cards/card3.pdf"),
+                Path("/cards/Jones Family.pdf"),
+                False,
+                "Permission denied",
+                outcome=RenameOutcome.ERROR_OS,
+            ),
         ]
 
     def test_creation(self, wx_app, wx_frame):
@@ -476,7 +506,7 @@ class TestCompletionDialog:
         dlg.Destroy()
 
     def test_all_success(self, wx_app, wx_frame):
-        results = [RenameResult(Path("/a.pdf"), Path("/b.pdf"), True, "Renamed")]
+        results = [RenameResult(Path("/a.pdf"), Path("/b.pdf"), True, "", outcome=RenameOutcome.RENAMED)]
         dlg = CompletionDialog(wx_frame, "Done", results)
         assert dlg is not None
         dlg.Destroy()
@@ -489,8 +519,8 @@ class TestCompletionDialog:
 
     def test_multi_directory(self, wx_app, wx_frame):
         results = [
-            RenameResult(Path("/dir1/a.pdf"), Path("/dir1/b.pdf"), True, "Renamed"),
-            RenameResult(Path("/dir2/c.pdf"), Path("/dir2/d.pdf"), True, "Renamed"),
+            RenameResult(Path("/dir1/a.pdf"), Path("/dir1/b.pdf"), True, "", outcome=RenameOutcome.RENAMED),
+            RenameResult(Path("/dir2/c.pdf"), Path("/dir2/d.pdf"), True, "", outcome=RenameOutcome.RENAMED),
         ]
         dlg = CompletionDialog(wx_frame, "Done", results)
         assert dlg is not None
@@ -498,8 +528,8 @@ class TestCompletionDialog:
 
     def test_all_skipped(self, wx_app, wx_frame):
         results = [
-            RenameResult(Path("/a.pdf"), Path("/a.pdf"), True, "Skipped"),
-            RenameResult(Path("/b.pdf"), Path("/b.pdf"), True, "Skipped"),
+            RenameResult(Path("/a.pdf"), Path("/a.pdf"), True, "", outcome=RenameOutcome.ALREADY_CORRECT),
+            RenameResult(Path("/b.pdf"), Path("/b.pdf"), True, "", outcome=RenameOutcome.ALREADY_CORRECT),
         ]
         dlg = CompletionDialog(wx_frame, "Done", results)
         assert dlg is not None

@@ -5,8 +5,9 @@ and a CLI batch tool.
 """
 
 import io
-from collections.abc import Iterable
 from pathlib import Path
+
+from PIL import Image
 
 from app.core.database import get_card_state
 from app.models.card import CardResult, Confidence, PdfWorkerResult
@@ -33,8 +34,6 @@ def scan_for_pdfs(path: Path) -> list[Path]:
 
 def worker_result_to_card(wr: PdfWorkerResult, card_id: int) -> CardResult:
     """Convert PdfWorkerResult from worker process to CardResult with assigned ID."""
-    from PIL import Image
-
     pdf_path = Path(wr.pdf_path)
     card = CardResult(
         id=card_id,
@@ -42,12 +41,10 @@ def worker_result_to_card(wr: PdfWorkerResult, card_id: int) -> CardResult:
         primary_path=pdf_path,
         file_hash=wr.file_hash or "",
         family_name=wr.family_name,
-        alternates=wr.alternates,
         candidates=wr.candidates,
         remove_family=wr.remove_family,
         selected_candidate_id=wr.selected_candidate_id,
         method=wr.method,
-        ocr_text=wr.ocr_text,
     )
 
     try:
@@ -69,11 +66,6 @@ def worker_result_to_card(wr: PdfWorkerResult, card_id: int) -> CardResult:
     return card
 
 
-def derive_folders(cards: Iterable[CardResult]) -> list[Path]:
-    """Derive sorted unique source folders from all loaded cards."""
-    return sorted({p.parent for card in cards for p in card.file_paths})
-
-
 def load_card_state_from_db(card: CardResult) -> None:
     """Load card state from database into a CardResult object.
 
@@ -92,7 +84,6 @@ def load_card_state_from_db(card: CardResult) -> None:
             card.confidence = Confidence(card_state.confidence)
         except ValueError:
             card.confidence = Confidence.NONE
-        card.alternates = [c.family_name for c in card_state.candidates]
         card.candidates = card_state.candidates
         card.remove_family = card_state.remove_family
         card.selected_candidate_id = card_state.selected_candidate_id
@@ -107,7 +98,6 @@ def load_card_state_from_db(card: CardResult) -> None:
         card.confidence = Confidence.NONE
         card.method = "missing"
         card.candidates = []
-        card.alternates = []
         card.selected_candidate_id = None
         card.manual_override = ""
         card.ai_analyzed = True

@@ -5,16 +5,19 @@ from pathlib import Path
 import wx
 import wx.dataview as dv
 
+from app.core.pipeline.ai_analyzer import AIError
 from app.gui import styles
-from app.models.card import (
-    STATUS_DUPLICATE,
-    STATUS_OK,
-    STATUS_SKIP_ERROR,
-    STATUS_SKIP_NO_NAME,
-    STATUS_SKIP_SAME,
-    RenamePlanItem,
-    RenameResult,
+from app.gui.rename_display import (
+    filter_visible_results,
+    format_plan_summary,
+    format_result_status,
+    format_results_summary,
+    get_plan_item_display,
+    is_skip_status,
+    summarize_plan,
+    summarize_results,
 )
+from app.models.card import RenamePlanItem, RenameResult
 
 # Dialog layout constants
 _DIALOG_PADDING = 20  # Outer margin for dialog content
@@ -199,23 +202,8 @@ class RenameConfirmDialog(wx.Dialog):
         sizer.AddSpacer(_HEADER_GAP)
 
         # Summary counts
-        ok_count = sum(1 for item in plan if item.status == STATUS_OK)
-        dup_count = sum(1 for item in plan if item.status == STATUS_DUPLICATE)
-        error_count = sum(1 for item in plan if item.status == STATUS_SKIP_ERROR)
-        skip_count = sum(1 for item in plan if item.status in {STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME})
-
-        # Count unique directories
-        directories = {item.old_path.parent for item in plan}
-
-        summary = f"{ok_count} rename(s)"
-        if dup_count:
-            summary += f", {dup_count} duplicate(s)"
-        if skip_count:
-            summary += f", {skip_count} skipped"
-        if error_count:
-            summary += f", {error_count} error(s)"
-        if len(directories) > 1:
-            summary += f" across {len(directories)} directories"
+        counts = summarize_plan(plan)
+        summary = format_plan_summary(plan)
 
         self._summary_label = wx.StaticText(self, label=summary)
         self._summary_label.SetFont(styles.Font.BODY())
@@ -224,18 +212,16 @@ class RenameConfirmDialog(wx.Dialog):
 
         sizer.AddSpacer(_SECTION_GAP)
 
-        # Status → (label, color) mapping
-        _STATUS_STYLE: dict[str, tuple[str, wx.Colour]] = {
-            STATUS_OK: ("OK", styles.Color.SUCCESS),
-            STATUS_DUPLICATE: ("DUP", styles.Color.TEXT_PRIMARY),
-            STATUS_SKIP_NO_NAME: ("SKIP", styles.Color.TEXT_SECONDARY),
-            STATUS_SKIP_SAME: ("SAME", styles.Color.TEXT_SECONDARY),
-            STATUS_SKIP_ERROR: ("ERROR", styles.Color.ERROR),
+        # Category → color mapping (GUI concern)
+        _CATEGORY_COLOR: dict[str, wx.Colour] = {
+            "ok": styles.Color.SUCCESS,
+            "duplicate": styles.Color.TEXT_PRIMARY,
+            "skip": styles.Color.TEXT_SECONDARY,
+            "error": styles.Color.ERROR,
         }
-        _SKIP_STATUSES = {STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR}
 
         # Show full paths only when multiple directories
-        multi_dir = len(directories) > 1
+        multi_dir = counts["directory_count"] > 1
 
         # Prepare data and colors
         data = []
@@ -243,11 +229,10 @@ class RenameConfirmDialog(wx.Dialog):
         for item in plan:
             old_display = display_path(item.old_path) if multi_dir else item.old_path.name
             new_display = (
-                "-"
-                if item.status in _SKIP_STATUSES
-                else (display_path(item.new_path) if multi_dir else item.new_path.name)
+                "-" if is_skip_status(item) else (display_path(item.new_path) if multi_dir else item.new_path.name)
             )
-            label, color = _STATUS_STYLE.get(item.status, (item.status, styles.Color.TEXT_PRIMARY))
+            label, category = get_plan_item_display(item)
+            color = _CATEGORY_COLOR.get(category, styles.Color.TEXT_PRIMARY)
             data.append([old_display, new_display, label])
             colors.append(color)
 
@@ -322,9 +307,7 @@ class RenameConfirmDialog(wx.Dialog):
 class ErrorListDialog(wx.Dialog):
     """Dialog showing AI analysis errors in a structured table."""
 
-    def __init__(
-        self, parent: wx.Window, title: str, errors: list[tuple[str, str]], auth_aborted: bool = False
-    ) -> None:
+    def __init__(self, parent: wx.Window, title: str, errors: list[AIError], auth_aborted: bool = False) -> None:
         super().__init__(parent, title=title, size=(650, 400), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
 
         # Main sizer
@@ -344,7 +327,7 @@ class ErrorListDialog(wx.Dialog):
 
         summary = f"{len(errors)} error(s)"
         if auth_aborted:
-            summary += " — batch aborted"
+            summary += " \u2014 batch aborted"
         self._summary_label = wx.StaticText(self, label=summary)
         self._summary_label.SetFont(styles.Font.HEADING())
         self._summary_label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
@@ -354,8 +337,8 @@ class ErrorListDialog(wx.Dialog):
 
         sizer.AddSpacer(_SECTION_GAP)
 
-        # Prepare data and colors (all errors in red)
-        data = [[filename, error_msg] for filename, error_msg in errors]
+        # Prepare data and colors from AIError objects (all errors in red)
+        data = [[err.kind.value, err.detail] for err in errors]
         colors = [styles.Color.ERROR] * len(errors)
 
         # Create model and ctrl
@@ -363,10 +346,11 @@ class ErrorListDialog(wx.Dialog):
         self.list_ctrl = dv.DataViewCtrl(self, style=dv.DV_ROW_LINES | dv.DV_VERT_RULES)
         self.list_ctrl.AssociateModel(self.model)
 
-        # Add columns — split space equally
-        col_width = (650 - 2 * _DIALOG_PADDING - _SCROLLBAR_WIDTH) // 2
-        self.list_ctrl.AppendTextColumn("File Name", 0, width=col_width)
-        self.list_ctrl.AppendTextColumn("Error", 1, width=col_width)
+        # Add columns — type column is narrow, detail gets remaining space
+        type_col_width = _STATUS_COL_WIDTH
+        detail_col_width = 650 - 2 * _DIALOG_PADDING - _SCROLLBAR_WIDTH - type_col_width
+        self.list_ctrl.AppendTextColumn("Type", 0, width=type_col_width)
+        self.list_ctrl.AppendTextColumn("Details", 1, width=detail_col_width)
 
         sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
@@ -399,9 +383,7 @@ class CompletionDialog(wx.Dialog):
         super().__init__(parent, title=title, size=(650, 420), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
 
         # Compute counts
-        renamed = sum(1 for r in results if r.success and r.message == "Renamed")
-        skipped = sum(1 for r in results if r.success and r.message != "Renamed")
-        errors = sum(1 for r in results if not r.success)
+        counts = summarize_results(results)
 
         # Main sizer
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -417,9 +399,7 @@ class CompletionDialog(wx.Dialog):
         sizer.AddSpacer(_HEADER_GAP)
 
         # Summary counts
-        summary = f"{renamed} renamed, {skipped} skipped"
-        if errors:
-            summary += f", {errors} failed"
+        summary = format_results_summary(results)
 
         self._summary_label = wx.StaticText(self, label=summary)
         self._summary_label.SetFont(styles.Font.BODY())
@@ -429,11 +409,10 @@ class CompletionDialog(wx.Dialog):
         sizer.AddSpacer(_SECTION_GAP)
 
         # Filter to only renamed and error rows (skip rows already shown in confirm dialog)
-        visible = [r for r in results if not r.success or r.message == "Renamed"]
+        visible = filter_visible_results(results)
 
         # Show full paths only when multiple directories
-        directories = {(r.new_path if r.success else r.old_path).parent for r in results}
-        multi_dir = len(directories) > 1
+        multi_dir = counts["directory_count"] > 1
 
         # Prepare data and colors
         data = []
@@ -441,12 +420,8 @@ class CompletionDialog(wx.Dialog):
         for r in visible:
             path = r.new_path if r.success else r.old_path
             display_name = display_path(path) if multi_dir else path.name
-            if r.success:
-                result_text = "OK"
-                colors.append(styles.Color.SUCCESS)
-            else:
-                result_text = f"ERROR: {r.message}"
-                colors.append(styles.Color.ERROR)
+            result_text = format_result_status(r)
+            colors.append(styles.Color.SUCCESS if r.success else styles.Color.ERROR)
             data.append([display_name, result_text])
 
         # Create model and ctrl

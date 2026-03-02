@@ -5,7 +5,9 @@ from collections.abc import Callable
 from pathlib import Path
 
 import wx
+from PIL import Image, ImageEnhance
 
+from app.core.paths import get_runtime_content_path
 from app.gui.styles import Color, Font, Layout
 
 logger = logging.getLogger(__name__)
@@ -18,10 +20,6 @@ def load_drop_background() -> wx.Bitmap | None:
     """
     # noinspection PyBroadException
     try:
-        from PIL import Image, ImageEnhance
-
-        from app.core.paths import get_runtime_content_path
-
         img_path = get_runtime_content_path("images/drop-target-background.png")
 
         if not img_path.exists():

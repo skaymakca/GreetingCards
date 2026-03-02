@@ -35,7 +35,7 @@ ReviewPanelMasterDetail (wx.Panel)     ← Public API (drop-in for original)
         └── File Paths tab (added/removed per card)
 ```
 
-Note: The drop overlay (`_DropOverlay`) lives in `main_window.py` and covers the entire content area below the toolbar when no cards are loaded.
+Note: The drop overlay (`DropOverlay`) is defined in `app/gui/components/drop_target.py` and imported into `main_window.py` as `_DropOverlay`. It covers the entire content area below the toolbar when no cards are loaded.
 
 ## CardListModel (PyDataViewModel)
 
@@ -74,18 +74,19 @@ ReviewPanelMasterDetail receives these callbacks from MainWindow:
 
 ## Selection Reset
 
-`load_cards()` unconditionally resets selection to none on every call:
+`load_cards()` resets selection to none by default, but accepts a `preserve_selection=False` keyword argument to retain the current selection (used after AI updates that shouldn't interrupt the user's focus):
 
 ```python
-def load_cards(self, cards):
+def load_cards(self, cards, *, preserve_selection=False):
     self._model.load_cards(cards)
-    self._list_ctrl.UnselectAll()
-    self._selected_card_ids = []
-    self._detail_panel.clear()
-    self._on_select(None)
+    if not preserve_selection:
+        self._list_ctrl.UnselectAll()
+        self._selected_card_ids = []
+        self._detail_panel.clear()
+        self._on_select(None)
 ```
 
-This ensures consistent behavior: any change to the displayed list (search, filter, remove, rename, processing) clears selection. The user must click a card to select it after any list change. `_refresh_display()` calls `load_cards()` for all list changes, making this the single funnel for selection reset.
+Without `preserve_selection`, any change to the displayed list (search, filter, remove, rename, processing) clears selection. The user must click a card to select it after any list change. `_refresh_display()` calls `load_cards()` for all list changes, making this the single funnel for selection reset.
 
 ## Public API
 
@@ -94,16 +95,15 @@ This ensures consistent behavior: any change to the displayed list (search, filt
 | `load_cards(cards)`                         | Full reload, resets selection to none           |
 | `get_cards()`                               | Return cards in display order                   |
 | `update_card(card_id, card)`                | Update single card (after AI analysis)          |
-| `update_dot(card_id, confidence)`           | Update just the confidence indicator            |
 | `select_next_card()` / `select_prev_card()` | Keyboard navigation (collapses multi-selection) |
 | `select_all()` / `select_none()`            | Cmd+A / Cmd+Shift+A                             |
-| `set_ai_button_state(card_id, state, text)` | Enable/disable AI button                        |
+| `set_ai_button_state(card_id, enabled)`     | Enable/disable AI button (bool)                 |
 
 ## Drag Highlight
 
 When files are dragged over the window while cards are loaded, `MainWindow` calls `set_drag_highlight(True)` on the review panel. This draws a rounded-rect border (`Layout.HIGHLIGHT_WIDTH` px, `Color.ACCENT`, `Layout.HIGHLIGHT_RADIUS` corner radius) inside the panel edges via `EVT_PAINT`. When the drag leaves, `set_drag_highlight(False)` clears the border.
 
-The drop overlay (empty state) is managed by `_DropOverlay` in `main_window.py`, not in this panel.
+The drop overlay (empty state) is defined in `app/gui/components/drop_target.py` and managed by `main_window.py`, not in this panel.
 
 ## Keyboard Selection
 

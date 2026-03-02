@@ -25,12 +25,13 @@ Benefits:
 """
 
 import logging
-import subprocess
 from collections.abc import Callable
 
 import wx
 import wx.dataview as dv
 
+# Stateless platform utilities — no service facade needed
+from app.core.platform import open_file, reveal_in_finder
 from app.gui.context_menu import add_entry_context_menu
 from app.gui.dialogs.common import display_path as _display_path
 from app.gui.icons import load_menu_icon, load_sf_symbol
@@ -39,6 +40,39 @@ from app.gui.utils import create_static_text
 from app.models.card import CardResult, Confidence
 
 logger = logging.getLogger(__name__)
+
+# Confidence dot display — maps confidence to (symbol, color_accessor).
+# Used by CardListModel.GetValue/GetAttr for the dot column.
+# Color accessors are callables because Color.* are recomputed on theme change.
+_CONFIDENCE_DOT: dict[Confidence, tuple[str, Callable[[], wx.Colour]]] = {
+    Confidence.HIGH: ("●", lambda: Color.SUCCESS),
+    Confidence.MEDIUM: ("●", lambda: Color.WARNING),
+    Confidence.LOW: ("●", lambda: Color.ERROR),
+    Confidence.MANUAL: ("●", lambda: Color.MANUAL_BLUE),
+    Confidence.NONE: ("⚠", lambda: Color.TEXT_SECONDARY),
+}
+_ERROR_DOT = ("✕", lambda: Color.ERROR)
+
+
+def _default_dot_color() -> wx.Colour:
+    """Fallback dot color when confidence is not in the mapping."""
+    return Color.TEXT_PRIMARY
+
+
+def _get_confidence_symbol(card: CardResult) -> str:
+    """Return the dot symbol for a card's confidence level."""
+    if card.error:
+        return _ERROR_DOT[0]
+    entry = _CONFIDENCE_DOT.get(card.confidence)
+    return entry[0] if entry else "●"
+
+
+def _get_confidence_color(card: CardResult) -> wx.Colour:
+    """Return the dot color for a card's confidence level."""
+    if card.error:
+        return _ERROR_DOT[1]()
+    entry = _CONFIDENCE_DOT.get(card.confidence)
+    return entry[1]() if entry else _default_dot_color()
 
 
 class _ConfidenceLegendPopup(wx.PopupWindow):
@@ -49,6 +83,8 @@ class _ConfidenceLegendPopup(wx.PopupWindow):
         panel = wx.Panel(self)
         sizer = wx.BoxSizer(wx.VERTICAL)
 
+        # Confidence legend — intentionally view-layer domain documentation.
+        # Maps confidence levels to user-facing labels for the sidebar legend.
         rows = [
             ("●", Color.SUCCESS, "High — strong pattern match or AI result"),
             ("●", Color.WARNING, "Medium — partial pattern match"),
@@ -166,14 +202,8 @@ class CardListModel(dv.PyDataViewModel):
         card = self._cards[row]
 
         match col:
-            case 0:  # Confidence dot
-                match card:
-                    case CardResult(error=e) if e:
-                        return "✕"
-                    case CardResult(confidence=Confidence.NONE):
-                        return "⚠"
-                    case _:
-                        return "●"
+            case 0:  # Confidence dot symbol
+                return _get_confidence_symbol(card)
             case 1:  # Filename
                 return card.filename
             case 2:  # Family name
@@ -194,22 +224,8 @@ class CardListModel(dv.PyDataViewModel):
         card = self._cards[row]
 
         match col:
-            case 0:  # Confidence dot color
-                match card:
-                    case CardResult(error=e) if e:
-                        attr.SetColour(Color.ERROR)
-                    case CardResult(confidence=Confidence.NONE):
-                        attr.SetColour(Color.TEXT_SECONDARY)
-                    case CardResult(confidence=Confidence.HIGH):
-                        attr.SetColour(Color.SUCCESS)
-                    case CardResult(confidence=Confidence.MEDIUM):
-                        attr.SetColour(Color.WARNING)
-                    case CardResult(confidence=Confidence.LOW):
-                        attr.SetColour(Color.ERROR)
-                    case CardResult(confidence=Confidence.MANUAL):
-                        attr.SetColour(Color.MANUAL_BLUE)
-                    case _:
-                        attr.SetColour(Color.TEXT_PRIMARY)
+            case 0:  # Confidence dot color from mapping
+                attr.SetColour(_get_confidence_color(card))
                 return True
 
             case 1:  # Filename - blue for multi-path cards
@@ -219,6 +235,15 @@ class CardListModel(dv.PyDataViewModel):
                 return False
 
         return False
+
+
+def _is_card_editable(card: CardResult) -> bool:
+    """True if card's name/candidate fields should be enabled.
+
+    Cards with errors are not editable — the user must resolve the error
+    first (e.g. by re-processing or removing the card).
+    """
+    return not card.error
 
 
 # noinspection PyAttributeOutsideInit,PyMethodMayBeStatic,PyUnusedLocal,PyTypeChecker
@@ -236,6 +261,7 @@ class DetailPanel(wx.Panel):
         on_candidate_select: Callable[[int, int], None] | None,
         on_ai_request: Callable[[int], None] | None,
         on_remove: Callable[[str], None] | None = None,
+        invalid_chars: frozenset[str] = frozenset(),
     ):
         super().__init__(parent)
         self._on_name_change = on_name_change
@@ -243,9 +269,10 @@ class DetailPanel(wx.Panel):
         self._on_candidate_select = on_candidate_select
         self._on_ai_request = on_ai_request
         self._on_remove = on_remove
+        self._invalid_chars = invalid_chars
         self._current_card: CardResult | None = None
         self._suppress_events = False
-        self._candidate_map: dict[str, int] = {}
+        self._candidate_map: dict[int, int] = {}  # Choice index → candidate.id
         self._ai_buttons_locked = False
 
         self._build_ui()
@@ -396,16 +423,15 @@ class DetailPanel(wx.Panel):
         self._name_text.SetValue(card.display_name)
         self._remove_family_check.SetValue(card.remove_family)
 
-        # Populate candidates
+        # Populate candidates — map Choice index → candidate.id for lookup
         self._candidates_choice.Clear()
         self._candidate_map = {}
         if card.candidates:
-            for cand in card.candidates:
-                label = f"{cand.family_name} ({cand.method.upper()} - {cand.confidence.capitalize()})"
-                self._candidates_choice.Append(label)
-                self._candidate_map[label] = cand.id
             placeholder = f"Select from {len(card.candidates)} candidate{'s' if len(card.candidates) != 1 else ''}"
-            self._candidates_choice.Insert(placeholder, 0)
+            self._candidates_choice.Append(placeholder)
+            for i, cand in enumerate(card.candidates):
+                self._candidates_choice.Append(cand.display_label)
+                self._candidate_map[i + 1] = cand.id  # +1 to skip placeholder at index 0
             self._candidates_choice.SetSelection(0)
             self._candidates_choice.Enable()
         else:
@@ -413,11 +439,11 @@ class DetailPanel(wx.Panel):
             self._candidates_choice.SetSelection(0)
             self._candidates_choice.Enable(False)
 
-        # Enable/disable based on error state
-        has_error = bool(card.error)
-        self._name_text.Enable(not has_error)
-        self._remove_family_check.Enable(not has_error)
-        self._ai_btn.Enable(not has_error and not self._ai_buttons_locked)
+        # Enable/disable based on error state — view reads model flag
+        editable = _is_card_editable(card)
+        self._name_text.Enable(editable)
+        self._remove_family_check.Enable(editable)
+        self._ai_btn.Enable(editable and not self._ai_buttons_locked)
         self._remove_btn.Enable(True)
 
         # Update file locations section
@@ -492,11 +518,13 @@ class DetailPanel(wx.Panel):
             self._ai_btn.Enable(False)
 
     def _on_name_char(self, event: wx.KeyEvent) -> None:
-        """Block filesystem-invalid characters from being typed."""
-        from app.core.naming.filename_safety import INVALID_FILENAME_CHARS
+        """Block filesystem-invalid characters from being typed.
 
+        View-layer input filtering using a character set injected by the
+        controller (sourced from RenameService.INVALID_FILENAME_CHARS).
+        """
         key = event.GetUnicodeKey()
-        if key != wx.WXK_NONE and chr(key) in INVALID_FILENAME_CHARS:
+        if key != wx.WXK_NONE and chr(key) in self._invalid_chars:
             return  # Swallow the keystroke
         event.Skip()
 
@@ -506,7 +534,6 @@ class DetailPanel(wx.Panel):
             return
 
         new_name = self._name_text.GetValue()
-        self._current_card.manual_override = new_name
 
         if self._on_name_change:
             self._on_name_change(self._current_card.id, new_name)
@@ -517,7 +544,6 @@ class DetailPanel(wx.Panel):
             return
 
         new_value = self._remove_family_check.GetValue()
-        self._current_card.remove_family = new_value
 
         if self._on_checkbox_toggle:
             self._on_checkbox_toggle(self._current_card.id, new_value)
@@ -531,8 +557,7 @@ class DetailPanel(wx.Panel):
         if selection <= 0:  # Placeholder selected
             return
 
-        label = self._candidates_choice.GetString(selection)
-        candidate_id = self._candidate_map.get(label)
+        candidate_id = self._candidate_map.get(selection)
 
         if candidate_id is not None and self._on_candidate_select:
             self._on_candidate_select(self._current_card.id, candidate_id)
@@ -570,6 +595,9 @@ class ReviewPanelMasterDetail(wx.Panel):
         on_card_edited: Callable[[int], None] | None = None,
         on_remove: Callable[[str], None] | None = None,
         on_ai_analyze: Callable[[list[CardResult]], None] | None = None,
+        on_checkbox_toggle: Callable[[int, bool], None] | None = None,
+        on_candidate_select: Callable[[int, int], None] | None = None,
+        invalid_chars: frozenset[str] = frozenset(),
     ):
         super().__init__(parent)
         self._on_select = on_select
@@ -578,6 +606,9 @@ class ReviewPanelMasterDetail(wx.Panel):
         self._on_card_edited = on_card_edited
         self._on_remove = on_remove
         self._on_ai_analyze = on_ai_analyze
+        self._on_checkbox_toggle = on_checkbox_toggle
+        self._on_candidate_select = on_candidate_select
+        self._invalid_chars = invalid_chars
         self._selected_card_ids: list[int] = []
         self._cards_by_id: dict[int, CardResult] = {}
         self._drag_highlight = False
@@ -637,6 +668,7 @@ class ReviewPanelMasterDetail(wx.Panel):
             on_candidate_select=self._handle_candidate,
             on_ai_request=self._on_ai_request,
             on_remove=self._on_remove,
+            invalid_chars=self._invalid_chars,
         )
 
         # Split horizontally (master on top, detail on bottom)
@@ -803,10 +835,7 @@ class ReviewPanelMasterDetail(wx.Panel):
 
         def _open_files(evt, _paths=tuple(all_paths)):
             for p in _paths:
-                try:
-                    subprocess.Popen(["open", p])
-                except OSError as e:
-                    logger.warning("Failed to open %s: %s", p, e)
+                open_file(p)
 
         menu.Bind(wx.EVT_MENU, _open_files, open_item)
 
@@ -814,10 +843,7 @@ class ReviewPanelMasterDetail(wx.Panel):
 
             def _reveal_files(evt, _paths=tuple(all_paths)):
                 for p in _paths:
-                    try:
-                        subprocess.Popen(["open", "-R", p])
-                    except OSError as e:
-                        logger.warning("Failed to reveal %s: %s", p, e)
+                    reveal_in_finder(p)
 
             menu.Bind(
                 wx.EVT_MENU, _reveal_files, reveal_item
@@ -851,51 +877,13 @@ class ReviewPanelMasterDetail(wx.Panel):
 
     def _handle_checkbox(self, card_id: int, new_value: bool) -> None:
         """Handle checkbox toggle from detail panel."""
-        card = self._cards_by_id.get(card_id)
-        if card and card.file_hash:
-            from app.core.database import update_remove_family
-
-            update_remove_family(card.file_hash, new_value)
+        if self._on_checkbox_toggle:
+            self._on_checkbox_toggle(card_id, new_value)
 
     def _handle_candidate(self, card_id: int, candidate_id: int) -> None:
         """Handle candidate selection from detail panel."""
-        card = self._cards_by_id.get(card_id)
-        if not card or not card.file_hash:
-            return
-
-        from app.core.database import select_candidate
-
-        # Find the candidate
-        for cand in card.candidates:
-            if cand.id == candidate_id:
-                card.family_name = cand.family_name
-                card.manual_override = ""
-                card.selected_candidate_id = candidate_id
-                card.method = cand.method
-
-                # Restore original confidence
-                if card.confidence == Confidence.MANUAL and card.original_confidence:
-                    card.confidence = card.original_confidence
-                else:
-                    try:
-                        card.confidence = Confidence(cand.confidence)
-                    except ValueError:
-                        logger.debug(
-                            "Unknown confidence %r for candidate %d, defaulting to MEDIUM", cand.confidence, cand.id
-                        )
-                        card.confidence = Confidence.MEDIUM
-
-                break
-
-        # Update DB
-        select_candidate(card.file_hash, candidate_id, card.remove_family)
-
-        # Update UI
-        self._model.update_card(card_id, card)
-        self._detail_panel.load_card(card)
-
-        if self._on_card_edited:
-            self._on_card_edited(card_id)
+        if self._on_candidate_select:
+            self._on_candidate_select(card_id, candidate_id)
 
     def refresh_colors(self) -> None:
         """Re-apply mode-dependent colors after an appearance change."""
@@ -969,13 +957,6 @@ class ReviewPanelMasterDetail(wx.Panel):
         # If this card is the sole selection, update detail panel
         if self._selected_card_ids == [card_id]:
             self._detail_panel.load_card(card)
-
-    def update_dot(self, card_id: int, confidence: Confidence) -> None:
-        """Update confidence indicator (handled by model)."""
-        card = self._cards_by_id.get(card_id)
-        if card:
-            card.confidence = confidence
-            self._model.update_card(card_id, card)
 
     # noinspection DuplicatedCode
     def select_next_card(self) -> None:
@@ -1097,12 +1078,11 @@ class ReviewPanelMasterDetail(wx.Panel):
         """Clear all selection."""
         self._list_ctrl.UnselectAll()
 
-    def set_ai_button_state(self, card_id: int, state: str) -> None:
-        """Set AI button state (enabled/disabled)."""
+    def set_ai_button_state(self, card_id: int, enabled: bool) -> None:
+        """Set AI button state for a card. Only affects detail if card is selected."""
         # Only affects currently selected card in detail panel
         if self.selected_card_id == card_id:
-            enable = state == "normal"
-            self._detail_panel.enable_ai_button(enable)
+            self._detail_panel.enable_ai_button(enabled)
 
     def set_ai_buttons_locked(self, locked: bool) -> None:
         """Lock or unlock all AI buttons during batch processing."""

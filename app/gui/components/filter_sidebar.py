@@ -5,8 +5,8 @@ from pathlib import Path
 
 import wx
 
+from app.core.services.filter_service import FilterCategory
 from app.gui import styles
-from app.models.card import CardResult, Confidence
 
 _SIDEBAR_MIN_WIDTH = 175
 _SIDEBAR_PAD = 10
@@ -42,17 +42,17 @@ class FilterSidebar(wx.Panel):
         self._on_folder_filter = on_folder_filter or (lambda keys: None)
 
         # Category filter state
-        self._selected_category_filters = ["all"]
+        self._selected_category_filters = [FilterCategory.ALL.value]
         self._category_card_counts: dict[str, int] = {}
         self._category_disabled_keys: set[str] = set()
 
-        # Category definitions (in priority order)
+        # Category definitions — keys derived from FilterCategory enum
         self._category_filters = [
-            ("all", "All Cards"),
-            ("manual", "Manual Entry"),
-            ("high", "High Confidence"),
-            ("needs_review", "Needs Review"),
-            ("errors", "Errors"),
+            (FilterCategory.ALL.value, "All Cards"),
+            (FilterCategory.MANUAL.value, "Manual Entry"),
+            (FilterCategory.HIGH.value, "High Confidence"),
+            (FilterCategory.NEEDS_REVIEW.value, "Needs Review"),
+            (FilterCategory.ERRORS.value, "Errors"),
         ]
         self._category_keys = [f[0] for f in self._category_filters]
 
@@ -208,7 +208,7 @@ class FilterSidebar(wx.Panel):
         # sees the correct selection when it syncs from sidebar.
         self._selected_category_filters = self._compute_new_selection(
             filter_key,
-            "all",
+            FilterCategory.ALL.value,
             self._category_checkboxes,
             self._category_keys,
             option_held,
@@ -294,6 +294,11 @@ class FilterSidebar(wx.Panel):
 
         self.GetSizer().Layout()
 
+    @property
+    def folder_filter_keys(self) -> list[str]:
+        """Return the non-"All" folder keys (for count computation by the mixin)."""
+        return self._folder_keys[1:]
+
     # --- Count updates (cross-filtered) ---
 
     def _apply_count_fallback(
@@ -322,20 +327,12 @@ class FilterSidebar(wx.Panel):
             return remaining
         return selected
 
-    def update_category_counts(self, cards: list[CardResult]) -> None:
+    def update_category_counts(self, counts: dict[str, int]) -> None:
         """Update category counts and disable/enable accordingly.
 
         Args:
-            cards: Cards filtered by search + folder selection (for cross-filtered counts)
+            counts: Pre-computed category → count mapping from FilterService.
         """
-        counts = {
-            "all": len(cards),
-            "manual": sum(1 for c in cards if c.confidence == Confidence.MANUAL),
-            "high": sum(1 for c in cards if c.confidence == Confidence.HIGH),
-            "needs_review": sum(1 for c in cards if c.confidence in (Confidence.MEDIUM, Confidence.LOW)),
-            "errors": sum(1 for c in cards if c.error or c.confidence == Confidence.NONE),
-        }
-
         self._category_card_counts = counts
         self._category_disabled_keys.clear()
 
@@ -343,7 +340,7 @@ class FilterSidebar(wx.Panel):
             count = counts.get(key, 0)
             self._category_checkboxes[i].SetLabel(f"{base_label} ({count})")
 
-            if key != "all" and count == 0:
+            if key != FilterCategory.ALL.value and count == 0:
                 self._category_disabled_keys.add(key)
                 self._category_checkboxes[i].SetValue(False)
                 self._category_checkboxes[i].Enable(False)
@@ -351,27 +348,21 @@ class FilterSidebar(wx.Panel):
                 self._category_checkboxes[i].Enable(True)
 
         self._selected_category_filters = self._apply_count_fallback(
-            "all",
+            FilterCategory.ALL.value,
             self._selected_category_filters,
             self._category_disabled_keys,
             self._category_checkboxes,
             self._category_keys,
         )
 
-    def update_folder_counts(self, cards: list[CardResult]) -> None:
+    def update_folder_counts(self, counts: dict[str, int]) -> None:
         """Update folder counts and disable/enable accordingly.
 
         Args:
-            cards: Cards filtered by search + category selection (for cross-filtered counts)
+            counts: Pre-computed folder → count mapping from FilterService.
         """
         if not self._folder_keys:
             return
-
-        # Count cards per folder
-        counts: dict[str, int] = {"all_folders": len(cards)}
-        for key in self._folder_keys[1:]:  # skip "all_folders"
-            folder_path = Path(key)
-            counts[key] = sum(1 for c in cards if any(p.parent == folder_path for p in c.file_paths))
 
         self._folder_disabled_keys.clear()
 
@@ -412,7 +403,7 @@ class FilterSidebar(wx.Panel):
             if key in self._category_keys:
                 index = self._category_keys.index(key)
                 self._category_checkboxes[index].SetValue(True)
-        self._selected_category_filters = filter_keys if filter_keys else ["all"]
+        self._selected_category_filters = filter_keys if filter_keys else [FilterCategory.ALL.value]
 
     def refresh_colors(self) -> None:
         """Re-apply mode-dependent colors after an appearance change."""

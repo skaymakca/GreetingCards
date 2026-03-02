@@ -22,7 +22,7 @@ class TestParseFrontmatter:
         assert "Body text here." in body
 
     def test_no_frontmatter(self):
-        text = "Just plain markdown."
+        text = "Just plain Markdown."
         metadata, body = _parse_frontmatter(text)
         assert metadata == {}
         assert body == text
@@ -373,3 +373,27 @@ class TestGenerateHelpHtmlIntegration:
         assert 'href="pages/guide.html"' in index_content  # index page nav link to guide
         assert 'href="../index.html"' in guide_content  # guide page nav link to index (sibling-relative)
         assert 'href="guide.html"' in guide_content  # guide page nav link to guide (sibling-relative)
+
+    def test_code_block_includes_highlight_assets(self, tmp_path):
+        """Markdown with code blocks includes highlight CSS/JS (lines 217-218)."""
+        from unittest.mock import patch
+
+        # Set up content directory structure matching what generate_help_html expects
+        content_dir = tmp_path / "content" / "html"
+        help_dir = content_dir / "help"
+        help_dir.mkdir(parents=True)
+
+        # Create a page with a fenced code block
+        (help_dir / "1 - index.md").write_text(
+            "---\ntitle: Home\n---\n\nSome text.\n\n```python\nprint('hello')\n```\n",
+            encoding="utf-8",
+        )
+
+        # Also create templates dir so Jinja can find templates
+        with patch("app.core.content.help_builder._get_project_root", return_value=tmp_path):
+            output_dir = tmp_path / "_build" / "runtime_content" / "html" / "help"
+            generate_help_html()
+
+        index_html = (output_dir / "index.html").read_text(encoding="utf-8")
+        assert "highlight.css" in index_html
+        assert "highlight.min.js" in index_html

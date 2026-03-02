@@ -12,12 +12,12 @@ from app.core.content.license_html import (
     get_page_order,
 )
 from app.core.content.license_models import (
+    BundledDep,
     DiscoveredPackage,
     LicenseConfig,
     LicenseRegistry,
     PackageCategory,
     PackageOverride,
-    SystemDep,
 )
 from app.core.content.license_sync import (
     _build_reverse_deps,
@@ -62,8 +62,8 @@ def licenses_window(wx_app, wx_frame):
 def sample_config():
     """A minimal LicenseConfig for testing."""
     return LicenseConfig(
-        system_deps=[
-            SystemDep(
+        bundled_deps=[
+            BundledDep(
                 slug="python",
                 display="Python",
                 version="3.14",
@@ -118,15 +118,15 @@ class TestLoadConfig:
         assert "anthropic" in config.package_overrides
         assert config.package_overrides["anthropic"].display == "Anthropic SDK"
 
-    def test_has_system_deps(self):
+    def test_has_bundled_deps(self):
         config = load_config(_get_licenses_source_dir())
-        slugs = {sd.slug for sd in config.system_deps}
+        slugs = {sd.slug for sd in config.bundled_deps}
         assert "python" in slugs
         assert "tesseract" in slugs
 
-    def test_system_deps_have_urls(self):
+    def test_bundled_deps_have_urls(self):
         config = load_config(_get_licenses_source_dir())
-        urls = {sd.slug: sd.url for sd in config.system_deps}
+        urls = {sd.slug: sd.url for sd in config.bundled_deps}
         assert urls["python"] == "https://python.org"
         assert "tesseract" in urls["tesseract"]
 
@@ -145,9 +145,9 @@ class TestSyncRegistry:
         registry = sync_registry()
         assert len(registry.packages) > 30
 
-    def test_registry_has_system_deps(self):
+    def test_registry_has_bundled_deps(self):
         registry = sync_registry()
-        assert len(registry.system_deps) >= 2
+        assert len(registry.bundled_deps) >= 2
 
     def test_registry_has_hash(self):
         registry = sync_registry()
@@ -189,9 +189,9 @@ class TestGenerateLicensesHtml:
         base = _get_licenses_base_path()
         assert (base / "greeting-cards.html").exists()
 
-    def test_generation_creates_system_page(self):
+    def test_generation_creates_bundled_page(self):
         base = _get_licenses_base_path()
-        assert (base / "system.html").exists()
+        assert (base / "bundled.html").exists()
 
     def test_generation_creates_category_pages(self):
         base = _get_licenses_base_path()
@@ -242,14 +242,14 @@ class TestLicenseContentFiles:
         content = (base / "index.html").read_text()
         assert "<table>" in content
         assert "Python Packages" in content
-        assert "System Dependencies" in content
+        assert "Bundled Dependencies" in content
         assert "Greeting Cards" in content
 
     def test_index_has_dependency_type_explanations(self):
         base = _get_licenses_base_path()
         content = (base / "index.html").read_text()
         assert "Dependency Types" in content
-        for label in ("Runtime", "Development", "Transitive", "System"):
+        for label in ("Runtime", "Development", "Transitive", "Bundled"):
             assert label in content, f"Missing explanation for {label}"
 
     def test_index_has_runtime_deps(self):
@@ -285,7 +285,7 @@ class TestLicenseContentFiles:
 
     def test_category_pages_have_pre_blocks(self):
         base = _get_licenses_base_path()
-        for page in ("runtime.html", "system.html", "greeting-cards.html"):
+        for page in ("runtime.html", "bundled.html", "greeting-cards.html"):
             content = (base / page).read_text()
             assert "<pre>" in content, f"No <pre> in {page}"
 
@@ -299,9 +299,9 @@ class TestLicenseContentFiles:
         content = (base / "greeting-cards.html").read_text()
         assert "Sukru N. Kaymakcalan" in content
 
-    def test_system_page_has_python_and_tesseract(self):
+    def test_bundled_page_has_python_and_tesseract(self):
         base = _get_licenses_base_path()
-        content = (base / "system.html").read_text()
+        content = (base / "bundled.html").read_text()
         assert 'id="python"' in content
         assert 'id="tesseract"' in content
         assert "Python Software Foundation" in content
@@ -319,7 +319,7 @@ class TestPageOrder:
 
     def test_has_category_pages(self):
         page_order = get_page_order(_get_licenses_base_path())
-        assert len(page_order) == 6  # index + greeting-cards + system + 3 category
+        assert len(page_order) == 6  # index + greeting-cards + bundled + 3 category
         assert "runtime.html" in page_order
         assert "development.html" in page_order
         assert "transitive.html" in page_order
@@ -457,8 +457,8 @@ class TestLicenseModels:
         assert PackageCategory.TRANSITIVE.value == "Transitive"
         assert len(PackageCategory) == 3
 
-    def test_system_dep_creation(self):
-        sd = SystemDep(
+    def test_bundled_dep_creation(self):
+        sd = BundledDep(
             slug="python",
             display="Python",
             version="3.14",
@@ -493,7 +493,7 @@ class TestLicenseModels:
         registry = LicenseRegistry(
             uv_lock_hash="sha256:abc",
             generated_at="2026-01-01T00:00:00",
-            system_deps=[],
+            bundled_deps=[],
             packages=[],
         )
         assert registry.uv_lock_hash.startswith("sha256:")

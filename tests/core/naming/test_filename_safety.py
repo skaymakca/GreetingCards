@@ -4,6 +4,7 @@ import pytest
 
 from app.core.naming.family_name import clean_and_filter_family_names
 from app.core.naming.filename_safety import _INVALID_FS_CHARS, INVALID_FILENAME_CHARS, sanitize_for_filename
+from app.core.naming.renamer import build_target_filename
 from app.models.card import CardResult, Confidence
 
 
@@ -118,19 +119,19 @@ class TestTargetFilenameSanitization:
 
     def test_slash_in_family_name(self):
         card = CardResult(id=1, family_name="Smith/Jones", confidence=Confidence.HIGH)
-        assert card.target_filename("2024") == "Holiday Cards 2024 - Smith-Jones Family.pdf"
+        assert build_target_filename(card, "2024") == "Holiday Cards 2024 - Smith-Jones Family.pdf"
 
     def test_backslash_in_manual_override(self):
         card = CardResult(id=1, manual_override="O'Brien\\Smith", confidence=Confidence.MANUAL)
-        assert card.target_filename("2024") == "Holiday Cards 2024 - O'Brien-Smith Family.pdf"
+        assert build_target_filename(card, "2024") == "Holiday Cards 2024 - O'Brien-Smith Family.pdf"
 
     def test_sanitization_with_remove_family(self):
         card = CardResult(id=1, family_name="A<B>C", confidence=Confidence.HIGH, remove_family=True)
-        assert card.target_filename("2024") == "Holiday Cards 2024 - A-B-C.pdf"
+        assert build_target_filename(card, "2024") == "Holiday Cards 2024 - A-B-C.pdf"
 
     def test_pipe_in_name(self):
         card = CardResult(id=1, family_name="Smith|Jones", confidence=Confidence.HIGH)
-        assert card.target_filename("2024") == "Holiday Cards 2024 - Smith-Jones Family.pdf"
+        assert build_target_filename(card, "2024") == "Holiday Cards 2024 - Smith-Jones Family.pdf"
 
 
 class TestCleanAndFilterIntegration:

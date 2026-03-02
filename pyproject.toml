@@ -1,10 +1,10 @@
 [project]
 name = "greeting-cards"
-version = "0.11.0"
+version = "0.12.0"
 description = "macOS app for organizing and renaming greeting card PDFs using OCR and AI"
 requires-python = ">=3.14"
 dependencies = [
-    "anthropic==0.83.0",
+    "anthropic==0.84.0",
     "pillow==12.1.1",
     "PyMuPDF==1.27.1",
     "tesserocr>=2.10.0",
@@ -18,8 +18,6 @@ dependencies = [
 dev = [
     "pytest==9.0.2",
     "pytest-cov==7.0.0",
-    "pytest-mock==3.15.1",
-    "pytest-xdist==3.8.0",
     "pytest-asyncio==1.3.0",
     "pyinstaller>=6.0",
     "jinja2>=3.1.6",
@@ -28,12 +26,13 @@ dev = [
     "opencv-python-headless>=4.13.0.92",
     "mypy>=1.19.1",
     "pytesseract>=0.3.13",
-    "types-markdown>=3.10.2.20260211",
     "rich>=14.3.3",
     "ruff>=0.11.0",
     "bandit>=1.9.0",
     "faker>=40.5.1",
     "pyinstrument>=5.1.2",
+    "types-markdown>=3.10.2.20260211",
+    "dmgbuild>=1.6.1",
 ]
 
 [tool.pytest.ini_options]
@@ -49,6 +48,8 @@ addopts = [
 ]
 markers = [
     "display: Tests that need a real display server (skipped in headless CI)",
+    "integration: End-to-end tests requiring built app bundle",
+    "applescript: Tests that send Apple Events via osascript",
 ]
 filterwarnings = [
     "ignore:builtin type .* has no __module__:DeprecationWarning",
@@ -57,7 +58,7 @@ filterwarnings = [
 
 [tool.pyright]
 include = ["app", "tests", "scripts", "main.py"]
-exclude = ["dist", "_build", ".venv"]
+exclude = ["dist", "_build", ".venv", "scripts/dmg/dmgbuild_settings.py"]
 reportArgumentType = false
 reportAttributeAccessIssue = false
 reportCallIssue = false
@@ -71,6 +72,7 @@ reportRedeclaration = false
 [tool.mypy]
 plugins = ["sqlalchemy.ext.mypy.plugin"]
 disable_error_code = ["import-untyped"]
+exclude = ["scripts/dmg/dmgbuild_settings\\.py"]
 
 [tool.ruff]
 target-version = "py314"
@@ -118,6 +120,7 @@ ignore = [
 "app/gui/review_panel.py" = ["E402"]
 "scripts/benchmark/*.py" = ["E402"]
 "tests/gui/test_help_dialog.py" = ["E402"]
+"scripts/dmg/dmgbuild_settings.py" = ["F821"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]

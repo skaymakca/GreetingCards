@@ -6,7 +6,7 @@ Help pages generated from Markdown and displayed in the shared WebView viewer.
 
 ## How It Works
 
-`app/gui/dialogs/help.py` is a thin wrapper that calls `show_viewer()` with path resolution. `_HELP_REL_PATH = Path("_build/runtime_content") / "html" / "help"`.
+`app/gui/dialogs/help.py` is a thin wrapper that calls `show_viewer()` with path resolution via `get_runtime_content_path("html/help")`.
 
 `app/core/content/help_builder.py` generates HTML from Markdown source files using the `markdown` library and Jinja2 templates.
 
@@ -26,7 +26,8 @@ content/html/
 │   ├── 5 - preview.md
 │   ├── 6 - shortcuts.md
 │   ├── 7 - ai-models.md
-│   └── 8 - tips.md
+│   ├── 8 - scripting.md
+│   └── 9 - tips.md
 ├── common/
 │   ├── css/viewer.css            ← Shared stylesheet for all viewers
 │   └── js/search.js              ← JavaScript search/highlight functions
@@ -53,6 +54,7 @@ _build/runtime_content/html/
 │       ├── card-list.html
 │       ├── preview.html
 │       ├── shortcuts.html
+│       ├── scripting.html
 │       └── tips.html
 └── common/
     ├── css/viewer.css            ← Copied from content/html/common/css/
@@ -82,7 +84,7 @@ If `title` is omitted, it defaults to the slug converted to title case.
 1. Reads Markdown files from `content/html/help/`, parses numeric order from filenames
 2. Validates numbering (contiguous 1..N, no gaps, no duplicates)
 3. Parses YAML frontmatter for title
-4. Converts Markdown to HTML using the `markdown` library
+4. Converts Markdown to HTML using the `markdown` library (extensions: `tables`, `fenced_code`)
 5. Renders through `content/html/templates/help_page.html.j2` with Jinja2
 6. Writes output to `_build/runtime_content/html/help/`
 7. Writes `page_order.txt` manifest for runtime toolbar navigation

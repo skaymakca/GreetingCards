@@ -1,7 +1,6 @@
 """Tests for app.models.card module."""
 
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -11,8 +10,6 @@ from app.models.card import (
     CardState,
     Confidence,
     NameMatch,
-    RenamePlanItem,
-    RenameResult,
 )
 
 
@@ -32,33 +29,6 @@ class TestConfidence:
     def test_values(self, member, value):
         assert member.value == value
 
-    @pytest.mark.parametrize(
-        "member,expected_color",
-        [
-            (Confidence.HIGH, "#34C759"),
-            (Confidence.MEDIUM, "#FF9500"),
-            (Confidence.LOW, "#FF3B30"),
-            (Confidence.MANUAL, "#1E90FF"),
-            (Confidence.NONE, "#6E6E73"),
-        ],
-    )
-    def test_colors(self, member, expected_color):
-        assert member.color() == expected_color
-
-    @pytest.mark.parametrize("member", list(Confidence))
-    def test_tooltip_non_empty(self, member):
-        tooltip = member.tooltip()
-        assert isinstance(tooltip, str)
-        assert len(tooltip) > 0
-
-    def test_all_members_have_colors(self):
-        for member in Confidence:
-            assert member.color().startswith("#")
-
-    def test_all_members_have_tooltips(self):
-        for member in Confidence:
-            assert member.tooltip()
-
 
 class TestCandidateInfo:
     """Tests for CandidateInfo dataclass."""
@@ -69,6 +39,14 @@ class TestCandidateInfo:
         assert c.family_name == "Smith"
         assert c.method == "ocr"
         assert c.confidence == "high"
+
+    def test_display_label(self):
+        c = CandidateInfo(id=1, family_name="Smith", method="ocr", confidence="high")
+        assert c.display_label == "Smith (OCR - High)"
+
+    def test_display_label_ai_medium(self):
+        c = CandidateInfo(id=2, family_name="Jones", method="ai", confidence="medium")
+        assert c.display_label == "Jones (AI - Medium)"
 
 
 class TestCardState:
@@ -128,58 +106,6 @@ class TestCardResult:
         card = CardResult(id=1, primary_path=p)
         assert card.pdf_path == p
 
-    @patch("app.models.card.sanitize_for_filename", side_effect=lambda x: x)
-    def test_target_filename_with_family(self, mock_sanitize):
-        card = CardResult(id=1, family_name="Smith")
-        assert card.target_filename("2025") == "Holiday Cards 2025 - Smith Family.pdf"
-
-    @patch("app.models.card.sanitize_for_filename", side_effect=lambda x: x)
-    def test_target_filename_remove_family(self, mock_sanitize):
-        card = CardResult(id=1, family_name="Smith", remove_family=True)
-        assert card.target_filename("2025") == "Holiday Cards 2025 - Smith.pdf"
-
-    @patch("app.models.card.sanitize_for_filename", side_effect=lambda x: x)
-    def test_target_filename_already_ends_with_family(self, mock_sanitize):
-        card = CardResult(id=1, family_name="Smith Family")
-        assert card.target_filename("2025") == "Holiday Cards 2025 - Smith Family.pdf"
-
-    @patch("app.models.card.sanitize_for_filename", side_effect=lambda x: x)
-    def test_target_filename_empty_name(self, mock_sanitize):
-        card = CardResult(id=1)
-        assert card.target_filename("2025") == ""
-
-    @patch("app.models.card.sanitize_for_filename", side_effect=lambda x: x)
-    def test_target_filename_manual_override(self, mock_sanitize):
-        card = CardResult(id=1, family_name="Smith", manual_override="Jones")
-        assert card.target_filename("2025") == "Holiday Cards 2025 - Jones Family.pdf"
-
-
-class TestTargetFilenameValidation:
-    """Tests for target_filename year validation (new behavior)."""
-
-    def test_empty_year_returns_empty(self):
-        """Empty year string should return empty string."""
-        card = CardResult(id=1, family_name="Smith", confidence=Confidence.HIGH)
-        assert card.target_filename("") == ""
-
-    def test_whitespace_year_returns_empty(self):
-        """Whitespace-only year should return empty string."""
-        card = CardResult(id=1, family_name="Smith", confidence=Confidence.HIGH)
-        assert card.target_filename("   ") == ""
-
-    @patch("app.models.card.sanitize_for_filename", side_effect=lambda x: x)
-    def test_year_is_stripped(self, mock_sanitize):
-        """Year with surrounding whitespace should be stripped."""
-        card = CardResult(id=1, family_name="Smith", confidence=Confidence.HIGH)
-        result = card.target_filename(" 2024 ")
-        assert result == "Holiday Cards 2024 - Smith Family.pdf"
-
-    @patch("app.models.card.sanitize_for_filename", side_effect=lambda x: x)
-    def test_normal_year(self, mock_sanitize):
-        """Normal year produces correct filename."""
-        card = CardResult(id=1, family_name="Smith", confidence=Confidence.HIGH)
-        assert card.target_filename("2024") == "Holiday Cards 2024 - Smith Family.pdf"
-
 
 class TestPrimaryPathDefault:
     """Tests for primary_path default value."""
@@ -189,6 +115,44 @@ class TestPrimaryPathDefault:
         card = CardResult(id=1)
         assert card.primary_path == Path("")
         assert card.primary_path.name == ""
+
+
+class TestBestPreviewImages:
+    """Tests for CardResult.best_preview_images property (lines 194-198)."""
+
+    def test_returns_page_images_when_available(self):
+        """best_preview_images returns page_images when set."""
+        from PIL import Image
+
+        card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+        img1 = Image.new("RGB", (10, 10))
+        img2 = Image.new("RGB", (10, 10))
+        card.page_images = [img1, img2]
+        card.preview_image = Image.new("RGB", (10, 10))
+
+        result = card.best_preview_images
+        assert result == [img1, img2]
+
+    def test_returns_preview_image_as_list_when_no_pages(self):
+        """best_preview_images wraps single preview_image in list."""
+        from PIL import Image
+
+        card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+        card.page_images = []
+        img = Image.new("RGB", (10, 10))
+        card.preview_image = img
+
+        result = card.best_preview_images
+        assert result == [img]
+
+    def test_returns_empty_list_when_no_images(self):
+        """best_preview_images returns empty list when no images available."""
+        card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+        card.page_images = []
+        card.preview_image = None
+
+        result = card.best_preview_images
+        assert result == []
 
 
 class TestPdfWorkerResultErrorDefault:

@@ -22,6 +22,7 @@
 - ❌ Do NOT close or modify existing issues without being asked
 - ✅ ONLY manage issues when user explicitly asks you to
 - Use `gh issue list` to view open issues
+- **GitHub repo:** `skaymakca/GreetingCards` — ALWAYS use `--repo skaymakca/GreetingCards` for `gh` commands, and `repos/skaymakca/GreetingCards/...` for `gh api` URL paths. The username is **skaymakca**, NOT sukru or any other variant.
 
 ---
 
@@ -76,7 +77,8 @@ pip install package-name
 **Follow these rules for ALL bash commands to avoid permission prompts.**
 
 ### No command substitution
-- ❌ `git commit -m "$(date)"`
+- ❌ `git commit -m "$(date)"` — `$(...)` triggers approval
+- ❌ `` git commit -m "`date`" `` — backtick substitution also triggers approval
 - ✅ Split into two commands: first run `date`, then use the result
 
 ### No complex quoting in flag values
@@ -164,7 +166,7 @@ app/
   core/         # Business logic (OCR, AI, rename, database, PDF, config)
   gui/          # wxPython UI (main window, panels, dialogs, styles, icons)
   models/       # Data models (CardResult, RenamePlanItem, etc.)
-content/        # Static assets (HTML templates, CSS, JS, help markdown, licenses)
+content/        # Static assets (HTML templates, CSS, JS, help Markdown, licenses)
 scripts/        # Standalone scripts and benchmarks
   benchmark/    # OCR and concurrency benchmark suite
 tests/          # Pytest suite (mirrors app/ structure)
@@ -182,39 +184,47 @@ Key entry points:
 
 When editing files in these areas, **read the corresponding doc first**, then **update the doc** if your changes alter the documented behavior.
 
-| Files Being Edited                                                              | Read First                                                            |
-|---------------------------------------------------------------------------------|-----------------------------------------------------------------------|
-| `app/gui/main_window.py` (filters, `_refresh_display`)                          | `docs/architecture/filter-pipeline.md`                                |
-| `app/gui/components/filter_sidebar.py`                                          | `docs/architecture/filter-pipeline.md`                                |
-| `app/gui/main_window.py` (card loading, state, dedup)                           | `docs/architecture/card-data-model.md`                                |
-| `app/models/card.py`                                                            | `docs/architecture/card-data-model.md`                                |
-| `app/gui/components/review_panel.py`                                            | `docs/architecture/review-panel.md`                                   |
-| `app/gui/main_window.py` (processing, AI, threads)                              | `docs/architecture/async-processing.md`                               |
-| `app/core/pipeline/ai_analyzer.py`, `app/core/pipeline/ai_batch.py`             | `docs/architecture/async-processing.md`                               |
-| `app/core/pipeline/pdf_worker.py`, `app/core/pipeline/rate_limit.py`            | `docs/architecture/async-processing.md`                               |
-| `app/core/naming/family_name/*.py`                                              | `docs/architecture/name-pipeline.md`                                  |
-| `app/core/naming/extractor.py`, `app/core/naming/filename_safety.py`            | `docs/architecture/name-pipeline.md`                                  |
-| `app/core/database.py`, `app/core/naming/renamer.py`                            | `docs/architecture/name-pipeline.md`                                  |
-| `app/gui/dialogs/help.py`, `app/core/content/help_builder.py`                   | `docs/architecture/help-system.md`                                    |
-| `content/html/help/*.md`                                                        | `docs/architecture/help-system.md`                                    |
-| `app/gui/components/html_viewer.py`, `content/html/common/js/search.js`         | `docs/architecture/html-viewer.md`                                    |
-| `app/core/content/changelog.py`, `app/core/content/changelog_models.py`         | `docs/architecture/changelog-viewer.md`                               |
-| `app/gui/dialogs/changelog.py`, `content/html/templates/changelog_page.html.j2` | `docs/architecture/changelog-viewer.md`                               |
-| `app/core/content/license_models.py`, `app/core/content/license_sync.py`        | `docs/architecture/licenses-viewer.md`                                |
-| `app/core/content/license_html.py`, `app/gui/dialogs/licenses.py`               | `docs/architecture/licenses-viewer.md`                                |
-| `content/html/templates/licenses_*.html.j2`                                     | `docs/architecture/licenses-viewer.md`                                |
-| `content/licenses/config.toml`, `content/licenses/manual/*`                     | `docs/architecture/licenses-viewer.md`                                |
-| `CHANGELOG.md`                                                                  | `CLAUDE.md` (changelog conventions below)                             |
-| `app/core/config.py`, `app/core/paths.py`                                       | `docs/architecture/config-and-preferences.md`                         |
-| `app/gui/dialogs/settings.py`                                                   | `docs/architecture/config-and-preferences.md`                         |
-| `app/gui/appearance.py`, `app/gui/styles.py` (Color.refresh)                    | `docs/architecture/dark-mode.md`                                      |
-| `app/gui/icons.py` (clear_cache, icon tint)                                     | `docs/architecture/dark-mode.md`                                      |
-| `app/gui/main_window.py` (appearance observer, refresh)                         | `docs/architecture/dark-mode.md`                                      |
-| `content/html/common/css/viewer.css` (color variables)                          | `docs/architecture/dark-mode.md`                                      |
-| `scripts/*.py` (adding/removing/renaming scripts)                               | Update `Makefile` `show-scripts` target + `README.md` Scripts section |
-| `scripts/generate_sample_cards/**`                                              | `docs/architecture/sample-card-generator.md`                          |
-| `scripts/helpers.py`, `scripts/**/__main__.py`                                  | `docs/architecture/scripts-infrastructure.md`                         |
-| `# noinspection` comments in any `*.py` file                                    | `docs/architecture/pycharm-inspections.md`                            |
+| Files Being Edited                                                                                                                                                                  | Read First                                                            |
+|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------|
+| `app/gui/main_window.py` (filters, `_refresh_display`)                                                                                                                              | `docs/architecture/filter-pipeline.md`                                |
+| `app/gui/main_window_mixins/*.py`                                                                                                                                                   | `docs/architecture/main-window-mixins.md`                             |
+| `app/core/apple_events.py`, `app/core/scripting_protocol.py`                                                                                                                        | `docs/architecture/apple-events.md`                                   |
+| `app/gui/main_window_mixins/apple_events_mixin.py`                                                                                                                                  | `docs/architecture/apple-events.md`                                   |
+| `app/gui/components/filter_sidebar.py`                                                                                                                                              | `docs/architecture/filter-pipeline.md`                                |
+| `app/gui/main_window.py` (card loading, state, dedup)                                                                                                                               | `docs/architecture/card-data-model.md`                                |
+| `app/core/card_store.py`, `app/core/services/card_service.py`, `app/core/services/ai_service.py`, `app/core/services/processing_service.py`, `app/core/services/rename_service.py`  | `docs/architecture/card-data-model.md`                                |
+| `app/models/card.py`                                                                                                                                                                | `docs/architecture/card-data-model.md`                                |
+| `app/gui/components/review_panel.py`                                                                                                                                                | `docs/architecture/review-panel.md`                                   |
+| `app/gui/main_window.py` (processing, AI, threads)                                                                                                                                  | `docs/architecture/async-processing.md`                               |
+| `app/core/pipeline/ai_analyzer.py`, `app/core/pipeline/ai_batch.py`                                                                                                                 | `docs/architecture/async-processing.md`                               |
+| `app/core/pipeline/pdf_worker.py`, `app/core/pipeline/rate_limit.py`, `app/core/pipeline/ocr_engine.py`, `app/core/pipeline/pdf_renderer.py`, `app/core/pipeline/card_processor.py` | `docs/architecture/async-processing.md`                               |
+| `app/core/naming/family_name/*.py`                                                                                                                                                  | `docs/architecture/name-pipeline.md`                                  |
+| `app/core/naming/extractor.py`, `app/core/naming/filename_safety.py`                                                                                                                | `docs/architecture/name-pipeline.md`                                  |
+| `app/core/database.py`, `app/core/naming/renamer.py`                                                                                                                                | `docs/architecture/name-pipeline.md`                                  |
+| `app/gui/dialogs/help.py`, `app/core/content/help_builder.py`                                                                                                                       | `docs/architecture/help-system.md`                                    |
+| `content/html/help/*.md`                                                                                                                                                            | `docs/architecture/help-system.md`                                    |
+| `app/gui/components/html_viewer.py`, `content/html/common/js/search.js`                                                                                                             | `docs/architecture/html-viewer.md`                                    |
+| `app/core/content/changelog.py`, `app/core/content/changelog_models.py`                                                                                                             | `docs/architecture/changelog-viewer.md`                               |
+| `app/gui/dialogs/changelog.py`, `content/html/templates/changelog_page.html.j2`                                                                                                     | `docs/architecture/changelog-viewer.md`                               |
+| `app/core/content/license_models.py`, `app/core/content/license_sync.py`                                                                                                            | `docs/architecture/licenses-viewer.md`                                |
+| `app/core/content/license_html.py`, `app/gui/dialogs/licenses.py`                                                                                                                   | `docs/architecture/licenses-viewer.md`                                |
+| `content/html/templates/licenses_*.html.j2`                                                                                                                                         | `docs/architecture/licenses-viewer.md`                                |
+| `content/licenses/config.toml`, `content/licenses/manual/*`                                                                                                                         | `docs/architecture/licenses-viewer.md`                                |
+| `CHANGELOG.md`                                                                                                                                                                      | `CLAUDE.md` (changelog conventions below)                             |
+| `app/core/config.py`, `app/core/paths.py`, `app/core/services/config_service.py`                                                                                                    | `docs/architecture/config-and-preferences.md`                         |
+| `app/gui/dialogs/settings.py`                                                                                                                                                       | `docs/architecture/config-and-preferences.md`                         |
+| `app/gui/appearance.py`, `app/gui/styles.py` (Color.refresh)                                                                                                                        | `docs/architecture/dark-mode.md`                                      |
+| `app/gui/icons.py` (clear_cache, icon tint)                                                                                                                                         | `docs/architecture/dark-mode.md`                                      |
+| `app/gui/main_window.py` (appearance observer, refresh)                                                                                                                             | `docs/architecture/dark-mode.md`                                      |
+| `content/html/common/css/viewer.css` (color variables)                                                                                                                              | `docs/architecture/dark-mode.md`                                      |
+| `scripts/*.py` (adding/removing/renaming scripts)                                                                                                                                   | Update `Makefile` `show-scripts` target + `README.md` Scripts section |
+| `scripts/generate_sample_cards/**`                                                                                                                                                  | `docs/architecture/sample-card-generator.md`                          |
+| `scripts/helpers.py`, `scripts/**/__main__.py`                                                                                                                                      | `docs/architecture/scripts-infrastructure.md`                         |
+| `tests/scripts/**`                                                                                                                                                                  | `docs/architecture/scripts-infrastructure.md`                         |
+| `# noinspection` comments in any `*.py` file                                                                                                                                        | `docs/architecture/pycharm-inspections.md`                            |
+| `scripts/dmg/**` (including `dmgbuild_settings.py`)                                                                                                                                 | `docs/architecture/dmg-creation.md`                                   |
+| `content/dmg/readme.md`, `content/dmg/Sample Cards/`                                                                                                                                | `docs/architecture/dmg-creation.md`                                   |
+| Markdown tables in any `*.md` file                                                                                                                                                  | `docs/pycharm-table-formatting.md`                                    |
 
 ### Test Count
 When adding or removing tests, update the test count in `README.md` (search for "tests** covering") to match the actual number from `pytest` output.
@@ -245,6 +255,10 @@ After adding or updating packages with `uv add`, run `make licenses-sync` to upd
 ## Code Quality Audit
 
 When asked to audit the codebase, follow the checklist in [`docs/code-quality-audit.md`](docs/code-quality-audit.md).
+
+## MVC Compliance Audit
+
+When asked to audit MVC compliance, follow the methodology in [`docs/mvc-compliance-audit.md`](docs/mvc-compliance-audit.md). Findings go into `.claude/mvc-audit-findings.md`.
 
 ---
 

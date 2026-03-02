@@ -2,6 +2,7 @@ import base64
 import io
 import logging
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any
 
 from PIL import Image
@@ -26,23 +27,57 @@ class AIResult:
     alternates: list[str] = field(default_factory=list)
 
 
-def format_ai_error(error: Exception) -> str:
-    """Format an AI API error into a clean user-facing message."""
+class AIErrorKind(Enum):
+    """Classification of AI API errors."""
+
+    AUTH = "auth"
+    RATE_LIMIT = "rate_limit"
+    TIMEOUT = "timeout"
+    CONNECTION = "connection"
+    API_STATUS = "api_status"
+    UNKNOWN = "unknown"
+
+
+@dataclass
+class AIError:
+    """Structured AI error with classification and detail."""
+
+    kind: AIErrorKind
+    detail: str = ""
+    status_code: int | None = None
+
+    @property
+    def is_auth(self) -> bool:
+        """True if this is an authentication error."""
+        return self.kind == AIErrorKind.AUTH
+
+
+def classify_ai_error(error: Exception) -> AIError:
+    """Classify an AI API error into a structured AIError."""
     import anthropic
 
     match error:
         case anthropic.AuthenticationError():
-            return "Invalid API key"
+            return AIError(AIErrorKind.AUTH, "Invalid API key")
         case anthropic.RateLimitError():
-            return "Rate limit exceeded — try again later"
+            return AIError(AIErrorKind.RATE_LIMIT, "Rate limit exceeded — try again later")
         case anthropic.APITimeoutError():
-            return "Request timed out"
+            return AIError(AIErrorKind.TIMEOUT, "Request timed out")
         case anthropic.APIConnectionError():
-            return "Network connection error"
+            return AIError(AIErrorKind.CONNECTION, "Network connection error")
         case anthropic.APIStatusError(status_code=code):
-            return f"API error (HTTP {code})"
+            return AIError(AIErrorKind.API_STATUS, f"API error (HTTP {code})", status_code=code)
         case _:
-            return str(error)
+            return AIError(AIErrorKind.UNKNOWN, str(error))
+
+
+def format_ai_error(error: Exception) -> str:
+    """Format an AI API error into a clean user-facing message.
+
+    Thin wrapper around classify_ai_error() for backward compatibility.
+    New code should use classify_ai_error() and format in the presentation layer.
+    """
+    return classify_ai_error(error).detail
 
 
 def parse_retry_after(exc: Exception) -> float:

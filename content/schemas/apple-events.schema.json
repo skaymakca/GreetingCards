@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "apple-events.schema.json",
+  "title": "Greeting Cards Apple Events Response Types",
+  "description": "JSON Schema for all Apple Events command response shapes returned by Greeting Cards (com.kaymakcalan.app.greetingcards). Each response is a JSON string set on the reply descriptor's direct object.",
+  "$defs": {
+    "SimpleResult": {
+      "type": "object",
+      "description": "Generic success/failure result with optional error message. Returned by: reload, clear all, set card name, select candidate, set remove family, set model.",
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "description": "True if the operation succeeded."
+        },
+        "error": {
+          "type": "string",
+          "description": "Human-readable error message. Present only when success is false."
+        }
+      },
+      "required": ["success"],
+      "additionalProperties": false
+    },
+    "CountResult": {
+      "type": "object",
+      "description": "Result that includes a count of affected items. Returned by: analyze cards, clear AI results.",
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "description": "True if the operation succeeded."
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of cards queued (analyze) or affected (clear AI)."
+        },
+        "error": {
+          "type": "string",
+          "description": "Human-readable error message. Present only when success is false."
+        }
+      },
+      "required": ["success", "count"],
+      "additionalProperties": false
+    },
+    "RenameResult": {
+      "type": "object",
+      "description": "Result of a rename card operation. Returned by: rename card.",
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "description": "True if the rename succeeded."
+        },
+        "old_path": {
+          "type": "string",
+          "description": "Absolute path of the file before rename. Empty string on failure."
+        },
+        "new_path": {
+          "type": "string",
+          "description": "Absolute path of the file after rename. Empty string on failure."
+        },
+        "error": {
+          "type": "string",
+          "description": "Human-readable error message. Empty string on success."
+        }
+      },
+      "required": ["success", "old_path", "new_path", "error"],
+      "additionalProperties": false
+    },
+    "StatusResult": {
+      "type": "object",
+      "description": "Current application status. Returned by: get status.",
+      "properties": {
+        "is_processing": {
+          "type": "boolean",
+          "description": "True while OCR processing thread is running."
+        },
+        "is_analyzing": {
+          "type": "boolean",
+          "description": "True while AI batch analysis is running."
+        },
+        "loaded_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of unique card hashes currently loaded."
+        },
+        "current_model": {
+          "type": "string",
+          "description": "Model ID of the currently selected AI model."
+        },
+        "year": {
+          "type": "string",
+          "description": "Year string from the year control (e.g. '2024'). Empty string if not set."
+        }
+      },
+      "required": ["is_processing", "is_analyzing", "loaded_count", "current_model", "year"],
+      "additionalProperties": false
+    },
+    "LoadResult": {
+      "type": "object",
+      "description": "Result of a load paths operation. Returned by: load paths.",
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "description": "True if the load operation was accepted (paths were enqueued)."
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of new PDF files enqueued for processing (excludes already-loaded files)."
+        },
+        "error": {
+          "type": "string",
+          "description": "Human-readable error message. Present only when success is false."
+        }
+      },
+      "required": ["success", "count"],
+      "additionalProperties": false
+    },
+    "CandidateInfo": {
+      "type": "object",
+      "description": "A single name candidate for a card.",
+      "properties": {
+        "rank": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "1-based rank position in the candidates list."
+        },
+        "id": {
+          "type": "integer",
+          "description": "Internal database ID for the candidate."
+        },
+        "name": {
+          "type": "string",
+          "description": "Family name string for this candidate."
+        },
+        "method": {
+          "type": "string",
+          "enum": ["ocr", "ai"],
+          "description": "How this candidate was produced."
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["high", "medium", "low"],
+          "description": "Confidence level for this candidate."
+        }
+      },
+      "required": ["rank", "id", "name", "method", "confidence"],
+      "additionalProperties": false
+    },
+    "CardInfo": {
+      "type": "object",
+      "description": "Full card state. Returned by: get card info. Also returned with only an 'error' key when the card is not found.",
+      "properties": {
+        "filename": {
+          "type": "string",
+          "description": "Original filename (basename of the first file_path)."
+        },
+        "file_hash": {
+          "type": "string",
+          "description": "SHA-256 content hash identifying the card."
+        },
+        "file_paths": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Absolute paths of all files with this content hash."
+        },
+        "family_name": {
+          "type": "string",
+          "description": "Currently resolved family name (may be empty string if unknown)."
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["high", "medium", "low", "manual", "error", "unknown"],
+          "description": "Confidence level for the current family_name."
+        },
+        "method": {
+          "type": "string",
+          "description": "How family_name was determined: 'ocr', 'ai', 'manual', 'error', or empty string."
+        },
+        "manual_override": {
+          "type": "string",
+          "description": "User-supplied manual name override. Empty string if not set."
+        },
+        "remove_family": {
+          "type": "boolean",
+          "description": "True if the family name should be stripped from the output filename."
+        },
+        "ai_analyzed": {
+          "type": "boolean",
+          "description": "True if AI analysis has been run on this card."
+        },
+        "candidates": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/CandidateInfo" },
+          "description": "Ordered list of name candidates (best first)."
+        },
+        "error": {
+          "type": "string",
+          "description": "Error message if processing failed. Empty string if no error."
+        }
+      },
+      "required": [
+        "filename", "file_hash", "file_paths", "family_name",
+        "confidence", "method", "manual_override", "remove_family",
+        "ai_analyzed", "candidates", "error"
+      ],
+      "additionalProperties": false
+    },
+    "CardSummary": {
+      "type": "object",
+      "description": "Lightweight card summary for list responses. Returned by: get loaded cards.",
+      "properties": {
+        "filename": {
+          "type": "string",
+          "description": "Original filename."
+        },
+        "file_hash": {
+          "type": "string",
+          "description": "SHA-256 content hash."
+        },
+        "family_name": {
+          "type": "string",
+          "description": "Currently resolved family name."
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["high", "medium", "low", "manual", "error", "unknown"],
+          "description": "Confidence level."
+        }
+      },
+      "required": ["filename", "file_hash", "family_name", "confidence"],
+      "additionalProperties": false
+    },
+    "ModelInfo": {
+      "type": "object",
+      "description": "An available AI model entry. Returned (as array) by: get models.",
+      "properties": {
+        "model_id": {
+          "type": "string",
+          "description": "Unique model identifier passed to set model."
+        },
+        "label": {
+          "type": "string",
+          "description": "Short human-readable display name."
+        },
+        "description": {
+          "type": "string",
+          "description": "Longer description of the model's characteristics."
+        },
+        "speed": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "Speed rating 1 (slowest) – 5 (fastest)."
+        },
+        "quality": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "Quality rating 1 (lowest) – 5 (highest)."
+        }
+      },
+      "required": ["model_id", "label", "description", "speed", "quality"],
+      "additionalProperties": false
+    }
+  }
+}

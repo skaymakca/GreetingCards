@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 
+from app.core.naming.filename_safety import sanitize_for_filename
 from app.models.card import (
     STATUS_DUPLICATE,
     STATUS_OK,
@@ -8,11 +9,35 @@ from app.models.card import (
     STATUS_SKIP_NO_NAME,
     STATUS_SKIP_SAME,
     CardResult,
+    RenameOutcome,
     RenamePlanItem,
     RenameResult,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def validate_year(year_str: str) -> bool:
+    """Return True if year_str is a valid 4-digit year."""
+    return bool(year_str) and year_str.isdigit() and len(year_str) == 4
+
+
+def build_target_filename(card: CardResult, year: str) -> str:
+    """Build the target filename for a card given a year.
+
+    Returns empty string if year or display name is blank.
+    Appends "Family" suffix unless remove_family is set or name already ends with it.
+    """
+    year = year.strip()
+    if not year:
+        return ""
+    name = card.display_name.strip() if card.display_name else ""
+    if not name:
+        return ""
+    name = sanitize_for_filename(name)
+    if not card.remove_family and not name.lower().endswith("family"):
+        name = f"{name} Family"
+    return f"Holiday Cards {year} - {name}.pdf"
 
 
 def _is_same_file(a: Path, b: Path) -> bool:
@@ -75,7 +100,7 @@ def build_rename_plan(cards: list[CardResult], year: str) -> list[RenamePlanItem
                 existing.add(file_path.name.lower())
                 continue
 
-            target_name = card.target_filename(year)
+            target_name = build_target_filename(card, year)
 
             if not target_name:
                 plan.append(RenamePlanItem(file_path, file_path, STATUS_SKIP_NO_NAME, card=card))
@@ -123,16 +148,17 @@ def execute_rename_plan(plan: list[RenamePlanItem]) -> list[RenameResult]:
     After each successful rename, updates the card's file_paths and primary_path
     so they reflect the new location.
     """
+    _STATUS_TO_OUTCOME = {
+        STATUS_SKIP_NO_NAME: RenameOutcome.SKIP_NO_NAME,
+        STATUS_SKIP_ERROR: RenameOutcome.SKIP_ERROR,
+        STATUS_SKIP_SAME: RenameOutcome.ALREADY_CORRECT,
+    }
+
     results = []
     for item in plan:
-        if item.status in {STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR}:
-            if item.status == STATUS_SKIP_NO_NAME:
-                reason = "No name extracted"
-            elif item.status == STATUS_SKIP_ERROR:
-                reason = "Processing error"
-            else:
-                reason = "Already named correctly"
-            results.append(RenameResult(item.old_path, item.new_path, True, reason, card=item.card))
+        if item.status in _STATUS_TO_OUTCOME:
+            outcome = _STATUS_TO_OUTCOME[item.status]
+            results.append(RenameResult(item.old_path, item.new_path, True, "", outcome=outcome, card=item.card))
             continue
 
         try:
@@ -143,7 +169,8 @@ def execute_rename_plan(plan: list[RenamePlanItem]) -> list[RenameResult]:
                         item.old_path,
                         item.new_path,
                         False,
-                        f"Target already exists: {item.new_path.name}",
+                        "",
+                        outcome=RenameOutcome.ERROR_TARGET_EXISTS,
                         card=item.card,
                     )
                 )
@@ -162,8 +189,14 @@ def execute_rename_plan(plan: list[RenamePlanItem]) -> list[RenameResult]:
                 if card.primary_path == item.old_path:
                     card.primary_path = item.new_path
 
-            results.append(RenameResult(item.old_path, item.new_path, True, "Renamed", card=item.card))
+            results.append(
+                RenameResult(item.old_path, item.new_path, True, "", outcome=RenameOutcome.RENAMED, card=item.card)
+            )
         except OSError as e:
-            results.append(RenameResult(item.old_path, item.new_path, False, str(e), card=item.card))
+            results.append(
+                RenameResult(
+                    item.old_path, item.new_path, False, str(e), outcome=RenameOutcome.ERROR_OS, card=item.card
+                )
+            )
 
     return results

@@ -7,8 +7,9 @@ from pathlib import Path
 from typing import NamedTuple
 
 import wx
+import wx.html2
 
-from app.gui.icons import load_sf_symbol
+from app.gui.icons import clear_cache, load_menu_icon, load_sf_symbol
 from app.gui.styles import Color
 
 # Singleton weakrefs keyed by viewer type
@@ -45,15 +46,17 @@ class _TextExtractor(HTMLParser):
     Ignores everything outside <div class="content">, plus script/style.
     """
 
+    _SKIP_TAGS = frozenset(("script", "style", "pre"))
+
     def __init__(self) -> None:
         super().__init__()
         self._pieces: list[str] = []
         self._in_content = False
         self._content_depth = 0  # nested div depth inside .content
-        self._skip_depth = 0  # nested script/style depth
+        self._skip_depth = 0  # nested script/style/pre depth
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if self._in_content and tag in ("script", "style"):
+        if self._in_content and tag in self._SKIP_TAGS:
             self._skip_depth += 1
             return
         if tag == "div":
@@ -66,7 +69,7 @@ class _TextExtractor(HTMLParser):
                 self._content_depth += 1
 
     def handle_endtag(self, tag: str) -> None:
-        if self._skip_depth > 0 and tag in ("script", "style"):
+        if self._skip_depth > 0 and tag in self._SKIP_TAGS:
             self._skip_depth -= 1
             return
         if self._in_content and tag == "div":
@@ -108,7 +111,233 @@ def _count_occurrences(text: str, query_lower: str) -> int:
     return count
 
 
-# noinspection PyUnusedLocal,PyTypeChecker
+# noinspection PyUnusedLocal,PyUnresolvedReferences
+class _SearchController:
+    """Cross-page search state machine for HTMLViewerWindow.
+
+    Owns the text index, search cursors, and JavaScript bridge calls.
+    The view creates this controller and wires toolbar/search events to it.
+    """
+
+    def __init__(
+        self,
+        *,
+        webview: wx.Window,
+        search_ctrl: wx.SearchCtrl,
+        search_label: wx.StaticText,
+        toolbar: wx.ToolBar,
+        prev_id: int,
+        next_id: int,
+        prev_match_id: int,
+        next_match_id: int,
+        page_order: list[str],
+        page_index: dict[str, str],
+        base_path: Path,
+        frame: wx.Frame,
+    ) -> None:
+        # Widget references (injected, not owned)
+        self._webview = webview
+        self._search_ctrl = search_ctrl
+        self._search_label = search_label
+        self._toolbar = toolbar
+        self._prev_id = prev_id
+        self._next_id = next_id
+        self._prev_match_id = prev_match_id
+        self._next_match_id = next_match_id
+        self._page_order = page_order
+        self._page_index = page_index
+        self._base_path = base_path
+
+        # Search state
+        self._search_pages: list[_PageMatch] = []
+        self._page_cursor = 0
+        self._match_cursor = 0
+        self._page_ready = False
+        self._pending_mark = False
+        self._pending_focus = False
+        self._last_query = ""
+        self._debounce_timer = wx.Timer(frame)
+
+    # ── Queries ──
+
+    def _total_matches(self) -> int:
+        return sum(m.match_count for m in self._search_pages)
+
+    def _global_position(self) -> int:
+        return sum(m.match_count for m in self._search_pages[: self._page_cursor]) + self._match_cursor + 1
+
+    # ── View update ──
+
+    def _update_search_ui(self) -> None:
+        total = self._total_matches()
+        has_results = total > 0
+        self._toolbar.EnableTool(self._prev_match_id, has_results)
+        self._toolbar.EnableTool(self._next_match_id, has_results)
+        if has_results:
+            self._search_label.SetLabel(f"{self._global_position()} of {total}")
+        elif self._search_ctrl.GetValue():
+            self._search_label.SetLabel("No results")
+        else:
+            self._search_label.SetLabel("")
+
+    def _update_nav_buttons(self) -> None:
+        idx, _ = self.current_page_info()
+        self._toolbar.EnableTool(self._prev_id, idx > 0)
+        self._toolbar.EnableTool(self._next_id, 0 <= idx < len(self._page_order) - 1)
+
+    # ── JS bridge ──
+
+    def _mark_all(self) -> None:
+        if not self._page_ready:
+            return
+        query = self._search_ctrl.GetValue()
+        self._last_query = query
+        self._webview.RunScript(f"shlMark({json.dumps(query)})")
+
+    def _focus_match(self, idx: int) -> None:
+        if not self._page_ready:
+            return
+        self._webview.RunScript(f"shlFocus({idx})")
+
+    def _clear_highlights(self) -> None:
+        if not self._page_ready:
+            return
+        self._last_query = ""
+        self._webview.RunScript("shlClear()")
+
+    # ── Public: core search logic ──
+
+    def run_search(self, query: str) -> None:
+        self._search_pages.clear()
+        self._page_cursor = 0
+        self._match_cursor = 0
+        if not query or len(query) < _MIN_SEARCH_LEN:
+            self._pending_mark = False
+            self._pending_focus = False
+            self._clear_highlights()
+            self._update_search_ui()
+            return
+        q = query.lower()
+        for page in self._page_order:
+            count = _count_occurrences(self._page_index.get(page, ""), q)
+            if count > 0:
+                self._search_pages.append(_PageMatch(page, count))
+        self._update_search_ui()
+        if self._search_pages:
+            _, current = self.current_page_info()
+            start_idx = 0
+            for i, m in enumerate(self._search_pages):
+                if m.page == current:
+                    start_idx = i
+                    break
+            self._navigate_to_page(start_idx, 0)
+        else:
+            self._clear_highlights()
+
+    # ── Navigation ──
+
+    def _navigate_to_page(self, pg_idx: int, mt_idx: int) -> None:
+        self._page_cursor = pg_idx
+        self._match_cursor = mt_idx
+        page = self._search_pages[pg_idx].page
+        current_url = self._webview.GetCurrentURL()
+        base_url = current_url.split("#")[0]
+        if base_url.endswith(page):
+            query = self._search_ctrl.GetValue()
+            if query != self._last_query:
+                self._mark_all()
+            self._focus_match(self._match_cursor)
+            self._update_search_ui()
+        else:
+            self._page_ready = False
+            self._pending_mark = True
+            self._pending_focus = True
+            self._webview.LoadURL((self._base_path / page).as_uri())
+
+    def current_page_info(self) -> tuple[int, str]:
+        """Return (index, rel_path) of the current page."""
+        current_url = self._webview.GetCurrentURL()
+        base_url = current_url.split("#")[0]
+        for i, page in enumerate(self._page_order):
+            if base_url.endswith(page):
+                return i, page
+        return -1, ""
+
+    # ── Public: reset all state ──
+
+    def clear(self) -> None:
+        self._debounce_timer.Stop()
+        self._search_ctrl.ChangeValue("")
+        self._search_pages.clear()
+        self._page_cursor = 0
+        self._match_cursor = 0
+        self._pending_mark = False
+        self._pending_focus = False
+        self._clear_highlights()
+        self._update_search_ui()
+
+    def stop(self) -> None:
+        """Stop timer and prevent RunScript on dead WebView."""
+        self._debounce_timer.Stop()
+        self._page_ready = False
+
+    # ── Event handlers ──
+
+    def on_search_text(self, evt: wx.CommandEvent) -> None:
+        query = self._search_ctrl.GetValue()
+        if len(query) < _MIN_SEARCH_LEN:
+            self._debounce_timer.Stop()
+            self.run_search("")
+            return
+        self._debounce_timer.Stop()
+        self._debounce_timer.StartOnce(_DEBOUNCE_MS)
+
+    def on_debounce_timer(self, evt: wx.TimerEvent) -> None:
+        self.run_search(self._search_ctrl.GetValue())
+
+    def on_search_cancel(self, evt: wx.CommandEvent) -> None:
+        self.clear()
+
+    def on_prev_match(self, evt: wx.CommandEvent) -> None:
+        if not self._search_pages:
+            return
+        if self._match_cursor > 0:
+            self._match_cursor -= 1
+            self._focus_match(self._match_cursor)
+            self._update_search_ui()
+        else:
+            prev_pg = (self._page_cursor - 1) % len(self._search_pages)
+            self._navigate_to_page(prev_pg, self._search_pages[prev_pg].match_count - 1)
+
+    def on_next_match(self, evt: wx.CommandEvent) -> None:
+        if not self._search_pages:
+            return
+        if self._match_cursor < self._search_pages[self._page_cursor].match_count - 1:
+            self._match_cursor += 1
+            self._focus_match(self._match_cursor)
+            self._update_search_ui()
+        else:
+            next_pg = (self._page_cursor + 1) % len(self._search_pages)
+            self._navigate_to_page(next_pg, 0)
+
+    def on_page_loaded(self, evt: wx.Event) -> None:
+        self._page_ready = True
+        self._update_nav_buttons()
+        if self._pending_mark:
+            self._pending_mark = False
+            self._mark_all()
+        if self._pending_focus:
+            self._pending_focus = False
+            self._focus_match(self._match_cursor)
+            self._update_search_ui()
+        evt.Skip()
+
+    @property
+    def debounce_timer(self) -> wx.Timer:
+        return self._debounce_timer
+
+
+# noinspection PyUnusedLocal,PyTypeChecker,PyUnresolvedReferences
 class HTMLViewerWindow:
     """WebView-based HTML viewer with toolbar navigation and cross-page search."""
 
@@ -122,8 +351,6 @@ class HTMLViewerWindow:
         size: tuple[int, int] = (800, 600),
         search_hint: str = "Search",
     ) -> None:
-        import wx.html2
-
         self._page_order = page_order
         self._base_path = base_path
 
@@ -220,8 +447,6 @@ class HTMLViewerWindow:
         edit_menu = wx.Menu()
         find_id = wx.NewIdRef()
         find_item = edit_menu.Append(find_id, "Find\tCtrl+F")
-        from app.gui.icons import load_menu_icon
-
         find_icon = load_menu_icon("magnifyingglass")
         if find_icon:
             find_item.SetBitmap(find_icon)
@@ -232,220 +457,64 @@ class HTMLViewerWindow:
         frame.Bind(wx.EVT_MENU, lambda e: search_ctrl.SetFocus(), id=find_id)
 
         frame.CenterOnParent()
+
         frame.Show()
 
-        # --- Search state ---
-        search_pages: list[_PageMatch] = []
-        page_cursor = 0
-        match_cursor = 0
-        page_ready = False  # True after first EVT_WEBVIEW_LOADED
-        pending_mark = False  # Need full _mark_all after page load
-        pending_focus = False  # Need _focus_match after page load
-        last_query = ""  # Avoid redundant re-marking
-        debounce_timer = wx.Timer(frame)
+        # --- Search controller ---
+        search = _SearchController(
+            webview=webview,
+            search_ctrl=search_ctrl,
+            search_label=search_label,
+            toolbar=toolbar,
+            prev_id=prev_id,
+            next_id=next_id,
+            prev_match_id=prev_match_id,
+            next_match_id=next_match_id,
+            page_order=page_order,
+            page_index=page_index,
+            base_path=base_path,
+            frame=frame,
+        )
 
-        # --- Navigation helpers ---
-        def _current_page_info() -> tuple[int, str]:
-            current_url = webview.GetCurrentURL()
-            # Strip anchor fragment for matching
-            base_url = current_url.split("#")[0]
-            for i, page in enumerate(page_order):
-                if base_url.endswith(page):
-                    return i, page
-            return -1, ""
-
-        def _update_nav_buttons() -> None:
-            idx, _ = _current_page_info()
-            toolbar.EnableTool(prev_id, idx > 0)
-            toolbar.EnableTool(next_id, 0 <= idx < len(page_order) - 1)
-
-        def _total_matches() -> int:
-            return sum(m.match_count for m in search_pages)
-
-        def _global_position() -> int:
-            nonlocal page_cursor, match_cursor
-            return sum(m.match_count for m in search_pages[:page_cursor]) + match_cursor + 1
-
-        def _update_search_ui() -> None:
-            total = _total_matches()
-            has_results = total > 0
-            toolbar.EnableTool(prev_match_id, has_results)
-            toolbar.EnableTool(next_match_id, has_results)
-            if has_results:
-                search_label.SetLabel(f"{_global_position()} of {total}")
-            elif search_ctrl.GetValue():
-                search_label.SetLabel("No results")
-            else:
-                search_label.SetLabel("")
-
-        def _mark_all() -> None:
-            nonlocal last_query
-            if not page_ready:
-                return
-            query = search_ctrl.GetValue()
-            last_query = query
-            webview.RunScript(f"shlMark({json.dumps(query)})")
-
-        def _focus_match(idx: int) -> None:
-            if not page_ready:
-                return
-            webview.RunScript(f"shlFocus({idx})")
-
-        def _clear_highlights() -> None:
-            nonlocal last_query
-            if not page_ready:
-                return
-            last_query = ""
-            webview.RunScript("shlClear()")
-
-        def _run_search(query: str) -> None:
-            nonlocal page_cursor, match_cursor, pending_mark, pending_focus
-            search_pages.clear()
-            page_cursor = 0
-            match_cursor = 0
-            if not query or len(query) < _MIN_SEARCH_LEN:
-                pending_mark = False
-                pending_focus = False
-                _clear_highlights()
-                _update_search_ui()
-                return
-            q = query.lower()
-            for page in page_order:
-                count = _count_occurrences(page_index.get(page, ""), q)
-                if count > 0:
-                    search_pages.append(_PageMatch(page, count))
-            _update_search_ui()
-            if search_pages:
-                _, current = _current_page_info()
-                start_idx = 0
-                for i, m in enumerate(search_pages):
-                    if m.page == current:
-                        start_idx = i
-                        break
-                _navigate_to_page(start_idx, 0)
-            else:
-                _clear_highlights()
-
-        def _navigate_to_page(pg_idx: int, mt_idx: int) -> None:
-            nonlocal page_ready, page_cursor, match_cursor, pending_mark, pending_focus
-            page_cursor = pg_idx
-            match_cursor = mt_idx
-            page = search_pages[pg_idx].page
-            current_url = webview.GetCurrentURL()
-            base_url = current_url.split("#")[0]
-            if base_url.endswith(page):
-                query = search_ctrl.GetValue()
-                if query != last_query:
-                    _mark_all()
-                _focus_match(match_cursor)
-                _update_search_ui()
-            else:
-                page_ready = False
-                pending_mark = True
-                pending_focus = True
-                webview.LoadURL((base_path / page).as_uri())
-
-        def _clear_search() -> None:
-            nonlocal page_cursor, match_cursor, pending_mark, pending_focus
-            debounce_timer.Stop()
-            search_ctrl.ChangeValue("")
-            search_pages.clear()
-            page_cursor = 0
-            match_cursor = 0
-            pending_mark = False
-            pending_focus = False
-            _clear_highlights()
-            _update_search_ui()
-
-        # --- Event handlers ---
+        # --- Navigation event handlers ---
+        # noinspection PyShadowingNames
         def on_home(evt: wx.CommandEvent) -> None:
-            _clear_search()
+            search.clear()
             webview.LoadURL((base_path / page_order[0]).as_uri())
 
         def on_prev(evt: wx.CommandEvent) -> None:
-            _clear_search()
-            idx, _ = _current_page_info()
+            search.clear()
+            idx, _ = search.current_page_info()
             if idx > 0:
                 webview.LoadURL((base_path / page_order[idx - 1]).as_uri())
 
         def on_next(evt: wx.CommandEvent) -> None:
-            _clear_search()
-            idx, _ = _current_page_info()
+            search.clear()
+            idx, _ = search.current_page_info()
             if 0 <= idx < len(page_order) - 1:
                 webview.LoadURL((base_path / page_order[idx + 1]).as_uri())
 
-        def on_search_text(evt: wx.CommandEvent) -> None:
-            query = search_ctrl.GetValue()
-            if len(query) < _MIN_SEARCH_LEN:
-                debounce_timer.Stop()
-                _run_search("")
-                return
-            debounce_timer.Stop()
-            debounce_timer.StartOnce(_DEBOUNCE_MS)
-
-        def on_debounce_timer(evt: wx.TimerEvent) -> None:
-            _run_search(search_ctrl.GetValue())
-
-        def on_search_cancel(evt: wx.CommandEvent) -> None:
-            _clear_search()
-
-        def on_prev_match(evt: wx.CommandEvent) -> None:
-            nonlocal match_cursor
-            if not search_pages:
-                return
-            if match_cursor > 0:
-                match_cursor -= 1
-                _focus_match(match_cursor)
-                _update_search_ui()
-            else:
-                prev_pg = (page_cursor - 1) % len(search_pages)
-                _navigate_to_page(prev_pg, search_pages[prev_pg].match_count - 1)
-
-        def on_next_match(evt: wx.CommandEvent) -> None:
-            nonlocal match_cursor
-            if not search_pages:
-                return
-            if match_cursor < search_pages[page_cursor].match_count - 1:
-                match_cursor += 1
-                _focus_match(match_cursor)
-                _update_search_ui()
-            else:
-                next_pg = (page_cursor + 1) % len(search_pages)
-                _navigate_to_page(next_pg, 0)
-
         # noinspection PyShadowingNames
-        def on_navigating(evt) -> None:
-            url = evt.GetURL()
+        def on_navigating(evt: wx.Event) -> None:
+            url = evt.GetURL()  # type: ignore[attr-defined]
             # noinspection HttpUrlsUsage
             if url.startswith(("http://", "https://")):
-                evt.Veto()
+                evt.Veto()  # type: ignore[attr-defined]
                 wx.LaunchDefaultBrowser(url)
             else:
                 evt.Skip()
 
-        def on_page_loaded(evt) -> None:
-            nonlocal page_ready, pending_mark, pending_focus
-            page_ready = True
-            _update_nav_buttons()
-            if pending_mark:
-                pending_mark = False
-                _mark_all()
-            if pending_focus:
-                pending_focus = False
-                _focus_match(match_cursor)
-                _update_search_ui()
-            evt.Skip()
-
+        # --- Event wiring ---
         frame.Bind(wx.EVT_TOOL, on_home, id=home_id)
         frame.Bind(wx.EVT_TOOL, on_prev, id=prev_id)
         frame.Bind(wx.EVT_TOOL, on_next, id=next_id)
-        frame.Bind(wx.EVT_TOOL, on_prev_match, id=prev_match_id)
-        frame.Bind(wx.EVT_TOOL, on_next_match, id=next_match_id)
-        search_ctrl.Bind(wx.EVT_TEXT, on_search_text)
-        search_ctrl.Bind(wx.EVT_SEARCHCTRL_CANCEL_BTN, on_search_cancel)
-        frame.Bind(wx.EVT_TIMER, on_debounce_timer, debounce_timer)
+        frame.Bind(wx.EVT_TOOL, search.on_prev_match, id=prev_match_id)
+        frame.Bind(wx.EVT_TOOL, search.on_next_match, id=next_match_id)
+        search_ctrl.Bind(wx.EVT_TEXT, search.on_search_text)
+        search_ctrl.Bind(wx.EVT_SEARCHCTRL_CANCEL_BTN, search.on_search_cancel)
+        frame.Bind(wx.EVT_TIMER, search.on_debounce_timer, search.debounce_timer)
         webview.Bind(wx.html2.EVT_WEBVIEW_NAVIGATING, on_navigating)
-        webview.Bind(wx.html2.EVT_WEBVIEW_LOADED, on_page_loaded)
+        webview.Bind(wx.html2.EVT_WEBVIEW_LOADED, search.on_page_loaded)
 
         # Cmd+F is handled by the Edit > Find menu item above
 
@@ -456,9 +525,7 @@ class HTMLViewerWindow:
         # WebView.  EVT_CLOSE covers user close; EVT_WINDOW_DESTROY covers
         # programmatic Destroy() calls (e.g. test teardown).
         def _stop_timer(evt: wx.Event) -> None:
-            nonlocal page_ready
-            debounce_timer.Stop()
-            page_ready = False
+            search.stop()
             evt.Skip()
 
         frame.Bind(wx.EVT_CLOSE, _stop_timer)
@@ -469,8 +536,6 @@ class HTMLViewerWindow:
 
     def refresh_colors(self) -> None:
         """Update toolbar icons and border for current appearance mode."""
-        from app.gui.icons import clear_cache
-
         clear_cache()
         for tool_id, symbol_name in self._tool_icons:
             bmp = _toolbar_icon(symbol_name)
@@ -492,11 +557,10 @@ def build_help_menu(frame: wx.Frame) -> wx.Menu:
     ``frame.GetParent()`` should be the main window so that new viewers
     are parented correctly.
     """
-    from app.core.config import GITHUB_URL
+    from app.core.services.config_service import ConfigService
     from app.gui.dialogs.changelog import show_changelog
     from app.gui.dialogs.help import show_help
     from app.gui.dialogs.licenses import show_licenses
-    from app.gui.icons import load_menu_icon
 
     parent = frame.GetParent() or frame
 
@@ -530,7 +594,7 @@ def build_help_menu(frame: wx.Frame) -> wx.Menu:
     frame.Bind(wx.EVT_MENU, lambda e: show_help(parent), id=wx.ID_HELP)
     frame.Bind(wx.EVT_MENU, lambda e: show_changelog(parent), id=whats_new_id)
     frame.Bind(wx.EVT_MENU, lambda e: show_licenses(parent), id=licenses_id)
-    frame.Bind(wx.EVT_MENU, lambda e: wx.LaunchDefaultBrowser(GITHUB_URL), id=github_id)
+    frame.Bind(wx.EVT_MENU, lambda e: wx.LaunchDefaultBrowser(ConfigService.get_github_url()), id=github_id)
 
     return menu
 
