@@ -22,6 +22,7 @@
 - ❌ Do NOT close or modify existing issues without being asked
 - ✅ ONLY manage issues when user explicitly asks you to
 - Use `gh issue list` to view open issues
+- **GitHub repo:** `skaymakca/GreetingCards` — ALWAYS use `--repo skaymakca/GreetingCards` for `gh` commands, and `repos/skaymakca/GreetingCards/...` for `gh api` URL paths. The username is **skaymakca**, NOT sukru or any other variant.
 
 ---
 
