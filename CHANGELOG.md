@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.12.0 — Scripting & Distribution (2026-03-02)
+
+AppleScript automation and a polished macOS installer.
+
+- AppleScript scripting support — automate the app from Script Editor, Automator, or Terminal with 17 commands for loading folders, querying cards, triggering AI analysis, renaming, and more
+- DMG installer with Applications shortcut, sample greeting cards, and drag-to-install guide
+- New "Scripting" help page with command reference, example scripts, and syntax-highlighted code
+
 ## 0.11.0 — Name Intelligence & Smoother Workflow (2026-02-27)
 
 Better name recognition, non-blocking AI analysis, and selection reliability.
