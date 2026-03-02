@@ -2,7 +2,7 @@
 
 ProcessPoolExecutor for PDF rendering + OCR, asyncio for AI batch, and thread-safety patterns.
 
-**Key files:** `app/core/pipeline/pdf_worker.py` (subprocess worker), `app/gui/main_window.py` (processing methods), `app/core/pipeline/ai_analyzer.py`, `app/core/pipeline/ai_batch.py` (`run_ai_batch_async`), `app/core/pipeline/rate_limit.py` (`RateLimitGate`)
+**Key files:** `app/core/pipeline/pdf_worker.py` (subprocess worker), `app/core/pipeline/ocr_engine.py`, `app/core/pipeline/pdf_renderer.py`, `app/core/pipeline/card_processor.py`, `app/gui/main_window.py` (processing methods), `app/core/pipeline/ai_analyzer.py`, `app/core/pipeline/ai_batch.py` (`run_ai_batch_async`), `app/core/pipeline/rate_limit.py` (`RateLimitGate`)
 
 ## Architecture Overview
 

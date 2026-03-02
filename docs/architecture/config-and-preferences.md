@@ -2,7 +2,7 @@
 
 User configuration: API key, AI model selection, and how persistence differs between dev and bundled modes.
 
-**Key files:** `app/core/config.py`, `app/core/paths.py`, `app/gui/dialogs/settings.py`
+**Key files:** `app/core/config.py`, `app/core/paths.py`, `app/core/services/config_service.py`, `app/gui/dialogs/settings.py`
 
 ## Storage Overview
 

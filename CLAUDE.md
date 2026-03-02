@@ -192,12 +192,12 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `app/gui/main_window_mixins/apple_events_mixin.py`                              | `docs/architecture/apple-events.md`                                   |
 | `app/gui/components/filter_sidebar.py`                                          | `docs/architecture/filter-pipeline.md`                                |
 | `app/gui/main_window.py` (card loading, state, dedup)                           | `docs/architecture/card-data-model.md`                                |
-| `app/core/card_store.py`, `app/core/services/card_service.py`, `app/core/services/ai_service.py` | `docs/architecture/card-data-model.md`                         |
+| `app/core/card_store.py`, `app/core/services/card_service.py`, `app/core/services/ai_service.py`, `app/core/services/processing_service.py`, `app/core/services/rename_service.py` | `docs/architecture/card-data-model.md`                         |
 | `app/models/card.py`                                                            | `docs/architecture/card-data-model.md`                                |
 | `app/gui/components/review_panel.py`                                            | `docs/architecture/review-panel.md`                                   |
 | `app/gui/main_window.py` (processing, AI, threads)                              | `docs/architecture/async-processing.md`                               |
 | `app/core/pipeline/ai_analyzer.py`, `app/core/pipeline/ai_batch.py`             | `docs/architecture/async-processing.md`                               |
-| `app/core/pipeline/pdf_worker.py`, `app/core/pipeline/rate_limit.py`            | `docs/architecture/async-processing.md`                               |
+| `app/core/pipeline/pdf_worker.py`, `app/core/pipeline/rate_limit.py`, `app/core/pipeline/ocr_engine.py`, `app/core/pipeline/pdf_renderer.py`, `app/core/pipeline/card_processor.py` | `docs/architecture/async-processing.md`                               |
 | `app/core/naming/family_name/*.py`                                              | `docs/architecture/name-pipeline.md`                                  |
 | `app/core/naming/extractor.py`, `app/core/naming/filename_safety.py`            | `docs/architecture/name-pipeline.md`                                  |
 | `app/core/database.py`, `app/core/naming/renamer.py`                            | `docs/architecture/name-pipeline.md`                                  |
@@ -211,7 +211,7 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `content/html/templates/licenses_*.html.j2`                                     | `docs/architecture/licenses-viewer.md`                                |
 | `content/licenses/config.toml`, `content/licenses/manual/*`                     | `docs/architecture/licenses-viewer.md`                                |
 | `CHANGELOG.md`                                                                  | `CLAUDE.md` (changelog conventions below)                             |
-| `app/core/config.py`, `app/core/paths.py`                                       | `docs/architecture/config-and-preferences.md`                         |
+| `app/core/config.py`, `app/core/paths.py`, `app/core/services/config_service.py` | `docs/architecture/config-and-preferences.md`                         |
 | `app/gui/dialogs/settings.py`                                                   | `docs/architecture/config-and-preferences.md`                         |
 | `app/gui/appearance.py`, `app/gui/styles.py` (Color.refresh)                    | `docs/architecture/dark-mode.md`                                      |
 | `app/gui/icons.py` (clear_cache, icon tint)                                     | `docs/architecture/dark-mode.md`                                      |

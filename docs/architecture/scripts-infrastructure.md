@@ -30,8 +30,7 @@ scripts/build_family_name_db/
 
 scripts/dmg/
   __init__.py
-  __main__.py              # Entry point
-  cli.py                   # Orchestration: build app → create DMG via dmgbuild
+  __main__.py              # Entry point + orchestration (build app → create DMG via dmgbuild)
   background.py            # Generates gradient PNG background for DMG window
   readme.py                # Generates RTF readme for DMG (RTFD package)
   dmgbuild_settings.py     # dmgbuild configuration (window layout, icons)
@@ -78,6 +77,8 @@ Each script package follows the same pattern:
 1. `__main__.py` imports and calls `main()` from the package's CLI module
 2. The CLI module defines `main()` as the sync entry point
 3. For async scripts, `main()` calls `asyncio.run(async_main())`
+
+**Exceptions:** `scripts/dmg/` puts orchestration directly in `__main__.py` (no separate `cli.py`). `scripts/benchmark/` has no `__main__.py` — its scripts are standalone modules run individually (e.g., `python -m scripts.benchmark.ocr_concurrency`).
 
 This structure allows scripts to be multi-file packages while remaining invocable as modules.
 
