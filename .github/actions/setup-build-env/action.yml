@@ -19,5 +19,5 @@ runs:
       shell: bash
 
     - name: Install pyright
-      run: pipx install pyright
+      run: uv tool install pyright
       shell: bash
