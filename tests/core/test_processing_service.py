@@ -160,6 +160,104 @@ class TestProcessFiles:
         assert store.count == 1
 
 
+class TestIngestPaths:
+    """Tests for ProcessingService.ingest_paths()."""
+
+    def test_scans_and_registers_new_pdfs(self, tmp_path: Path) -> None:
+        """New PDFs are scanned and registered."""
+        pdf = tmp_path / "card.pdf"
+        pdf.write_bytes(b"%PDF-1.4 test")
+        store = CardStore()
+        service = ProcessingService(store)
+
+        new_pdfs, skipped = service.ingest_paths([tmp_path])
+
+        assert len(new_pdfs) == 1
+        assert skipped == 0
+
+    def test_skips_already_loaded(self, tmp_path: Path) -> None:
+        """Already-loaded PDFs are counted as skipped."""
+        pdf = tmp_path / "card.pdf"
+        pdf.write_bytes(b"%PDF-1.4 test")
+        resolved = pdf.resolve()
+
+        store = CardStore()
+        store._hash_by_path[resolved] = "existing_hash"
+        service = ProcessingService(store)
+
+        new_pdfs, skipped = service.ingest_paths([tmp_path])
+
+        assert len(new_pdfs) == 0
+        assert skipped == 1
+
+    def test_no_pdfs_returns_zeros(self, tmp_path: Path) -> None:
+        """Non-PDF paths return ([], 0)."""
+        txt = tmp_path / "readme.txt"
+        txt.write_text("hello")
+        store = CardStore()
+        service = ProcessingService(store)
+
+        new_pdfs, skipped = service.ingest_paths([txt])
+
+        assert new_pdfs == []
+        assert skipped == 0
+
+
+class TestComputeReload:
+    """Tests for ProcessingService.compute_reload()."""
+
+    def test_deleted_files_returned(self, tmp_path: Path) -> None:
+        """Deleted files are returned and cleaned up from store."""
+        pdf = tmp_path / "card.pdf"
+        pdf.write_bytes(b"fake pdf")
+
+        store = CardStore()
+        from app.models.card import CardResult, Confidence
+
+        card = CardResult(id=0, file_paths=[pdf], primary_path=pdf, file_hash="hash1", confidence=Confidence.HIGH)
+        store._cards_by_hash["hash1"] = card
+        store._id_to_card[0] = card
+        store._hash_by_path[pdf] = "hash1"
+        store._mtime_by_path[pdf] = 100.0
+        store._pdf_files.add(pdf)
+
+        pdf.unlink()
+
+        service = ProcessingService(store)
+        deleted, modified = service.compute_reload()
+
+        assert len(deleted) == 1
+        assert pdf in deleted
+        assert len(modified) == 0
+
+    @patch("app.core.database.compute_file_hash")
+    def test_modified_files_registered(self, mock_hash: MagicMock, tmp_path: Path) -> None:
+        """Modified files are returned and re-registered in store."""
+        pdf = tmp_path / "card.pdf"
+        pdf.write_bytes(b"original")
+
+        store = CardStore()
+        from app.models.card import CardResult, Confidence
+
+        card = CardResult(id=0, file_paths=[pdf], primary_path=pdf, file_hash="old_hash", confidence=Confidence.HIGH)
+        store._cards_by_hash["old_hash"] = card
+        store._id_to_card[0] = card
+        store._hash_by_path[pdf] = "old_hash"
+        store._mtime_by_path[pdf] = 100.0
+        store._pdf_files.add(pdf)
+
+        mock_hash.return_value = "new_hash"
+
+        service = ProcessingService(store)
+        deleted, modified = service.compute_reload()
+
+        assert len(deleted) == 0
+        assert len(modified) == 1
+        assert pdf in modified
+        # Modified paths should be re-registered in pdf_files
+        assert pdf in store._pdf_files
+
+
 class TestScanForPdfs:
     """Tests for ProcessingService.scan_for_pdfs()."""
 

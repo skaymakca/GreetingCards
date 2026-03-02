@@ -344,7 +344,7 @@ class TestAnalyzeForScript:
         _inject_card(window, card)
 
         with (
-            patch("app.gui.main_window_mixins.apple_events_mixin.get_api_key", return_value="sk-test"),
+            patch.object(window._config_service, "has_api_key", return_value=True),
             patch.object(window, "_start_ai_all") as mock_ai,
         ):
             result = window.analyze_for_script(None)
@@ -361,7 +361,7 @@ class TestAnalyzeForScript:
         _inject_card(window, card)
 
         with (
-            patch("app.gui.main_window_mixins.apple_events_mixin.get_api_key", return_value="sk-test"),
+            patch.object(window._config_service, "has_api_key", return_value=True),
             patch.object(window, "_start_ai_all") as mock_ai,
         ):
             result = window.analyze_for_script("test.pdf")
@@ -373,7 +373,7 @@ class TestAnalyzeForScript:
     def test_not_found(self, window):
         _inject_card(window, _make_card())
 
-        with patch("app.gui.main_window_mixins.apple_events_mixin.get_api_key", return_value="sk-test"):
+        with patch.object(window._config_service, "has_api_key", return_value=True):
             result = window.analyze_for_script("nope.pdf")
         assert result["success"] is False
         assert "not found" in result["error"].lower()
@@ -381,7 +381,7 @@ class TestAnalyzeForScript:
     def test_no_api_key(self, window):
         _inject_card(window, _make_card())
 
-        with patch("app.gui.main_window_mixins.apple_events_mixin.get_api_key", return_value=""):
+        with patch.object(window._config_service, "has_api_key", return_value=False):
             result = window.analyze_for_script(None)
         assert result["success"] is False
         assert "api key" in result["error"].lower()

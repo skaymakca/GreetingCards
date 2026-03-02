@@ -14,6 +14,7 @@ import wx
 
 from app.core.card_service import CardService
 from app.core.card_store import CardStore
+from app.core.config_service import ConfigService
 from app.core.processing_service import ProcessingService
 from app.core.rename_service import RenameService
 from app.gui.components.filter_sidebar import FilterSidebar
@@ -42,11 +43,11 @@ class MainWindowProtocol(Protocol):
     # --- Services ---
     _card_store: CardStore
     _card_service: CardService
+    _config_service: ConfigService
     _rename_service: RenameService
     _processing_service: ProcessingService
 
     # --- Orchestration state ---
-    _processing_files: list[Path]
     _is_processing_busy: bool
 
     # --- Filter state ---

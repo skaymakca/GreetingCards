@@ -8,6 +8,7 @@ stay in sync. Runs exclusively on the main (UI) thread — no locking needed.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from app.core.card_store import CardStore
 from app.core.database import clear_ai_results, select_candidate, set_manual_name, update_remove_family
@@ -52,7 +53,7 @@ class CardService:
 
         if name:
             if card.confidence != Confidence.MANUAL:
-                card.ui_original_confidence = card.confidence
+                card.original_confidence = card.confidence
             card.confidence = Confidence.MANUAL
             card.method = "manual"
             card.family_name = name
@@ -87,8 +88,8 @@ class CardService:
                 card.selected_candidate_id = candidate_id
                 card.method = cand.method
 
-                if card.confidence == Confidence.MANUAL and card.ui_original_confidence:
-                    card.confidence = card.ui_original_confidence
+                if card.confidence == Confidence.MANUAL and card.original_confidence:
+                    card.confidence = card.original_confidence
                 else:
                     try:
                         card.confidence = Confidence(cand.confidence)
@@ -136,6 +137,14 @@ class CardService:
             update_remove_family(card.file_hash, value)
 
         return card
+
+    def clear_cards(self) -> None:
+        """Clear all in-memory card state (no database reset)."""
+        self._store.clear()
+
+    def unlink_path(self, path: Path) -> None:
+        """Remove a path from all tracking dicts and its associated card."""
+        self._store.unlink_path(path)
 
     def clear_ai_results(self, cards: list[CardResult]) -> int:
         """Clear AI results for the given cards.

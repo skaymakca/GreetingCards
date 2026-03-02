@@ -543,7 +543,16 @@ class VisualTestFrame(wx.Frame):
         from app.gui.dialogs.settings import create_preferences_editor
 
         if self._prefs_editor is None:
-            self._prefs_editor = create_preferences_editor(on_db_reset=lambda: None)
+            from app.core.config_service import ConfigService
+
+            cs = ConfigService()
+            self._prefs_editor = create_preferences_editor(
+                on_db_reset=lambda: None,
+                get_api_key=cs.get_api_key,
+                save_api_key=cs.save_api_key,
+                get_ai_model=cs.get_ai_model,
+                save_ai_model=cs.save_ai_model,
+            )
         self._prefs_editor.Show(self)
 
     # -- HTML Viewer launchers --

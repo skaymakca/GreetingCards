@@ -35,6 +35,35 @@ class ProcessingService:
         """
         return scan_for_pdfs(path)
 
+    def ingest_paths(self, paths: list[Path]) -> tuple[list[Path], int]:
+        """Scan paths for PDFs and register new ones with the store.
+
+        Args:
+            paths: File or folder paths to scan.
+
+        Returns:
+            (new_pdfs, skipped_count) — new PDF paths and count of already-loaded ones.
+        """
+        all_pdfs: list[Path] = []
+        for path in paths:
+            all_pdfs.extend(scan_for_pdfs(path))
+        new_pdfs, skipped = self._store.filter_and_register(all_pdfs)
+        return new_pdfs, len(skipped)
+
+    def compute_reload(self, *, mtime_only: bool = False) -> tuple[list[Path], list[Path]]:
+        """Compute deleted and modified paths, then register modified for reprocessing.
+
+        Args:
+            mtime_only: When True, use mtime as a fast pre-filter.
+
+        Returns:
+            (deleted_paths, needs_processing) — paths removed and paths needing reprocessing.
+        """
+        deleted, modified = self._store.compute_reload_diff(mtime_only=mtime_only)
+        if modified:
+            self._store.register_new_pdfs(modified)
+        return deleted, modified
+
     def process_files(
         self,
         files: list[Path],

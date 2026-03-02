@@ -1,7 +1,6 @@
 """Tests for app.models.card module."""
 
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -11,8 +10,6 @@ from app.models.card import (
     CardState,
     Confidence,
     NameMatch,
-    RenamePlanItem,
-    RenameResult,
 )
 
 
@@ -42,6 +39,14 @@ class TestCandidateInfo:
         assert c.family_name == "Smith"
         assert c.method == "ocr"
         assert c.confidence == "high"
+
+    def test_display_label(self):
+        c = CandidateInfo(id=1, family_name="Smith", method="ocr", confidence="high")
+        assert c.display_label == "Smith (OCR - High)"
+
+    def test_display_label_ai_medium(self):
+        c = CandidateInfo(id=2, family_name="Jones", method="ai", confidence="medium")
+        assert c.display_label == "Jones (AI - Medium)"
 
 
 class TestCardState:
@@ -100,58 +105,6 @@ class TestCardResult:
         p = Path("/cards/test.pdf")
         card = CardResult(id=1, primary_path=p)
         assert card.pdf_path == p
-
-    @patch("app.models.card.sanitize_for_filename", side_effect=lambda x: x)
-    def test_target_filename_with_family(self, mock_sanitize):
-        card = CardResult(id=1, family_name="Smith")
-        assert card.target_filename("2025") == "Holiday Cards 2025 - Smith Family.pdf"
-
-    @patch("app.models.card.sanitize_for_filename", side_effect=lambda x: x)
-    def test_target_filename_remove_family(self, mock_sanitize):
-        card = CardResult(id=1, family_name="Smith", remove_family=True)
-        assert card.target_filename("2025") == "Holiday Cards 2025 - Smith.pdf"
-
-    @patch("app.models.card.sanitize_for_filename", side_effect=lambda x: x)
-    def test_target_filename_already_ends_with_family(self, mock_sanitize):
-        card = CardResult(id=1, family_name="Smith Family")
-        assert card.target_filename("2025") == "Holiday Cards 2025 - Smith Family.pdf"
-
-    @patch("app.models.card.sanitize_for_filename", side_effect=lambda x: x)
-    def test_target_filename_empty_name(self, mock_sanitize):
-        card = CardResult(id=1)
-        assert card.target_filename("2025") == ""
-
-    @patch("app.models.card.sanitize_for_filename", side_effect=lambda x: x)
-    def test_target_filename_manual_override(self, mock_sanitize):
-        card = CardResult(id=1, family_name="Smith", manual_override="Jones")
-        assert card.target_filename("2025") == "Holiday Cards 2025 - Jones Family.pdf"
-
-
-class TestTargetFilenameValidation:
-    """Tests for target_filename year validation (new behavior)."""
-
-    def test_empty_year_returns_empty(self):
-        """Empty year string should return empty string."""
-        card = CardResult(id=1, family_name="Smith", confidence=Confidence.HIGH)
-        assert card.target_filename("") == ""
-
-    def test_whitespace_year_returns_empty(self):
-        """Whitespace-only year should return empty string."""
-        card = CardResult(id=1, family_name="Smith", confidence=Confidence.HIGH)
-        assert card.target_filename("   ") == ""
-
-    @patch("app.models.card.sanitize_for_filename", side_effect=lambda x: x)
-    def test_year_is_stripped(self, mock_sanitize):
-        """Year with surrounding whitespace should be stripped."""
-        card = CardResult(id=1, family_name="Smith", confidence=Confidence.HIGH)
-        result = card.target_filename(" 2024 ")
-        assert result == "Holiday Cards 2024 - Smith Family.pdf"
-
-    @patch("app.models.card.sanitize_for_filename", side_effect=lambda x: x)
-    def test_normal_year(self, mock_sanitize):
-        """Normal year produces correct filename."""
-        card = CardResult(id=1, family_name="Smith", confidence=Confidence.HIGH)
-        assert card.target_filename("2024") == "Holiday Cards 2024 - Smith Family.pdf"
 
 
 class TestPrimaryPathDefault:

@@ -1365,7 +1365,7 @@ def test_remove_completed_results_full_success(wx_app):
 
 def test_remove_completed_results_partial_failure(wx_app):
     """Failed renames keep their cards; successful ones are removed."""
-    from app.models.card import CardResult, Confidence, RenameResult
+    from app.models.card import CardResult, Confidence, RenameOutcome, RenameResult
 
     window = MainWindow()
     new_path = Path("/test/Holiday Cards 2024 - Smith Family.pdf")
@@ -1386,7 +1386,12 @@ def test_remove_completed_results_partial_failure(wx_app):
     results = [
         RenameResult(Path("/test/old1.pdf"), new_path, True, "Renamed", card=card1),
         RenameResult(
-            fail_path, Path("/test/Holiday Cards 2024 - Jones Family.pdf"), False, "Permission denied", card=card2
+            fail_path,
+            Path("/test/Holiday Cards 2024 - Jones Family.pdf"),
+            False,
+            "Permission denied",
+            outcome=RenameOutcome.ERROR_OS,
+            card=card2,
         ),
     ]
 
@@ -1404,7 +1409,7 @@ def test_remove_completed_results_partial_failure(wx_app):
 
 def test_remove_completed_results_skip_same(wx_app):
     """skip_same results (already named correctly) are also removed."""
-    from app.models.card import CardResult, Confidence, RenameResult
+    from app.models.card import CardResult, Confidence, RenameOutcome, RenameResult
 
     window = MainWindow()
     path1 = Path("/test/Holiday Cards 2024 - Smith Family.pdf")
@@ -1418,7 +1423,7 @@ def test_remove_completed_results_skip_same(wx_app):
     window._card_store._pdf_files = {path1}
 
     results = [
-        RenameResult(path1, path1, True, "Already named correctly", card=card1),
+        RenameResult(path1, path1, True, "Already named correctly", outcome=RenameOutcome.ALREADY_CORRECT, card=card1),
     ]
 
     window._remove_completed_results(results)
@@ -1431,7 +1436,7 @@ def test_remove_completed_results_skip_same(wx_app):
 
 def test_remove_completed_results_skip_no_name_kept(wx_app):
     """skip_no_name results are NOT removed — user needs to address them."""
-    from app.models.card import CardResult, Confidence, RenameResult
+    from app.models.card import CardResult, Confidence, RenameOutcome, RenameResult
 
     window = MainWindow()
     path1 = Path("/test/unknown.pdf")
@@ -1445,7 +1450,7 @@ def test_remove_completed_results_skip_no_name_kept(wx_app):
     window._card_store._pdf_files = {path1}
 
     results = [
-        RenameResult(path1, path1, True, "No name extracted", card=card1),
+        RenameResult(path1, path1, True, "No name extracted", outcome=RenameOutcome.SKIP_NO_NAME, card=card1),
     ]
 
     window._remove_completed_results(results)
@@ -1459,7 +1464,7 @@ def test_remove_completed_results_skip_no_name_kept(wx_app):
 
 def test_remove_completed_results_multi_path_card(wx_app):
     """Card with multiple paths: only remove renamed paths, keep card if paths remain."""
-    from app.models.card import CardResult, Confidence, RenameResult
+    from app.models.card import CardResult, Confidence, RenameOutcome, RenameResult
 
     window = MainWindow()
     new_path = Path("/test/dir_a/Holiday Cards 2024 - Smith Family.pdf")
@@ -1476,7 +1481,12 @@ def test_remove_completed_results_multi_path_card(wx_app):
     results = [
         RenameResult(Path("/test/dir_a/old.pdf"), new_path, True, "Renamed", card=card),
         RenameResult(
-            fail_path, Path("/test/dir_b/Holiday Cards 2024 - Smith Family.pdf"), False, "Permission denied", card=card
+            fail_path,
+            Path("/test/dir_b/Holiday Cards 2024 - Smith Family.pdf"),
+            False,
+            "Permission denied",
+            outcome=RenameOutcome.ERROR_OS,
+            card=card,
         ),
     ]
 
@@ -1504,7 +1514,7 @@ def test_on_name_change_revert_to_original(wx_app):
     card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
     card.family_name = "Smith"
     card.confidence = Confidence.MANUAL
-    card.ui_original_confidence = Confidence.HIGH
+    card.original_confidence = Confidence.HIGH
     card.method = "manual"
     card.manual_override = "Jones"
     card.file_hash = "h1"
@@ -1547,7 +1557,7 @@ def test_on_name_change_revert_ai_analyzed(wx_app):
     card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
     card.family_name = "Smith"
     card.confidence = Confidence.MANUAL
-    card.ui_original_confidence = Confidence.HIGH
+    card.original_confidence = Confidence.HIGH
     card.method = "manual"
     card.manual_override = "Jones"
     card.ai_analyzed = True
@@ -1586,7 +1596,7 @@ def test_on_name_change_revert_no_original_confidence(wx_app):
     window = MainWindow()
     card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
     card.confidence = Confidence.MANUAL
-    card.ui_original_confidence = None
+    card.original_confidence = None
     card.method = "manual"
     card.manual_override = "Test"
     card.file_hash = "h1"
@@ -2079,23 +2089,25 @@ def test_load_sf_symbol_bad_image_caches_none(wx_app):
     icons._cache.pop(test_key, None)
 
 
-class TestResolvedMessages:
-    """Tests for RESOLVED_MESSAGES constant used in hash mapping."""
+class TestResolvedOutcomes:
+    """Tests for RESOLVED_OUTCOMES constant used in hash mapping."""
 
-    def test_resolved_messages_contains_renamed(self):
-        from app.core.naming.rename_filter import RESOLVED_MESSAGES
+    def test_resolved_outcomes_contains_renamed(self):
+        from app.core.naming.rename_filter import RESOLVED_OUTCOMES
+        from app.models.card import RenameOutcome
 
-        assert "Renamed" in RESOLVED_MESSAGES
+        assert RenameOutcome.RENAMED in RESOLVED_OUTCOMES
 
-    def test_resolved_messages_contains_already_named(self):
-        from app.core.naming.rename_filter import RESOLVED_MESSAGES
+    def test_resolved_outcomes_contains_already_correct(self):
+        from app.core.naming.rename_filter import RESOLVED_OUTCOMES
+        from app.models.card import RenameOutcome
 
-        assert "Already named correctly" in RESOLVED_MESSAGES
+        assert RenameOutcome.ALREADY_CORRECT in RESOLVED_OUTCOMES
 
-    def test_resolved_messages_size(self):
-        from app.core.naming.rename_filter import RESOLVED_MESSAGES
+    def test_resolved_outcomes_size(self):
+        from app.core.naming.rename_filter import RESOLVED_OUTCOMES
 
-        assert len(RESOLVED_MESSAGES) == 2
+        assert len(RESOLVED_OUTCOMES) == 2
 
 
 # ============================================================================
@@ -3446,7 +3458,7 @@ def test_ensure_api_key_returns_true_when_key_exists(wx_app):
 
     window = MainWindow()
 
-    with patch("app.gui.main_window_mixins.ai_mixin.get_api_key", return_value="sk-test-key"):
+    with patch.object(window._config_service, "has_api_key", return_value=True):
         assert window._ensure_api_key() is True
 
     window._frame.Destroy()
@@ -3459,7 +3471,7 @@ def test_ensure_api_key_shows_warning_and_dialog_when_no_key(wx_app):
     window = MainWindow()
 
     with (
-        patch("app.gui.main_window_mixins.ai_mixin.get_api_key", return_value=""),
+        patch.object(window._config_service, "has_api_key", return_value=False),
         patch.object(window, "_show_info_message") as mock_info,
         patch("app.gui.main_window_mixins.ai_mixin.show_api_key_dialog", return_value=None) as mock_dialog,
     ):
@@ -3479,7 +3491,7 @@ def test_ensure_api_key_returns_true_after_dialog_entry(wx_app):
     window = MainWindow()
 
     with (
-        patch("app.gui.main_window_mixins.ai_mixin.get_api_key", return_value=""),
+        patch.object(window._config_service, "has_api_key", return_value=False),
         patch.object(window, "_show_info_message"),
         patch("app.gui.main_window_mixins.ai_mixin.show_api_key_dialog", return_value="sk-new-key"),
     ):

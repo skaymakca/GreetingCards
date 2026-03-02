@@ -39,11 +39,10 @@ CardResult
 ├── error: str                 # Non-empty on processing failure
 │
 │ ── UI state (not persisted, GUI bookkeeping) ──
-├── ui_original_confidence: Confidence?  # Saved before manual override
+├── original_confidence: Confidence?  # Saved when manual edit starts; restored when candidate re-selected
 │
 │ ── Properties ──
 └── @property pdf_path         # alias for primary_path
-    target_filename(year)      # "Holiday Cards {year} - {Name} Family.pdf"
     @property display_name     # manual_override if set, else family_name
     @property filename         # primary_path.name
 ```
@@ -117,6 +116,8 @@ CardService
 ├── select_candidate_by_rank(card_id, rank)  # By 1-based rank → CardResult | str | None
 ├── set_remove_family(card_id, value)    # Toggle flag + DB persist
 ├── clear_ai_results(cards)              # Delete AI data + reload from DB
+├── clear_cards()                        # Clear all in-memory state (no DB reset)
+├── unlink_path(path)                    # Remove path from tracking and its card
 └── is_ai_eligible(card) [static]        # True if card can be sent for AI analysis
 ```
 
@@ -163,6 +164,8 @@ ProcessingService
 │       # Runs synchronously in calling thread
 │       # Caller is responsible for launching background thread
 │       # Calls store.add_or_update() for each result
+├── ingest_paths(paths)             # Scan paths for PDFs + register new ones → (new_pdfs, skipped_count)
+├── compute_reload(mtime_only)      # Compute deleted/modified + register modified → (deleted, modified)
 └── scan_for_pdfs(path) [static]    # Scan a file/directory for PDF files
 ```
 
@@ -227,18 +230,17 @@ PDF file on disk
 ## Multi-Load Architecture
 
 Cards accumulate from multiple sources. `_load_paths(paths, auto_process=True) -> int`:
-- Scans paths recursively for PDFs
-- Calls `CardStore.filter_and_register()` to separate new vs already-loaded paths and register new ones
+- Calls `ProcessingService.ingest_paths()` to scan, filter, and register new PDFs
 - Processes only new PDFs via `ProcessingService`
 - Returns the count of new PDFs found (used by the scripting bridge)
 
-`_clear_all()` resets everything — calls `CardStore.clear()`, resets sidebar, preview. Also triggered by the Clear toolbar button.
+`_clear_all()` resets everything — calls `CardService.clear_cards()`, resets sidebar, preview. Also triggered by the Clear toolbar button.
 
 `CardService.clear_ai_results(cards)` performs scoped deletion of AI data for specific cards. Deletes `raw_ai_results` and AI candidates for the given hashes. For cards whose selected candidate was AI, automatically re-selects the best OCR candidate (using `_CONFIDENCE_ORDER`), or clears the selection if no OCR candidates remain. Manual entries (`selected_family_name`) are preserved.
 
 ### Reload
 
-`_reload_cards(mtime_only=False) -> bool` re-checks all currently loaded paths without scanning folders for new files. Returns `True` if anything changed (files deleted or modified), `False` otherwise. The scripting bridge uses the return value to report whether a reload had any effect. It delegates to `CardStore.compute_reload_diff()` which runs a diff against the `_hash_by_path` snapshot:
+`_reload_cards(mtime_only=False) -> bool` re-checks all currently loaded paths without scanning folders for new files. Returns `True` if anything changed (files deleted or modified), `False` otherwise. The scripting bridge uses the return value to report whether a reload had any effect. It delegates to `ProcessingService.compute_reload()` (which wraps `CardStore.compute_reload_diff()` and `register_new_pdfs()`), running a diff against the `_hash_by_path` snapshot:
 
 1. **Deleted files** (path no longer exists) — path is removed via `CardStore.unlink_path()`. If the card has no remaining paths, it's removed from `_cards_by_hash`.
 2. **Modified files** (path exists, `compute_file_hash()` returns a different hash) — the path is detached from the old card (same cleanup as deletion), then added to a reprocessing list.
@@ -256,7 +258,7 @@ After renaming, `RenameService.execute()` calls `CardStore.update_path_mapping()
 
 ### Post-Rename Selective Removal
 After the completion dialog, `_remove_completed_results()` selectively cleans up:
-- **Removed:** Paths from results with "Renamed" or "Already named correctly" status — these are resolved.
+- **Removed:** Paths from results with outcomes in `RESOLVED_OUTCOMES` (`RENAMED` or `ALREADY_CORRECT`) — these are resolved.
 - **Kept:** Paths that failed (OS errors, race conditions) or had no name extracted (`skip_no_name`) / processing errors (`skip_error`).
 - If removing a path leaves a card with no remaining `file_paths`, the card is deleted from `_cards_by_hash`.
 - Folder list and display are refreshed; empty state overlay shows only if all cards are gone.
@@ -266,4 +268,4 @@ After the completion dialog, `_remove_completed_results()` selectively cleans up
 - **CardResult.id is session-scoped:** IDs are monotonically increasing starting from 0 each session. They are NOT database IDs.
 - **file_hash is the canonical key:** All DB operations use `file_hash`, not `id` or path. Cards survive renames because the hash doesn't change.
 - **display_name vs family_name:** `display_name` (property) returns `manual_override` if set, else `family_name`. Always use `display_name` for UI display.
-- **ui_original_confidence:** Saved when user starts manual edit, restored when selecting a candidate from dropdown. Prevents losing the OCR/AI confidence level. Prefixed `ui_` because it is purely GUI bookkeeping — never persisted to the database, never read or written by core code.
+- **original_confidence:** Saved when manual edit starts; restored when candidate re-selected. Prevents losing the OCR/AI confidence level. Not persisted to the database.

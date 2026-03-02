@@ -1,6 +1,7 @@
 """Tests for the renamer module — multi-path rename support."""
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -8,6 +9,7 @@ from app.core.naming.renamer import (
     _find_available_name,
     _read_directory_names,
     build_rename_plan,
+    build_target_filename,
     execute_rename_plan,
     validate_year,
 )
@@ -19,6 +21,7 @@ from app.models.card import (
     STATUS_SKIP_SAME,
     CardResult,
     Confidence,
+    RenameOutcome,
     RenamePlanItem,
 )
 
@@ -44,6 +47,53 @@ class TestValidateYear:
     def test_whitespace(self):
         assert validate_year("    ") is False
         assert validate_year(" 2024") is False
+
+
+class TestBuildTargetFilename:
+    """Tests for build_target_filename() (moved from CardResult.target_filename)."""
+
+    @patch("app.core.naming.renamer.sanitize_for_filename", side_effect=lambda x: x)
+    def test_with_family(self, mock_sanitize):
+        card = CardResult(id=1, family_name="Smith")
+        assert build_target_filename(card, "2025") == "Holiday Cards 2025 - Smith Family.pdf"
+
+    @patch("app.core.naming.renamer.sanitize_for_filename", side_effect=lambda x: x)
+    def test_remove_family(self, mock_sanitize):
+        card = CardResult(id=1, family_name="Smith", remove_family=True)
+        assert build_target_filename(card, "2025") == "Holiday Cards 2025 - Smith.pdf"
+
+    @patch("app.core.naming.renamer.sanitize_for_filename", side_effect=lambda x: x)
+    def test_already_ends_with_family(self, mock_sanitize):
+        card = CardResult(id=1, family_name="Smith Family")
+        assert build_target_filename(card, "2025") == "Holiday Cards 2025 - Smith Family.pdf"
+
+    @patch("app.core.naming.renamer.sanitize_for_filename", side_effect=lambda x: x)
+    def test_empty_name(self, mock_sanitize):
+        card = CardResult(id=1)
+        assert build_target_filename(card, "2025") == ""
+
+    @patch("app.core.naming.renamer.sanitize_for_filename", side_effect=lambda x: x)
+    def test_manual_override(self, mock_sanitize):
+        card = CardResult(id=1, family_name="Smith", manual_override="Jones")
+        assert build_target_filename(card, "2025") == "Holiday Cards 2025 - Jones Family.pdf"
+
+    def test_empty_year_returns_empty(self):
+        card = CardResult(id=1, family_name="Smith", confidence=Confidence.HIGH)
+        assert build_target_filename(card, "") == ""
+
+    def test_whitespace_year_returns_empty(self):
+        card = CardResult(id=1, family_name="Smith", confidence=Confidence.HIGH)
+        assert build_target_filename(card, "   ") == ""
+
+    @patch("app.core.naming.renamer.sanitize_for_filename", side_effect=lambda x: x)
+    def test_year_is_stripped(self, mock_sanitize):
+        card = CardResult(id=1, family_name="Smith", confidence=Confidence.HIGH)
+        assert build_target_filename(card, " 2024 ") == "Holiday Cards 2024 - Smith Family.pdf"
+
+    @patch("app.core.naming.renamer.sanitize_for_filename", side_effect=lambda x: x)
+    def test_normal_year(self, mock_sanitize):
+        card = CardResult(id=1, family_name="Smith", confidence=Confidence.HIGH)
+        assert build_target_filename(card, "2024") == "Holiday Cards 2024 - Smith Family.pdf"
 
 
 def _make_card(
@@ -365,6 +415,7 @@ class TestExecuteRenamePlan:
         assert len(results) == 1
         assert results[0].success is True
         assert results[0].message == "Renamed"
+        assert results[0].outcome == RenameOutcome.RENAMED
         assert new_path.exists()
         assert not old_file.exists()
 
@@ -373,7 +424,7 @@ class TestExecuteRenamePlan:
         assert card.primary_path == new_path
 
     def test_skip_items_pass_through(self):
-        """Skipped items are reported as success with descriptive messages."""
+        """Skipped items are reported as success with descriptive messages and outcomes."""
         plan = [
             RenamePlanItem(Path("/a.pdf"), Path("/a.pdf"), STATUS_SKIP_NO_NAME),
             RenamePlanItem(Path("/b.pdf"), Path("/b.pdf"), STATUS_SKIP_ERROR),
@@ -385,8 +436,11 @@ class TestExecuteRenamePlan:
         assert len(results) == 3
         assert all(r.success for r in results)
         assert results[0].message == "No name extracted"
+        assert results[0].outcome == RenameOutcome.SKIP_NO_NAME
         assert results[1].message == "Processing error"
+        assert results[1].outcome == RenameOutcome.SKIP_ERROR
         assert results[2].message == "Already named correctly"
+        assert results[2].outcome == RenameOutcome.ALREADY_CORRECT
 
     def test_race_condition_target_exists(self, tmp_path):
         """Target created between plan and execute → fails with descriptive error."""
@@ -403,6 +457,7 @@ class TestExecuteRenamePlan:
 
         assert len(results) == 1
         assert results[0].success is False
+        assert results[0].outcome == RenameOutcome.ERROR_TARGET_EXISTS
         assert "Target already exists" in results[0].message
         # Original file should still exist (not renamed)
         assert old_file.exists()

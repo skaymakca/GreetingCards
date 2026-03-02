@@ -39,7 +39,7 @@ All cards (_cards_by_hash.values())
     │
     └─ 3. Category filter → _apply_category_filters()
            "all" = pass-through; else match by Confidence enum values
-           Sorted alphabetically by filename at the end
+           GUI layer sorts results alphabetically by filename after filtering
 ```
 
 ## Counting Functions (FilterService)

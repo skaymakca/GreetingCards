@@ -7,8 +7,6 @@ from typing import Final, Literal
 
 from PIL import Image
 
-from app.core.naming.filename_safety import sanitize_for_filename
-
 # Constrained value types for database-layer fields
 MethodStr = Literal["ocr", "ai", "manual", "missing"]
 ConfidenceStr = Literal["high", "medium", "low", "manual", "none"]
@@ -22,6 +20,21 @@ class Confidence(Enum):
     LOW = "low"
     MANUAL = "manual"
     NONE = "none"
+
+
+class RenameOutcome(Enum):
+    """Machine-readable outcome of a single rename operation.
+
+    Used by business logic (rename_filter, rename_service) for control flow.
+    Display text is derived from these values in the GUI layer.
+    """
+
+    RENAMED = "renamed"
+    ALREADY_CORRECT = "already_correct"
+    SKIP_NO_NAME = "skip_no_name"
+    SKIP_ERROR = "skip_error"
+    ERROR_TARGET_EXISTS = "error_target_exists"
+    ERROR_OS = "error_os"
 
 
 @dataclass
@@ -56,6 +69,11 @@ class CandidateInfo:
     family_name: str
     method: CandidateMethodStr
     confidence: CandidateConfidenceStr
+
+    @property
+    def display_label(self) -> str:
+        """Formatted label for display in choice lists."""
+        return f"{self.family_name} ({self.method.upper()} - {self.confidence.capitalize()})"
 
 
 @dataclass
@@ -105,6 +123,7 @@ class RenameResult:
     new_path: Path
     success: bool
     message: str
+    outcome: RenameOutcome = RenameOutcome.RENAMED
     card: CardResult | None = None  # Back-reference to source card
 
 
@@ -133,8 +152,9 @@ class CardResult:
     ai_analyzed: bool = False
     error: str = ""
 
-    # ── UI state (not persisted, GUI bookkeeping) ──
-    ui_original_confidence: Confidence | None = None
+    # ── UI state (not persisted) ──
+    # Saved when manual edit starts; restored when candidate re-selected.
+    original_confidence: Confidence | None = None
 
     # ── Properties (model) ──
 
@@ -142,20 +162,6 @@ class CardResult:
     def pdf_path(self) -> Path:
         """Backward compatibility - returns primary path."""
         return self.primary_path
-
-    def target_filename(self, year: str) -> str:
-        year = year.strip()
-        if not year:
-            return ""
-        name = self.display_name.strip() if self.display_name else ""
-        if not name:
-            return ""
-        # Sanitize filesystem-invalid characters (safety net)
-        name = sanitize_for_filename(name)
-        # Only append "Family" if checkbox is not checked and name doesn't already end with it
-        if not self.remove_family and not name.lower().endswith("family"):
-            name = f"{name} Family"
-        return f"Holiday Cards {year} - {name}.pdf"
 
     # ── Properties (view convenience) ──
 

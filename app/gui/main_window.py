@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 from app.core.card_service import CardService
 from app.core.card_store import CardStore
+from app.core.config_service import ConfigService
 from app.core.constants import RELOAD_COOLDOWN
 from app.core.platform import get_commit_hash
 from app.core.processing_service import ProcessingService
@@ -43,6 +44,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         # State - Content-based deduplication (multi-load architecture)
         self._card_store = CardStore()
         self._card_service = CardService(self._card_store)
+        self._config_service = ConfigService()
         self._rename_service = RenameService(self._card_store)
         self._processing_service = ProcessingService(self._card_store)
         self._current_category_filters = ["all"]  # Current sidebar category filters
@@ -114,6 +116,10 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
             self._prefs_editor = create_preferences_editor(
                 on_db_reset=self._on_reset_database,
                 is_ai_running=lambda: self._ai_batch_running,
+                get_api_key=self._config_service.get_api_key,
+                save_api_key=self._config_service.save_api_key,
+                get_ai_model=self._config_service.get_ai_model,
+                save_ai_model=self._config_service.save_ai_model,
             )
         self._prefs_editor.Show(self._frame)
 
@@ -378,24 +384,16 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         Returns:
             Count of new PDFs found.
         """
-        # 1. Scan all paths for PDFs (recursive for folders)
-        all_pdfs: list[Path] = []
-        for path in paths:
-            all_pdfs.extend(self._processing_service.scan_for_pdfs(path))
+        # Scan, filter, and register via ProcessingService
+        new_pdfs, skipped_count = self._processing_service.ingest_paths(paths)
 
-        # 2. Filter + register via CardStore
-        new_pdfs, skipped_pdfs = self._card_store.filter_and_register(all_pdfs)
-
-        # 3. Show feedback
-        if new_pdfs or skipped_pdfs:
-            msg = f"Found {_plural(len(new_pdfs), 'new PDF')}"
-            if skipped_pdfs:
-                msg += f"\nSkipped {len(skipped_pdfs)} already loaded"
-            self._show_info_message(msg, wx.ICON_INFORMATION)
-        elif not all_pdfs:
+        # Show feedback
+        if new_pdfs or skipped_count:
+            self._show_info_message(self._format_load_message(len(new_pdfs), skipped_count), wx.ICON_INFORMATION)
+        elif not new_pdfs and not skipped_count:
             self._show_info_message("No PDF files found", wx.ICON_WARNING, duration_ms=0)
 
-        # 5. Process new PDFs
+        # Process new PDFs
         if new_pdfs and auto_process:
             self._start_processing(new_pdfs)
 
@@ -403,7 +401,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
     def _clear_all(self) -> None:
         """Clear all loaded cards (from all sources) and reset UI."""
-        self._card_store.clear()
+        self._card_service.clear_cards()
 
         self._review_panel.load_cards([])
         self._preview_panel.clear()
@@ -442,7 +440,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
     def _unlink_path(self, path: Path) -> None:
         """Remove a path from all tracking dicts and its associated card."""
-        self._card_store.unlink_path(path)
+        self._card_service.unlink_path(path)
 
     def _reload_cards(self, *, mtime_only: bool = False) -> bool:
         """Re-check all loaded paths for modifications and deletions.
@@ -466,20 +464,14 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         # Update cooldown timestamp (prevents rapid re-triggers from EVT_ACTIVATE)
         self._last_reload_time = time.monotonic()
 
-        deleted_paths, needs_processing = self._card_store.compute_reload_diff(mtime_only=mtime_only)
+        deleted_paths, needs_processing = self._processing_service.compute_reload(mtime_only=mtime_only)
 
         if needs_processing:
-            # Re-add to pdf_files and process (dedup handled by _process_cards)
-            self._card_store.register_new_pdfs(needs_processing)
             self._start_processing(needs_processing)
-            n_del = len(deleted_paths)
-            n_mod = len(needs_processing)
-            parts = []
-            if n_del:
-                parts.append(f"{_plural(n_del, 'file')} removed")
-            if n_mod:
-                parts.append(f"{_plural(n_mod, 'file')} reprocessing")
-            self._show_info_message("Reload: " + ", ".join(parts), wx.ICON_INFORMATION)
+            self._show_info_message(
+                self._format_reload_message(len(deleted_paths), len(needs_processing)),
+                wx.ICON_INFORMATION,
+            )
             return True
         elif deleted_paths:
             # Only deletions — update UI
@@ -587,7 +579,9 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
             results = self._rename_service.execute(plan)
 
             # Show completion
-            counts = RenameService.summarize_results(results)
+            from app.gui.rename_display import summarize_results
+
+            counts = summarize_results(results)
             title = "Rename Complete" if not counts["errors"] else "Rename Complete (with errors)"
             completion = CompletionDialog(self._frame, title, results)
             completion.ShowModal()
@@ -599,10 +593,10 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         dialog.Destroy()
 
     def _remove_completed_results(self, results: list[RenameResult]) -> None:
-        """Remove successfully renamed/skip_same paths from cards; drop empty cards.
+        """Remove resolved paths from cards; drop empty cards.
 
-        Paths with message "Renamed" or "Already named correctly" are considered
-        resolved. Paths that failed or had no name are kept for the user to address.
+        Paths whose outcome is in ``RESOLVED_OUTCOMES`` (renamed or already
+        correct) are removed. Failed or unnamed paths are kept for the user.
         """
         # Collect paths to remove (use new_path — that's where the file is now)
         paths_to_remove = self._rename_service.get_completed_paths(results)
@@ -633,6 +627,24 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
             duration_ms: Time in milliseconds before auto-dismiss (0 = no auto-dismiss)
         """
         self._sidebar.show_notification(message, icon, duration_ms)
+
+    @staticmethod
+    def _format_load_message(n_new: int, n_skipped: int) -> str:
+        """Build user-facing message for _load_paths feedback."""
+        msg = f"Found {_plural(n_new, 'new PDF')}"
+        if n_skipped:
+            msg += f"\nSkipped {n_skipped} already loaded"
+        return msg
+
+    @staticmethod
+    def _format_reload_message(n_deleted: int, n_modified: int) -> str:
+        """Build user-facing message for _reload_cards feedback."""
+        parts = []
+        if n_deleted:
+            parts.append(f"{_plural(n_deleted, 'file')} removed")
+        if n_modified:
+            parts.append(f"{_plural(n_modified, 'file')} reprocessing")
+        return "Reload: " + ", ".join(parts)
 
     def _on_appearance_changed(self) -> None:
         """Handle macOS dark/light mode switch."""

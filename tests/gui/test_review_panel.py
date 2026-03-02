@@ -46,7 +46,7 @@ def mock_cards():
         family_name="Smith",
         confidence=Confidence.HIGH,
         method="ocr",
-        ui_original_confidence=Confidence.HIGH,
+        original_confidence=Confidence.HIGH,
         remove_family=True,
     )
     card1.candidates = [
@@ -63,7 +63,7 @@ def mock_cards():
         family_name="Johnson",
         confidence=Confidence.MEDIUM,
         method="ai",
-        ui_original_confidence=Confidence.MEDIUM,
+        original_confidence=Confidence.MEDIUM,
         remove_family=False,
     )
     card2.candidates = [
@@ -79,7 +79,7 @@ def mock_cards():
         family_name="Williams",
         confidence=Confidence.LOW,
         method="ocr",
-        ui_original_confidence=Confidence.LOW,
+        original_confidence=Confidence.LOW,
         remove_family=True,
     )
     cards.append(card3)
@@ -92,7 +92,7 @@ def mock_cards():
         family_name="",
         confidence=Confidence.NONE,
         method="missing",
-        ui_original_confidence=Confidence.NONE,
+        original_confidence=Confidence.NONE,
         remove_family=False,
     )
     cards.append(card4)
@@ -105,7 +105,7 @@ def mock_cards():
         family_name="Brown",
         confidence=Confidence.MANUAL,
         method="manual",
-        ui_original_confidence=Confidence.HIGH,
+        original_confidence=Confidence.HIGH,
         remove_family=True,
     )
     cards.append(card5)
@@ -118,7 +118,7 @@ def mock_cards():
         family_name="",
         confidence=Confidence.NONE,
         method="missing",
-        ui_original_confidence=Confidence.NONE,
+        original_confidence=Confidence.NONE,
         remove_family=False,
     )
     card6.error = "Failed to process"
@@ -702,19 +702,6 @@ class TestUpdateMethods:
 
         # Detail panel should show update
         assert panel._detail_panel._name_text.GetValue() == "Updated"
-
-    def test_update_dot_changes_confidence(self, parent_frame, mock_cards):
-        """update_dot updates confidence color."""
-        on_select = Mock()
-        on_ai = Mock()
-        panel = ReviewPanelMasterDetail(parent_frame, on_select, on_ai)
-        panel.load_cards(mock_cards)
-
-        # Update confidence
-        panel.update_dot(1, Confidence.LOW)
-
-        # Verify card confidence changed
-        assert panel._cards_by_id[1].confidence == Confidence.LOW
 
     def test_get_cards_returns_all(self, parent_frame, mock_cards):
         """get_cards returns all cards."""

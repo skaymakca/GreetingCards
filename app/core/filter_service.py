@@ -64,14 +64,14 @@ def apply_folder_filters(cards: list[CardResult], folder_keys: list[str]) -> lis
 
 
 def apply_category_filters(cards: list[CardResult], category_keys: list[str]) -> list[CardResult]:
-    """Filter cards by confidence category and sort by filename.
+    """Filter cards by confidence category.
 
     Args:
         cards: List of cards to filter
         category_keys: Selected category filter keys. "all" means no category filtering.
 
     Returns:
-        Filtered and sorted list of cards. Always sorted by filename (case-insensitive).
+        Filtered list of cards (unsorted — caller decides display order).
     """
     if "all" not in category_keys:
         filtered: list[CardResult] = []
@@ -85,4 +85,4 @@ def apply_category_filters(cards: list[CardResult], category_keys: list[str]) ->
             elif filter_key == "errors":
                 filtered.extend(c for c in cards if c.error or c.confidence == Confidence.NONE)
         cards = list({c.id: c for c in filtered}.values())
-    return sorted(cards, key=lambda c: c.filename.lower())
+    return cards

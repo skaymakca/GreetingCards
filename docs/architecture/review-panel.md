@@ -95,7 +95,6 @@ Without `preserve_selection`, any change to the displayed list (search, filter, 
 | `load_cards(cards)`                         | Full reload, resets selection to none           |
 | `get_cards()`                               | Return cards in display order                   |
 | `update_card(card_id, card)`                | Update single card (after AI analysis)          |
-| `update_dot(card_id, confidence)`           | Update just the confidence indicator            |
 | `select_next_card()` / `select_prev_card()` | Keyboard navigation (collapses multi-selection) |
 | `select_all()` / `select_none()`            | Cmd+A / Cmd+Shift+A                             |
 | `set_ai_button_state(card_id, state)`        | Enable/disable AI button                        |

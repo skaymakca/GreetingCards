@@ -170,13 +170,13 @@ class TestApplyFolderFilters:
 
 
 class TestApplyCategoryFilters:
-    def test_all_returns_all_sorted(self) -> None:
+    def test_all_returns_all_unsorted(self) -> None:
         cards = [
             _card(1, path="/f/Zebra.pdf", family_name="Zebra"),
             _card(2, path="/f/Alpha.pdf", family_name="Alpha"),
         ]
         result = apply_category_filters(cards, ["all"])
-        assert [c.id for c in result] == [2, 1]  # sorted by filename
+        assert [c.id for c in result] == [1, 2]  # unsorted — caller decides display order
 
     def test_high_filter(self) -> None:
         cards = [
@@ -257,24 +257,14 @@ class TestApplyCategoryFilters:
         assert len(result) == 2
         assert {c.id for c in result} == {1, 2}
 
-    def test_output_always_sorted_by_filename(self) -> None:
+    def test_output_preserves_input_order(self) -> None:
         cards = [
             _card(1, path="/f/Zebra.pdf", confidence=Confidence.HIGH),
             _card(2, path="/f/Alpha.pdf", confidence=Confidence.HIGH),
             _card(3, path="/f/Middle.pdf", confidence=Confidence.HIGH),
         ]
         result = apply_category_filters(cards, ["high"])
-        filenames = [c.filename for c in result]
-        assert filenames == ["Alpha.pdf", "Middle.pdf", "Zebra.pdf"]
-
-    def test_sorting_is_case_insensitive(self) -> None:
-        cards = [
-            _card(1, path="/f/beta.pdf", confidence=Confidence.HIGH),
-            _card(2, path="/f/Alpha.pdf", confidence=Confidence.HIGH),
-        ]
-        result = apply_category_filters(cards, ["high"])
-        filenames = [c.filename for c in result]
-        assert filenames == ["Alpha.pdf", "beta.pdf"]
+        assert [c.id for c in result] == [1, 2, 3]  # unsorted — caller sorts for display
 
     def test_unknown_category_key_ignored(self) -> None:
         """Unknown filter keys should silently produce no matches for that key."""
@@ -289,16 +279,18 @@ class TestApplyCategoryFilters:
         assert apply_category_filters([], ["high"]) == []
 
     @pytest.mark.parametrize("category_keys", [["all"], ["high"], ["manual"]])
-    def test_all_category_returns_sorted(self, category_keys: list[str]) -> None:
-        """Regardless of category, output is always sorted."""
+    def test_preserves_input_order(self, category_keys: list[str]) -> None:
+        """Output order matches input order — sorting is caller's responsibility."""
         cards = [
             _card(1, path="/f/Z.pdf", confidence=Confidence.HIGH, family_name="Z"),
             _card(2, path="/f/A.pdf", confidence=Confidence.HIGH, family_name="A"),
             _card(3, path="/f/M.pdf", confidence=Confidence.MANUAL, family_name="M"),
         ]
         result = apply_category_filters(cards, category_keys)
-        filenames = [c.filename for c in result]
-        assert filenames == sorted(filenames, key=str.lower)
+        result_ids = [c.id for c in result]
+        # Each category filters a subset but preserves original ordering
+        for i in range(len(result_ids) - 1):
+            assert result_ids[i] < result_ids[i + 1]
 
 
 # ---------------------------------------------------------------------------

@@ -9,7 +9,6 @@ import wx
 
 from app.core.ai_service import AIService
 from app.core.card_service import CardService
-from app.core.config import get_api_key
 from app.gui.dialogs import ErrorListDialog
 from app.gui.dialogs.api_key import show_api_key_dialog
 from app.gui.main_window_mixins._protocol import MainWindowProtocol
@@ -66,7 +65,7 @@ class AIMixin:
 
     def _ensure_api_key(self: MainWindowProtocol) -> bool:
         """Check for an API key; prompt the user if missing. Returns True if a key is available."""
-        if get_api_key():
+        if self._config_service.has_api_key():
             return True
 
         # Show info bar with warning (no auto-dismiss for important warnings)
@@ -79,6 +78,7 @@ class AIMixin:
         # Also show dialog for immediate action
         api_key = show_api_key_dialog(self._frame)
         if api_key is not None:
+            self._config_service.save_api_key(api_key)
             self._sidebar.dismiss_notification()
             return True
 

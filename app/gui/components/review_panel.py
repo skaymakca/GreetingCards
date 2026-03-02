@@ -403,7 +403,7 @@ class DetailPanel(wx.Panel):
         self._candidate_map = {}
         if card.candidates:
             for cand in card.candidates:
-                label = f"{cand.family_name} ({cand.method.upper()} - {cand.confidence.capitalize()})"
+                label = cand.display_label
                 self._candidates_choice.Append(label)
                 self._candidate_map[label] = cand.id
             placeholder = f"Select from {len(card.candidates)} candidate{'s' if len(card.candidates) != 1 else ''}"
@@ -930,13 +930,6 @@ class ReviewPanelMasterDetail(wx.Panel):
         # If this card is the sole selection, update detail panel
         if self._selected_card_ids == [card_id]:
             self._detail_panel.load_card(card)
-
-    def update_dot(self, card_id: int, confidence: Confidence) -> None:
-        """Update confidence indicator (handled by model)."""
-        card = self._cards_by_id.get(card_id)
-        if card:
-            card.confidence = confidence
-            self._model.update_card(card_id, card)
 
     # noinspection DuplicatedCode
     def select_next_card(self) -> None:

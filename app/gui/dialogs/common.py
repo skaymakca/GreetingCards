@@ -5,8 +5,16 @@ from pathlib import Path
 import wx
 import wx.dataview as dv
 
-from app.core.rename_service import RenameService
 from app.gui import styles
+from app.gui.rename_display import (
+    filter_visible_results,
+    format_plan_summary,
+    format_results_summary,
+    get_plan_item_display,
+    is_skip_status,
+    summarize_plan,
+    summarize_results,
+)
 from app.models.card import RenamePlanItem, RenameResult
 
 # Dialog layout constants
@@ -192,8 +200,8 @@ class RenameConfirmDialog(wx.Dialog):
         sizer.AddSpacer(_HEADER_GAP)
 
         # Summary counts
-        counts = RenameService.summarize_plan(plan)
-        summary = RenameService.format_plan_summary(plan)
+        counts = summarize_plan(plan)
+        summary = format_plan_summary(plan)
 
         self._summary_label = wx.StaticText(self, label=summary)
         self._summary_label.SetFont(styles.Font.BODY())
@@ -219,11 +227,9 @@ class RenameConfirmDialog(wx.Dialog):
         for item in plan:
             old_display = display_path(item.old_path) if multi_dir else item.old_path.name
             new_display = (
-                "-"
-                if RenameService.is_skip_status(item)
-                else (display_path(item.new_path) if multi_dir else item.new_path.name)
+                "-" if is_skip_status(item) else (display_path(item.new_path) if multi_dir else item.new_path.name)
             )
-            label, category = RenameService.get_plan_item_display(item)
+            label, category = get_plan_item_display(item)
             color = _CATEGORY_COLOR.get(category, styles.Color.TEXT_PRIMARY)
             data.append([old_display, new_display, label])
             colors.append(color)
@@ -376,7 +382,7 @@ class CompletionDialog(wx.Dialog):
         super().__init__(parent, title=title, size=(650, 420), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
 
         # Compute counts
-        counts = RenameService.summarize_results(results)
+        counts = summarize_results(results)
 
         # Main sizer
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -392,7 +398,7 @@ class CompletionDialog(wx.Dialog):
         sizer.AddSpacer(_HEADER_GAP)
 
         # Summary counts
-        summary = RenameService.format_results_summary(results)
+        summary = format_results_summary(results)
 
         self._summary_label = wx.StaticText(self, label=summary)
         self._summary_label.SetFont(styles.Font.BODY())
@@ -402,7 +408,7 @@ class CompletionDialog(wx.Dialog):
         sizer.AddSpacer(_SECTION_GAP)
 
         # Filter to only renamed and error rows (skip rows already shown in confirm dialog)
-        visible = RenameService.filter_visible_results(results)
+        visible = filter_visible_results(results)
 
         # Show full paths only when multiple directories
         multi_dir = counts["directory_count"] > 1

@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.core.card_service import CardService
-from app.core.config import get_ai_model, get_api_key, save_ai_model
 from app.core.rename_service import RenameService
 from app.gui.main_window_mixins._protocol import MainWindowProtocol
 from app.models.card import CardResult
@@ -41,7 +40,7 @@ class AppleEventsMixin:
             "is_processing": self.is_processing,
             "is_analyzing": self.is_ai_running,
             "loaded_count": self._card_store.count,
-            "current_model": get_ai_model(),
+            "current_model": self._config_service.get_ai_model(),
             "year": self._get_year(),
         }
 
@@ -125,7 +124,7 @@ class AppleEventsMixin:
         if self._card_store.is_empty:
             return {"success": False, "error": "No cards loaded"}
 
-        if not get_api_key():
+        if not self._config_service.has_api_key():
             return {"success": False, "error": "No API key configured"}
 
         if filename:
@@ -177,7 +176,7 @@ class AppleEventsMixin:
 
     def set_ai_model_for_script(self: MainWindowProtocol, model_id: str) -> dict:
         """Set the active AI model. Returns result dict."""
-        save_ai_model(model_id)
+        self._config_service.save_ai_model(model_id)
         return {"success": True}
 
     def quit_for_script(self: MainWindowProtocol) -> None:

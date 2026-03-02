@@ -57,10 +57,12 @@ def add_entry_context_menu(text_ctrl: wx.TextCtrl) -> None:
 
 
 def _title_case(text_ctrl: wx.TextCtrl) -> None:
-    """Convert text to Title Case."""
+    """Convert text to Title Case using domain-aware casing rules."""
+    from app.core.naming.family_name import smart_title_case_family_name
+
     current_text = text_ctrl.GetValue()
     if current_text:
-        title_cased = current_text.title()
+        title_cased = smart_title_case_family_name(current_text)
         text_ctrl.SetValue(title_cased)
 
 

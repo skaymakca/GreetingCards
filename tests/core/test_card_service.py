@@ -18,7 +18,7 @@ def _make_card(
     file_hash: str = "abc123",
     candidates: list[CandidateInfo] | None = None,
     manual_override: str = "",
-    ui_original_confidence: Confidence | None = None,
+    original_confidence: Confidence | None = None,
     remove_family: bool = False,
     selected_candidate_id: int | None = None,
 ) -> CardResult:
@@ -38,7 +38,7 @@ def _make_card(
         file_hash=file_hash,
         candidates=candidates,
         manual_override=manual_override,
-        ui_original_confidence=ui_original_confidence,
+        original_confidence=original_confidence,
         remove_family=remove_family,
         selected_candidate_id=selected_candidate_id,
     )
@@ -87,28 +87,28 @@ class TestSetName:
         mock_set_manual_name.assert_called_once_with("hash1", "Johnson", True)  # type: ignore[union-attr]
 
     @patch("app.core.card_service.set_manual_name")
-    def test_set_name_preserves_ui_original_confidence(self, mock_set_manual_name: object) -> None:
-        """Setting a name saves the current confidence as ui_original_confidence."""
+    def test_set_name_preserves_original_confidence(self, mock_set_manual_name: object) -> None:
+        """Setting a name saves the current confidence as original_confidence."""
         card = _make_card(confidence=Confidence.HIGH)
         _, service = _make_store_and_service(card)
 
         service.set_name(card.id, "Johnson")
 
-        assert card.ui_original_confidence == Confidence.HIGH
+        assert card.original_confidence == Confidence.HIGH
 
     @patch("app.core.card_service.set_manual_name")
     def test_set_name_does_not_overwrite_ui_original_when_already_manual(self, mock_set_manual_name: object) -> None:
-        """If confidence is already MANUAL, ui_original_confidence is not overwritten."""
+        """If confidence is already MANUAL, original_confidence is not overwritten."""
         card = _make_card(
             confidence=Confidence.MANUAL,
-            ui_original_confidence=Confidence.LOW,
+            original_confidence=Confidence.LOW,
         )
         _, service = _make_store_and_service(card)
 
         service.set_name(card.id, "NewName")
 
         # Should NOT overwrite — stays as LOW
-        assert card.ui_original_confidence == Confidence.LOW
+        assert card.original_confidence == Confidence.LOW
 
     @patch("app.core.card_service.load_card_state_from_db")
     @patch("app.core.card_service.set_manual_name")
@@ -183,11 +183,11 @@ class TestSelectCandidate:
         mock_select_candidate.assert_called_once_with("hash1", 10, True)  # type: ignore[union-attr]
 
     @patch("app.core.card_service.select_candidate")
-    def test_select_candidate_restores_ui_original_confidence(self, mock_select_candidate: object) -> None:
-        """When switching from MANUAL, restores ui_original_confidence."""
+    def test_select_candidate_restores_original_confidence(self, mock_select_candidate: object) -> None:
+        """When switching from MANUAL, restores original_confidence."""
         card = _make_card(
             confidence=Confidence.MANUAL,
-            ui_original_confidence=Confidence.HIGH,
+            original_confidence=Confidence.HIGH,
         )
         _, service = _make_store_and_service(card)
 
@@ -197,10 +197,10 @@ class TestSelectCandidate:
 
     @patch("app.core.card_service.select_candidate")
     def test_select_candidate_no_original_uses_candidate_confidence(self, mock_select_candidate: object) -> None:
-        """When MANUAL but no ui_original_confidence, uses candidate's confidence."""
+        """When MANUAL but no original_confidence, uses candidate's confidence."""
         card = _make_card(
             confidence=Confidence.MANUAL,
-            ui_original_confidence=None,
+            original_confidence=None,
         )
         _, service = _make_store_and_service(card)
 
@@ -431,6 +431,48 @@ class TestIsAiEligible:
         card.page_images = []
         card.preview_image = None
         assert CardService.is_ai_eligible(card) is False
+
+
+# ── clear_cards ──
+
+
+class TestClearCards:
+    """Tests for CardService.clear_cards()."""
+
+    def test_clear_cards_empties_store(self) -> None:
+        """clear_cards() should clear all in-memory state."""
+        card = _make_card()
+        store, service = _make_store_and_service(card)
+        assert store.count == 1
+
+        service.clear_cards()
+
+        assert store.count == 0
+        assert store.is_empty
+
+
+# ── unlink_path ──
+
+
+class TestUnlinkPath:
+    """Tests for CardService.unlink_path()."""
+
+    def test_unlink_path_removes_card(self) -> None:
+        """unlink_path() removes a path and its associated card."""
+        card = _make_card()
+        store, service = _make_store_and_service(card)
+        path = Path("/tmp/card.pdf")
+        store._hash_by_path[path] = card.file_hash
+
+        service.unlink_path(path)
+
+        assert store.get_hash_for_path(path) is None
+
+    def test_unlink_path_nonexistent_is_noop(self) -> None:
+        """unlink_path() with unknown path is a no-op."""
+        _, service = _make_store_and_service()
+
+        service.unlink_path(Path("/nonexistent.pdf"))  # Should not raise
 
 
 # ── reset ──

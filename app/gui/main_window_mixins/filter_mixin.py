@@ -112,5 +112,6 @@ class FilterMixin:
         return filter_service.apply_folder_filters(cards, self._current_folder_filters)
 
     def _apply_category_filters(self: MainWindowProtocol, cards: list[CardResult]) -> list[CardResult]:
-        """Apply sidebar category filters to a card list."""
-        return filter_service.apply_category_filters(cards, self._current_category_filters)
+        """Apply sidebar category filters and sort by filename for display."""
+        filtered = filter_service.apply_category_filters(cards, self._current_category_filters)
+        return sorted(filtered, key=lambda c: c.filename.lower())
