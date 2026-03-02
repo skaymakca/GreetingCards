@@ -8,7 +8,18 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, Engine, ForeignKey, String, Text, UniqueConstraint, create_engine, inspect
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Engine,
+    ForeignKey,
+    String,
+    Text,
+    UniqueConstraint,
+    create_engine,
+    inspect,
+    text,
+)
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
@@ -172,8 +183,6 @@ def _ensure_schema() -> None:
     orphaned = set(all_tables) - known_tables
 
     if orphaned:
-        from sqlalchemy import text
-
         with engine.begin() as conn:
             for table_name in orphaned:
                 conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))
@@ -210,8 +219,6 @@ def reset_database() -> None:
     all_tables = db_inspector.get_table_names()
 
     if all_tables:
-        from sqlalchemy import text
-
         with engine.begin() as conn:
             for table_name in all_tables:
                 conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))

@@ -17,7 +17,7 @@ from app.gui.components.drop_target import (
 
 def test_load_drop_background_returns_none_when_image_missing():
     """Returns None when the background image file does not exist."""
-    with patch("app.core.paths.get_runtime_content_path") as mock_path:
+    with patch("app.gui.components.drop_target.get_runtime_content_path") as mock_path:
         fake_path = MagicMock()
         fake_path.exists.return_value = False
         mock_path.return_value = fake_path
@@ -28,7 +28,7 @@ def test_load_drop_background_returns_none_when_image_missing():
 def test_load_drop_background_returns_none_on_exception():
     """Returns None when any exception occurs during loading."""
     with patch(
-        "app.core.paths.get_runtime_content_path",
+        "app.gui.components.drop_target.get_runtime_content_path",
         side_effect=RuntimeError("boom"),
     ):
         result = load_drop_background()

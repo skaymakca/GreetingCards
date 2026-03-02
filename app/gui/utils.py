@@ -10,6 +10,8 @@ import wx
 from AppKit import NSModalResponseOK, NSOpenPanel  # type: ignore[import-untyped]
 from PIL import Image
 
+from app.gui.styles import Color
+
 
 def plural(count: int, word: str) -> str:
     """Return e.g. '3 cards' or '1 card'."""
@@ -106,8 +108,6 @@ def hex_to_colour(hex_color: str) -> wx.Colour:
     Returns:
         wx.Colour object
     """
-    from app.gui.styles import Color
-
     return Color.from_hex(hex_color)
 
 

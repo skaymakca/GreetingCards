@@ -108,7 +108,7 @@ class TestGenerate:
             patch("scripts.dmg.readme._OUTPUT", output_dir),
             patch("scripts.dmg.readme._README_MD", readme_md),
             patch("scripts.dmg.readme._ICON_PNG", icon_png),
-            patch("PIL.Image") as mock_image_mod,
+            patch("scripts.dmg.readme.Image") as mock_image_mod,
         ):
             mock_image_mod.open.return_value = mock_img
             mock_image_mod.Resampling = MagicMock()
@@ -131,7 +131,7 @@ class TestGenerate:
             patch("scripts.dmg.readme._OUTPUT", output_dir),
             patch("scripts.dmg.readme._README_MD", readme_md),
             patch("scripts.dmg.readme._ICON_PNG", icon_png),
-            patch("PIL.Image") as mock_image_mod,
+            patch("scripts.dmg.readme.Image") as mock_image_mod,
         ):
             mock_image_mod.open.return_value = mock_img
             mock_image_mod.Resampling = MagicMock()

@@ -230,7 +230,7 @@ class TestComputeReload:
         assert pdf in deleted
         assert len(modified) == 0
 
-    @patch("app.core.database.compute_file_hash")
+    @patch("app.core.card_store.compute_file_hash")
     def test_modified_files_registered(self, mock_hash: MagicMock, tmp_path: Path) -> None:
         """Modified files are returned and re-registered in store."""
         pdf = tmp_path / "card.pdf"

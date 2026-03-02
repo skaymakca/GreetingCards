@@ -17,6 +17,9 @@ import io
 import pathlib
 import re
 import shutil
+import sys
+
+from PIL import Image
 
 _ROOT = pathlib.Path(__file__).parent.parent.parent
 _README_MD = _ROOT / "content" / "dmg" / "readme.md"
@@ -94,8 +97,6 @@ def generate(version: str) -> pathlib.Path:
     # Resize icon to 128×128 and copy into the package.
     # NeXTGraphic \width/\height are ignored by TextEdit — the image renders at
     # its native pixel size, so we must resize before placing it in the package.
-    from PIL import Image
-
     img = Image.open(_ICON_PNG).convert("RGBA")
     img = img.resize((128, 128), Image.Resampling.LANCZOS)
     buf = io.BytesIO()
@@ -140,6 +141,4 @@ def generate(version: str) -> pathlib.Path:
 
 
 if __name__ == "__main__":
-    import sys
-
     generate(sys.argv[1] if len(sys.argv) > 1 else "0.0.0")

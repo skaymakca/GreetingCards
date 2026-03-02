@@ -2156,7 +2156,7 @@ def test_reload_no_changes(wx_app, tmp_path):
 
     # Mock compute_file_hash to return the same hash
     with (
-        patch("app.core.database.compute_file_hash", return_value="hash1"),
+        patch("app.core.card_store.compute_file_hash", return_value="hash1"),
         patch.object(window, "_show_info_message") as mock_msg,
     ):
         window._reload_cards()
@@ -2217,7 +2217,7 @@ def test_reload_modified_file(wx_app, tmp_path):
 
     # Mock compute_file_hash to return a new hash
     with (
-        patch("app.core.database.compute_file_hash", return_value="new_hash"),
+        patch("app.core.card_store.compute_file_hash", return_value="new_hash"),
         patch.object(window, "_start_processing") as mock_proc,
     ):
         window._reload_cards()
@@ -2256,7 +2256,7 @@ def test_reload_deleted_multi_path_card(wx_app, tmp_path):
     # Mock compute_file_hash for the remaining file
     from unittest.mock import patch
 
-    with patch("app.core.database.compute_file_hash", return_value="hash1"):
+    with patch("app.core.card_store.compute_file_hash", return_value="hash1"):
         window._reload_cards()
 
     # Card still exists with one path
@@ -2288,7 +2288,7 @@ def test_reload_updates_cooldown_timestamp(wx_app, tmp_path):
     window._card_store._pdf_files = {pdf}
 
     before = time.monotonic()
-    with patch("app.core.database.compute_file_hash", return_value="hash1"):
+    with patch("app.core.card_store.compute_file_hash", return_value="hash1"):
         window._reload_cards()
     after = time.monotonic()
 
@@ -2430,7 +2430,7 @@ def test_reload_hash_error_skips_file(wx_app, tmp_path):
     window._card_store._pdf_files = {pdf}
 
     with (
-        patch("app.core.database.compute_file_hash", side_effect=OSError("disk error")),
+        patch("app.core.card_store.compute_file_hash", side_effect=OSError("disk error")),
         patch.object(window, "_show_info_message") as mock_msg,
     ):
         window._reload_cards()
@@ -2484,7 +2484,7 @@ def test_reload_mtime_only_skips_unchanged(wx_app, tmp_path):
     window._card_store._mtime_by_path = {pdf: mtime}
     window._card_store._pdf_files = {pdf}
 
-    with patch("app.core.database.compute_file_hash") as mock_hash, patch.object(window, "_show_info_message"):
+    with patch("app.core.card_store.compute_file_hash") as mock_hash, patch.object(window, "_show_info_message"):
         window._reload_cards(mtime_only=True)
         mock_hash.assert_not_called()
 
@@ -2514,7 +2514,7 @@ def test_reload_mtime_only_hashes_on_mtime_change(wx_app, tmp_path):
     window._card_store._pdf_files = {pdf}
 
     with (
-        patch("app.core.database.compute_file_hash", return_value="hash1") as mock_hash,
+        patch("app.core.card_store.compute_file_hash", return_value="hash1") as mock_hash,
         patch.object(window, "_show_info_message"),
     ):
         window._reload_cards(mtime_only=True)
@@ -2544,7 +2544,7 @@ def test_reload_manual_always_hashes(wx_app, tmp_path):
     window._card_store._pdf_files = {pdf}
 
     with (
-        patch("app.core.database.compute_file_hash", return_value="hash1") as mock_hash,
+        patch("app.core.card_store.compute_file_hash", return_value="hash1") as mock_hash,
         patch.object(window, "_show_info_message"),
     ):
         window._reload_cards(mtime_only=False)

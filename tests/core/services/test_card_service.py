@@ -480,7 +480,7 @@ class TestUnlinkPath:
 class TestReset:
     """Tests for CardService.reset()."""
 
-    @patch("app.core.database.reset_database")
+    @patch("app.core.services.card_service.reset_database")
     def test_reset_clears_store_and_db(self, mock_reset_db: object) -> None:
         """reset() should call reset_database() and clear the store."""
         card = _make_card()

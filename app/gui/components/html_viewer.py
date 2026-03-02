@@ -7,8 +7,9 @@ from pathlib import Path
 from typing import NamedTuple
 
 import wx
+import wx.html2
 
-from app.gui.icons import load_sf_symbol
+from app.gui.icons import clear_cache, load_menu_icon, load_sf_symbol
 from app.gui.styles import Color
 
 # Singleton weakrefs keyed by viewer type
@@ -350,8 +351,6 @@ class HTMLViewerWindow:
         size: tuple[int, int] = (800, 600),
         search_hint: str = "Search",
     ) -> None:
-        import wx.html2
-
         self._page_order = page_order
         self._base_path = base_path
 
@@ -448,8 +447,6 @@ class HTMLViewerWindow:
         edit_menu = wx.Menu()
         find_id = wx.NewIdRef()
         find_item = edit_menu.Append(find_id, "Find\tCtrl+F")
-        from app.gui.icons import load_menu_icon
-
         find_icon = load_menu_icon("magnifyingglass")
         if find_icon:
             find_item.SetBitmap(find_icon)
@@ -460,6 +457,7 @@ class HTMLViewerWindow:
         frame.Bind(wx.EVT_MENU, lambda e: search_ctrl.SetFocus(), id=find_id)
 
         frame.CenterOnParent()
+
         frame.Show()
 
         # --- Search controller ---
@@ -538,8 +536,6 @@ class HTMLViewerWindow:
 
     def refresh_colors(self) -> None:
         """Update toolbar icons and border for current appearance mode."""
-        from app.gui.icons import clear_cache
-
         clear_cache()
         for tool_id, symbol_name in self._tool_icons:
             bmp = _toolbar_icon(symbol_name)
@@ -565,7 +561,6 @@ def build_help_menu(frame: wx.Frame) -> wx.Menu:
     from app.gui.dialogs.changelog import show_changelog
     from app.gui.dialogs.help import show_help
     from app.gui.dialogs.licenses import show_licenses
-    from app.gui.icons import load_menu_icon
 
     parent = frame.GetParent() or frame
 

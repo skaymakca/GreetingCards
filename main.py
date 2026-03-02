@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import wx
 
+from app.core.apple_events import register_apple_event_handlers, register_quit_handler
 from app.core.paths import is_bundled
 from app.gui.main_window import MainWindow
 
@@ -27,8 +28,6 @@ def main():
 
     app = wx.App()
     window = MainWindow()
-
-    from app.core.apple_events import register_apple_event_handlers, register_quit_handler
 
     _ae_handler = register_apple_event_handlers(window, main_thread_dispatch=wx.CallAfter)
     assert _ae_handler is not None  # prevent "not accessed" warning

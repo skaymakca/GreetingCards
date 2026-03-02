@@ -11,7 +11,7 @@ import logging
 from pathlib import Path
 
 from app.core.card_store import CardStore
-from app.core.database import clear_ai_results, select_candidate, set_manual_name, update_remove_family
+from app.core.database import clear_ai_results, reset_database, select_candidate, set_manual_name, update_remove_family
 from app.core.pipeline.card_processor import load_card_state_from_db
 from app.models.card import CardResult, Confidence
 
@@ -44,8 +44,6 @@ class CardService:
 
     def reset(self) -> None:
         """Reset database and clear in-memory state."""
-        from app.core.database import reset_database
-
         reset_database()
         self._store.clear()
 

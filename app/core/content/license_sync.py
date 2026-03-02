@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import tomli_w
+from packaging.requirements import Requirement
 
 from app.core.content.license_models import (
     BundledDep,
@@ -324,8 +325,6 @@ def sync_registry() -> LicenseRegistry:
     pyproject = tomllib.loads((project_root / "pyproject.toml").read_text(encoding="utf-8"))
     dev_names: set[str] = set()
     for dep_str in pyproject.get("dependency-groups", {}).get("dev", []):
-        from packaging.requirements import Requirement
-
         req = Requirement(dep_str)
         dev_names.add(req.name.lower())
 

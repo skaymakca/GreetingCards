@@ -7,6 +7,8 @@ and a CLI batch tool.
 import io
 from pathlib import Path
 
+from PIL import Image
+
 from app.core.database import get_card_state
 from app.models.card import CardResult, Confidence, PdfWorkerResult
 
@@ -32,8 +34,6 @@ def scan_for_pdfs(path: Path) -> list[Path]:
 
 def worker_result_to_card(wr: PdfWorkerResult, card_id: int) -> CardResult:
     """Convert PdfWorkerResult from worker process to CardResult with assigned ID."""
-    from PIL import Image
-
     pdf_path = Path(wr.pdf_path)
     card = CardResult(
         id=card_id,

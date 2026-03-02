@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
+from app.core.database import compute_file_hash
 from app.core.pipeline.card_processor import worker_result_to_card
 from app.models.card import CardResult, PdfWorkerResult
 
@@ -218,8 +219,6 @@ class CardStore:
             mtime_only: When True, use mtime as a fast pre-filter — files
                 whose mtime hasn't changed are skipped without hashing.
         """
-        from app.core.database import compute_file_hash
-
         loaded_paths = self.get_all_paths()
         deleted_paths: list[Path] = []
         modified_paths: list[Path] = []

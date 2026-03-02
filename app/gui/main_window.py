@@ -18,6 +18,8 @@ from app.core.services.config_service import ConfigService
 from app.core.services.filter_service import FilterCategory
 from app.core.services.processing_service import ProcessingService
 from app.core.services.rename_service import RenameService
+from app.gui import appearance, icons
+from app.gui.appearance import is_dark_mode
 from app.gui.components.drop_target import DropOverlay as _DropOverlay
 from app.gui.components.drop_target import FileDropTarget
 from app.gui.components.filter_sidebar import FilterSidebar
@@ -27,7 +29,9 @@ from app.gui.components.toolbar import ToolbarManager
 from app.gui.dialogs import CompletionDialog, RenameConfirmDialog
 from app.gui.dialogs.settings import create_preferences_editor
 from app.gui.main_window_mixins import AIMixin, AppleEventsMixin, FilterMixin, SelectionMixin
+from app.gui.rename_display import summarize_results
 from app.gui.styles import Color, Font, Layout
+from app.gui.utils import open_files_and_folders
 from app.gui.utils import plural as _plural
 from app.models.card import CardResult, RenameResult
 
@@ -90,8 +94,6 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         self._setup_keyboard_shortcuts()
 
         # Dark mode detection + initial color refresh
-        from app.gui import appearance
-
         Color.refresh()
         appearance.start_observer(self._on_appearance_changed)
 
@@ -370,8 +372,6 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
     def _add_files_folders(self) -> None:
         """Add PDF files or folders (unified picker - multi-load architecture)."""
-        from app.gui.utils import open_files_and_folders
-
         paths = open_files_and_folders("Add PDF Files or Folders", ["pdf"])
         if paths:
             self._load_paths(paths, auto_process=True)
@@ -583,8 +583,6 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
             results = self._rename_service.execute(plan)
 
             # Show completion
-            from app.gui.rename_display import summarize_results
-
             counts = summarize_results(results)
             title = "Rename Complete" if not counts["errors"] else "Rename Complete (with errors)"
             completion = CompletionDialog(self._frame, title, results)
@@ -652,9 +650,6 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
     def _on_appearance_changed(self) -> None:
         """Handle macOS dark/light mode switch."""
-        from app.gui import icons
-        from app.gui.appearance import is_dark_mode
-
         mode = "Dark" if is_dark_mode() else "Light"
         logger.info("Appearance changed to %s mode", mode)
 
@@ -720,8 +715,6 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
     def _on_close(self, event: wx.CloseEvent) -> None:
         """Handle window close event."""
-        from app.gui import appearance
-
         appearance.stop_observer()
 
         self._edit_debounce_timer.Stop()

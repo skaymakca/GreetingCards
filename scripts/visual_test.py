@@ -18,15 +18,11 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from typing import TYPE_CHECKING
-
 import wx
 
-if TYPE_CHECKING:
-    from app.core.pipeline.ai_analyzer import AIError
-    from app.gui.components.filter_sidebar import FilterSidebar
-
+from app.core.pipeline.ai_analyzer import AIError, AIErrorKind
 from app.gui import appearance  # type: ignore[attr-defined]
+from app.gui.components.filter_sidebar import FilterSidebar
 from app.gui.icons import clear_cache
 from app.gui.styles import Color, Font
 from app.models.card import (
@@ -147,8 +143,6 @@ def _mock_rename_results() -> list[RenameResult]:
 
 def _mock_errors() -> list[AIError]:
     """Create mock errors for ErrorListDialog."""
-    from app.core.pipeline.ai_analyzer import AIError, AIErrorKind
-
     return [
         AIError(kind=AIErrorKind.UNKNOWN, detail="File is encrypted and cannot be read"),
         AIError(kind=AIErrorKind.CONNECTION, detail="Corrupt PDF \u2014 no pages found"),
@@ -585,7 +579,6 @@ class VisualTestFrame(wx.Frame):
 
     def _open_filter_sidebar(self, _evt: wx.CommandEvent) -> None:
         from app.core.services.filter_service import count_by_category
-        from app.gui.components.filter_sidebar import FilterSidebar
 
         frame = wx.Frame(self, title="Filter Sidebar", size=wx.Size(250, 500))
         sidebar = FilterSidebar(

@@ -9,6 +9,8 @@ priority over heuristic formatting.
 
 from __future__ import annotations
 
+from app.core.naming.family_name.data import family_name_db
+
 # --- Constants ---
 
 _MAC_EXCEPTIONS = ["macintosh", "machine", "mach", "macro", "mace"]
@@ -163,8 +165,6 @@ def smart_title_case_family_name(name: str) -> str:
     # the heuristic handles better than a DB form that may lose it
     # (e.g. input "o'brian" → heuristic "O'Brian" > DB "Obrian").
     if len(words) == 1 and "-" not in name and "'" not in name:
-        from app.core.naming.family_name.data import family_name_db
-
         display = family_name_db.display(name)
         if display is not None:
             return display
