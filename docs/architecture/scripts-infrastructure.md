@@ -7,6 +7,7 @@ scripts/
   __init__.py              # Empty (makes scripts/ a Python package)
   helpers.py               # Shared utilities: output dirs, API key validation
   dark_mode_cycler.py      # Standalone: toggles macOS dark/light mode every 5s
+  run_tests.py             # Test runner: scopes, coverage, pytest arg builder
   visual_test.py           # Visual test harness (standalone, not a package)
 
 scripts/benchmark/
@@ -315,5 +316,7 @@ mock_client.messages.create = AsyncMock(side_effect=[names_msg, schemes_msg, sub
 
 ### Makefile targets
 
-- `make test-scripts` — run `tests/scripts/` only (fast, ~1s)
+- `make test T=scripts` — run `tests/scripts/` only (fast, ~1s)
+- `make test T=default` — run core + gui + scripts tests
 - `make test-cov` — full suite with coverage for both `app/` and `scripts/`
+- `make test T="core --cov"` — single scope with coverage

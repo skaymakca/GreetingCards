@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev run app app-run build clean icon content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-cov-open test-core test-gui test-scripts tessdata pyright mypy lint lint-fix format format-check security check pycharm-inspect show-scripts visual-test visual-test-app dmg
+.PHONY: help setup setup-dev run app app-run build clean icon content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-cov-open tessdata pyright mypy lint lint-fix format format-check security check pycharm-inspect show-scripts visual-test visual-test-app dmg
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -24,9 +24,6 @@ setup-dev: ## Install all dependencies including dev/testing tools
 	@echo "✓ Development setup complete!"
 	@echo "  Run 'make test' to run tests."
 
-COV_DIR := _build/coverage
-COV_RUN := $(COV_DIR)/$(shell date +%Y%m%d_%H%M)
-
 TESSDATA_DIR := _build/runtime_content/tessdata/fast
 TESSDATA_ENG := $(TESSDATA_DIR)/eng.traineddata
 TESSDATA_URL := https://github.com/tesseract-ocr/tessdata_fast/raw/main/eng.traineddata
@@ -39,36 +36,14 @@ $(TESSDATA_ENG):
 run: content tessdata ## Run the app from source
 	uv run python main.py
 
-test: ## Run all tests
-	uv run pytest -v
+test: ## Run tests (no args shows help; make test T="core --cov -x")
+	@uv run python scripts/run_tests.py $(T)
 
-test-cov: ## Run tests with coverage (timestamped output, flat + grouped HTML)
-	@mkdir -p $(COV_RUN)
-	uv run pytest --cov=app --cov=scripts --cov-report=term-missing --cov-report=html:$(COV_RUN)/htmlcov
-	@uv run coverage lcov -o $(COV_RUN)/coverage.lcov
-	@if command -v genhtml >/dev/null 2>&1; then \
-		genhtml $(COV_RUN)/coverage.lcov -o $(COV_RUN)/htmlcov-grouped --hierarchical --title "Greeting Cards Coverage" --quiet --ignore-errors inconsistent,corrupt 2>/dev/null; \
-	else \
-		echo "(genhtml not found — skipping grouped HTML report. Install with: brew install lcov)"; \
-	fi
-	@ln -sfn $(notdir $(COV_RUN)) $(COV_DIR)/latest
-	@echo ""
-	@echo "Coverage output: $(COV_RUN)/"
-	@echo "  Flat HTML:    $(COV_RUN)/htmlcov/index.html"
-	@if [ -d "$(COV_RUN)/htmlcov-grouped" ]; then echo "  Grouped HTML: $(COV_RUN)/htmlcov-grouped/index.html"; fi
+test-cov: ## Run all tests with coverage reports
+	@uv run python scripts/run_tests.py default --cov
 
-test-cov-open: test-cov ## Run coverage and open HTML reports in browser
-	@open $(COV_DIR)/latest/htmlcov/index.html
-	@if [ -d "$(COV_DIR)/latest/htmlcov-grouped" ]; then open $(COV_DIR)/latest/htmlcov-grouped/index.html; fi
-
-test-core: ## Run core (non-GUI) tests only
-	uv run pytest tests/core/ -v
-
-test-gui: ## Run GUI tests only
-	uv run pytest tests/gui/ -v
-
-test-scripts: ## Run script tests only
-	uv run pytest tests/scripts/ -v
+test-cov-open: ## Run all tests with coverage, open in browser
+	@uv run python scripts/run_tests.py default --cov --open
 
 pyright: ## Run pyright type checking
 	pyright app/ scripts/ main.py

@@ -66,7 +66,7 @@ make setup-dev
 make run
 
 # 4. (Optional) Run tests
-make test
+make test T=default
 ```
 
 ## Make commands
@@ -79,12 +79,9 @@ Run `make help` to see all available commands.
 | `make setup`           | Install production dependencies (creates venv automatically)                             |
 | `make setup-dev`       | Install all dependencies including dev/testing tools                                     |
 | `make run`             | Run the app from source                                                                  |
-| `make test`            | Run all tests                                                                            |
-| `make test-cov`        | Run tests with coverage (timestamped output in `_build/coverage/`, flat + grouped HTML)                        |
-| `make test-cov-open`   | Run coverage and open HTML reports in browser                                                          |
-| `make test-core`       | Run core (non-GUI) tests only                                                            |
-| `make test-gui`        | Run GUI tests only                                                                       |
-| `make test-scripts`    | Run script tests only                                                                    |
+| `make test`            | Run tests (no args shows help; `make test T="core --cov -x"`)                            |
+| `make test-cov`        | Run all tests with coverage (timestamped output in `_build/coverage/`, flat + grouped HTML) |
+| `make test-cov-open`   | Run all tests with coverage and open HTML reports in browser                              |
 | `make tessdata`        | Download tessdata (eng.traineddata) for OCR                                              |
 | `make content`         | Generate runtime content (HTML, data files, images)                                      |
 | `make licenses-sync`   | Sync license registry from uv.lock + .dist-info                                          |
@@ -232,19 +229,21 @@ tests/
 
 ### Running Tests
 
-| Command                                               | What it does                       |
-|-------------------------------------------------------|------------------------------------|
-| `make test`                                           | Run all tests with verbose output  |
-| `make test-cov`                                       | Coverage with timestamped output, flat + grouped HTML                        |
-| `make test-cov-open`                                  | Run coverage and open HTML reports in browser |
-| `make test-core`                                      | Run only core tests (fast, no GUI) |
-| `make test-gui`                                       | Run only GUI tests                 |
-| `uv run pytest -k "mac_names"`                        | Run tests matching pattern         |
-| `uv run pytest tests/core/naming/test_family_name_formatting.py -v` | Run specific test file             |
+| Command                                               | What it does                        |
+|-------------------------------------------------------|-------------------------------------|
+| `make test T=default`                                 | Run core + gui + scripts tests      |
+| `make test T=core`                                    | Run only core tests (fast, no GUI)  |
+| `make test T=gui`                                     | Run only GUI tests                  |
+| `make test T="gui scripts"`                           | Combine multiple scopes             |
+| `make test T="core -x"`                               | Stop on first failure               |
+| `make test T="core -k family_name"`                   | Keyword filter                      |
+| `make test-cov`                                       | All tests with coverage reports     |
+| `make test-cov-open`                                  | Coverage + open in browser          |
+| `uv run pytest tests/core/naming/test_family_name_formatting.py -v` | Run specific test file  |
 
 ### Current Coverage
 
-- **2354 tests** covering core logic, GUI components, and scripts
+- **2376 tests** covering core logic, GUI components, and scripts
 - **Core** (services/, pipeline/, naming/, content/ sub-packages + top-level): AI analysis, AI batch, AI service,
   apple events, card model, card processor, card service, card store, changelog, changelog models, config,
   config service, database, family name cleaning, family name data, family name formatting, filename safety,
