@@ -362,6 +362,109 @@ class TestRunAiBatchAsync:
         mock_ai.assert_called_once()
         on_complete.assert_called_once_with([], False)
 
+    @pytest.mark.asyncio
+    async def test_rate_limit_error_on_second_attempt_records_error(self):
+        """Rate limit error on second attempt records error (lines 64-66, 104)."""
+        import anthropic
+
+        from app.core.pipeline.ai_batch import run_ai_batch_async
+
+        card = _make_card()
+        on_progress = MagicMock()
+        on_complete = MagicMock()
+
+        rate_err = anthropic.RateLimitError(
+            message="rate limited",
+            response=MagicMock(status_code=429, headers={}),
+            body=None,
+        )
+        # Fail on both attempts
+        mock_analyze = AsyncMock(side_effect=rate_err)
+
+        with (
+            patch("app.core.pipeline.ai_batch.get_card_state", return_value=None),
+            patch("app.core.pipeline.ai_batch.analyze_card_with_ai_async", mock_analyze),
+            patch("app.core.pipeline.ai_batch.parse_retry_after", return_value=0.01),
+        ):
+            await run_ai_batch_async([card], on_progress, on_complete)
+
+        errors, aborted = on_complete.call_args[0]
+        assert len(errors) == 1
+        assert not aborted
+
+    @pytest.mark.asyncio
+    async def test_transient_error_on_second_attempt_records_error(self):
+        """Timeout/connection error on second attempt records error (lines 82-84)."""
+        import anthropic
+
+        from app.core.pipeline.ai_batch import run_ai_batch_async
+
+        card = _make_card()
+        on_progress = MagicMock()
+        on_complete = MagicMock()
+
+        timeout_err = anthropic.APITimeoutError(request=MagicMock())
+        mock_analyze = AsyncMock(side_effect=timeout_err)
+
+        with (
+            patch("app.core.pipeline.ai_batch.get_card_state", return_value=None),
+            patch("app.core.pipeline.ai_batch.analyze_card_with_ai_async", mock_analyze),
+        ):
+            await run_ai_batch_async([card], on_progress, on_complete)
+
+        # Should have called analyze twice (initial + 1 retry)
+        assert mock_analyze.call_count == 2
+        errors, aborted = on_complete.call_args[0]
+        assert len(errors) == 1
+        assert not aborted
+
+    @pytest.mark.asyncio
+    async def test_auth_recheck_after_semaphore_acquire(self):
+        """After acquiring semaphore, re-checks auth_failed flag (lines 64-66)."""
+        import anthropic
+
+        from app.core.pipeline.ai_batch import run_ai_batch_async
+
+        cards = [_make_card(i, file_hash=f"h{i}") for i in range(2)]
+        on_progress = MagicMock()
+        on_complete = MagicMock()
+
+        auth_err = anthropic.AuthenticationError(
+            message="invalid key",
+            response=MagicMock(status_code=401),
+            body=None,
+        )
+        mock_analyze = AsyncMock(side_effect=auth_err)
+
+        with (
+            patch("app.core.pipeline.ai_batch.get_card_state", return_value=None),
+            patch("app.core.pipeline.ai_batch.analyze_card_with_ai_async", mock_analyze),
+            patch("app.core.pipeline.ai_batch.AI_CONCURRENCY", 1),
+        ):
+            await run_ai_batch_async(cards, on_progress, on_complete)
+
+        # Both cards should report progress
+        assert on_progress.call_count == 2
+        _errors, aborted = on_complete.call_args[0]
+        assert aborted is True
+
+    @pytest.mark.asyncio
+    async def test_no_images_after_filtering_skips_card(self):
+        """Card with empty images after None-filtering skips analysis (lines 82-84)."""
+        from app.core.pipeline.ai_batch import run_ai_batch_async
+
+        card = _make_card(with_image=False)
+        card.page_images = []
+        card.preview_image = None
+        on_progress = MagicMock()
+        on_complete = MagicMock()
+
+        with patch("app.core.pipeline.ai_batch.get_card_state", return_value=None):
+            await run_ai_batch_async([card], on_progress, on_complete)
+
+        on_progress.assert_called_once()
+        on_complete.assert_called_once_with([], False)
+
 
 class TestRunAiBatchWithDB:
     """DB-backed tests for run_ai_batch_async using real in-memory SQLite."""

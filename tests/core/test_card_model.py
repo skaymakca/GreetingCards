@@ -117,6 +117,44 @@ class TestPrimaryPathDefault:
         assert card.primary_path.name == ""
 
 
+class TestBestPreviewImages:
+    """Tests for CardResult.best_preview_images property (lines 194-198)."""
+
+    def test_returns_page_images_when_available(self):
+        """best_preview_images returns page_images when set."""
+        from PIL import Image
+
+        card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+        img1 = Image.new("RGB", (10, 10))
+        img2 = Image.new("RGB", (10, 10))
+        card.page_images = [img1, img2]
+        card.preview_image = Image.new("RGB", (10, 10))
+
+        result = card.best_preview_images
+        assert result == [img1, img2]
+
+    def test_returns_preview_image_as_list_when_no_pages(self):
+        """best_preview_images wraps single preview_image in list."""
+        from PIL import Image
+
+        card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+        card.page_images = []
+        img = Image.new("RGB", (10, 10))
+        card.preview_image = img
+
+        result = card.best_preview_images
+        assert result == [img]
+
+    def test_returns_empty_list_when_no_images(self):
+        """best_preview_images returns empty list when no images available."""
+        card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+        card.page_images = []
+        card.preview_image = None
+
+        result = card.best_preview_images
+        assert result == []
+
+
 class TestPdfWorkerResultErrorDefault:
     """Tests for PdfWorkerResult error field standardization."""
 

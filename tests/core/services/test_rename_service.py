@@ -582,3 +582,15 @@ class TestFormatResultStatus:
             Path("/a.pdf"), Path("/b.pdf"), False, "File exists", outcome=RenameOutcome.ERROR_TARGET_EXISTS
         )
         assert format_result_status(r) == "ERROR: File exists"
+
+
+class TestTargetFilename:
+    """Tests for RenameService.target_filename() facade (line 46)."""
+
+    def test_target_filename_delegates(self) -> None:
+        """target_filename delegates to build_target_filename."""
+        card = _make_card()
+        card.family_name = "Smith"
+        result = RenameService.target_filename(card, "2025")
+        assert "Smith" in result
+        assert "2025" in result

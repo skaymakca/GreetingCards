@@ -774,3 +774,70 @@ class TestAppleEventsMixinWithDB:
         assert result["success"] is True
         state = get_card_state("h1")
         assert state.remove_family is True
+
+
+class TestAppleEventsBridgeEdgeCases:
+    """Tests for edge cases in apple events bridge (lines 83, 127, 137, 143, 159, 181-182)."""
+
+    def test_rename_no_plan_generated(self, window):
+        """rename_card_for_script returns error when no plan generated (line 83)."""
+        card = _make_card(filename="card.pdf")
+        _inject_card(window, card)
+
+        with (
+            patch.object(window._rename_service, "rename_card", return_value=[]),
+            patch.object(window, "_refresh_display"),
+        ):
+            result = window.rename_card_for_script("card.pdf", "NewName", "2025")
+
+        assert result["success"] is False
+        assert "No rename plan" in result["error"]
+
+    def test_analyze_no_api_key(self, window):
+        """analyze_for_script returns error when no API key (line 127)."""
+        card = _make_card(filename="card.pdf")
+        _inject_card(window, card)
+
+        with patch.object(window._config_service, "has_api_key", return_value=False):
+            result = window.analyze_for_script(None)
+
+        assert result["success"] is False
+        assert "API key" in result["error"]
+
+    def test_analyze_single_card_not_eligible(self, window):
+        """analyze_for_script returns error for ineligible card (line 137)."""
+        card = _make_card(filename="card.pdf")
+        card.error = "Processing failed"
+        _inject_card(window, card)
+
+        with patch.object(window._config_service, "has_api_key", return_value=True):
+            result = window.analyze_for_script("card.pdf")
+
+        assert result["success"] is False
+        assert "not eligible" in result["error"]
+
+    def test_analyze_no_eligible_cards(self, window):
+        """analyze_for_script returns error when no eligible cards (line 143)."""
+        card = _make_card(filename="card.pdf")
+        card.error = "Processing failed"
+        _inject_card(window, card)
+
+        with patch.object(window._config_service, "has_api_key", return_value=True):
+            result = window.analyze_for_script(None)
+
+        assert result["success"] is False
+        assert "No eligible" in result["error"]
+
+    def test_clear_ai_empty_cards(self, window):
+        """clear_ai_for_script returns success with count 0 for empty list (line 159)."""
+        result = window.clear_ai_for_script(None)
+        assert result["success"] is True
+        assert result["count"] == 0
+
+    def test_set_ai_model(self, window):
+        """set_ai_model_for_script saves model (lines 181-182)."""
+        with patch.object(window._config_service, "save_ai_model") as mock_save:
+            result = window.set_ai_model_for_script("claude-haiku-4-5")
+
+        assert result["success"] is True
+        mock_save.assert_called_once_with("claude-haiku-4-5")

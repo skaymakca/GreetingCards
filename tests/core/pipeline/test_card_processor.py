@@ -188,3 +188,26 @@ class TestLoadCardStateFromDb:
         assert card.ai_analyzed is True
         assert card.confidence == Confidence.NONE
         assert card.method == "missing"
+
+    def test_invalid_confidence_from_db_falls_to_none(self):
+        """Invalid confidence in DB state falls back to NONE (lines 85-86)."""
+        from app.core.pipeline.card_processor import load_card_state_from_db
+        from app.models.card import CardResult, CardState, Confidence
+
+        card = CardResult(id=0, file_paths=[Path("/test.pdf")], primary_path=Path("/test.pdf"))
+        card.file_hash = "abc123"
+
+        mock_state = CardState(
+            display_name="Smith",
+            method="ocr",
+            confidence="INVALID_VALUE",
+            candidates=[],
+            remove_family=False,
+            selected_candidate_id=None,
+        )
+
+        with patch("app.core.pipeline.card_processor.get_card_state", return_value=mock_state):
+            load_card_state_from_db(card)
+
+        assert card.confidence == Confidence.NONE
+        assert card.family_name == "Smith"

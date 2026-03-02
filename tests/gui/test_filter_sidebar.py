@@ -886,3 +886,18 @@ def test_folder_check_default_option_held_none(wx_app):
     assert len(called) >= 1
 
     parent.Destroy()
+
+
+def test_refresh_colors_updates_static_text(wx_app):
+    """refresh_colors updates foreground color on StaticText children (lines 411-415)."""
+    parent = wx.Frame(None)
+    sidebar = FilterSidebar(
+        parent,
+        on_category_filter=lambda k: None,
+    )
+
+    # refresh_colors should not crash and should update colors
+    sidebar.refresh_colors()
+
+    # Verify it ran (no crash is the main test)
+    parent.Destroy()

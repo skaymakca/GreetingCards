@@ -320,3 +320,24 @@ class TestReadExistingVersions:
 
     def test_missing_file(self, tmp_path):
         assert _read_existing_versions(tmp_path) == {}
+
+
+class TestGetSitePackagesFallback:
+    """Tests for _get_site_packages fallback path (lines 288-289)."""
+
+    def test_fallback_when_purelib_missing(self, tmp_path):
+        """When purelib path doesn't exist, falls back to .venv/lib/pythonX.Y/site-packages."""
+        from unittest.mock import patch
+
+        from app.core.content.license_sync import _get_site_packages
+
+        fake_purelib = tmp_path / "nonexistent_purelib"
+
+        with (
+            patch("sysconfig.get_path", return_value=str(fake_purelib)),
+            patch("app.core.content.license_sync._get_project_root", return_value=tmp_path),
+        ):
+            result = _get_site_packages()
+
+        assert ".venv" in str(result)
+        assert "site-packages" in str(result)

@@ -248,3 +248,37 @@ class TestExtractFamilyNamesEdgeCases:
         # Should not return greeting words as names
         for m in results:
             assert m.name.lower() not in {"merry", "christmas", "happy", "new", "year", "season"}
+
+    def test_empty_name_in_results_is_skipped(self):
+        """NameMatch with empty name is filtered out in dedup (line 181)."""
+        from unittest.mock import patch
+
+        # The dedup loop filters NameMatch objects with empty names.
+        # We inject one by patching _clean_name to return empty AND
+        # _is_valid_name to return True for empty, so the NameMatch
+        # with name="" actually gets appended to results before dedup.
+        import app.core.naming.extractor as ext_mod
+
+        orig_clean = ext_mod._clean_name
+        orig_valid = ext_mod._is_valid_name
+
+        def mock_clean(name: str) -> str:
+            if name == "FakeName":
+                return ""
+            return orig_clean(name)
+
+        def mock_valid(name: str) -> bool:
+            if name == "":
+                return True
+            return orig_valid(name)
+
+        with (
+            patch.object(ext_mod, "_clean_name", side_effect=mock_clean),
+            patch.object(ext_mod, "_is_valid_name", side_effect=mock_valid),
+        ):
+            # "The FakeName Family" matches "The X Family" pattern.
+            # _clean_name("FakeName") -> "", _is_valid_name("") -> True,
+            # so NameMatch(name="", ...) enters results, then dedup skips it.
+            results = extract_family_names("The FakeName Family")
+            for m in results:
+                assert m.name != ""

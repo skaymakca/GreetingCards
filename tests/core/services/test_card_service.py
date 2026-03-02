@@ -492,3 +492,38 @@ class TestReset:
         mock_reset_db.assert_called_once()  # type: ignore[union-attr]
         assert store.count == 0
         assert store.is_empty
+
+
+class TestSelectCandidateInvalidConfidence:
+    """Tests for candidate selection with invalid confidence (lines 105-111)."""
+
+    @patch("app.core.services.card_service.select_candidate")
+    def test_invalid_confidence_falls_back_to_medium(self, mock_db_select: object) -> None:
+        """Unknown confidence value defaults to MEDIUM."""
+        card = _make_card(
+            candidates=[
+                CandidateInfo(id=10, family_name="Smith", method="ocr", confidence="UNKNOWN_VALUE"),
+            ],
+        )
+        _, service = _make_store_and_service(card)
+
+        result = service.select_candidate(card.id, 10)
+
+        assert result is not None
+        assert result.confidence == Confidence.MEDIUM
+        assert result.family_name == "Smith"
+
+    @patch("app.core.services.card_service.select_candidate")
+    def test_valid_confidence_set_from_candidate(self, mock_db_select: object) -> None:
+        """Valid confidence string is converted to Confidence enum."""
+        card = _make_card(
+            candidates=[
+                CandidateInfo(id=10, family_name="Smith", method="ocr", confidence="low"),
+            ],
+        )
+        _, service = _make_store_and_service(card)
+
+        result = service.select_candidate(card.id, 10)
+
+        assert result is not None
+        assert result.confidence == Confidence.LOW

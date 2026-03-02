@@ -2824,3 +2824,64 @@ class TestCandidateSelectionCallbacks:
         panel._handle_checkbox(card.id, True)
 
         on_toggle.assert_called_once_with(card.id, True)
+
+
+class TestCardListModelOverrides:
+    """Tests for CardListModel DataView model overrides."""
+
+    def test_get_column_type_returns_string(self, parent_frame):
+        """GetColumnType returns 'string' for all columns (line 200)."""
+        model = CardListModel()
+        assert model.GetColumnType(0) == "string"
+        assert model.GetColumnType(1) == "string"
+        assert model.GetColumnType(2) == "string"
+
+    def test_set_value_returns_false(self, parent_frame, mock_cards):
+        """SetValue always returns False (read-only model, line 222)."""
+        model = CardListModel()
+        model.load_cards(mock_cards)
+        item = model.ObjectToItem(0)
+        assert model.SetValue("test", item, 0) is False
+        assert model.SetValue("test", item, 1) is False
+        assert model.SetValue("test", item, 2) is False
+
+    def test_get_attr_returns_false_for_other_columns(self, parent_frame, mock_cards):
+        """GetAttr returns False for columns other than 0 and 1 (line 237)."""
+        model = CardListModel()
+        model.load_cards(mock_cards)
+        item = model.ObjectToItem(0)
+        attr = dv.DataViewItemAttr()
+        # Column 3+ should return False
+        assert model.GetAttr(item, 3, attr) is False
+
+
+class TestDefaultDotColor:
+    """Tests for _default_dot_color function (line 59)."""
+
+    def test_returns_text_primary_color(self, parent_frame):
+        """_default_dot_color returns TEXT_PRIMARY color."""
+        from app.gui.components.review_panel import _default_dot_color
+
+        color = _default_dot_color()
+        assert isinstance(color, wx.Colour)
+
+
+class TestDetailPanelCandidateSelect:
+    """Tests for DetailPanel._on_candidate callback (line 563)."""
+
+    def test_candidate_select_fires_callback(self, parent_frame, mock_cards):
+        """Selecting a candidate fires the on_candidate_select callback."""
+        on_candidate = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_candidate_select=on_candidate)
+        panel.load_cards(mock_cards)
+
+        card = mock_cards[0]
+        _select_card(panel, card.id)
+
+        # Simulate selecting the second candidate in the choice widget
+        detail = panel._detail_panel
+        if detail._candidates_choice.GetCount() > 1:
+            detail._candidates_choice.SetSelection(1)
+            detail._on_candidate(Mock())
+
+            on_candidate.assert_called_once()

@@ -35,3 +35,9 @@ class TestConfigService:
     def test_save_ai_model(self, mock_save):
         ConfigService.save_ai_model("claude-haiku-4-5")
         mock_save.assert_called_once_with("claude-haiku-4-5")
+
+    def test_get_github_url_returns_string(self):
+        """get_github_url returns the project GitHub URL (line 47)."""
+        url = ConfigService.get_github_url()
+        assert isinstance(url, str)
+        assert "github.com" in url

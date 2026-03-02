@@ -3900,3 +3900,539 @@ def test_on_close_dismisses_prefs_editor(wx_app):
         window._on_close(None)
 
         mock_editor.Dismiss.assert_called_once()
+
+
+# ============================================================================
+# Tier 1: selection_mixin — lines 28-33, 50-53, 57-60, 98
+# ============================================================================
+
+
+def test_on_card_select_error_shows_error_preview(wx_app):
+    """_on_card_select shows error preview for cards with errors (lines 28-29)."""
+    from unittest.mock import patch
+
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+    card.file_hash = "hash1"
+    card.confidence = Confidence.NONE
+    card.error = "Corrupted PDF"
+    window._card_store._cards_by_hash = {"hash1": card}
+    window._card_store._id_to_card = {0: card}
+
+    with patch.object(window._preview_panel, "show_error") as mock_show_error:
+        window._on_card_select(0)
+        mock_show_error.assert_called_once_with("Corrupted PDF", "card.pdf")
+
+    window._frame.Destroy()
+
+
+def test_on_card_select_images_shows_preview(wx_app):
+    """_on_card_select shows images preview for cards with images (lines 30-31)."""
+    from unittest.mock import patch
+
+    from PIL import Image
+
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+    card.file_hash = "hash1"
+    card.confidence = Confidence.HIGH
+    img = Image.new("RGB", (10, 10))
+    card.page_images = [img]
+    window._card_store._cards_by_hash = {"hash1": card}
+    window._card_store._id_to_card = {0: card}
+
+    with patch.object(window._preview_panel, "show_images") as mock_show:
+        window._on_card_select(0)
+        mock_show.assert_called_once_with([img], "card.pdf")
+
+    window._frame.Destroy()
+
+
+def test_on_card_select_no_images_clears_preview(wx_app):
+    """_on_card_select clears preview for cards without images or error (lines 32-33)."""
+    from unittest.mock import patch
+
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+    card.file_hash = "hash1"
+    card.confidence = Confidence.HIGH
+    card.page_images = []
+    card.preview_image = None
+    window._card_store._cards_by_hash = {"hash1": card}
+    window._card_store._id_to_card = {0: card}
+
+    with patch.object(window._preview_panel, "clear") as mock_clear:
+        window._on_card_select(0)
+        mock_clear.assert_called_once()
+
+    window._frame.Destroy()
+
+
+def test_on_checkbox_toggle_updates_card_and_refreshes(wx_app):
+    """_on_checkbox_toggle updates card and refreshes display (lines 50-53)."""
+    from unittest.mock import patch
+
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+    card.family_name = "Smith"
+    card.confidence = Confidence.HIGH
+    card.file_hash = "hash1"
+    window._card_store._cards_by_hash = {"hash1": card}
+    window._card_store._id_to_card = {0: card}
+    window._review_panel.load_cards([card])
+
+    with (
+        patch("app.core.services.card_service.update_remove_family"),
+        patch.object(window._review_panel, "update_card") as mock_update,
+        patch.object(window, "_refresh_display") as mock_refresh,
+    ):
+        window._on_checkbox_toggle(0, True)
+        mock_update.assert_called_once()
+        mock_refresh.assert_called_once()
+
+    window._frame.Destroy()
+
+
+def test_on_candidate_select_updates_card_and_refreshes(wx_app):
+    """_on_candidate_select updates card and refreshes display (lines 57-60)."""
+    from unittest.mock import patch
+
+    from app.models.card import CandidateInfo, CardResult, Confidence
+
+    window = MainWindow()
+
+    card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+    card.family_name = "Smith"
+    card.confidence = Confidence.HIGH
+    card.file_hash = "hash1"
+    card.candidates = [CandidateInfo(id=5, family_name="Jones", confidence="high", method="ocr")]
+    window._card_store._cards_by_hash = {"hash1": card}
+    window._card_store._id_to_card = {0: card}
+    window._review_panel.load_cards([card])
+
+    with (
+        patch("app.core.services.card_service.select_candidate"),
+        patch.object(window._review_panel, "update_card") as mock_update,
+        patch.object(window, "_refresh_display") as mock_refresh,
+    ):
+        window._on_candidate_select(0, 5)
+        mock_update.assert_called_once()
+        mock_refresh.assert_called_once()
+
+    window._frame.Destroy()
+
+
+def test_on_edit_debounce_fire_refreshes_display(wx_app):
+    """_on_edit_debounce_fire refreshes display when timer fires (line 98)."""
+    from unittest.mock import Mock, patch
+
+    window = MainWindow()
+
+    with patch.object(window, "_refresh_display") as mock_refresh:
+        window._on_edit_debounce_fire(Mock())
+        mock_refresh.assert_called_once()
+
+    window._frame.Destroy()
+
+
+# ============================================================================
+# Tier 1: ai_mixin — lines 37, 49, 111, 128-130, 143, 146, 153, 156-157,
+#   160, 179-192, 203-206
+# ============================================================================
+
+
+def test_get_action_menu_label_empty_store(wx_app):
+    """_get_action_menu_label returns base+shortcut when store is empty (line 37)."""
+    window = MainWindow()
+    label = window._get_action_menu_label("AI Analyze", "\tCtrl+I")
+    assert label == "AI Analyze\tCtrl+I"
+    window._frame.Destroy()
+
+
+def test_on_clear_ai_results_no_cards_after_scope_returns(wx_app):
+    """_on_clear_ai_results returns early when _get_target_cards returns empty (line 49)."""
+    from unittest.mock import patch
+
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    # Non-empty store but review panel has zero cards loaded (visible)
+    card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+    card.file_hash = "hash1"
+    card.confidence = Confidence.HIGH
+    window._card_store._cards_by_hash = {"hash1": card}
+    window._card_store._id_to_card = {0: card}
+    # Don't load into review panel — so get_cards() returns empty
+
+    with patch("app.gui.main_window.wx.MessageBox") as mock_msg_box:
+        window._on_clear_ai_results(wx.CommandEvent())
+        mock_msg_box.assert_not_called()
+
+    window._frame.Destroy()
+
+
+def test_on_ai_request_card_not_found_returns(wx_app):
+    """_on_ai_request returns when card_id not found (line 111)."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+
+    with patch.object(window, "_start_ai_all") as mock_start:
+        window._on_ai_request(999)
+        mock_start.assert_not_called()
+
+    window._frame.Destroy()
+
+
+def test_on_ai_request_eligible_disables_button_starts_ai(wx_app):
+    """_on_ai_request disables AI button and delegates to _start_ai_all (lines 128-130)."""
+    from unittest.mock import patch
+
+    from PIL import Image
+
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+    card.confidence = Confidence.HIGH
+    card.file_hash = "hash1"
+    card.page_images = [Image.new("RGB", (10, 10))]
+    window._card_store._cards_by_hash = {"hash1": card}
+    window._card_store._id_to_card = {0: card}
+
+    with (
+        patch.object(window, "_ensure_api_key", return_value=True),
+        patch.object(window._review_panel, "set_ai_button_state") as mock_btn_state,
+        patch.object(window, "_start_ai_all") as mock_start,
+    ):
+        window._on_ai_request(0)
+        mock_btn_state.assert_called_once_with(0, False)
+        mock_start.assert_called_once()
+
+    window._frame.Destroy()
+
+
+def test_start_ai_all_empty_store_returns(wx_app):
+    """_start_ai_all returns early when store is empty (line 143)."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+
+    with patch.object(window, "_ensure_api_key") as mock_key:
+        window._start_ai_all()
+        mock_key.assert_not_called()
+
+    window._frame.Destroy()
+
+
+def test_start_ai_all_no_api_key_returns(wx_app):
+    """_start_ai_all returns when no API key (line 146)."""
+    from unittest.mock import patch
+
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+    card.confidence = Confidence.HIGH
+    card.file_hash = "hash1"
+    window._card_store._cards_by_hash = {"hash1": card}
+
+    with (
+        patch.object(window, "_ensure_api_key", return_value=False),
+        patch("threading.Thread") as mock_thread_cls,
+    ):
+        window._start_ai_all()
+        mock_thread_cls.assert_not_called()
+
+    window._frame.Destroy()
+
+
+def test_start_ai_all_selected_scope_title(wx_app):
+    """_start_ai_all uses 'Selected' title when scope is selected (line 153)."""
+    from unittest.mock import MagicMock, patch
+
+    from PIL import Image
+
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    cards = []
+    for i in range(3):
+        card = CardResult(id=i, file_paths=[Path(f"/test/card{i}.pdf")], primary_path=Path(f"/test/card{i}.pdf"))
+        card.confidence = Confidence.HIGH
+        card.file_hash = f"hash{i}"
+        card.page_images = [Image.new("RGB", (10, 10))]
+        window._card_store._cards_by_hash[f"hash{i}"] = card
+        window._card_store._id_to_card[i] = card
+        cards.append(card)
+
+    window._review_panel.load_cards(cards)
+
+    with (
+        patch.object(window, "_ensure_api_key", return_value=True),
+        patch.object(window, "_get_target_cards", return_value=(cards[:2], "selected")),
+        patch.object(window, "_show_progress_strip") as mock_progress,
+        patch("threading.Thread") as mock_thread_cls,
+    ):
+        mock_thread_cls.return_value = MagicMock()
+        window._start_ai_all()
+        title_arg = mock_progress.call_args[0][1]
+        assert "Selected" in title_arg
+
+    window._frame.Destroy()
+
+
+def test_start_ai_all_explicit_cards_default_title(wx_app):
+    """_start_ai_all uses default title when cards provided but no title (lines 156-157)."""
+    from unittest.mock import MagicMock, patch
+
+    from PIL import Image
+
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+    card.confidence = Confidence.HIGH
+    card.file_hash = "hash1"
+    card.page_images = [Image.new("RGB", (10, 10))]
+    window._card_store._cards_by_hash = {"hash1": card}
+
+    with (
+        patch.object(window, "_ensure_api_key", return_value=True),
+        patch.object(window, "_show_progress_strip") as mock_progress,
+        patch("threading.Thread") as mock_thread_cls,
+    ):
+        mock_thread_cls.return_value = MagicMock()
+        window._start_ai_all(cards=[card])
+        title_arg = mock_progress.call_args[0][1]
+        assert title_arg == "AI Analysis"
+
+    window._frame.Destroy()
+
+
+def test_start_ai_all_empty_cards_list_returns(wx_app):
+    """_start_ai_all returns when cards list is empty (line 160)."""
+    from unittest.mock import patch
+
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+    card.confidence = Confidence.HIGH
+    card.file_hash = "hash1"
+    window._card_store._cards_by_hash = {"hash1": card}
+    window._review_panel.load_cards([card])
+
+    with (
+        patch.object(window, "_ensure_api_key", return_value=True),
+        patch.object(window, "_get_target_cards", return_value=([], "visible")),
+        patch("threading.Thread") as mock_thread_cls,
+    ):
+        window._start_ai_all()
+        mock_thread_cls.assert_not_called()
+
+    window._frame.Destroy()
+
+
+def test_update_ai_all_progress_updates_strip_and_card(wx_app):
+    """_update_ai_all_progress updates strip and review panel (lines 203-206)."""
+    from unittest.mock import patch
+
+    from app.models.card import CardResult, Confidence
+
+    window = MainWindow()
+
+    card = CardResult(id=0, file_paths=[Path("/test/card.pdf")], primary_path=Path("/test/card.pdf"))
+    card.confidence = Confidence.HIGH
+    card.file_hash = "hash1"
+    window._card_store._cards_by_hash = {"hash1": card}
+    window._review_panel.load_cards([card])
+    window._show_progress_strip(5, "AI Analysis")
+
+    with (
+        patch.object(window, "_update_progress_strip") as mock_strip,
+        patch.object(window._review_panel, "update_card") as mock_update,
+    ):
+        window._update_ai_all_progress(1, 5, "card.pdf", 0, card)
+        mock_strip.assert_called_once_with(1, "AI analyzing: card.pdf")
+        mock_update.assert_called_once_with(0, card)
+
+    window._frame.Destroy()
+
+
+def test_update_ai_all_progress_no_card_skips_update(wx_app):
+    """_update_ai_all_progress skips review panel update when card is None."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+    window._show_progress_strip(5, "AI Analysis")
+
+    with (
+        patch.object(window, "_update_progress_strip") as mock_strip,
+        patch.object(window._review_panel, "update_card") as mock_update,
+    ):
+        window._update_ai_all_progress(1, 5, "card.pdf", 0, None)
+        mock_strip.assert_called_once()
+        mock_update.assert_not_called()
+
+    window._frame.Destroy()
+
+
+def test_on_close_ends_busy_cursor_if_active(wx_app):
+    """_on_close ends busy cursor if active (line 721)."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+
+    wx.BeginBusyCursor()
+
+    with (
+        patch("app.gui.appearance.stop_observer"),
+        patch.object(window._frame, "Destroy"),
+    ):
+        window._on_close(None)
+
+    assert not wx.IsBusy()
+
+
+def test_on_key_press_unhandled_key_skips(wx_app):
+    """_on_key_press calls event.Skip() for unhandled keys (line 371)."""
+    from unittest.mock import MagicMock
+
+    window = MainWindow()
+
+    event = MagicMock(spec=wx.KeyEvent)
+    event.GetKeyCode.return_value = wx.WXK_F1
+    event.GetEventObject.return_value = window._panel
+    event.ShiftDown.return_value = False
+
+    window._on_key_press(event)
+    event.Skip.assert_called_once()
+
+    window._frame.Destroy()
+
+
+def test_add_files_folders_loads_paths(wx_app):
+    """_add_files_folders calls _load_paths with selected paths (lines 375-377)."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+
+    with (
+        patch("app.gui.main_window.open_files_and_folders", return_value=[Path("/test/dir")]),
+        patch.object(window, "_load_paths") as mock_load,
+    ):
+        window._add_files_folders()
+        mock_load.assert_called_once_with([Path("/test/dir")], auto_process=True)
+
+    window._frame.Destroy()
+
+
+def test_process_cards_thread_calls_service(wx_app):
+    """_process_cards calls ProcessingService.process_files (lines 528-534)."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+    window._processing_files = [Path("/test/card.pdf")]
+
+    with patch.object(window._processing_service, "process_files") as mock_process:
+        window._process_cards()
+        mock_process.assert_called_once()
+
+    window._frame.Destroy()
+
+
+def test_format_reload_message_deleted_only(wx_app):
+    """_format_reload_message includes 'removed' when n_deleted > 0 (line 646)."""
+    msg = MainWindow._format_reload_message(n_deleted=3, n_modified=0)
+    assert "removed" in msg
+    assert "3" in msg
+
+
+def test_format_reload_message_both(wx_app):
+    """_format_reload_message includes both parts when both > 0."""
+    msg = MainWindow._format_reload_message(n_deleted=1, n_modified=2)
+    assert "removed" in msg
+    assert "reprocessing" in msg
+
+
+def test_on_reset_database_calls_reset_and_clear(wx_app):
+    """_on_reset_database calls card_service.reset() and _clear_all() (lines 432-433)."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+
+    with (
+        patch.object(window._card_service, "reset") as mock_reset,
+        patch.object(window, "_clear_all") as mock_clear,
+    ):
+        window._on_reset_database()
+        mock_reset.assert_called_once()
+        mock_clear.assert_called_once()
+
+    window._frame.Destroy()
+
+
+def test_run_ai_all_exception_calls_complete_with_error(wx_app):
+    """_run_ai_all catches Exception and calls _ai_all_complete with AIError (lines 185-188)."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+    window._ai_target_cards = []
+
+    with (
+        patch("app.core.services.ai_service.AIService.run_batch", side_effect=RuntimeError("boom")),
+        patch("wx.CallAfter") as mock_call_after,
+    ):
+        window._run_ai_all()
+
+    # Should have called wx.CallAfter with _ai_all_complete and an AIError list
+    mock_call_after.assert_called_once()
+    args = mock_call_after.call_args[0]
+    assert args[0] == window._ai_all_complete
+    errors = args[1]
+    assert len(errors) == 1
+    assert "boom" in errors[0].detail
+
+    window._frame.Destroy()
+
+
+def test_run_ai_all_base_exception_reraises(wx_app):
+    """_run_ai_all catches BaseException, calls complete, then re-raises (lines 189-192)."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+    window._ai_target_cards = []
+
+    with (
+        patch("app.core.services.ai_service.AIService.run_batch", side_effect=KeyboardInterrupt),
+        patch("wx.CallAfter") as mock_call_after,
+        pytest.raises(KeyboardInterrupt),
+    ):
+        window._run_ai_all()
+
+    # Should have called wx.CallAfter with _ai_all_complete and empty error list
+    mock_call_after.assert_called_once()
+    args = mock_call_after.call_args[0]
+    assert args[0] == window._ai_all_complete
+    assert args[1] == []
+
+    window._frame.Destroy()

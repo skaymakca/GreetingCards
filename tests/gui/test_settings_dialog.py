@@ -193,3 +193,34 @@ class TestCreatePreferencesEditor:
         callback = MagicMock()
         editor = create_preferences_editor(on_db_reset=callback, **_STUB_CALLBACKS)  # type: ignore[arg-type]
         assert isinstance(editor, wx.PreferencesEditor)
+
+
+class TestSettingsEdgeCases:
+    """Tests for settings dialog edge cases."""
+
+    def test_on_model_changed_no_choice_widget(self, wx_app, wx_frame):
+        """_on_model_changed returns early when _model_choice is None (line 110)."""
+        page = _make_page()
+        panel = page.CreateWindow(wx_frame)
+        page._model_choice = None
+        # Should not crash
+        page._on_model_changed(wx.CommandEvent())
+        panel.Destroy()
+
+    def test_save_api_key_no_entry_widget(self, wx_app, wx_frame):
+        """_save_api_key returns early when _key_entry is None (line 119)."""
+        page = _make_page()
+        panel = page.CreateWindow(wx_frame)
+        page._key_entry = None
+        # Should not crash
+        page._save_api_key(wx.CommandEvent())
+        panel.Destroy()
+
+    def test_reset_card_data_ai_running_blocks(self, wx_app, wx_frame):
+        """_reset_card_data shows warning when AI is running (lines 207-212)."""
+        callback = MagicMock()
+        page = AdvancedPreferencesPage(on_db_reset=callback, is_ai_running=lambda: True)
+        with patch("app.gui.dialogs.settings.wx.MessageBox") as mock_msgbox:
+            page._reset_card_data(None)
+            mock_msgbox.assert_called_once()
+            callback.assert_not_called()

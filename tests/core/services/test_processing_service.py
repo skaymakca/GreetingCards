@@ -285,3 +285,55 @@ class TestScanForPdfs:
         (tmp_path / "c.pdf").write_bytes(b"%PDF")
         result = ProcessingService.scan_for_pdfs(tmp_path)
         assert len(result) == 2
+
+
+class TestSetStartMethodFallback:
+    """Tests for multiprocessing.set_start_method RuntimeError handling (lines 82-84)."""
+
+    def test_set_start_method_raises_other_error_propagates(self) -> None:
+        """RuntimeError without 'context has already been set' re-raises."""
+        store = CardStore()
+        service = ProcessingService(store)
+
+        import pytest
+
+        with (
+            patch(
+                "multiprocessing.set_start_method",
+                side_effect=RuntimeError("some other error"),
+            ),
+            pytest.raises(RuntimeError, match="some other error"),
+        ):
+            service.process_files([Path("/tmp/card.pdf")])
+
+    def test_set_start_method_context_already_set_continues(self) -> None:
+        """RuntimeError with 'context has already been set' is silently caught."""
+        store = CardStore()
+        service = ProcessingService(store)
+
+        mock_future = MagicMock()
+        mock_future.result.side_effect = RuntimeError("Worker crashed")
+
+        with (
+            patch(
+                "multiprocessing.set_start_method",
+                side_effect=RuntimeError("context has already been set to 'spawn'"),
+            ),
+            patch("app.core.services.processing_service.ProcessPoolExecutor") as mock_pool_cls,
+            patch("app.core.services.processing_service.as_completed", return_value=iter([mock_future])),
+        ):
+            mock_executor = MagicMock()
+            mock_pool_cls.return_value.__enter__ = MagicMock(return_value=mock_executor)
+            mock_pool_cls.return_value.__exit__ = MagicMock(return_value=False)
+            mock_executor.submit.return_value = mock_future
+
+            progress_calls: list[tuple[int, int, str]] = []
+
+            def on_progress(c: int, t: int, f: str) -> None:
+                progress_calls.append((c, t, f))
+
+            service.process_files([Path("/tmp/bad.pdf")], on_progress=on_progress)
+
+        # Worker exception caught, progress reported
+        assert len(progress_calls) == 1
+        assert progress_calls[0] == (1, 1, "bad.pdf")

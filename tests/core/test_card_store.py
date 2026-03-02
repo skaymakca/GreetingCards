@@ -862,3 +862,28 @@ class TestDeriveFolders:
         store.add_or_update(wr2, Path("/tmp/cards/card2.pdf"))
         folders = store.derive_folders()
         assert folders == [Path("/tmp/cards")]
+
+
+class TestComputeReloadDiffMtimeOSError:
+    """Tests for compute_reload_diff mtime OSError path (lines 234-235)."""
+
+    def test_mtime_stat_oserror_skips_path(self, tmp_path: Path) -> None:
+        """OSError on stat() during mtime check skips path without crash."""
+        from unittest.mock import patch
+
+        store = CardStore()
+        pdf = tmp_path / "card.pdf"
+        pdf.write_bytes(b"%PDF-1.4 test content")
+
+        wr = _make_worker_result(pdf_path=str(pdf), file_hash="hash1")
+        store.add_or_update(wr, pdf)
+
+        # Mock stat to raise OSError (e.g. permission denied)
+        with (
+            patch.object(Path, "stat", side_effect=OSError("Permission denied")),
+            patch.object(Path, "exists", return_value=True),
+        ):
+            deleted, modified = store.compute_reload_diff(mtime_only=True)
+
+        assert deleted == []
+        assert modified == []
