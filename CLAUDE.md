@@ -187,11 +187,11 @@ When editing files in these areas, **read the corresponding doc first**, then **
 |---------------------------------------------------------------------------------|-----------------------------------------------------------------------|
 | `app/gui/main_window.py` (filters, `_refresh_display`)                          | `docs/architecture/filter-pipeline.md`                                |
 | `app/gui/main_window_mixins/*.py`                                               | `docs/architecture/main-window-mixins.md`                             |
-| `app/core/apple_events.py`                                                      | `docs/architecture/apple-events.md`                                   |
+| `app/core/apple_events.py`, `app/core/scripting_protocol.py`                    | `docs/architecture/apple-events.md`                                   |
 | `app/gui/main_window_mixins/apple_events_mixin.py`                              | `docs/architecture/apple-events.md`                                   |
 | `app/gui/components/filter_sidebar.py`                                          | `docs/architecture/filter-pipeline.md`                                |
 | `app/gui/main_window.py` (card loading, state, dedup)                           | `docs/architecture/card-data-model.md`                                |
-| `app/core/card_store.py`, `app/core/card_service.py`                            | `docs/architecture/card-data-model.md`                                |
+| `app/core/card_store.py`, `app/core/card_service.py`, `app/core/ai_service.py`  | `docs/architecture/card-data-model.md`                                |
 | `app/models/card.py`                                                            | `docs/architecture/card-data-model.md`                                |
 | `app/gui/components/review_panel.py`                                            | `docs/architecture/review-panel.md`                                   |
 | `app/gui/main_window.py` (processing, AI, threads)                              | `docs/architecture/async-processing.md`                               |

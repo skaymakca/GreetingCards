@@ -158,3 +158,32 @@ class TestProcessFiles:
             service.process_files([Path("/tmp/card.pdf")])
 
         assert store.count == 1
+
+
+class TestScanForPdfs:
+    """Tests for ProcessingService.scan_for_pdfs()."""
+
+    def test_scan_pdf_file(self, tmp_path: Path) -> None:
+        """Single PDF file should be returned."""
+        pdf = tmp_path / "card.pdf"
+        pdf.write_bytes(b"%PDF-1.4 test")
+        result = ProcessingService.scan_for_pdfs(pdf)
+        assert len(result) == 1
+        assert result[0].name == "card.pdf"
+
+    def test_scan_non_pdf_file(self, tmp_path: Path) -> None:
+        """Non-PDF file should be skipped."""
+        txt = tmp_path / "readme.txt"
+        txt.write_text("hello")
+        result = ProcessingService.scan_for_pdfs(txt)
+        assert result == []
+
+    def test_scan_directory(self, tmp_path: Path) -> None:
+        """Directory should be scanned recursively."""
+        sub = tmp_path / "sub"
+        sub.mkdir()
+        (sub / "a.pdf").write_bytes(b"%PDF")
+        (sub / "b.txt").write_text("hi")
+        (tmp_path / "c.pdf").write_bytes(b"%PDF")
+        result = ProcessingService.scan_for_pdfs(tmp_path)
+        assert len(result) == 2

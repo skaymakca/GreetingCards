@@ -7,15 +7,7 @@ import wx.dataview as dv
 
 from app.core.rename_service import RenameService
 from app.gui import styles
-from app.models.card import (
-    STATUS_DUPLICATE,
-    STATUS_OK,
-    STATUS_SKIP_ERROR,
-    STATUS_SKIP_NO_NAME,
-    STATUS_SKIP_SAME,
-    RenamePlanItem,
-    RenameResult,
-)
+from app.models.card import RenamePlanItem, RenameResult
 
 # Dialog layout constants
 _DIALOG_PADDING = 20  # Outer margin for dialog content
@@ -210,15 +202,13 @@ class RenameConfirmDialog(wx.Dialog):
 
         sizer.AddSpacer(_SECTION_GAP)
 
-        # Status → (label, color) mapping
-        _STATUS_STYLE: dict[str, tuple[str, wx.Colour]] = {
-            STATUS_OK: ("OK", styles.Color.SUCCESS),
-            STATUS_DUPLICATE: ("DUP", styles.Color.TEXT_PRIMARY),
-            STATUS_SKIP_NO_NAME: ("SKIP", styles.Color.TEXT_SECONDARY),
-            STATUS_SKIP_SAME: ("SAME", styles.Color.TEXT_SECONDARY),
-            STATUS_SKIP_ERROR: ("ERROR", styles.Color.ERROR),
+        # Category → color mapping (GUI concern)
+        _CATEGORY_COLOR: dict[str, wx.Colour] = {
+            "ok": styles.Color.SUCCESS,
+            "duplicate": styles.Color.TEXT_PRIMARY,
+            "skip": styles.Color.TEXT_SECONDARY,
+            "error": styles.Color.ERROR,
         }
-        _SKIP_STATUSES = {STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR}
 
         # Show full paths only when multiple directories
         multi_dir = counts["directory_count"] > 1
@@ -230,10 +220,11 @@ class RenameConfirmDialog(wx.Dialog):
             old_display = display_path(item.old_path) if multi_dir else item.old_path.name
             new_display = (
                 "-"
-                if item.status in _SKIP_STATUSES
+                if RenameService.is_skip_status(item)
                 else (display_path(item.new_path) if multi_dir else item.new_path.name)
             )
-            label, color = _STATUS_STYLE.get(item.status, (item.status, styles.Color.TEXT_PRIMARY))
+            label, category = RenameService.get_plan_item_display(item)
+            color = _CATEGORY_COLOR.get(category, styles.Color.TEXT_PRIMARY)
             data.append([old_display, new_display, label])
             colors.append(color)
 
@@ -411,7 +402,7 @@ class CompletionDialog(wx.Dialog):
         sizer.AddSpacer(_SECTION_GAP)
 
         # Filter to only renamed and error rows (skip rows already shown in confirm dialog)
-        visible = [r for r in results if not r.success or r.message == "Renamed"]
+        visible = RenameService.filter_visible_results(results)
 
         # Show full paths only when multiple directories
         multi_dir = counts["directory_count"] > 1

@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import threading
 
 import wx
 
+from app.core.ai_service import AIService
 from app.core.card_service import CardService
 from app.core.config import get_api_key
-from app.core.pipeline.ai_batch import run_ai_batch_async
 from app.gui.dialogs import ErrorListDialog
 from app.gui.dialogs.api_key import show_api_key_dialog
 from app.gui.main_window_mixins._protocol import MainWindowProtocol
@@ -168,12 +167,10 @@ class AIMixin:
     def _run_ai_all(self: MainWindowProtocol) -> None:
         """Run async AI batch processing in background thread."""
         try:
-            asyncio.run(
-                run_ai_batch_async(
-                    self._ai_target_cards,
-                    on_progress=lambda c, t, f, i, card: wx.CallAfter(self._update_ai_all_progress, c, t, f, i, card),
-                    on_complete=lambda errors, aborted: wx.CallAfter(self._ai_all_complete, errors, aborted),
-                )
+            AIService.run_batch(
+                self._ai_target_cards,
+                on_progress=lambda c, t, f, i, card: wx.CallAfter(self._update_ai_all_progress, c, t, f, i, card),
+                on_complete=lambda errors, aborted: wx.CallAfter(self._ai_all_complete, errors, aborted),
             )
         except Exception as e:
             error_msg = str(e)

@@ -236,6 +236,7 @@ class DetailPanel(wx.Panel):
         on_candidate_select: Callable[[int, int], None] | None,
         on_ai_request: Callable[[int], None] | None,
         on_remove: Callable[[str], None] | None = None,
+        invalid_chars: frozenset[str] = frozenset(),
     ):
         super().__init__(parent)
         self._on_name_change = on_name_change
@@ -243,6 +244,7 @@ class DetailPanel(wx.Panel):
         self._on_candidate_select = on_candidate_select
         self._on_ai_request = on_ai_request
         self._on_remove = on_remove
+        self._invalid_chars = invalid_chars
         self._current_card: CardResult | None = None
         self._suppress_events = False
         self._candidate_map: dict[str, int] = {}
@@ -493,10 +495,8 @@ class DetailPanel(wx.Panel):
 
     def _on_name_char(self, event: wx.KeyEvent) -> None:
         """Block filesystem-invalid characters from being typed."""
-        from app.core.naming.filename_safety import INVALID_FILENAME_CHARS
-
         key = event.GetUnicodeKey()
-        if key != wx.WXK_NONE and chr(key) in INVALID_FILENAME_CHARS:
+        if key != wx.WXK_NONE and chr(key) in self._invalid_chars:
             return  # Swallow the keystroke
         event.Skip()
 
@@ -570,6 +570,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         on_ai_analyze: Callable[[list[CardResult]], None] | None = None,
         on_checkbox_toggle: Callable[[int, bool], None] | None = None,
         on_candidate_select: Callable[[int, int], None] | None = None,
+        invalid_chars: frozenset[str] = frozenset(),
     ):
         super().__init__(parent)
         self._on_select = on_select
@@ -580,6 +581,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         self._on_ai_analyze = on_ai_analyze
         self._on_checkbox_toggle = on_checkbox_toggle
         self._on_candidate_select = on_candidate_select
+        self._invalid_chars = invalid_chars
         self._selected_card_ids: list[int] = []
         self._cards_by_id: dict[int, CardResult] = {}
         self._drag_highlight = False
@@ -639,6 +641,7 @@ class ReviewPanelMasterDetail(wx.Panel):
             on_candidate_select=self._handle_candidate,
             on_ai_request=self._on_ai_request,
             on_remove=self._on_remove,
+            invalid_chars=self._invalid_chars,
         )
 
         # Split horizontally (master on top, detail on bottom)

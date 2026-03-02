@@ -232,7 +232,7 @@ class TestLoadPathsForScript:
         fake_pdfs = [Path("/tmp/a.pdf"), Path("/tmp/b.pdf")]
 
         with (
-            patch("app.gui.main_window.scan_for_pdfs", return_value=fake_pdfs),
+            patch("app.core.processing_service.scan_for_pdfs", return_value=fake_pdfs),
             patch.object(window, "_start_processing") as mock_proc,
         ):
             result = window.load_paths_for_script(["/tmp/cards"])
@@ -247,7 +247,7 @@ class TestLoadPathsForScript:
 
         with (
             patch(
-                "app.gui.main_window.scan_for_pdfs",
+                "app.core.processing_service.scan_for_pdfs",
                 return_value=[existing, Path("/tmp/b.pdf")],
             ),
             patch.object(window, "_start_processing"),
@@ -257,7 +257,7 @@ class TestLoadPathsForScript:
         assert result["count"] == 1
 
     def test_nonexistent_returns_zero(self, window):
-        with patch("app.gui.main_window.scan_for_pdfs", return_value=[]):
+        with patch("app.core.processing_service.scan_for_pdfs", return_value=[]):
             result = window.load_paths_for_script(["/nonexistent"])
         assert result["success"] is True
         assert result["count"] == 0

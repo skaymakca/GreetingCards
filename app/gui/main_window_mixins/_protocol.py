@@ -47,6 +47,7 @@ class MainWindowProtocol(Protocol):
 
     # --- Orchestration state ---
     _processing_files: list[Path]
+    _is_processing_busy: bool
 
     # --- Filter state ---
     _current_category_filters: list[str]

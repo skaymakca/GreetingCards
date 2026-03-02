@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 import wx
 
+from app.core.filter_service import count_by_category, count_by_folder
 from app.gui.components.filter_sidebar import FilterSidebar
 from app.models.card import CardResult, Confidence
 
@@ -158,7 +159,7 @@ def test_update_category_counts(wx_app):
     cards[2].confidence = Confidence.MEDIUM
 
     # Update counts
-    sidebar.update_category_counts(cards)
+    sidebar.update_category_counts(count_by_category(cards))
 
     # Verify labels include counts
     assert sidebar._category_checkboxes[0].GetLabel() == "All Cards (3)"
@@ -181,7 +182,7 @@ def test_zero_count_filter_disabled(wx_app):
     ]
     cards[0].confidence = Confidence.HIGH
 
-    sidebar.update_category_counts(cards)
+    sidebar.update_category_counts(count_by_category(cards))
 
     # "errors" (index 4) should be disabled
     assert "errors" in sidebar._category_disabled_keys
@@ -207,7 +208,7 @@ def test_selected_filter_reset_on_zero(wx_app):
     ]
     cards[0].confidence = Confidence.NONE  # counts as error
 
-    sidebar.update_category_counts(cards)
+    sidebar.update_category_counts(count_by_category(cards))
 
     # Select "errors" filter
     sidebar.set_category_filters(["errors"])
@@ -219,7 +220,7 @@ def test_selected_filter_reset_on_zero(wx_app):
     ]
     cards_no_errors[0].confidence = Confidence.HIGH
 
-    sidebar.update_category_counts(cards_no_errors)
+    sidebar.update_category_counts(count_by_category(cards_no_errors))
 
     # Should have fallen back to "all"
     assert sidebar.get_selected_category_filters() == ["all"]
@@ -535,7 +536,7 @@ def test_folder_counts_update(wx_app):
     for c in cards:
         c.confidence = Confidence.HIGH
 
-    sidebar.update_folder_counts(cards)
+    sidebar.update_folder_counts(count_by_folder(cards, sidebar.folder_filter_keys))
 
     assert sidebar._folder_checkboxes[0].GetLabel() == "All Folders (3)"
     assert sidebar._folder_checkboxes[1].GetLabel() == "folder1 (2)"
@@ -559,7 +560,7 @@ def test_zero_count_folder_disabled(wx_app):
     ]
     cards[0].confidence = Confidence.HIGH
 
-    sidebar.update_folder_counts(cards)
+    sidebar.update_folder_counts(count_by_folder(cards, sidebar.folder_filter_keys))
 
     assert sidebar._folder_checkboxes[1].IsEnabled() is True  # folder1 has cards
     assert sidebar._folder_checkboxes[2].IsEnabled() is False  # folder2 has 0 cards
@@ -591,7 +592,7 @@ def test_folder_selection_reset_on_zero(wx_app):
     ]
     cards[0].confidence = Confidence.HIGH
 
-    sidebar.update_folder_counts(cards)
+    sidebar.update_folder_counts(count_by_folder(cards, sidebar.folder_filter_keys))
 
     # Should have fallen back to "All Folders"
     assert sidebar._selected_folder_filters == ["all_folders"]
@@ -664,7 +665,7 @@ def test_update_category_counts_does_not_fire_callback_on_fallback(wx_app):
     ]
     cards_with_errors[0].confidence = Confidence.NONE
 
-    sidebar.update_category_counts(cards_with_errors)
+    sidebar.update_category_counts(count_by_category(cards_with_errors))
 
     # Select "errors" filter
     sidebar.set_category_filters(["errors"])
@@ -676,7 +677,7 @@ def test_update_category_counts_does_not_fire_callback_on_fallback(wx_app):
     ]
     cards_no_errors[0].confidence = Confidence.HIGH
 
-    sidebar.update_category_counts(cards_no_errors)
+    sidebar.update_category_counts(count_by_category(cards_no_errors))
 
     # Internal state should have reset to "all"
     assert sidebar.get_selected_category_filters() == ["all"]
@@ -712,7 +713,7 @@ def test_update_folder_counts_does_not_fire_callback_on_fallback(wx_app):
     ]
     cards[0].confidence = Confidence.HIGH
 
-    sidebar.update_folder_counts(cards)
+    sidebar.update_folder_counts(count_by_folder(cards, sidebar.folder_filter_keys))
 
     # Internal state should have reset to "all_folders"
     assert sidebar._selected_folder_filters == ["all_folders"]
@@ -826,7 +827,7 @@ def test_apply_count_fallback_partial_disable(wx_app):
     cards[0].confidence = Confidence.HIGH
     cards[1].confidence = Confidence.NONE  # counts as error
 
-    sidebar.update_category_counts(cards)
+    sidebar.update_category_counts(count_by_category(cards))
 
     # Select both "high" and "errors"
     sidebar.set_category_filters(["high", "errors"])
@@ -837,7 +838,7 @@ def test_apply_count_fallback_partial_disable(wx_app):
     ]
     cards_no_errors[0].confidence = Confidence.HIGH
 
-    sidebar.update_category_counts(cards_no_errors)
+    sidebar.update_category_counts(count_by_category(cards_no_errors))
 
     # "errors" was disabled but "high" remains — should keep just "high"
     assert sidebar.get_selected_category_filters() == ["high"]
@@ -857,7 +858,7 @@ def test_category_check_default_option_held_none(wx_app):
     # Enable "high" checkbox with cards
     cards = [CardResult(id=0, file_paths=[Path("/a.pdf")], primary_path=Path("/a.pdf"))]
     cards[0].confidence = Confidence.HIGH
-    sidebar.update_category_counts(cards)
+    sidebar.update_category_counts(count_by_category(cards))
 
     # Call without option_held — it reads from wx.GetKeyState
     sidebar._category_checkboxes[2].SetValue(True)

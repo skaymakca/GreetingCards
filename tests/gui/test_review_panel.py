@@ -788,7 +788,7 @@ class TestNameCharFiltering:
         """_on_name_char blocks every filesystem-invalid character."""
         from app.core.naming.filename_safety import INVALID_FILENAME_CHARS
 
-        detail = DetailPanel(parent_frame, None, None, None, None)
+        detail = DetailPanel(parent_frame, None, None, None, None, invalid_chars=INVALID_FILENAME_CHARS)
         for char in INVALID_FILENAME_CHARS:
             event = Mock(spec=wx.KeyEvent)
             event.GetUnicodeKey.return_value = ord(char)
@@ -1430,7 +1430,7 @@ class TestContextMenu:
         # Open is after AI Analyze + separator
         open_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Open"][0]
 
-        with patch("app.gui.components.review_panel.subprocess.Popen") as mock_popen:
+        with patch("app.core.platform.subprocess.Popen") as mock_popen:
             event = wx.CommandEvent(wx.wxEVT_MENU, open_item.GetId())
             menu.ProcessEvent(event)
 
@@ -1449,7 +1449,7 @@ class TestContextMenu:
         menu = panel._build_context_menu([card])
         reveal_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Reveal in Finder"][0]
 
-        with patch("app.gui.components.review_panel.subprocess.Popen") as mock_popen:
+        with patch("app.core.platform.subprocess.Popen") as mock_popen:
             event = wx.CommandEvent(wx.wxEVT_MENU, reveal_item.GetId())
             menu.ProcessEvent(event)
 
@@ -1468,7 +1468,7 @@ class TestContextMenu:
         menu = panel._build_context_menu([mock_cards[0], mock_cards[1]])
         open_item = [it for it in menu.GetMenuItems() if "Open" in it.GetItemLabelText()][0]
 
-        with patch("app.gui.components.review_panel.subprocess.Popen") as mock_popen:
+        with patch("app.core.platform.subprocess.Popen") as mock_popen:
             event = wx.CommandEvent(wx.wxEVT_MENU, open_item.GetId())
             menu.ProcessEvent(event)
 
@@ -2690,7 +2690,7 @@ class TestFileOpenReveal:
         menu = panel._build_context_menu([card])
         open_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Open"][0]
 
-        with patch("app.gui.components.review_panel.subprocess.Popen") as mock_popen:
+        with patch("app.core.platform.subprocess.Popen") as mock_popen:
             event = wx.CommandEvent(wx.wxEVT_MENU, open_item.GetId())
             menu.ProcessEvent(event)
 
@@ -2707,7 +2707,7 @@ class TestFileOpenReveal:
         menu = panel._build_context_menu([card])
         reveal_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Reveal in Finder"][0]
 
-        with patch("app.gui.components.review_panel.subprocess.Popen") as mock_popen:
+        with patch("app.core.platform.subprocess.Popen") as mock_popen:
             event = wx.CommandEvent(wx.wxEVT_MENU, reveal_item.GetId())
             menu.ProcessEvent(event)
 
@@ -2725,8 +2725,8 @@ class TestFileOpenReveal:
         open_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Open"][0]
 
         with (
-            patch("app.gui.components.review_panel.subprocess.Popen", side_effect=OSError("fail")),
-            patch("app.gui.components.review_panel.logger") as mock_logger,
+            patch("app.core.platform.subprocess.Popen", side_effect=OSError("fail")),
+            patch("app.core.platform.logger") as mock_logger,
         ):
             event = wx.CommandEvent(wx.wxEVT_MENU, open_item.GetId())
             menu.ProcessEvent(event)
@@ -2744,8 +2744,8 @@ class TestFileOpenReveal:
         reveal_item = [it for it in menu.GetMenuItems() if it.GetItemLabelText() == "Reveal in Finder"][0]
 
         with (
-            patch("app.gui.components.review_panel.subprocess.Popen", side_effect=OSError("fail")),
-            patch("app.gui.components.review_panel.logger") as mock_logger,
+            patch("app.core.platform.subprocess.Popen", side_effect=OSError("fail")),
+            patch("app.core.platform.logger") as mock_logger,
         ):
             event = wx.CommandEvent(wx.wxEVT_MENU, reveal_item.GetId())
             menu.ProcessEvent(event)

@@ -14,17 +14,14 @@ import logging
 import struct
 import threading
 from collections.abc import Callable
-from typing import TYPE_CHECKING
 
 import objc
 from AppKit import NSAppleEventManager
 from Foundation import NSAppleEventDescriptor
 
 from app.core.config import AI_MODELS
+from app.core.scripting_protocol import ScriptingTarget
 from app.models.card import CardResult
-
-if TYPE_CHECKING:
-    from app.gui.main_window import MainWindow
 
 logger = logging.getLogger(__name__)
 
@@ -186,7 +183,7 @@ def _ai_models_to_json() -> str:
     return json.dumps(models)
 
 
-def _status_to_json(window: MainWindow) -> str:
+def _status_to_json(window: ScriptingTarget) -> str:
     """Serialize current application status to JSON."""
     status = window.get_status_for_script()
     return json.dumps(status)
@@ -232,9 +229,9 @@ def _call_on_main_thread(func):
 class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
     """Handles all 15 Greeting Cards Apple Event commands."""
 
-    _window: MainWindow | None
+    _window: ScriptingTarget | None
 
-    def initWithWindow_(self, window: MainWindow):
+    def initWithWindow_(self, window: ScriptingTarget):
         self = objc.super(AppleEventHandler, self).init()
         if self is None:
             return None
@@ -478,7 +475,7 @@ _HANDLER_MAP: dict[str, str] = {
 
 
 def register_apple_event_handlers(
-    window: MainWindow,
+    window: ScriptingTarget,
     *,
     main_thread_dispatch: Callable | None = None,
 ) -> AppleEventHandler:

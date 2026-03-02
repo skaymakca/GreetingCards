@@ -2386,12 +2386,12 @@ def test_on_frame_activate_respects_cooldown(wx_app, tmp_path):
 
 
 def test_on_frame_activate_skips_during_processing(wx_app):
-    """EVT_ACTIVATE skips reload when processing is in progress (reload tool disabled)."""
+    """EVT_ACTIVATE skips reload when processing is in progress (_is_processing_busy)."""
     from unittest.mock import Mock, patch
 
     window = MainWindow()
     window._card_store._hash_by_path = {Path("/test.pdf"): "hash1"}
-    window._toolbar.EnableTool(window._reload_id, False)  # Processing in progress
+    window._is_processing_busy = True  # Processing in progress
     window._last_reload_time = 0.0
 
     event = Mock(spec=wx.ActivateEvent)
@@ -3574,8 +3574,12 @@ def test_on_ai_request_guards_card_error(wx_app):
     window._card_store._cards_by_hash = {"hash1": card}
     window._card_store._id_to_card = {0: card}
 
-    with patch.object(window, "_start_ai_all") as mock_start:
+    with (
+        patch("app.gui.main_window_mixins.ai_mixin.wx.MessageBox") as mock_msg_box,
+        patch.object(window, "_start_ai_all") as mock_start,
+    ):
         window._on_ai_request(0)
+        mock_msg_box.assert_called_once()
         mock_start.assert_not_called()
 
     window._frame.Destroy()
@@ -3757,7 +3761,7 @@ def test_on_rename_execute_plan_update_paths(wx_app):
     results = [RenameResult(old_path, new_path, True, "Renamed", card=card)]
 
     with (
-        patch("app.gui.main_window.build_rename_plan", return_value=[MagicMock()]),
+        patch("app.core.rename_service.build_rename_plan", return_value=[MagicMock()]),
         patch("app.gui.main_window.RenameConfirmDialog") as mock_confirm_cls,
         patch("app.core.rename_service.execute_rename_plan", return_value=results),
         patch("app.gui.main_window.CompletionDialog") as mock_completion_cls,

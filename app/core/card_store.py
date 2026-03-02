@@ -79,6 +79,10 @@ class CardStore:
         """True if any paths are loaded (used for reload checks)."""
         return bool(self._hash_by_path)
 
+    def derive_folders(self) -> list[Path]:
+        """Derive sorted unique source folders from all loaded cards."""
+        return sorted({p.parent for card in self._cards_by_hash.values() for p in card.file_paths})
+
     # ── Mutations (thread-safe via internal lock) ──
 
     def add_or_update(self, worker_result: PdfWorkerResult, pdf_path: Path) -> tuple[CardResult, bool]:

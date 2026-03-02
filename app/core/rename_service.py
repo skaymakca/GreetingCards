@@ -9,8 +9,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.core.card_store import CardStore
+from app.core.naming.filename_safety import INVALID_FILENAME_CHARS as _INVALID_FILENAME_CHARS
 from app.core.naming.rename_filter import RESOLVED_MESSAGES, filter_completed_renames
-from app.core.naming.renamer import build_rename_plan, execute_rename_plan
+from app.core.naming.renamer import build_rename_plan, execute_rename_plan, validate_year
 from app.models.card import (
     STATUS_DUPLICATE,
     STATUS_OK,
@@ -26,8 +27,19 @@ from app.models.card import (
 class RenameService:
     """Execute rename plans and keep CardStore path mappings in sync."""
 
+    INVALID_FILENAME_CHARS: frozenset[str] = _INVALID_FILENAME_CHARS
+
     def __init__(self, store: CardStore) -> None:
         self._store = store
+
+    @staticmethod
+    def validate_year(year_str: str) -> bool:
+        """Return True if year_str is a valid 4-digit year.
+
+        Wraps ``validate_year()`` so GUI callers don't import core
+        naming internals directly.
+        """
+        return validate_year(year_str)
 
     @staticmethod
     def build_plan(cards: list[CardResult], year: str) -> list[RenamePlanItem]:
@@ -137,3 +149,33 @@ class RenameService:
         core naming internals directly.
         """
         return filter_completed_renames(results)
+
+    @staticmethod
+    def filter_visible_results(results: list[RenameResult]) -> list[RenameResult]:
+        """Filter results to show only renamed and failed items.
+
+        Used by the completion dialog to hide skip/same rows that were
+        already shown in the confirmation dialog.
+        """
+        return [r for r in results if not r.success or r.message == "Renamed"]
+
+    @staticmethod
+    def get_plan_item_display(item: RenamePlanItem) -> tuple[str, str]:
+        """Return (short_label, category) for a rename plan item.
+
+        Categories: ``'ok'``, ``'duplicate'``, ``'skip'``, ``'error'``.
+        Labels: ``'OK'``, ``'DUP'``, ``'SKIP'``, ``'SAME'``, ``'ERROR'``.
+        """
+        _DISPLAY: dict[str, tuple[str, str]] = {
+            STATUS_OK: ("OK", "ok"),
+            STATUS_DUPLICATE: ("DUP", "duplicate"),
+            STATUS_SKIP_NO_NAME: ("SKIP", "skip"),
+            STATUS_SKIP_SAME: ("SAME", "skip"),
+            STATUS_SKIP_ERROR: ("ERROR", "error"),
+        }
+        return _DISPLAY.get(item.status, (item.status, "error"))
+
+    @staticmethod
+    def is_skip_status(item: RenamePlanItem) -> bool:
+        """True if this item should show '-' instead of a new path."""
+        return item.status in {STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR}

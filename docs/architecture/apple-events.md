@@ -55,6 +55,8 @@ wx.CallAfter(register_quit_handler, _ae_handler)
 
 **`main_thread_dispatch` parameter:** The core layer (`app/core/apple_events.py`) must not import `wx`. Instead, the GUI layer injects its main-thread dispatcher (e.g. `wx.CallAfter`) via this keyword argument. The callable is stored module-wide and used by `_call_on_main_thread()` as a safety net for non-main-thread dispatch. Tests can pass `None` (the default) or a synchronous callable.
 
+**`ScriptingTarget` protocol:** `AppleEventHandler` types its `_window` attribute as `ScriptingTarget` (`app/core/scripting_protocol.py`), a `typing.Protocol` listing the 2 properties + 14 methods the handler calls. This keeps `apple_events.py` in the core layer with zero GUI imports — no `TYPE_CHECKING` guard needed.
+
 **Why keep `_ae_handler` in scope?** Python's GC would collect the `NSObject` subclass instance if nothing holds a reference. The `_ae_handler` local in `main()` keeps it alive for the process lifetime.
 
 ---

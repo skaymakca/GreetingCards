@@ -2,7 +2,7 @@
 
 CardResult lifecycle, content-based deduplication, and state management.
 
-**Key files:** `app/models/card.py`, `app/core/card_store.py` (in-memory state), `app/core/card_service.py` (mutations + DB persistence), `app/core/rename_service.py` (rename orchestration), `app/core/processing_service.py` (PDF processing orchestration), `app/core/database.py` (DB models)
+**Key files:** `app/models/card.py`, `app/core/card_store.py` (in-memory state), `app/core/card_service.py` (mutations + DB persistence), `app/core/rename_service.py` (rename orchestration), `app/core/processing_service.py` (PDF processing orchestration), `app/core/ai_service.py` (AI batch orchestration), `app/core/database.py` (DB models)
 
 ## Core Data Structures
 
@@ -99,6 +99,8 @@ CardStore
 
 **Queries** (main thread, no lock needed): `get_by_id()`, `get_by_hash()`, `get_all_cards()`, `find_by_filename()`, `has_path()`, `count`, `is_empty`
 
+**Derived queries:** `derive_folders()` — returns a sorted list of unique parent directories across all loaded cards. Used by the controller to populate the folder sidebar without exposing internal card data to the GUI layer.
+
 **Mutations** (thread-safe via internal lock): `add_or_update()`, `register_new_pdfs()`, `unlink_path()`, `update_path_mapping()`, `clear()`
 
 **Composite operations** (main thread): `filter_and_register(pdf_paths)` — filters out already-loaded paths, registers new ones, returns `(new_pdfs, skipped_pdfs)`. `compute_reload_diff(mtime_only)` — iterates loaded paths, detects deletions and content modifications, returns `(deleted_paths, modified_paths)` with side effects (unlinking deleted, detaching modified).
@@ -137,7 +139,12 @@ RenameService
 ├── summarize_results(results) [static]         # Count renamed/skipped/errors/directory_count
 ├── format_plan_summary(plan) [static]          # User-facing plan summary string
 ├── format_results_summary(results) [static]    # User-facing results summary string
-└── get_completed_paths(results) [static]       # Resolved paths (wraps filter_completed_renames)
+├── get_completed_paths(results) [static]       # Resolved paths (wraps filter_completed_renames)
+├── validate_year(year_str) [static]            # Wrap validate_year() for year input validation
+├── filter_visible_results(results) [static]    # Filter results for completion dialog display
+├── get_plan_item_display(item) [static]        # (label, category) classification for plan items
+├── is_skip_status(item) [static]               # True if item should show '-' instead of new path
+├── INVALID_FILENAME_CHARS [class attr]         # Frozenset of invalid filename characters
 ```
 
 `build_plan()` wraps `build_rename_plan()` so GUI callers don't import core naming internals directly. `execute()` calls `execute_rename_plan()` then updates `CardStore.update_path_mapping()` for each resolved result. `rename_card()` temporarily sets the card's `manual_override`, builds a plan, executes it, and rolls back on total failure.
@@ -152,10 +159,22 @@ RenameService
 
 ```
 ProcessingService
-└── process_files(files, on_progress, on_complete)
-        # Runs synchronously in calling thread
+├── process_files(files, on_progress, on_complete)
+│       # Runs synchronously in calling thread
+│       # Caller is responsible for launching background thread
+│       # Calls store.add_or_update() for each result
+└── scan_for_pdfs(path) [static]    # Scan a file/directory for PDF files
+```
+
+## AIService — AI Batch Orchestration
+
+`AIService` (`app/core/ai_service.py`) wraps the async AI batch pipeline so that GUI callers don't import `core.pipeline` internals. Zero wxPython dependency — the caller wraps callbacks with `wx.CallAfter`.
+
+```
+AIService
+└── run_batch(cards, on_progress, on_complete) [static]
+        # Runs asyncio.run() synchronously in calling thread
         # Caller is responsible for launching background thread
-        # Calls store.add_or_update() for each result
 ```
 
 ## Content-Based Deduplication

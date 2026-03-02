@@ -6,7 +6,7 @@ from pathlib import Path
 
 from app.core.card_service import CardService
 from app.core.config import get_ai_model, get_api_key, save_ai_model
-from app.core.naming.renamer import validate_year
+from app.core.rename_service import RenameService
 from app.gui.main_window_mixins._protocol import MainWindowProtocol
 from app.models.card import CardResult
 
@@ -24,7 +24,7 @@ class AppleEventsMixin:
     @property
     def is_processing(self: MainWindowProtocol) -> bool:  # type: ignore[misc]
         """True if PDF processing thread is running."""
-        return bool(self._processing_files) and not self._toolbar.GetToolEnabled(self._reload_id)
+        return self._is_processing_busy
 
     @property
     def is_ai_running(self: MainWindowProtocol) -> bool:  # type: ignore[misc]
@@ -65,7 +65,7 @@ class AppleEventsMixin:
             return {"success": False, "old_path": "", "new_path": "", "error": f"Card not found: {filename}"}
 
         year_str = year or self._get_year()
-        if not validate_year(year_str):
+        if not RenameService.validate_year(year_str):
             return {"success": False, "old_path": "", "new_path": "", "error": f"Invalid year: {year_str}"}
 
         results = self._rename_service.rename_card(card, new_name, year_str)

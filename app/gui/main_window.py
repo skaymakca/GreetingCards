@@ -14,11 +14,6 @@ logger = logging.getLogger(__name__)
 from app.core.card_service import CardService
 from app.core.card_store import CardStore
 from app.core.constants import RELOAD_COOLDOWN
-from app.core.naming.renamer import validate_year
-from app.core.pipeline.card_processor import (
-    derive_folders,
-    scan_for_pdfs,
-)
 from app.core.platform import get_commit_hash
 from app.core.processing_service import ProcessingService
 from app.core.rename_service import RenameService
@@ -54,6 +49,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         self._current_folder_filters = ["all_folders"]  # Current sidebar folder filters
         self._ai_target_cards: list[CardResult] = []  # Cards for current AI batch
         self._processing_files: list[Path] = []  # Files currently being processed
+        self._is_processing_busy: bool = False  # True while PDF processing thread runs
 
         # Preferences editor (lazy-init)
         self._prefs_editor: wx.PreferencesEditor | None = None
@@ -255,6 +251,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
             on_ai_analyze=lambda cards: self._start_ai_all(cards=cards),
             on_checkbox_toggle=self._on_checkbox_toggle,
             on_candidate_select=self._on_candidate_select,
+            invalid_chars=RenameService.INVALID_FILENAME_CHARS,
         )
 
         # Preview panel
@@ -384,7 +381,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         # 1. Scan all paths for PDFs (recursive for folders)
         all_pdfs: list[Path] = []
         for path in paths:
-            all_pdfs.extend(scan_for_pdfs(path))
+            all_pdfs.extend(self._processing_service.scan_for_pdfs(path))
 
         # 2. Filter + register via CardStore
         new_pdfs, skipped_pdfs = self._card_store.filter_and_register(all_pdfs)
@@ -410,7 +407,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
         self._review_panel.load_cards([])
         self._preview_panel.clear()
-        self._sidebar.update_category_counts([])
+        self._sidebar.update_category_counts({})
         self._sidebar.update_folders([])
         self._set_empty_state(True)
 
@@ -439,7 +436,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
     def _refresh_folders(self) -> None:
         """Update sidebar folders, sync filter state, and refresh display."""
-        self._sidebar.update_folders(derive_folders(self._card_store.get_all_cards()))
+        self._sidebar.update_folders(self._card_store.derive_folders())
         self._current_folder_filters = self._sidebar.get_selected_folder_filters()
         self._refresh_display()
 
@@ -510,6 +507,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
         # Snapshot the file list for the background thread
         self._processing_files = list(files_to_process)
+        self._is_processing_busy = True
 
         # Show busy cursor
         wx.BeginBusyCursor()
@@ -549,6 +547,8 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
     def _processing_complete(self) -> None:
         """Called when processing finishes."""
+        self._is_processing_busy = False
+
         # End busy cursor
         if wx.IsBusy():
             wx.EndBusyCursor()
@@ -573,7 +573,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         cards = self._review_panel.get_cards()
         year_str = self._get_year()
 
-        if not validate_year(year_str):
+        if not RenameService.validate_year(year_str):
             wx.MessageBox("Please enter a valid 4-digit year.", "Invalid Year", wx.OK | wx.ICON_WARNING, self._frame)
             return
 
@@ -678,8 +678,8 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
             return
         if not self._card_store.has_paths:
             return
-        # Skip if processing is in progress (reload tool is disabled)
-        if not self._toolbar.GetToolEnabled(self._reload_id):
+        # Skip if processing is in progress
+        if self._is_processing_busy:
             return
         now = time.monotonic()
         if now - self._last_reload_time < RELOAD_COOLDOWN:

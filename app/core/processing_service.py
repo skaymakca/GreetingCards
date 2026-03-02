@@ -14,6 +14,7 @@ from pathlib import Path
 
 from app.core.card_store import CardStore
 from app.core.constants import OCR_WORKERS
+from app.core.pipeline.card_processor import scan_for_pdfs
 from app.core.pipeline.pdf_worker import process_pdf_worker
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,15 @@ class ProcessingService:
 
     def __init__(self, store: CardStore) -> None:
         self._store = store
+
+    @staticmethod
+    def scan_for_pdfs(path: Path) -> list[Path]:
+        """Recursively scan path for PDFs.
+
+        Wraps ``scan_for_pdfs()`` so GUI callers don't import core
+        pipeline internals directly.
+        """
+        return scan_for_pdfs(path)
 
     def process_files(
         self,

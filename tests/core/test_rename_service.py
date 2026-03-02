@@ -357,3 +357,127 @@ class TestGetCompletedPaths:
 
     def test_empty_results(self) -> None:
         assert RenameService.get_completed_paths([]) == set()
+
+
+# ── validate_year ──
+
+
+class TestValidateYear:
+    """Tests for RenameService.validate_year()."""
+
+    def test_valid_year(self) -> None:
+        assert RenameService.validate_year("2025") is True
+
+    def test_short_year(self) -> None:
+        assert RenameService.validate_year("25") is False
+
+    def test_empty_string(self) -> None:
+        assert RenameService.validate_year("") is False
+
+    def test_non_digit(self) -> None:
+        assert RenameService.validate_year("abcd") is False
+
+
+# ── INVALID_FILENAME_CHARS ──
+
+
+class TestInvalidFilenameChars:
+    """Tests for RenameService.INVALID_FILENAME_CHARS."""
+
+    def test_is_frozenset(self) -> None:
+        assert isinstance(RenameService.INVALID_FILENAME_CHARS, frozenset)
+
+    def test_contains_expected_chars(self) -> None:
+        for char in ["/", "\\", ":", "*", "?", '"', "<", ">", "|"]:
+            assert char in RenameService.INVALID_FILENAME_CHARS
+
+
+# ── filter_visible_results ──
+
+
+class TestFilterVisibleResults:
+    """Tests for RenameService.filter_visible_results()."""
+
+    def test_keeps_renamed_and_errors(self) -> None:
+        results = [
+            RenameResult(Path("/a/f1.pdf"), Path("/a/new1.pdf"), True, "Renamed"),
+            RenameResult(Path("/a/f2.pdf"), Path("/a/f2.pdf"), True, "Already named correctly"),
+            RenameResult(Path("/a/f3.pdf"), Path("/a/f3.pdf"), False, "Permission denied"),
+        ]
+        visible = RenameService.filter_visible_results(results)
+        assert len(visible) == 2
+        assert visible[0].message == "Renamed"
+        assert visible[1].message == "Permission denied"
+
+    def test_empty_results(self) -> None:
+        assert RenameService.filter_visible_results([]) == []
+
+
+# ── get_plan_item_display ──
+
+
+class TestGetPlanItemDisplay:
+    """Tests for RenameService.get_plan_item_display()."""
+
+    def test_ok_status(self) -> None:
+        item = RenamePlanItem(Path("/a/f.pdf"), Path("/a/new.pdf"), "ok")
+        label, category = RenameService.get_plan_item_display(item)
+        assert label == "OK"
+        assert category == "ok"
+
+    def test_duplicate_status(self) -> None:
+        item = RenamePlanItem(Path("/a/f.pdf"), Path("/a/f.pdf"), "duplicate")
+        label, category = RenameService.get_plan_item_display(item)
+        assert label == "DUP"
+        assert category == "duplicate"
+
+    def test_skip_no_name(self) -> None:
+        item = RenamePlanItem(Path("/a/f.pdf"), Path("/a/f.pdf"), "skip_no_name")
+        label, category = RenameService.get_plan_item_display(item)
+        assert label == "SKIP"
+        assert category == "skip"
+
+    def test_skip_same(self) -> None:
+        item = RenamePlanItem(Path("/a/f.pdf"), Path("/a/f.pdf"), "skip_same")
+        label, category = RenameService.get_plan_item_display(item)
+        assert label == "SAME"
+        assert category == "skip"
+
+    def test_skip_error(self) -> None:
+        item = RenamePlanItem(Path("/a/f.pdf"), Path("/a/f.pdf"), "skip_error")
+        label, category = RenameService.get_plan_item_display(item)
+        assert label == "ERROR"
+        assert category == "error"
+
+    def test_unknown_status_falls_back(self) -> None:
+        item = RenamePlanItem(Path("/a/f.pdf"), Path("/a/f.pdf"), "unknown_xyz")
+        label, category = RenameService.get_plan_item_display(item)
+        assert label == "unknown_xyz"
+        assert category == "error"
+
+
+# ── is_skip_status ──
+
+
+class TestIsSkipStatus:
+    """Tests for RenameService.is_skip_status()."""
+
+    def test_ok_is_not_skip(self) -> None:
+        item = RenamePlanItem(Path("/a/f.pdf"), Path("/a/new.pdf"), "ok")
+        assert RenameService.is_skip_status(item) is False
+
+    def test_skip_no_name(self) -> None:
+        item = RenamePlanItem(Path("/a/f.pdf"), Path("/a/f.pdf"), "skip_no_name")
+        assert RenameService.is_skip_status(item) is True
+
+    def test_skip_same(self) -> None:
+        item = RenamePlanItem(Path("/a/f.pdf"), Path("/a/f.pdf"), "skip_same")
+        assert RenameService.is_skip_status(item) is True
+
+    def test_skip_error(self) -> None:
+        item = RenamePlanItem(Path("/a/f.pdf"), Path("/a/f.pdf"), "skip_error")
+        assert RenameService.is_skip_status(item) is True
+
+    def test_duplicate_is_not_skip(self) -> None:
+        item = RenamePlanItem(Path("/a/f.pdf"), Path("/a/f.pdf"), "duplicate")
+        assert RenameService.is_skip_status(item) is False

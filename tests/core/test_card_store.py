@@ -829,3 +829,36 @@ class TestComputeReloadDiff:
 
         assert deleted == []
         assert modified == []
+
+
+class TestDeriveFolders:
+    """Tests for CardStore.derive_folders()."""
+
+    def test_empty_store(self) -> None:
+        store = CardStore()
+        assert store.derive_folders() == []
+
+    def test_single_folder(self) -> None:
+        store = CardStore()
+        wr = _make_worker_result(pdf_path="/tmp/cards/card.pdf", file_hash="hash1")
+        store.add_or_update(wr, Path("/tmp/cards/card.pdf"))
+        folders = store.derive_folders()
+        assert folders == [Path("/tmp/cards")]
+
+    def test_multiple_folders_sorted(self) -> None:
+        store = CardStore()
+        wr1 = _make_worker_result(pdf_path="/tmp/b/card1.pdf", file_hash="hash1")
+        wr2 = _make_worker_result(pdf_path="/tmp/a/card2.pdf", file_hash="hash2")
+        store.add_or_update(wr1, Path("/tmp/b/card1.pdf"))
+        store.add_or_update(wr2, Path("/tmp/a/card2.pdf"))
+        folders = store.derive_folders()
+        assert folders == [Path("/tmp/a"), Path("/tmp/b")]
+
+    def test_duplicate_paths_same_folder(self) -> None:
+        store = CardStore()
+        wr1 = _make_worker_result(pdf_path="/tmp/cards/card1.pdf", file_hash="hash1")
+        wr2 = _make_worker_result(pdf_path="/tmp/cards/card2.pdf", file_hash="hash2")
+        store.add_or_update(wr1, Path("/tmp/cards/card1.pdf"))
+        store.add_or_update(wr2, Path("/tmp/cards/card2.pdf"))
+        folders = store.derive_folders()
+        assert folders == [Path("/tmp/cards")]

@@ -566,6 +566,7 @@ class VisualTestFrame(wx.Frame):
     # -- Panel launchers (in standalone frames) --
 
     def _open_filter_sidebar(self, _evt: wx.CommandEvent) -> None:
+        from app.core.filter_service import count_by_category
         from app.gui.components.filter_sidebar import FilterSidebar
 
         frame = wx.Frame(self, title="Filter Sidebar", size=wx.Size(250, 500))
@@ -576,7 +577,7 @@ class VisualTestFrame(wx.Frame):
         )
         # Populate with mock filter data
         sidebar.update_folders([Path("/tmp/mock/cards"), Path("/tmp/mock/archive")])
-        sidebar.update_category_counts(self._cards)
+        sidebar.update_category_counts(count_by_category(self._cards))
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(sidebar, 1, wx.EXPAND)
         frame.SetSizer(sizer)

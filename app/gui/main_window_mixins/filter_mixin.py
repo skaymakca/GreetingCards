@@ -60,8 +60,10 @@ class FilterMixin:
         # First pass: compute cross-filtered counts
         folder_filtered = self._apply_folder_filters(search_cards)
         category_filtered = self._apply_category_filters(search_cards)
-        self._sidebar.update_category_counts(folder_filtered)
-        self._sidebar.update_folder_counts(category_filtered)
+        self._sidebar.update_category_counts(filter_service.count_by_category(folder_filtered))
+        self._sidebar.update_folder_counts(
+            filter_service.count_by_folder(category_filtered, self._sidebar.folder_filter_keys)
+        )
 
         # Sync filter state back (sidebar may have auto-reset empty categories/folders)
         self._current_category_filters = self._sidebar.get_selected_category_filters()
@@ -81,8 +83,10 @@ class FilterMixin:
             folder_filtered = self._apply_folder_filters(search_cards)
             display_cards = self._apply_category_filters(folder_filtered)
             # Update counts to reflect reset state
-            self._sidebar.update_category_counts(folder_filtered)
-            self._sidebar.update_folder_counts(display_cards)
+            self._sidebar.update_category_counts(filter_service.count_by_category(folder_filtered))
+            self._sidebar.update_folder_counts(
+                filter_service.count_by_folder(display_cards, self._sidebar.folder_filter_keys)
+            )
 
         self._review_panel.load_cards(display_cards, preserve_selection=not had_active_filters)
 

@@ -5,9 +5,7 @@ from pathlib import Path
 
 import wx
 
-from app.core.filter_service import count_by_category, count_by_folder
 from app.gui import styles
-from app.models.card import CardResult
 
 _SIDEBAR_MIN_WIDTH = 175
 _SIDEBAR_PAD = 10
@@ -295,6 +293,11 @@ class FilterSidebar(wx.Panel):
 
         self.GetSizer().Layout()
 
+    @property
+    def folder_filter_keys(self) -> list[str]:
+        """Return the non-"All" folder keys (for count computation by the mixin)."""
+        return self._folder_keys[1:]
+
     # --- Count updates (cross-filtered) ---
 
     def _apply_count_fallback(
@@ -323,14 +326,12 @@ class FilterSidebar(wx.Panel):
             return remaining
         return selected
 
-    def update_category_counts(self, cards: list[CardResult]) -> None:
+    def update_category_counts(self, counts: dict[str, int]) -> None:
         """Update category counts and disable/enable accordingly.
 
         Args:
-            cards: Cards filtered by search + folder selection (for cross-filtered counts)
+            counts: Pre-computed category → count mapping from FilterService.
         """
-        counts = count_by_category(cards)
-
         self._category_card_counts = counts
         self._category_disabled_keys.clear()
 
@@ -353,16 +354,14 @@ class FilterSidebar(wx.Panel):
             self._category_keys,
         )
 
-    def update_folder_counts(self, cards: list[CardResult]) -> None:
+    def update_folder_counts(self, counts: dict[str, int]) -> None:
         """Update folder counts and disable/enable accordingly.
 
         Args:
-            cards: Cards filtered by search + category selection (for cross-filtered counts)
+            counts: Pre-computed folder → count mapping from FilterService.
         """
         if not self._folder_keys:
             return
-
-        counts = count_by_folder(cards, self._folder_keys[1:])
 
         self._folder_disabled_keys.clear()
 
