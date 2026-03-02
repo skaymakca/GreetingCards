@@ -176,25 +176,31 @@ Tests are organized by component:
 
 ```
 tests/
-├── conftest.py                      # Shared fixtures (wx.App, mock frames)
+├── conftest.py                      # Shared fixtures (wx.App, mock frames, in-memory DB)
 ├── core/
 │   ├── conftest.py                  # Core-specific fixtures
+│   ├── test_apple_events.py         # Apple Events handler logic
 │   ├── test_card_model.py           # Card data model
+│   ├── test_card_store.py           # CardStore state management
 │   ├── test_config.py               # Configuration and API key management
 │   ├── test_database.py             # SQLite database operations
 │   ├── test_paths.py                # Path resolution (dev vs bundle)
+│   ├── test_platform.py             # Platform detection
+│   ├── test_scripting_protocol.py   # AppleScript scripting protocol
 │   ├── test_version.py              # Version string
-│   ├── test_apple_events.py         # Apple Events handler logic
 │   ├── content/                     # 7 files: changelog, changelog_models, help_builder,
 │   │                                #   license_html, license_models, license_sync, template_env
 │   ├── naming/                      # 7 files: extractor, family_name_cleaning, family_name_data,
 │   │                                #   family_name_formatting, filename_safety, rename_filter, renamer
-│   └── pipeline/                    # 7 files: ai_analyzer, ai_batch, card_processor, ocr_engine,
-│                                    #   pdf_renderer, pdf_worker, rate_limit
+│   ├── pipeline/                    # 7 files: ai_analyzer, ai_batch, card_processor, ocr_engine,
+│   │                                #   pdf_renderer, pdf_worker, rate_limit
+│   └── services/                    # 6 files: ai_service, card_service, config_service,
+│                                    #   filter_service, processing_service, rename_service
 ├── gui/                             # 21 test files
 │   ├── conftest.py                  # GUI-specific fixtures
 │   ├── test_api_key_dialog.py       # API key prompt dialog
 │   ├── test_appearance.py           # Dark/light mode appearance
+│   ├── test_apple_events_bridge.py  # AppleScript bridge integration mocks
 │   ├── test_changelog_dialog.py     # Changelog viewer dialog
 │   ├── test_context_menu.py         # Right-click context menu
 │   ├── test_cursors.py              # Cursor state management
@@ -212,8 +218,9 @@ tests/
 │   ├── test_settings_dialog.py      # Preferences editor
 │   ├── test_styles.py               # Style constants
 │   ├── test_toolbar.py              # Native toolbar buttons and state
-│   ├── test_apple_events_bridge.py  # AppleScript bridge integration mocks
 │   └── test_utils.py                # wxPython utility functions
+├── integration/
+│   └── test_applescript.py          # End-to-end AppleScript integration (--run-integration)
 └── scripts/
     ├── test_helpers.py              # script_output_dir lifecycle
     ├── build_family_name_db/        # merger, unicode, Census/Faker/Smashew sources
@@ -237,14 +244,17 @@ tests/
 
 ### Current Coverage
 
-- **2286 tests** covering core logic, GUI components, and scripts
-- **Core** (pipeline/, naming/, content/ sub-packages + top-level): AI analysis, AI batch, apple events, card model,
-  card processor, changelog, changelog models, config, database, family name cleaning, family name data, family name
-  formatting, filename safety, help builder, license HTML, license models, license sync, name extraction, OCR engine,
-  paths, PDF rendering, PDF worker, rate limit, renamer, rename filter, template environment, version
+- **2354 tests** covering core logic, GUI components, and scripts
+- **Core** (services/, pipeline/, naming/, content/ sub-packages + top-level): AI analysis, AI batch, AI service,
+  apple events, card model, card processor, card service, card store, changelog, changelog models, config,
+  config service, database, family name cleaning, family name data, family name formatting, filename safety,
+  filter service, help builder, license HTML, license models, license sync, name extraction, OCR engine, paths,
+  PDF rendering, PDF worker, platform, processing service, rate limit, rename service, renamer, rename filter,
+  scripting protocol, template environment, version
 - **GUI** (21 test files): API key dialog, apple events bridge, appearance, changelog dialog, context menu, cursors,
   dialogs, drop target, filter sidebar, help dialog, HTML viewer, icons, licenses dialog, main window, preview cursor
   behavior, preview panel, review panel, settings, styles, toolbar, utilities
+- **Integration**: AppleScript end-to-end tests (requires `--run-integration`)
 - **Scripts** (tests/scripts/): helpers, build_family_name_db (merger, unicode, Census/Faker/Smashew sources), dmg
   (readme RTF, background PNG, dmgbuild orchestration), generate_diagnostic_cards (CLI), generate_sample_cards
   (models, display, pdf_composer, image_generator, spec_generator, cli, spec_generators/ sub-package)
