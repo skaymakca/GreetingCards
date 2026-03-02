@@ -2,7 +2,7 @@
 
 Cross-filtering, re-entrancy prevention, and auto-reset logic for the three-column layout.
 
-**Key files:** `app/gui/main_window.py`, `app/gui/main_window_mixins/filter_mixin.py`, `app/gui/components/filter_sidebar.py`, `app/core/filter_service.py`
+**Key files:** `app/gui/main_window.py`, `app/gui/main_window_mixins/filter_mixin.py`, `app/gui/components/filter_sidebar.py`, `app/core/services/filter_service.py`
 
 ## Layout Overview
 
@@ -44,7 +44,7 @@ All cards (_cards_by_hash.values())
 
 ## Counting Functions (FilterService)
 
-Sidebar count computation lives in `app/core/filter_service.py` — two pure functions with no GUI dependency:
+Sidebar count computation lives in `app/core/services/filter_service.py` — two pure functions with no GUI dependency:
 
 - **`count_by_category(cards)`** — Returns `{all, manual, high, needs_review, errors}` counts matching `apply_category_filters` definitions.
 - **`count_by_folder(cards, folder_keys)`** — Returns `{all_folders, <path>...}` counts matching `apply_folder_filters` definitions.

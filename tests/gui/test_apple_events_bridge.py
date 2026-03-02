@@ -131,7 +131,7 @@ class TestSetCardNameForScript:
         card = _make_card()
         _inject_card(window, card)
 
-        with patch("app.core.card_service.set_manual_name"):
+        with patch("app.core.services.card_service.set_manual_name"):
             result = window.set_card_name_for_script("test.pdf", "Jones")
 
         assert result["success"] is True
@@ -145,8 +145,8 @@ class TestSetCardNameForScript:
         _inject_card(window, card)
 
         with (
-            patch("app.core.card_service.set_manual_name"),
-            patch("app.core.card_service.load_card_state_from_db"),
+            patch("app.core.services.card_service.set_manual_name"),
+            patch("app.core.services.card_service.load_card_state_from_db"),
         ):
             result = window.set_card_name_for_script("test.pdf", "")
 
@@ -162,7 +162,7 @@ class TestSetCardNameForScript:
         card = _make_card()
         _inject_card(window, card)
 
-        with patch("app.core.card_service.set_manual_name") as mock_db:
+        with patch("app.core.services.card_service.set_manual_name") as mock_db:
             window.set_card_name_for_script("test.pdf", "NewName")
             mock_db.assert_called_once_with("abc123", "NewName", card.remove_family)
 
@@ -180,7 +180,7 @@ class TestSelectCandidateForScript:
         )
         _inject_card(window, card)
 
-        with patch("app.core.card_service.select_candidate"):
+        with patch("app.core.services.card_service.select_candidate"):
             result = window.select_candidate_for_script("test.pdf", 2)
 
         assert result["success"] is True
@@ -212,7 +212,7 @@ class TestSetRemoveFamilyForScript:
         card = _make_card()
         _inject_card(window, card)
 
-        with patch("app.core.card_service.update_remove_family"):
+        with patch("app.core.services.card_service.update_remove_family"):
             result = window.set_remove_family_for_script("test.pdf", True)
 
         assert result["success"] is True
@@ -232,7 +232,7 @@ class TestLoadPathsForScript:
         fake_pdfs = [Path("/tmp/a.pdf"), Path("/tmp/b.pdf")]
 
         with (
-            patch("app.core.processing_service.scan_for_pdfs", return_value=fake_pdfs),
+            patch("app.core.services.processing_service.scan_for_pdfs", return_value=fake_pdfs),
             patch.object(window, "_start_processing") as mock_proc,
         ):
             result = window.load_paths_for_script(["/tmp/cards"])
@@ -247,7 +247,7 @@ class TestLoadPathsForScript:
 
         with (
             patch(
-                "app.core.processing_service.scan_for_pdfs",
+                "app.core.services.processing_service.scan_for_pdfs",
                 return_value=[existing, Path("/tmp/b.pdf")],
             ),
             patch.object(window, "_start_processing"),
@@ -257,7 +257,7 @@ class TestLoadPathsForScript:
         assert result["count"] == 1
 
     def test_nonexistent_returns_zero(self, window):
-        with patch("app.core.processing_service.scan_for_pdfs", return_value=[]):
+        with patch("app.core.services.processing_service.scan_for_pdfs", return_value=[]):
             result = window.load_paths_for_script(["/nonexistent"])
         assert result["success"] is True
         assert result["count"] == 0
@@ -290,8 +290,8 @@ class TestRenameCardForScript:
         mock_result = RenameResult(old_path, new_path, True, "Renamed", card=card)
 
         with (
-            patch("app.core.rename_service.build_rename_plan"),
-            patch("app.core.rename_service.execute_rename_plan", return_value=[mock_result]),
+            patch("app.core.services.rename_service.build_rename_plan"),
+            patch("app.core.services.rename_service.execute_rename_plan", return_value=[mock_result]),
         ):
             result = window.rename_card_for_script("test.pdf", "Smith", "2025")
 
@@ -307,8 +307,8 @@ class TestRenameCardForScript:
         mock_result = RenameResult(card.primary_path, Path("/tmp/out.pdf"), True, "Renamed", card=card)
 
         with (
-            patch("app.core.rename_service.build_rename_plan") as mock_plan,
-            patch("app.core.rename_service.execute_rename_plan", return_value=[mock_result]),
+            patch("app.core.services.rename_service.build_rename_plan") as mock_plan,
+            patch("app.core.services.rename_service.execute_rename_plan", return_value=[mock_result]),
         ):
             window.rename_card_for_script("test.pdf", "Smith", "2024")
             # Verify build_rename_plan was called with the custom year
@@ -323,8 +323,8 @@ class TestRenameCardForScript:
         mock_result = RenameResult(card.primary_path, Path("/tmp/out.pdf"), False, "Permission denied", card=card)
 
         with (
-            patch("app.core.rename_service.build_rename_plan"),
-            patch("app.core.rename_service.execute_rename_plan", return_value=[mock_result]),
+            patch("app.core.services.rename_service.build_rename_plan"),
+            patch("app.core.services.rename_service.execute_rename_plan", return_value=[mock_result]),
         ):
             result = window.rename_card_for_script("test.pdf", "Smith", "2025")
 
@@ -396,8 +396,8 @@ class TestClearAiForScript:
         _inject_card(window, card)
 
         with (
-            patch("app.core.card_service.clear_ai_results", return_value=1) as mock_clear,
-            patch("app.core.card_service.load_card_state_from_db"),
+            patch("app.core.services.card_service.clear_ai_results", return_value=1) as mock_clear,
+            patch("app.core.services.card_service.load_card_state_from_db"),
         ):
             result = window.clear_ai_for_script(None)
 
@@ -410,8 +410,8 @@ class TestClearAiForScript:
         _inject_card(window, card)
 
         with (
-            patch("app.core.card_service.clear_ai_results", return_value=1),
-            patch("app.core.card_service.load_card_state_from_db"),
+            patch("app.core.services.card_service.clear_ai_results", return_value=1),
+            patch("app.core.services.card_service.load_card_state_from_db"),
         ):
             result = window.clear_ai_for_script("test.pdf")
 

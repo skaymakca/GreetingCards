@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from app.core.card_store import CardStore
-from app.core.rename_service import RenameService
+from app.core.services.rename_service import RenameService
 from app.gui.rename_display import (
     filter_visible_results,
     format_plan_summary,
@@ -63,7 +63,7 @@ class TestExecute:
 
         plan = [RenamePlanItem(old_path, new_path, "ok", card=card)]
 
-        with patch("app.core.rename_service.execute_rename_plan") as mock_exec:
+        with patch("app.core.services.rename_service.execute_rename_plan") as mock_exec:
             mock_exec.return_value = [
                 RenameResult(old_path, new_path, True, "Renamed", card=card),
             ]
@@ -86,7 +86,7 @@ class TestExecute:
 
         plan = [RenamePlanItem(old_path, new_path, "ok", card=card)]
 
-        with patch("app.core.rename_service.execute_rename_plan") as mock_exec:
+        with patch("app.core.services.rename_service.execute_rename_plan") as mock_exec:
             mock_exec.return_value = [
                 RenameResult(old_path, new_path, False, "Permission denied", card=card),
             ]
@@ -110,7 +110,7 @@ class TestExecute:
 
         plan = [RenamePlanItem(old_path, new_path, "skip_same", card=card)]
 
-        with patch("app.core.rename_service.execute_rename_plan") as mock_exec:
+        with patch("app.core.services.rename_service.execute_rename_plan") as mock_exec:
             mock_exec.return_value = [
                 RenameResult(
                     old_path,
@@ -137,8 +137,8 @@ class TestRenameCard:
         service = RenameService(store)
 
         with (
-            patch("app.core.rename_service.build_rename_plan") as mock_build,
-            patch("app.core.rename_service.execute_rename_plan") as mock_exec,
+            patch("app.core.services.rename_service.build_rename_plan") as mock_build,
+            patch("app.core.services.rename_service.execute_rename_plan") as mock_exec,
         ):
             mock_build.return_value = []
             mock_exec.return_value = [
@@ -167,8 +167,8 @@ class TestRenameCard:
         service = RenameService(store)
 
         with (
-            patch("app.core.rename_service.build_rename_plan") as mock_build,
-            patch("app.core.rename_service.execute_rename_plan") as mock_exec,
+            patch("app.core.services.rename_service.build_rename_plan") as mock_build,
+            patch("app.core.services.rename_service.execute_rename_plan") as mock_exec,
         ):
             mock_build.return_value = []
             mock_exec.return_value = [
@@ -198,8 +198,8 @@ class TestRenameCard:
         service = RenameService(store)
 
         with (
-            patch("app.core.rename_service.build_rename_plan") as mock_build,
-            patch("app.core.rename_service.execute_rename_plan") as mock_exec,
+            patch("app.core.services.rename_service.build_rename_plan") as mock_build,
+            patch("app.core.services.rename_service.execute_rename_plan") as mock_exec,
         ):
             mock_build.return_value = []
             mock_exec.return_value = [
@@ -301,7 +301,7 @@ class TestBuildPlan:
     def test_delegates_to_build_rename_plan(self) -> None:
         """build_plan should wrap build_rename_plan."""
         card = _make_card()
-        with patch("app.core.rename_service.build_rename_plan") as mock_build:
+        with patch("app.core.services.rename_service.build_rename_plan") as mock_build:
             mock_build.return_value = [
                 RenamePlanItem(Path("/tmp/card.pdf"), Path("/tmp/new.pdf"), "ok", card=card),
             ]

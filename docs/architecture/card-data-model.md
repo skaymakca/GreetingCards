@@ -2,7 +2,7 @@
 
 CardResult lifecycle, content-based deduplication, and state management.
 
-**Key files:** `app/models/card.py`, `app/core/card_store.py` (in-memory state), `app/core/card_service.py` (mutations + DB persistence), `app/core/rename_service.py` (rename orchestration), `app/core/processing_service.py` (PDF processing orchestration), `app/core/ai_service.py` (AI batch orchestration), `app/core/database.py` (DB models)
+**Key files:** `app/models/card.py`, `app/core/card_store.py` (in-memory state), `app/core/services/card_service.py` (mutations + DB persistence), `app/core/services/rename_service.py` (rename orchestration), `app/core/services/processing_service.py` (PDF processing orchestration), `app/core/services/ai_service.py` (AI batch orchestration), `app/core/database.py` (DB models)
 
 ## Core Data Structures
 
@@ -106,7 +106,7 @@ CardStore
 
 ## CardService — Mutations + DB Persistence
 
-`CardService` (`app/core/card_service.py`) orchestrates card field mutations with database persistence. Each method combines in-memory updates on the CardResult with DB calls, ensuring the two stay in sync. Runs exclusively on the main (UI) thread.
+`CardService` (`app/core/services/card_service.py`) orchestrates card field mutations with database persistence. Each method combines in-memory updates on the CardResult with DB calls, ensuring the two stay in sync. Runs exclusively on the main (UI) thread.
 
 ```
 CardService
@@ -129,7 +129,7 @@ CardService
 
 ## RenameService — Rename Orchestration
 
-`RenameService` (`app/core/rename_service.py`) consolidates rename execution and path-mapping updates that were previously duplicated in MainWindow and AppleEventsMixin.
+`RenameService` (`app/core/services/rename_service.py`) consolidates rename execution and path-mapping updates that were previously duplicated in MainWindow and AppleEventsMixin.
 
 ```
 RenameService
@@ -156,7 +156,7 @@ RenameService
 
 ## ProcessingService — PDF Processing Orchestration
 
-`ProcessingService` (`app/core/processing_service.py`) manages the `ProcessPoolExecutor` lifecycle and worker dispatch. Zero wxPython dependency — the caller wraps callbacks with `wx.CallAfter`.
+`ProcessingService` (`app/core/services/processing_service.py`) manages the `ProcessPoolExecutor` lifecycle and worker dispatch. Zero wxPython dependency — the caller wraps callbacks with `wx.CallAfter`.
 
 ```
 ProcessingService
@@ -171,7 +171,7 @@ ProcessingService
 
 ## AIService — AI Batch Orchestration
 
-`AIService` (`app/core/ai_service.py`) wraps the async AI batch pipeline so that GUI callers don't import `core.pipeline` internals. Zero wxPython dependency — the caller wraps callbacks with `wx.CallAfter`.
+`AIService` (`app/core/services/ai_service.py`) wraps the async AI batch pipeline so that GUI callers don't import `core.pipeline` internals. Zero wxPython dependency — the caller wraps callbacks with `wx.CallAfter`.
 
 ```
 AIService

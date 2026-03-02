@@ -543,7 +543,7 @@ class VisualTestFrame(wx.Frame):
         from app.gui.dialogs.settings import create_preferences_editor
 
         if self._prefs_editor is None:
-            from app.core.config_service import ConfigService
+            from app.core.services.config_service import ConfigService
 
             cs = ConfigService()
             self._prefs_editor = create_preferences_editor(
@@ -575,7 +575,7 @@ class VisualTestFrame(wx.Frame):
     # -- Panel launchers (in standalone frames) --
 
     def _open_filter_sidebar(self, _evt: wx.CommandEvent) -> None:
-        from app.core.filter_service import count_by_category
+        from app.core.services.filter_service import count_by_category
         from app.gui.components.filter_sidebar import FilterSidebar
 
         frame = wx.Frame(self, title="Filter Sidebar", size=wx.Size(250, 500))

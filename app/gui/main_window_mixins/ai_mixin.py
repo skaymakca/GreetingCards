@@ -7,8 +7,8 @@ import threading
 
 import wx
 
-from app.core.ai_service import AIService
-from app.core.card_service import CardService
+from app.core.services.ai_service import AIService
+from app.core.services.card_service import CardService
 from app.gui.dialogs import ErrorListDialog
 from app.gui.dialogs.api_key import show_api_key_dialog
 from app.gui.main_window_mixins._protocol import MainWindowProtocol

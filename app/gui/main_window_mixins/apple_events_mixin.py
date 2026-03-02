@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.core.card_service import CardService
-from app.core.rename_service import RenameService
+from app.core.services.card_service import CardService
+from app.core.services.rename_service import RenameService
 from app.gui.main_window_mixins._protocol import MainWindowProtocol
 from app.models.card import CardResult
 

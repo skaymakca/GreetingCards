@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from app.core.ai_service import AIService
+from app.core.services.ai_service import AIService
 from app.models.card import CardResult, Confidence
 
 
@@ -38,7 +38,7 @@ class TestRunBatch:
         def on_complete(errors: list[tuple[str, str]], aborted: bool) -> None:
             complete_calls.append((errors, aborted))
 
-        with patch("app.core.ai_service.run_ai_batch_async") as mock_batch:
+        with patch("app.core.services.ai_service.run_ai_batch_async") as mock_batch:
             # Make the coroutine return immediately
             async def _noop(cards, on_progress, on_complete):
                 # Simulate calling on_complete

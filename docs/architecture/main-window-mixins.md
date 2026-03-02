@@ -127,11 +127,11 @@ Tests must patch at the module where the function is **imported** (looked up at 
 
 ```python
 # ✅ DB functions used by CardService — patch at card_service module level
-patch("app.core.card_service.set_manual_name")
-patch("app.core.card_service.select_candidate")
-patch("app.core.card_service.update_remove_family")
-patch("app.core.card_service.clear_ai_results")
-patch("app.core.card_service.load_card_state_from_db")
+patch("app.core.services.card_service.set_manual_name")
+patch("app.core.services.card_service.select_candidate")
+patch("app.core.services.card_service.update_remove_family")
+patch("app.core.services.card_service.clear_ai_results")
+patch("app.core.services.card_service.load_card_state_from_db")
 
 # ✅ Functions imported directly by mixin modules
 patch("app.gui.main_window_mixins.apple_events_mixin.get_api_key")
@@ -145,7 +145,7 @@ patch("app.gui.main_window.build_rename_plan")
 patch("app.gui.main_window.RenameConfirmDialog")
 ```
 
-**Key change:** Mixins no longer import DB functions directly. Instead they delegate to `self._card_service`, which imports the DB functions in `app/core/card_service.py`. Patches for DB operations must target `app.core.card_service.*`, not the mixin modules. Similarly, `load_paths_for_script` now delegates to `_load_paths` in `main_window.py`, so `scan_for_pdfs` patches target `app.gui.main_window`, not the apple events mixin.
+**Key change:** Mixins no longer import DB functions directly. Instead they delegate to `self._card_service`, which imports the DB functions in `app/core/services/card_service.py`. Patches for DB operations must target `app.core.services.card_service.*`, not the mixin modules. Similarly, `load_paths_for_script` now delegates to `_load_paths` in `main_window.py`, so `scan_for_pdfs` patches target `app.gui.main_window`, not the apple events mixin.
 
 ---
 

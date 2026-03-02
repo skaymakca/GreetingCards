@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import wx
 
-from app.core.filter_service import count_by_category, count_by_folder
+from app.core.services.filter_service import count_by_category, count_by_folder
 from app.gui.components.filter_sidebar import FilterSidebar
 from app.models.card import CardResult, Confidence
 

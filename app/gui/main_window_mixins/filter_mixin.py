@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import wx
 
-from app.core import filter_service
+from app.core.services import filter_service
 from app.gui.main_window_mixins._protocol import MainWindowProtocol
 from app.models.card import CardResult
 

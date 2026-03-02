@@ -12,11 +12,11 @@ from typing import Protocol
 
 import wx
 
-from app.core.card_service import CardService
 from app.core.card_store import CardStore
-from app.core.config_service import ConfigService
-from app.core.processing_service import ProcessingService
-from app.core.rename_service import RenameService
+from app.core.services.card_service import CardService
+from app.core.services.config_service import ConfigService
+from app.core.services.processing_service import ProcessingService
+from app.core.services.rename_service import RenameService
 from app.gui.components.filter_sidebar import FilterSidebar
 from app.gui.components.preview_panel import PreviewPanel
 from app.gui.components.review_panel import ReviewPanelMasterDetail

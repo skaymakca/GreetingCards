@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from app.core.card_store import CardStore
-from app.core.processing_service import ProcessingService
+from app.core.services.processing_service import ProcessingService
 from app.models.card import PdfWorkerResult
 
 
@@ -28,8 +28,8 @@ def _make_worker_result(
 class TestProcessFiles:
     """Tests for ProcessingService.process_files()."""
 
-    @patch("app.core.processing_service.ProcessPoolExecutor")
-    @patch("app.core.processing_service.multiprocessing")
+    @patch("app.core.services.processing_service.ProcessPoolExecutor")
+    @patch("app.core.services.processing_service.multiprocessing")
     def test_calls_on_progress_for_each_file(self, mock_mp: MagicMock, mock_pool_cls: MagicMock) -> None:
         """on_progress should be called for each processed file."""
         store = CardStore()
@@ -52,7 +52,7 @@ class TestProcessFiles:
         mock_executor.submit.side_effect = [future1, future2]
 
         # as_completed yields futures in order
-        with patch("app.core.processing_service.as_completed", return_value=iter([future1, future2])):
+        with patch("app.core.services.processing_service.as_completed", return_value=iter([future1, future2])):
             progress_calls: list[tuple[int, int, str]] = []
 
             def on_progress(completed: int, total: int, filename: str) -> None:
@@ -72,8 +72,8 @@ class TestProcessFiles:
         assert progress_calls[1][0] == 2
         on_complete.assert_called_once()
 
-    @patch("app.core.processing_service.ProcessPoolExecutor")
-    @patch("app.core.processing_service.multiprocessing")
+    @patch("app.core.services.processing_service.ProcessPoolExecutor")
+    @patch("app.core.services.processing_service.multiprocessing")
     def test_stores_results_in_card_store(self, mock_mp: MagicMock, mock_pool_cls: MagicMock) -> None:
         """Worker results should be added to the CardStore."""
         store = CardStore()
@@ -89,7 +89,7 @@ class TestProcessFiles:
         future.result.return_value = wr
         mock_executor.submit.return_value = future
 
-        with patch("app.core.processing_service.as_completed", return_value=iter([future])):
+        with patch("app.core.services.processing_service.as_completed", return_value=iter([future])):
             service.process_files([Path("/tmp/card.pdf")])
 
         assert store.count == 1
@@ -97,8 +97,8 @@ class TestProcessFiles:
         assert card is not None
         assert card.family_name == "Smith"
 
-    @patch("app.core.processing_service.ProcessPoolExecutor")
-    @patch("app.core.processing_service.multiprocessing")
+    @patch("app.core.services.processing_service.ProcessPoolExecutor")
+    @patch("app.core.services.processing_service.multiprocessing")
     def test_handles_worker_exception(self, mock_mp: MagicMock, mock_pool_cls: MagicMock) -> None:
         """Worker exceptions should be caught and progress still reported."""
         store = CardStore()
@@ -113,7 +113,7 @@ class TestProcessFiles:
         mock_executor.submit.return_value = future
 
         # Need to mock the futures dict mapping
-        with patch("app.core.processing_service.as_completed", return_value=iter([future])):
+        with patch("app.core.services.processing_service.as_completed", return_value=iter([future])):
             progress_calls: list[tuple[int, int, str]] = []
 
             def on_progress(completed: int, total: int, filename: str) -> None:
@@ -136,8 +136,8 @@ class TestProcessFiles:
         # No card should be stored (worker failed)
         assert store.count == 0
 
-    @patch("app.core.processing_service.ProcessPoolExecutor")
-    @patch("app.core.processing_service.multiprocessing")
+    @patch("app.core.services.processing_service.ProcessPoolExecutor")
+    @patch("app.core.services.processing_service.multiprocessing")
     def test_no_callbacks_when_none(self, mock_mp: MagicMock, mock_pool_cls: MagicMock) -> None:
         """Should not fail when callbacks are None."""
         store = CardStore()
@@ -153,7 +153,7 @@ class TestProcessFiles:
         future.result.return_value = wr
         mock_executor.submit.return_value = future
 
-        with patch("app.core.processing_service.as_completed", return_value=iter([future])):
+        with patch("app.core.services.processing_service.as_completed", return_value=iter([future])):
             # No callbacks — should not raise
             service.process_files([Path("/tmp/card.pdf")])
 

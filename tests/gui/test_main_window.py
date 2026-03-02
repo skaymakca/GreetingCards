@@ -973,7 +973,7 @@ def test_name_change_starts_debounce_timer(wx_app):
     window._review_panel.load_cards([card])
 
     # Call _on_name_change (CardService.set_name patches DB to avoid side effects)
-    with patch("app.core.card_service.set_manual_name"):
+    with patch("app.core.services.card_service.set_manual_name"):
         window._on_name_change(0, "NewName")
 
     # Timer should be running
@@ -1534,7 +1534,7 @@ def test_on_name_change_revert_to_original(wx_app):
     )
 
     with (
-        patch("app.core.card_service.set_manual_name"),
+        patch("app.core.services.card_service.set_manual_name"),
         patch("app.core.pipeline.card_processor.get_card_state", return_value=mock_state),
     ):
         window._on_name_change(0, "")
@@ -1577,7 +1577,7 @@ def test_on_name_change_revert_ai_analyzed(wx_app):
     )
 
     with (
-        patch("app.core.card_service.set_manual_name"),
+        patch("app.core.services.card_service.set_manual_name"),
         patch("app.core.pipeline.card_processor.get_card_state", return_value=mock_state),
     ):
         window._on_name_change(0, "")
@@ -1606,7 +1606,7 @@ def test_on_name_change_revert_no_original_confidence(wx_app):
     window._card_store._hash_by_path = {Path("/test/card.pdf"): "h1"}
 
     with (
-        patch("app.core.card_service.set_manual_name"),
+        patch("app.core.services.card_service.set_manual_name"),
         patch("app.core.pipeline.card_processor.get_card_state", return_value=None),
     ):
         window._on_name_change(0, "")
@@ -2009,7 +2009,7 @@ def test_on_name_change_missing_card(wx_app):
     from unittest.mock import patch
 
     window = MainWindow()
-    with patch("app.core.card_service.set_manual_name") as mock_db:
+    with patch("app.core.services.card_service.set_manual_name") as mock_db:
         window._on_name_change(999, "Smith")
         mock_db.assert_not_called()
 
@@ -3321,8 +3321,8 @@ def test_on_clear_ai_results_confirm_clear_refresh(wx_app):
 
     with (
         patch("app.gui.main_window.wx.MessageBox", return_value=wx.YES) as mock_msg_box,
-        patch("app.core.card_service.clear_ai_results", return_value=1) as mock_clear,
-        patch("app.core.card_service.load_card_state_from_db") as mock_reload,
+        patch("app.core.services.card_service.clear_ai_results", return_value=1) as mock_clear,
+        patch("app.core.services.card_service.load_card_state_from_db") as mock_reload,
         patch.object(window, "_refresh_display") as mock_refresh,
         patch.object(window, "_show_info_message") as mock_info,
     ):
@@ -3354,7 +3354,7 @@ def test_on_clear_ai_results_cancelled_does_nothing(wx_app):
 
     with (
         patch("app.gui.main_window.wx.MessageBox", return_value=wx.NO),
-        patch("app.core.card_service.clear_ai_results") as mock_clear,
+        patch("app.core.services.card_service.clear_ai_results") as mock_clear,
     ):
         window._on_clear_ai_results(wx.CommandEvent())
         mock_clear.assert_not_called()
@@ -3773,9 +3773,9 @@ def test_on_rename_execute_plan_update_paths(wx_app):
     results = [RenameResult(old_path, new_path, True, "Renamed", card=card)]
 
     with (
-        patch("app.core.rename_service.build_rename_plan", return_value=[MagicMock()]),
+        patch("app.core.services.rename_service.build_rename_plan", return_value=[MagicMock()]),
         patch("app.gui.main_window.RenameConfirmDialog") as mock_confirm_cls,
-        patch("app.core.rename_service.execute_rename_plan", return_value=results),
+        patch("app.core.services.rename_service.execute_rename_plan", return_value=results),
         patch("app.gui.main_window.CompletionDialog") as mock_completion_cls,
         patch.object(window, "_remove_completed_results") as mock_remove,
     ):

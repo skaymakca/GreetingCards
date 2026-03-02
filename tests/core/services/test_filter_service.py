@@ -1,4 +1,4 @@
-"""Tests for app.core.filter_service — pure filter functions."""
+"""Tests for app.core.services.filter_service — pure filter functions."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from app.core.filter_service import (
+from app.core.services.filter_service import (
     apply_category_filters,
     apply_folder_filters,
     count_by_category,
