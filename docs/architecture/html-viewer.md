@@ -27,7 +27,7 @@ This benefits all three consumers — help pages, changelog, and license pages c
 
 | Consumer  | Key file                       | Singleton key | Content                                 |
 |-----------|--------------------------------|---------------|-----------------------------------------|
-| Help      | `app/gui/dialogs/help.py`      | `"help"`      | Generated from markdown                 |
+| Help      | `app/gui/dialogs/help.py`      | `"help"`      | Generated from Markdown                 |
 | Changelog | `app/gui/dialogs/changelog.py` | `"changelog"` | Generated from `CHANGELOG.md`           |
 | Licenses  | `app/gui/dialogs/licenses.py`  | `"licenses"`  | Generated from `uv.lock` + `.dist-info` |
 

@@ -111,7 +111,7 @@ def _count_occurrences(text: str, query_lower: str) -> int:
     return count
 
 
-# noinspection PyUnusedLocal
+# noinspection PyUnusedLocal,PyUnresolvedReferences
 class _SearchController:
     """Cross-page search state machine for HTMLViewerWindow.
 
@@ -337,7 +337,7 @@ class _SearchController:
         return self._debounce_timer
 
 
-# noinspection PyUnusedLocal,PyTypeChecker
+# noinspection PyUnusedLocal,PyTypeChecker,PyUnresolvedReferences
 class HTMLViewerWindow:
     """WebView-based HTML viewer with toolbar navigation and cross-page search."""
 

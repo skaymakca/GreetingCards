@@ -162,6 +162,7 @@ def _generate_lcov(cov_run: Path) -> None:
 
 def _generate_grouped_html(cov_run: Path) -> None:
     """Generate grouped HTML report via genhtml if available."""
+    # noinspection PyDeprecation
     genhtml = shutil.which("genhtml")
     if genhtml is None:
         print("(genhtml not found — skipping grouped HTML report. Install with: brew install lcov)")

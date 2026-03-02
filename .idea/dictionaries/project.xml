@@ -33,6 +33,8 @@
       <w>Stpierre</w>
       <w>Vecchio</w>
       <w>Weiß</w>
+      <w>aevt</w>
+      <w>aevtquit</w>
       <w>amdahlq</w>
       <w>appleaqc</w>
       <w>appleattachmentpadding</w>
@@ -54,6 +56,7 @@
       <w>delvecchio</w>
       <w>dilorenzo</w>
       <w>distefano</w>
+      <w>doctag</w>
       <w>efficiencyq</w>
       <w>endef</w>
       <w>entrancy</w>
@@ -63,10 +66,12 @@
       <w>fonttbl</w>
       <w>frontmatter</w>
       <w>fswiss</w>
+      <w>genhtml</w>
       <w>gitignored</w>
       <w>helv</w>
       <w>heredocs</w>
       <w>hiddenimports</w>
+      <w>hljs</w>
       <w>hooksconfig</w>
       <w>hookspath</w>
       <w>htmlcov</w>
@@ -107,6 +112,7 @@
       <w>rasterizing</w>
       <w>santacruz</w>
       <w>sauvola</w>
+      <w>sdef</w>
       <w>shutterfly</w>
       <w>sizers</w>
       <w>smashew</w>

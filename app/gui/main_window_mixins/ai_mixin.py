@@ -39,6 +39,7 @@ class AIMixin:
         scope_label = "Selected" if scope == "selected" else "Visible"
         return f"{base} {scope_label} ({len(cards)}){shortcut}"
 
+    # noinspection PyUnusedLocal
     def _on_clear_ai_results(self: MainWindowProtocol, event: wx.CommandEvent) -> None:
         """Clear AI results for selected or visible cards."""
         if self._card_service.is_empty:
@@ -191,6 +192,7 @@ class AIMixin:
             wx.CallAfter(self._ai_all_complete, [])
             raise
 
+    # noinspection PyUnusedLocal
     def _update_ai_all_progress(
         self: MainWindowProtocol,
         completed: int,

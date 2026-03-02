@@ -52,7 +52,7 @@ class CardService:
 
         When name is non-empty: sets manual confidence, method, family_name,
         and persists to DB. When empty: clears the override and reloads
-        state from DB (reverts to best candidate name).
+        state from DB (reverts to the best candidate name).
 
         Returns the updated card, or None if card_id not found.
         """
@@ -197,11 +197,12 @@ class CardService:
 
     # ── AI operations ──
 
+    # noinspection PyMethodMayBeStatic
     def clear_ai_results(self, cards: list[CardResult]) -> int:
         """Clear AI results for the given cards.
 
         Deletes AI candidates and raw AI data in DB, then reloads card
-        state to pick up best remaining OCR candidate.
+        state to pick up the best remaining OCR candidate.
 
         Returns the number of cards whose selection changed in the DB.
         """

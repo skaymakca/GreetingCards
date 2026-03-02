@@ -90,6 +90,7 @@ class ProcessingService:
         with ProcessPoolExecutor(max_workers=min(total, OCR_WORKERS)) as executor:
             futures = {executor.submit(process_pdf_worker, path_str): path_str for path_str in pdf_paths_str}
             for future in as_completed(futures):
+                # noinspection PyBroadException
                 try:
                     worker_result = future.result()
                 except Exception:

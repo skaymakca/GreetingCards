@@ -65,25 +65,25 @@ wx.CallAfter(register_quit_handler, _ae_handler)
 
 All commands use event class `GrCd` except `quit` (class `aevt`). Reply is always a JSON string set on the direct object (`----`) of the reply descriptor.
 
-| **Command** | **Event Code** | **Parameters** | **Response Shape** | **Unit Tests** | **Bridge Tests** | **Integration Tests** |
-|-------------|---------------|----------------|-------------------|---------------|-----------------|----------------------|
-| load paths | `LdPa` | direct: `list[str]` paths | `{success, count, error?}` | — | 3 | 3 |
-| get status | `GtSt` | (none) | `{is_processing, is_analyzing, loaded_count, current_model, year}` | — | 3 | 1 |
-| reload | `RlCd` | (none) | `{success, changed, error?}` | 2 | 1 | 2 |
-| clear all | `ClAl` | (none) | `{success, error?}` | 2 | 1 | 2 |
-| get card info | `InCd` | direct: filename `str` | full card object (see Schemas) or `{error}` | — | 2 | 3 |
-| get loaded cards | `LsCd` | (none) | `[card summary, …]` | — | 1 | 1 |
-| rename card | `RnCd` | direct: filename; `newN`: new name; `year`: year `str`? | `{success, old_path, new_path, error}` | 3 | 4 | 3 |
-| set card name | `StNm` | direct: filename; `newN`: name (`""` = clear) | `{success, error?}` | 2† | 4 | 2 |
-| select candidate | `SlCa` | direct: filename; `rank`: 1-based `int` | `{success, error?}` | 2† | 3 | 3 |
-| set remove family | `StRF` | direct: filename; `newV`: `bool` | `{success, error?}` | 2† | 2 | 2 |
-| analyze cards | `AnCd` | direct: filename `str`? (omit = all) | `{success, count, error?}` | 2 | 4 | 2 |
-| clear AI results | `ClAi` | direct: filename `str`? (omit = all) | `{success, count, error?}` | 2 | 3 | 3 |
-| get models | `GtMo` | (none) | `[model entry, …]` (see Schemas) | 1 | — | 3 |
-| set model | `StMo` | direct: model_id `str` | `{success, error?}` | 2† | — | 3 |
-| quit | `aevt/quit` | (none) | (closes app, no reply) | — | 1 | — |
-| *infrastructure* | — | param extraction, reply helpers, serialization, registration, main-thread dispatch | — | 21‡ | — | — |
-| **Total** | | | | **49** | **51** | **25** |
+| **Command**       | **Event Code** | **Parameters**                                                                     | **Response Shape**                                                 | **Unit Tests** | **Bridge Tests** | **Integration Tests** |
+|-------------------|----------------|------------------------------------------------------------------------------------|--------------------------------------------------------------------|----------------|------------------|-----------------------|
+| load paths        | `LdPa`         | direct: `list[str]` paths                                                          | `{success, count, error?}`                                         | —              | 3                | 3                     |
+| get status        | `GtSt`         | (none)                                                                             | `{is_processing, is_analyzing, loaded_count, current_model, year}` | —              | 3                | 1                     |
+| reload            | `RlCd`         | (none)                                                                             | `{success, changed, error?}`                                       | 2              | 1                | 2                     |
+| clear all         | `ClAl`         | (none)                                                                             | `{success, error?}`                                                | 2              | 1                | 2                     |
+| get card info     | `InCd`         | direct: filename `str`                                                             | full card object (see Schemas) or `{error}`                        | —              | 2                | 3                     |
+| get loaded cards  | `LsCd`         | (none)                                                                             | `[card summary, …]`                                                | —              | 1                | 1                     |
+| rename card       | `RnCd`         | direct: filename; `newN`: new name; `year`: year `str`?                            | `{success, old_path, new_path, error}`                             | 3              | 4                | 3                     |
+| set card name     | `StNm`         | direct: filename; `newN`: name (`""` = clear)                                      | `{success, error?}`                                                | 2†             | 4                | 2                     |
+| select candidate  | `SlCa`         | direct: filename; `rank`: 1-based `int`                                            | `{success, error?}`                                                | 2†             | 3                | 3                     |
+| set remove family | `StRF`         | direct: filename; `newV`: `bool`                                                   | `{success, error?}`                                                | 2†             | 2                | 2                     |
+| analyze cards     | `AnCd`         | direct: filename `str`? (omit = all)                                               | `{success, count, error?}`                                         | 2              | 4                | 2                     |
+| clear AI results  | `ClAi`         | direct: filename `str`? (omit = all)                                               | `{success, count, error?}`                                         | 2              | 3                | 3                     |
+| get models        | `GtMo`         | (none)                                                                             | `[model entry, …]` (see Schemas)                                   | 1              | —                | 3                     |
+| set model         | `StMo`         | direct: model_id `str`                                                             | `{success, error?}`                                                | 2†             | —                | 3                     |
+| quit              | `aevt/quit`    | (none)                                                                             | (closes app, no reply)                                             | —              | 1                | —                     |
+| *infrastructure*  | —              | param extraction, reply helpers, serialization, registration, main-thread dispatch | —                                                                  | 21‡            | —                | —                     |
+| **Total**         |                |                                                                                    |                                                                    | **49**         | **51**           | **25**                |
 
 † counted within `TestHandlerParamValidation` (9 tests covering set card name, select candidate, set remove family, set model)
 
@@ -97,17 +97,17 @@ Full JSON Schema (draft 2020-12): [`content/schemas/apple-events.schema.json`](.
 
 Response shapes in brief:
 
-| Shape | Fields |
-|-------|--------|
-| `SimpleResult` | `success` (bool), `error`? (string) |
-| `CountResult` | `success`, `count` (int ≥ 0), `error`? |
-| `RenameResult` | `success`, `old_path`, `new_path`, `error` (strings) |
-| `StatusResult` | `is_processing`, `is_analyzing` (bools), `loaded_count` (int ≥ 0), `current_model`, `year` (strings) |
-| `LoadResult` | `success`, `count` (int ≥ 0), `error`? |
-| `CandidateInfo` | `rank` (int ≥ 1), `id` (int), `name`, `method` (`"ocr"\|"ai"`), `confidence` (`"high"\|"medium"\|"low"`) |
-| `CardInfo` | `filename`, `file_hash`, `file_paths` (string[]), `family_name`, `confidence`, `method`, `manual_override`, `remove_family` (bool), `ai_analyzed` (bool), `candidates` (CandidateInfo[]), `error` |
-| `CardSummary` | `filename`, `file_hash`, `family_name`, `confidence` |
-| `ModelInfo` | `model_id`, `label`, `description`, `speed`, `quality` (ints 1–5) |
+| Shape           | Fields                                                                                                                                                                                            |
+|-----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `SimpleResult`  | `success` (bool), `error`? (string)                                                                                                                                                               |
+| `CountResult`   | `success`, `count` (int ≥ 0), `error`?                                                                                                                                                            |
+| `RenameResult`  | `success`, `old_path`, `new_path`, `error` (strings)                                                                                                                                              |
+| `StatusResult`  | `is_processing`, `is_analyzing` (bools), `loaded_count` (int ≥ 0), `current_model`, `year` (strings)                                                                                              |
+| `LoadResult`    | `success`, `count` (int ≥ 0), `error`?                                                                                                                                                            |
+| `CandidateInfo` | `rank` (int ≥ 1), `id` (int), `name`, `method` (`"ocr"\|"ai"`), `confidence` (`"high"\|"medium"\|"low"`)                                                                                          |
+| `CardInfo`      | `filename`, `file_hash`, `file_paths` (string[]), `family_name`, `confidence`, `method`, `manual_override`, `remove_family` (bool), `ai_analyzed` (bool), `candidates` (CandidateInfo[]), `error` |
+| `CardSummary`   | `filename`, `file_hash`, `family_name`, `confidence`                                                                                                                                              |
+| `ModelInfo`     | `model_id`, `label`, `description`, `speed`, `quality` (ints 1–5)                                                                                                                                 |
 
 See the JSON Schema file for strict type definitions with `"additionalProperties": false`.
 
@@ -163,10 +163,10 @@ Apple Events routing requires a registered bundle ID. In dev mode (`uv run pytho
 
 Parameter codes are 4-char big-endian integers encoded via `ae_keyword()`:
 
-| Name | Code | Used by |
-|------|------|---------|
-| direct object | `----` | most commands |
-| `newN` | new name | rename card, set card name |
-| `year` | year string | rename card |
-| `rank` | 1-based rank | select candidate |
-| `newV` | new value | set remove family |
+| Name          | Code         | Used by                    |
+|---------------|--------------|----------------------------|
+| direct object | `----`       | most commands              |
+| `newN`        | new name     | rename card, set card name |
+| `year`        | year string  | rename card                |
+| `rank`        | 1-based rank | select candidate           |
+| `newV`        | new value    | set remove family          |

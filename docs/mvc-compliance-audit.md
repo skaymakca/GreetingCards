@@ -20,7 +20,7 @@ As of 2026-03-02, the codebase has **high MVC compliance** after multiple audit-
 
 **View / GUI (`app/gui/`)**
 - No direct core-internal imports (use service facades in `app/core/services/`)
-- No business logic (domain rules, multi-step orchestration, validation algorithms)
+- No business logic (domain rules, multistep orchestration, validation algorithms)
 - No direct data store ownership or queries
 - Exception: direct imports of simple constants/enums from `app.core.constants` or `app.models.*` are LOW severity
 
@@ -46,7 +46,7 @@ As of 2026-03-02, the codebase has **high MVC compliance** after multiple audit-
 
 ### Severity Key
 
-- **HIGH (H)** — Structural violations creating significant coupling (multi-step orchestration in GUI, direct store mutations from GUI, systematic cross-layer contamination)
+- **HIGH (H)** — Structural violations creating significant coupling (multistep orchestration in GUI, direct store mutations from GUI, systematic cross-layer contamination)
 - **MEDIUM (M)** — Cross-boundary leaks with contained scope (direct core-internal imports from GUI, display logic in core, business rules in view)
 - **LOW (L)** — Minor issues, borderline cases, framework-forced patterns
 - **STYLE (S)** — Not MVC violations, informational only
@@ -57,11 +57,11 @@ The audit runs in iterative passes with parallel agents. Each pass covers the fu
 
 ### Pass 1 — Broad Sweep (3 parallel agents)
 
-| Agent | Focus | Files |
-|-------|-------|-------|
-| A — GUI→Core boundary | Direct imports from `app.core.*` in GUI, business logic in view, orchestration in mixins | `app/gui/**/*.py` |
-| B — Core purity | Display strings, GUI references, presentation data in core/services/pipeline | `app/core/**/*.py` |
-| C — Models + cross-cutting | Model layer violations, type looseness, database coupling, test harness coupling | `app/models/*.py`, `app/core/database.py`, `scripts/visual_test.py` |
+| Agent                      | Focus                                                                                    | Files                                                               |
+|----------------------------|------------------------------------------------------------------------------------------|---------------------------------------------------------------------|
+| A — GUI→Core boundary      | Direct imports from `app.core.*` in GUI, business logic in view, orchestration in mixins | `app/gui/**/*.py`                                                   |
+| B — Core purity            | Display strings, GUI references, presentation data in core/services/pipeline             | `app/core/**/*.py`                                                  |
+| C — Models + cross-cutting | Model layer violations, type looseness, database coupling, test harness coupling         | `app/models/*.py`, `app/core/database.py`, `scripts/visual_test.py` |
 
 Each agent reads every file in its scope, checking:
 1. **Import statements** — cross-layer imports that bypass service facades
@@ -74,10 +74,10 @@ Each agent returns findings as a table with temporary IDs (A1, B1, C1, ...).
 
 ### Pass 2 — Deep Dive + Validation (2 parallel agents)
 
-| Agent | Focus |
-|-------|-------|
-| D — GUI deep-dive | Method bodies in main_window, mixins, review_panel. Orchestration patterns (5+ step methods). Magic string APIs at service boundaries. Domain rules encoded in view rendering. Also validates/rejects Pass 1 GUI findings. |
-| E — Core+Models deep-dive | Service facade completeness. Cross-layer error flow tracing (AI, PDF, rename). Naming pipeline. Dead code. Also validates/rejects Pass 1 Core/Model findings. |
+| Agent                     | Focus                                                                                                                                                                                                                      |
+|---------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| D — GUI deep-dive         | Method bodies in main_window, mixins, review_panel. Orchestration patterns (5+ step methods). Magic string APIs at service boundaries. Domain rules encoded in view rendering. Also validates/rejects Pass 1 GUI findings. |
+| E — Core+Models deep-dive | Service facade completeness. Cross-layer error flow tracing (AI, PDF, rename). Naming pipeline. Dead code. Also validates/rejects Pass 1 Core/Model findings.                                                              |
 
 Pass 2 agents receive the Pass 1 findings list. For each, they state **CONFIRMED** or **REJECTED** with reasoning. They also look for new findings in areas adjacent to Pass 1 hits.
 
@@ -184,7 +184,7 @@ Use this template for `.claude/mvc-audit-findings.md`:
 5. Launch Pass 2: two parallel agents (D, E) — pass them the Pass 1 findings for validation
 6. Consolidate Pass 2 findings, apply confirmations/rejections
 7. Launch Pass 3: one convergence agent sweeping uncovered areas
-8. If zero new findings → converged. Otherwise repeat.
+8. If zero new findings → converged. Otherwise, repeat.
 9. Build clusters from the final findings set
 10. Update the pass log and final totals
 

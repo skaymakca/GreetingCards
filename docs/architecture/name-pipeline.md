@@ -243,14 +243,14 @@ if new_path == file_path:
 
 Each `RenameResult` has an `outcome` field (`app/models/card.RenameOutcome`) for machine-readable status:
 
-| Outcome              | Meaning                            |
-|----------------------|------------------------------------|
-| `RENAMED`            | File was successfully renamed      |
-| `ALREADY_CORRECT`    | File already has the correct name  |
-| `SKIP_NO_NAME`       | No family name extracted           |
-| `SKIP_ERROR`         | Card had processing error          |
-| `ERROR_TARGET_EXISTS`| Target name already exists         |
-| `ERROR_OS`           | OS-level rename failure            |
+| Outcome               | Meaning                           |
+|-----------------------|-----------------------------------|
+| `RENAMED`             | File was successfully renamed     |
+| `ALREADY_CORRECT`     | File already has the correct name |
+| `SKIP_NO_NAME`        | No family name extracted          |
+| `SKIP_ERROR`          | Card had processing error         |
+| `ERROR_TARGET_EXISTS` | Target name already exists        |
+| `ERROR_OS`            | OS-level rename failure           |
 
 `RESOLVED_OUTCOMES` (`app/core/naming/rename_filter.py`) is a `frozenset({RENAMED, ALREADY_CORRECT})` — the outcomes that count as "done." Used by `RenameService.execute()` for path-mapping updates and by `MainWindow._remove_completed_results()` for post-rename cleanup.
 

@@ -113,7 +113,7 @@ Licenses are grouped into **category pages** (6 files). Each category page conta
 |-----------------------|------------------------------------------------------------|
 | `index.html`          | Overview with dependency type explanations, summary tables |
 | `greeting-cards.html` | App's own BSD 3-Clause license                             |
-| `bundled.html`         | Python, Tesseract, Highlight.js (not in uv.lock)           |
+| `bundled.html`        | Python, Tesseract, Highlight.js (not in uv.lock)           |
 | `runtime.html`        | Libraries the app directly imports                         |
 | `development.html`    | Testing, development, and build tools                      |
 | `transitive.html`     | Dependencies pulled in by other packages                   |
@@ -131,7 +131,7 @@ All data structures use Python dataclasses from `app/core/content/license_models
 | Class               | Purpose                                                                          |
 |---------------------|----------------------------------------------------------------------------------|
 | `PackageCategory`   | Enum: RUNTIME, DEVELOPMENT, TRANSITIVE                                           |
-| `BundledDep`         | Non-pip bundled deps (Python, Tesseract, Highlight.js); includes `url` field     |
+| `BundledDep`        | Non-pip bundled deps (Python, Tesseract, Highlight.js); includes `url` field     |
 | `PackageOverride`   | Partial entry from config.toml; non-empty fields override auto-discovered values |
 | `LicenseConfig`     | Parsed from config.toml: bundled deps + package overrides                        |
 | `DiscoveredPackage` | One per package with version, license, category, text file path, homepage        |

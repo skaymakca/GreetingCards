@@ -7,6 +7,7 @@ scripts/
   __init__.py              # Empty (makes scripts/ a Python package)
   helpers.py               # Shared utilities: output dirs, API key validation
   dark_mode_cycler.py      # Standalone: toggles macOS dark/light mode every 5s
+  reformat_md_tables.py    # Standalone: reformat Markdown tables for PyCharm
   run_tests.py             # Test runner: scopes, coverage, pytest arg builder
   visual_test.py           # Visual test harness (standalone, not a package)
 
@@ -289,14 +290,14 @@ Scripts with pure logic or mockable I/O:
 
 ### What's NOT tested and why
 
-| Script | Reason |
-|---|---|
-| `scripts/benchmark/` | Requires a real PDF corpus and OCR engines (tesseract/OpenCV); measurement tools, not business logic |
-| `scripts/profiling/` | Requires real PDF files and pyinstrument; measures performance, not correctness |
-| `scripts/visual_test.py` | Is itself a testing tool for manual GUI inspection |
-| `scripts/dark_mode_cycler.py` | Trivial macOS utility — a single `osascript` call in a loop |
-| `scripts/build_family_name_db/cli.py` | Integration orchestrator that downloads real Census/GitHub data; individual sources and merger are tested in isolation |
-| `scripts/build_family_name_db/benchmark_compression.py` | Benchmarking utility for file format selection |
+| Script                                                  | Reason                                                                                                                 |
+|---------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+| `scripts/benchmark/`                                    | Requires a real PDF corpus and OCR engines (tesseract/OpenCV); measurement tools, not business logic                   |
+| `scripts/profiling/`                                    | Requires real PDF files and pyinstrument; measures performance, not correctness                                        |
+| `scripts/visual_test.py`                                | Is itself a testing tool for manual GUI inspection                                                                     |
+| `scripts/dark_mode_cycler.py`                           | Trivial macOS utility — a single `osascript` call in a loop                                                            |
+| `scripts/build_family_name_db/cli.py`                   | Integration orchestrator that downloads real Census/GitHub data; individual sources and merger are tested in isolation |
+| `scripts/build_family_name_db/benchmark_compression.py` | Benchmarking utility for file format selection                                                                         |
 
 ### API mocking
 

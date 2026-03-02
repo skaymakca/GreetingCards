@@ -4,7 +4,8 @@ title: Scripting
 
 # AppleScript Scripting
 
-Greeting Cards supports AppleScript automation. You can control the app from Script Editor, Automator, or the `osascript` command in Terminal — load folders, trigger AI analysis, rename cards, and query results.
+Greeting Cards supports AppleScript automation. You can control the app from Script Editor, Automator, or the
+`osascript` command in Terminal — load folders, trigger AI analysis, rename cards, and query results.
 
 ## Requirements
 
@@ -35,52 +36,53 @@ end tell
 
 ### Loading & Status
 
-| Command | What it does |
-|---------|-------------|
-| `load paths {path, ...}` | Load one or more folder or file paths into the app |
-| `get status` | Return processing state, loaded card count, current model, and year |
-| `reload` | Re-scan all currently loaded paths |
-| `clear all` | Unload all cards and reset the app |
+| Command                  | What it does                                                        |
+|--------------------------|---------------------------------------------------------------------|
+| `load paths {path, ...}` | Load one or more folder or file paths into the app                  |
+| `get status`             | Return processing state, loaded card count, current model, and year |
+| `reload`                 | Re-scan all currently loaded paths                                  |
+| `clear all`              | Unload all cards and reset the app                                  |
 
 ### Card Queries
 
-| Command | What it does |
-|---------|-------------|
+| Command                | What it does                                 |
+|------------------------|----------------------------------------------|
 | `get card info path p` | Return full details for the card at path `p` |
-| `get loaded cards` | Return a summary list of all loaded cards |
+| `get loaded cards`     | Return a summary list of all loaded cards    |
 
 ### Card Mutations
 
-| Command | What it does |
-|---------|-------------|
-| `rename card path p` | Rename the card at `p` using its current best name |
-| `set card name path p name n` | Set a manual name for the card at `p` |
-| `select candidate path p index i` | Promote candidate `i` (0-based) as the chosen name |
+| Command                             | What it does                                           |
+|-------------------------------------|--------------------------------------------------------|
+| `rename card path p`                | Rename the card at `p` using its current best name     |
+| `set card name path p name n`       | Set a manual name for the card at `p`                  |
+| `select candidate path p index i`   | Promote candidate `i` (0-based) as the chosen name     |
 | `set remove family path p remove r` | Set whether to strip the family name from the filename |
 
 ### AI & Models
 
-| Command | What it does |
-|---------|-------------|
-| `analyze cards` | Run AI analysis on all loaded cards |
-| `clear AI results` | Discard cached AI results for all cards |
-| `get models` | Return the list of available AI models |
+| Command                | What it does                                     |
+|------------------------|--------------------------------------------------|
+| `analyze cards`        | Run AI analysis on all loaded cards              |
+| `clear AI results`     | Discard cached AI results for all cards          |
+| `get models`           | Return the list of available AI models           |
 | `set model model_id m` | Switch to model `m` (e.g. `"claude-sonnet-4-6"`) |
-| `quit` | Quit the application |
+| `quit`                 | Quit the application                             |
 
 ## JSON Responses
 
-All commands return a JSON string. Parse it with `json.loads()` in Python or a JSON library in your scripting language of choice.
+All commands return a JSON string. Parse it with `json.loads()` in Python or a JSON library in your scripting language
+of choice.
 
-| Response shape | Fields | Returned by |
-|---|---|---|
-| `{success, count, error?}` | `success` (bool), `count` (int), `error` (str, optional) | `load paths`, `analyze cards`, `clear AI results` |
-| `{success, error?}` | `success` (bool), `error` (str, optional) | `reload`, `clear all`, `set card name`, `select candidate`, `set remove family`, `set model` |
-| `{success, old_path, new_path, error}` | all strings + `success` bool | `rename card` |
-| `{is_processing, is_analyzing, loaded_count, current_model, year}` | see schema | `get status` |
-| card info object | `filename`, `file_hash`, `file_paths`, `family_name`, `confidence`, `method`, `candidates`, … | `get card info` |
-| array of card summaries | `filename`, `file_hash`, `family_name`, `confidence` | `get loaded cards` |
-| array of model objects | `model_id`, `label`, `description`, `speed` (1–5), `quality` (1–5) | `get models` |
+| Response shape                                                     | Fields                                                                                        | Returned by                                                                                  |
+|--------------------------------------------------------------------|-----------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| `{success, count, error?}`                                         | `success` (bool), `count` (int), `error` (str, optional)                                      | `load paths`, `analyze cards`, `clear AI results`                                            |
+| `{success, error?}`                                                | `success` (bool), `error` (str, optional)                                                     | `reload`, `clear all`, `set card name`, `select candidate`, `set remove family`, `set model` |
+| `{success, old_path, new_path, error}`                             | all strings + `success` bool                                                                  | `rename card`                                                                                |
+| `{is_processing, is_analyzing, loaded_count, current_model, year}` | see schema                                                                                    | `get status`                                                                                 |
+| card info object                                                   | `filename`, `file_hash`, `file_paths`, `family_name`, `confidence`, `method`, `candidates`, … | `get card info`                                                                              |
+| array of card summaries                                            | `filename`, `file_hash`, `family_name`, `confidence`                                          | `get loaded cards`                                                                           |
+| array of model objects                                             | `model_id`, `label`, `description`, `speed` (1–5), `quality` (1–5)                            | `get models`                                                                                 |
 
 [Full JSON Schema (draft 2020-12)](https://raw.githubusercontent.com/skaymakca/GreetingCards/main/content/schemas/apple-events.schema.json)
 
@@ -122,9 +124,11 @@ For Python-based automation using `subprocess` and `json`:
 ```python
 import subprocess, json, time
 
+
 def run(cmd):
     result = subprocess.run(["osascript", "-e", cmd], capture_output=True, text=True)
     return json.loads(result.stdout.strip())
+
 
 # Load a folder
 run('tell application "Greeting Cards" to load paths {"/Users/you/Cards"}')

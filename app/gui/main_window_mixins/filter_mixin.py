@@ -17,10 +17,12 @@ class FilterMixin:
     depend on.  At runtime ``self`` is always the full ``MainWindow`` instance.
     """
 
+    # noinspection PyUnusedLocal
     def _on_search_text(self: MainWindowProtocol, event: wx.CommandEvent) -> None:
         """Filter cards as user types in search field."""
         self._refresh_display()
 
+    # noinspection PyUnusedLocal
     def _on_search_cancel(self: MainWindowProtocol, event: wx.CommandEvent) -> None:
         """Clear filter when cancel button clicked."""
         self._search_ctrl.ChangeValue("")

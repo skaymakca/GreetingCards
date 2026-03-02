@@ -73,43 +73,43 @@ make test T=default
 
 Run `make help` to see all available commands.
 
-| Command                | Description                                                                              |
-|------------------------|------------------------------------------------------------------------------------------|
-| `make help`            | Show all available make commands                                                         |
-| `make setup`           | Install production dependencies (creates venv automatically)                             |
-| `make setup-dev`       | Install all dependencies including dev/testing tools                                     |
-| `make run`             | Run the app from source                                                                  |
-| `make test`            | Run tests (no args shows help; `make test T="core --cov -x"`)                            |
+| Command                | Description                                                                                 |
+|------------------------|---------------------------------------------------------------------------------------------|
+| `make help`            | Show all available make commands                                                            |
+| `make setup`           | Install production dependencies (creates venv automatically)                                |
+| `make setup-dev`       | Install all dependencies including dev/testing tools                                        |
+| `make run`             | Run the app from source                                                                     |
+| `make test`            | Run tests (no args shows help; `make test T="core --cov -x"`)                               |
 | `make test-cov`        | Run all tests with coverage (timestamped output in `_build/coverage/`, flat + grouped HTML) |
-| `make test-cov-open`   | Run all tests with coverage and open HTML reports in browser                              |
-| `make tessdata`        | Download tessdata (eng.traineddata) for OCR                                              |
-| `make content`         | Generate runtime content (HTML, data files, images)                                      |
-| `make licenses-sync`   | Sync license registry from uv.lock + .dist-info                                          |
-| `make visual-test`     | Run visual test harness from source                                                      |
-| `make visual-test-app` | Build and run visual test harness as `.app` bundle (logs visible)                        |
-| `make dmg`             | Build the distributable DMG installer (→ `dist/Greeting Cards - X.Y.Z.dmg`)             |
-| `make build`           | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`) — alias for `make app` |
-| `make app`             | Build the macOS `.app` bundle (same as `make build`)                                     |
-| `make app-run`         | Build and run the `.app` bundle with logs visible in terminal                            |
-| `make icon`            | Generate `icon.icns` from `icon.png` (auto-run by build)                                 |
-| `make version`         | Print the current version                                                                |
-| `make bump-patch`      | Bump patch version (e.g. 0.5.0 → 0.5.1)                                                  |
-| `make bump-minor`      | Bump minor version (e.g. 0.5.1 → 0.6.0)                                                  |
-| `make bump-major`      | Bump major version (e.g. 0.6.0 → 1.0.0)                                                  |
-| `make tag`             | Create git tag `vX.Y.Z` from current version                                             |
-| `make tag-push`        | Push all tags to remote                                                                  |
-| `make check`           | Run all static checks (pyright + mypy + ruff lint + format + bandit)                     |
-| `make pyright`         | Run pyright type checking on app/ and scripts/                                           |
-| `make mypy`            | Run mypy type checking on app/ and scripts/                                              |
-| `make lint`            | Run ruff linter                                                                          |
-| `make lint-fix`        | Run ruff linter with auto-fix                                                            |
-| `make format`          | Format code with ruff                                                                    |
-| `make format-check`    | Check formatting without making changes                                                  |
-| `make security`        | Run bandit security scan on app/ and scripts/                                            |
-| `make pycharm-inspect` | Run PyCharm CLI inspections (skipped if PyCharm is not installed)                        |
-| `make loc`             | Count lines of code in project files (excludes dependencies and build artifacts)         |
-| `make show-scripts`    | Show available script invocations without running them                                   |
-| `make clean`           | Remove `_build/` and `dist/` directories                                                 |
+| `make test-cov-open`   | Run all tests with coverage and open HTML reports in browser                                |
+| `make tessdata`        | Download tessdata (eng.traineddata) for OCR                                                 |
+| `make content`         | Generate runtime content (HTML, data files, images)                                         |
+| `make licenses-sync`   | Sync license registry from uv.lock + .dist-info                                             |
+| `make visual-test`     | Run visual test harness from source                                                         |
+| `make visual-test-app` | Build and run visual test harness as `.app` bundle (logs visible)                           |
+| `make dmg`             | Build the distributable DMG installer (→ `dist/Greeting Cards - X.Y.Z.dmg`)                 |
+| `make build`           | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`) — alias for `make app`    |
+| `make app`             | Build the macOS `.app` bundle (same as `make build`)                                        |
+| `make app-run`         | Build and run the `.app` bundle with logs visible in terminal                               |
+| `make icon`            | Generate `icon.icns` from `icon.png` (auto-run by build)                                    |
+| `make version`         | Print the current version                                                                   |
+| `make bump-patch`      | Bump patch version (e.g. 0.5.0 → 0.5.1)                                                     |
+| `make bump-minor`      | Bump minor version (e.g. 0.5.1 → 0.6.0)                                                     |
+| `make bump-major`      | Bump major version (e.g. 0.6.0 → 1.0.0)                                                     |
+| `make tag`             | Create git tag `vX.Y.Z` from current version                                                |
+| `make tag-push`        | Push all tags to remote                                                                     |
+| `make check`           | Run all static checks (pyright + mypy + ruff lint + format + bandit)                        |
+| `make pyright`         | Run pyright type checking on app/ and scripts/                                              |
+| `make mypy`            | Run mypy type checking on app/ and scripts/                                                 |
+| `make lint`            | Run ruff linter                                                                             |
+| `make lint-fix`        | Run ruff linter with auto-fix                                                               |
+| `make format`          | Format code with ruff                                                                       |
+| `make format-check`    | Check formatting without making changes                                                     |
+| `make security`        | Run bandit security scan on app/ and scripts/                                               |
+| `make pycharm-inspect` | Run PyCharm CLI inspections (skipped if PyCharm is not installed)                           |
+| `make loc`             | Count lines of code in project files (excludes dependencies and build artifacts)            |
+| `make show-scripts`    | Show available script invocations without running them                                      |
+| `make clean`           | Remove `_build/` and `dist/` directories                                                    |
 
 ## Manual setup and commands
 
@@ -229,32 +229,32 @@ tests/
 
 ### Running Tests
 
-| Command                                               | What it does                        |
-|-------------------------------------------------------|-------------------------------------|
-| `make test T=default`                                 | Run core + gui + scripts tests      |
-| `make test T=core`                                    | Run only core tests (fast, no GUI)  |
-| `make test T=gui`                                     | Run only GUI tests                  |
-| `make test T="gui scripts"`                           | Combine multiple scopes             |
-| `make test T="core -x"`                               | Stop on first failure               |
-| `make test T="core -k family_name"`                   | Keyword filter                      |
-| `make test-cov`                                       | All tests with coverage reports     |
-| `make test-cov-open`                                  | Coverage + open in browser          |
-| `uv run pytest tests/core/naming/test_family_name_formatting.py -v` | Run specific test file  |
+| Command                                                             | What it does                       |
+|---------------------------------------------------------------------|------------------------------------|
+| `make test T=default`                                               | Run core + gui + scripts tests     |
+| `make test T=core`                                                  | Run only core tests (fast, no GUI) |
+| `make test T=gui`                                                   | Run only GUI tests                 |
+| `make test T="gui scripts"`                                         | Combine multiple scopes            |
+| `make test T="core -x"`                                             | Stop on first failure              |
+| `make test T="core -k family_name"`                                 | Keyword filter                     |
+| `make test-cov`                                                     | All tests with coverage reports    |
+| `make test-cov-open`                                                | Coverage + open in browser         |
+| `uv run pytest tests/core/naming/test_family_name_formatting.py -v` | Run specific test file             |
 
 ### Current Coverage
 
 - **2376 tests** covering core logic, GUI components, and scripts
 - **Core** (services/, pipeline/, naming/, content/ sub-packages + top-level): AI analysis, AI batch, AI service,
-  apple events, card model, card processor, card service, card store, changelog, changelog models, config,
+  Apple Events, card model, card processor, card service, card store, changelog, changelog models, config,
   config service, database, family name cleaning, family name data, family name formatting, filename safety,
   filter service, help builder, license HTML, license models, license sync, name extraction, OCR engine, paths,
   PDF rendering, PDF worker, platform, processing service, rate limit, rename service, renamer, rename filter,
   scripting protocol, template environment, version
-- **GUI** (21 test files): API key dialog, apple events bridge, appearance, changelog dialog, context menu, cursors,
+- **GUI** (21 test files): API key dialog, Apple Events bridge, appearance, changelog dialog, context menu, cursors,
   dialogs, drop target, filter sidebar, help dialog, HTML viewer, icons, licenses dialog, main window, preview cursor
   behavior, preview panel, review panel, settings, styles, toolbar, utilities
 - **Integration**: AppleScript end-to-end tests (requires `--run-integration`)
-- **Scripts** (tests/scripts/): helpers, build_family_name_db (merger, unicode, Census/Faker/Smashew sources), dmg
+- **Scripts** (tests/scripts/): helpers, build_family_name_db (merger, Unicode, Census/Faker/Smashew sources), dmg
   (readme RTF, background PNG, dmgbuild orchestration), generate_diagnostic_cards (CLI), generate_sample_cards
   (models, display, pdf_composer, image_generator, spec_generator, cli, spec_generators/ sub-package)
 
@@ -380,6 +380,14 @@ uv run python -m scripts.profiling ~/Desktop/Cards
 
 ```bash
 uv run python -m scripts.build_family_name_db
+```
+
+### Markdown Table Formatter
+
+`reformat_md_tables` reformats Markdown tables to pass PyCharm's `MarkdownIncorrectTableFormatting` inspection.
+
+```bash
+uv run python -m scripts.reformat_md_tables docs/**/*.md README.md CLAUDE.md
 ```
 
 ### DMG Installer

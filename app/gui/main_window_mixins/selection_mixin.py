@@ -59,6 +59,7 @@ class SelectionMixin:
             self._review_panel.update_card(card_id, card)
         self._refresh_display()
 
+    # noinspection PyUnusedLocal
     def _on_card_edited(self: MainWindowProtocol, card_id: int) -> None:
         """Handle discrete card edits (e.g. candidate selection) that change confidence."""
         self._refresh_display()
@@ -80,6 +81,7 @@ class SelectionMixin:
         # Refresh display (handles filter counts, list reload, empty state)
         self._refresh_display()
 
+    # noinspection PyUnusedLocal
     def _on_remove_menu(self: MainWindowProtocol, event: wx.CommandEvent) -> None:
         """Handle Edit > Remove — remove all selected cards."""
         for card_id in list(self._review_panel.selected_card_ids):
@@ -93,6 +95,7 @@ class SelectionMixin:
         """Enable Remove menu item only when cards are selected."""
         event.Enable(bool(self._review_panel.selected_card_ids))
 
+    # noinspection PyUnusedLocal
     def _on_edit_debounce_fire(self: MainWindowProtocol, event: wx.TimerEvent) -> None:
         """Fire after user stops typing for 1 second — refresh filters."""
         self._refresh_display()

@@ -16,7 +16,11 @@ import threading
 from collections.abc import Callable
 
 import objc
+
+# noinspection PyUnresolvedReferences
 from AppKit import NSAppleEventManager
+
+# noinspection PyUnresolvedReferences
 from Foundation import NSAppleEventDescriptor
 
 from app.core.scripting_protocol import ScriptingTarget
@@ -213,6 +217,7 @@ def _call_on_main_thread(func):
         result_holder.append(func())
         done.set()
 
+    # noinspection PyCallingNonCallable
     _main_thread_dispatch(_wrapper)
     if not done.wait(timeout=30):
         logger.error("_call_on_main_thread timed out after 30s")
@@ -231,6 +236,7 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
 
     _window: ScriptingTarget | None
 
+    # noinspection PyMethodFirstArgAssignment,PyUnresolvedReferences
     def initWithWindow_(self, window: ScriptingTarget):
         self = objc.super(AppleEventHandler, self).init()
         if self is None:
@@ -408,7 +414,7 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
             _set_text_reply(reply, json.dumps(result))
 
     def handleClearAiResults_reply_(self, event, reply):
-        """clear ai results — clear AI results."""
+        """clear AI results — clear AI results."""
         filename = _get_direct_text(event)
 
         def _do():
@@ -501,6 +507,7 @@ def register_apple_event_handlers(
 
     for code_suffix, selector in _HANDLER_MAP.items():
         event_id = ae_keyword(code_suffix)
+        # noinspection PyUnresolvedReferences
         mgr.setEventHandler_andSelector_forEventClass_andEventID_(
             handler,
             objc.selector(None, selector=selector.encode(), signature=b"v@:@@"),
@@ -519,6 +526,7 @@ def register_quit_handler(handler: AppleEventHandler) -> None:
     so this must be deferred (e.g. via wx.CallAfter) to get the last word.
     """
     mgr = NSAppleEventManager.sharedAppleEventManager()
+    # noinspection PyUnresolvedReferences
     mgr.setEventHandler_andSelector_forEventClass_andEventID_(
         handler,
         objc.selector(None, selector=b"handleQuit:reply:", signature=b"v@:@@"),

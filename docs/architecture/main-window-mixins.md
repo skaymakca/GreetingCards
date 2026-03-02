@@ -64,17 +64,17 @@ def is_processing(self: MainWindowProtocol) -> bool:  # type: ignore[misc]
 
 Search field and sidebar filter logic.
 
-| Method | Purpose |
-|--------|---------|
-| `_on_search_text` | Calls `_refresh_display` on every keystroke |
-| `_on_search_cancel` | Clears search field and refreshes |
-| `_on_category_filter_change` | Updates `_current_category_filters`, refreshes |
-| `_on_folder_filter_change` | Updates `_current_folder_filters`, refreshes |
-| `_refresh_display` | Delegates to `compute_filtered_view()`, updates sidebar + list |
-| `_has_active_filters` | Returns True when any filter is narrowing the view |
-| `_get_search_filtered_cards` | Applies text search query (used by tests) |
-| `_apply_folder_filters` | Applies folder sidebar filters to a card list (used by tests) |
-| `_apply_category_filters` | Applies confidence/category sidebar filters (used by tests) |
+| Method                       | Purpose                                                        |
+|------------------------------|----------------------------------------------------------------|
+| `_on_search_text`            | Calls `_refresh_display` on every keystroke                    |
+| `_on_search_cancel`          | Clears search field and refreshes                              |
+| `_on_category_filter_change` | Updates `_current_category_filters`, refreshes                 |
+| `_on_folder_filter_change`   | Updates `_current_folder_filters`, refreshes                   |
+| `_refresh_display`           | Delegates to `compute_filtered_view()`, updates sidebar + list |
+| `_has_active_filters`        | Returns True when any filter is narrowing the view             |
+| `_get_search_filtered_cards` | Applies text search query (used by tests)                      |
+| `_apply_folder_filters`      | Applies folder sidebar filters to a card list (used by tests)  |
+| `_apply_category_filters`    | Applies confidence/category sidebar filters (used by tests)    |
 
 `_refresh_display` delegates the two-pass cross-filter algorithm to `filter_service.compute_filtered_view()` (see `filter-pipeline.md`).
 
@@ -82,33 +82,33 @@ Search field and sidebar filter logic.
 
 Card selection, name edits, card removal, and review panel callbacks. Delegates mutations to `CardService`.
 
-| Method | Purpose |
-|--------|---------|
-| `_on_card_select` | Updates preview panel when a card is selected |
-| `_on_name_change` | Delegates to `CardService.set_name()` + debounce timer |
-| `_on_checkbox_toggle` | Callback from review panel — delegates to `CardService.set_remove_family()` |
-| `_on_candidate_select` | Callback from review panel — delegates to `CardService.select_candidate()` |
-| `_on_card_edited` | Handles discrete edits (e.g. candidate selection) |
-| `_on_remove_card` | Removes a card via `CardStore` (non-destructive, no file deletion) |
-| `_on_remove_menu` | Removes all selected cards (Edit > Remove) |
-| `_on_update_remove_menu` | Enables/disables the Remove menu item |
-| `_on_edit_debounce_fire` | Fires after 1-second idle to refresh sidebar counts |
+| Method                   | Purpose                                                                     |
+|--------------------------|-----------------------------------------------------------------------------|
+| `_on_card_select`        | Updates preview panel when a card is selected                               |
+| `_on_name_change`        | Delegates to `CardService.set_name()` + debounce timer                      |
+| `_on_checkbox_toggle`    | Callback from review panel — delegates to `CardService.set_remove_family()` |
+| `_on_candidate_select`   | Callback from review panel — delegates to `CardService.select_candidate()`  |
+| `_on_card_edited`        | Handles discrete edits (e.g. candidate selection)                           |
+| `_on_remove_card`        | Removes a card via `CardStore` (non-destructive, no file deletion)          |
+| `_on_remove_menu`        | Removes all selected cards (Edit > Remove)                                  |
+| `_on_update_remove_menu` | Enables/disables the Remove menu item                                       |
+| `_on_edit_debounce_fire` | Fires after 1-second idle to refresh sidebar counts                         |
 
 ### AIMixin (`ai_mixin.py`) — Group B
 
 AI batch analysis workflow.
 
-| Method | Purpose |
-|--------|---------|
-| `_on_clear_ai_results` | Prompts + delegates to `CardService.clear_ai_results()` |
-| `_ensure_api_key` | Checks for API key, shows dialog if missing |
-| `_get_target_cards` | Returns (cards, scope) based on selection state |
-| `_on_ai_request` | Handles single-card AI button click (uses `CardService.is_ai_eligible`) |
-| `_get_action_menu_label` | Builds dynamic menu label like "AI Analyze Selected (3)\tCtrl+Shift+I" |
-| `_start_ai_all` | Entry point: validates, locks UI, starts background thread |
-| `_run_ai_all` | Runs `run_ai_batch_async` on the background thread |
-| `_update_ai_all_progress` | Progress callback (called via `wx.CallAfter`) |
-| `_ai_all_complete` | Completion callback: unlocks UI, shows errors or success |
+| Method                    | Purpose                                                                 |
+|---------------------------|-------------------------------------------------------------------------|
+| `_on_clear_ai_results`    | Prompts + delegates to `CardService.clear_ai_results()`                 |
+| `_ensure_api_key`         | Checks for API key, shows dialog if missing                             |
+| `_get_target_cards`       | Returns (cards, scope) based on selection state                         |
+| `_on_ai_request`          | Handles single-card AI button click (uses `CardService.is_ai_eligible`) |
+| `_get_action_menu_label`  | Builds dynamic menu label like "AI Analyze Selected (3)\tCtrl+Shift+I"  |
+| `_start_ai_all`           | Entry point: validates, locks UI, starts background thread              |
+| `_run_ai_all`             | Runs `run_ai_batch_async` on the background thread                      |
+| `_update_ai_all_progress` | Progress callback (called via `wx.CallAfter`)                           |
+| `_ai_all_complete`        | Completion callback: unlocks UI, shows errors or success                |
 
 ### AppleEventsMixin (`apple_events_mixin.py`) — Group A
 
@@ -145,7 +145,7 @@ patch("app.gui.main_window.build_rename_plan")
 patch("app.gui.main_window.RenameConfirmDialog")
 ```
 
-**Key change:** Mixins no longer import DB functions directly. Instead they delegate to `self._card_service`, which imports the DB functions in `app/core/services/card_service.py`. Patches for DB operations must target `app.core.services.card_service.*`, not the mixin modules. Similarly, `load_paths_for_script` now delegates to `_load_paths` in `main_window.py`, so `scan_for_pdfs` patches target `app.gui.main_window`, not the apple events mixin.
+**Key change:** Mixins no longer import DB functions directly. Instead, they delegate to `self._card_service`, which imports the DB functions in `app/core/services/card_service.py`. Patches for DB operations must target `app.core.services.card_service.*`, not the mixin modules. Similarly, `load_paths_for_script` now delegates to `_load_paths` in `main_window.py`, so `scan_for_pdfs` patches target `app.gui.main_window`, not the Apple Events mixin.
 
 ---
 

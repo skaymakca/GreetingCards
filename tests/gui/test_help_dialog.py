@@ -141,7 +141,7 @@ class TestGetPageOrder:
         assert all(p.endswith(".html") for p in page_order)
 
     def test_order_matches_nav_order(self):
-        """Page order should follow the numeric prefix in markdown filenames."""
+        """Page order should follow the numeric prefix in Markdown filenames."""
         page_order = get_page_order(_get_help_base_path())
         expected = [
             "index.html",

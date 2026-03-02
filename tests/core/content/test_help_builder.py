@@ -22,7 +22,7 @@ class TestParseFrontmatter:
         assert "Body text here." in body
 
     def test_no_frontmatter(self):
-        text = "Just plain markdown."
+        text = "Just plain Markdown."
         metadata, body = _parse_frontmatter(text)
         assert metadata == {}
         assert body == text

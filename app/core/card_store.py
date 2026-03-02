@@ -123,16 +123,19 @@ class CardStore:
 
         return card, is_new
 
+    # noinspection GrazieInspection
     def register_new_pdfs(self, paths: list[Path]) -> None:
         """Add paths to the pdf_files set (called before processing)."""
         self._pdf_files.update(paths)
 
-    def unlink_path(self, path: Path) -> None:
-        """Remove a path from all tracking dicts and its associated card.
+    # noinspection GrazieInspection
+    def _detach_path(self, path: Path) -> str | None:
+        """Pop path from tracking dicts and detach it from its card.
 
-        Pops path from hash_by_path, mtime_by_path, and pdf_files.
-        Removes path from its card's file_paths list and deletes the card
-        if it has no remaining paths.
+        Removes path from hash_by_path, mtime_by_path, and pdf_files.
+        If the card has no remaining paths, deletes the card entirely.
+
+        Returns the file hash that was associated with the path (or None).
         """
         file_hash = self._hash_by_path.pop(path, None)
         self._mtime_by_path.pop(path, None)
@@ -144,6 +147,17 @@ class CardStore:
             if not card.file_paths:
                 del self._cards_by_hash[file_hash]
                 self._id_to_card.pop(card.id, None)
+        return file_hash
+
+    # noinspection GrazieInspection
+    def unlink_path(self, path: Path) -> None:
+        """Remove a path from all tracking dicts and its associated card.
+
+        Pops path from hash_by_path, mtime_by_path, and pdf_files.
+        Removes path from its card's file_paths list and deletes the card
+        if it has no remaining paths.
+        """
+        self._detach_path(path)
 
     def update_path_mapping(self, old_path: Path, new_path: Path) -> None:
         """Update tracking dicts when a file is renamed on disk.
@@ -172,24 +186,15 @@ class CardStore:
                 if card.primary_path == old_path:
                     card.primary_path = new_path
 
+    # noinspection GrazieInspection
     def remove_hash_for_path(self, path: Path) -> str | None:
         """Remove and return the hash mapping for a path (used during reload).
 
         Also removes the mtime and pdf_files entries, and detaches path from
         its card (removing card if no paths remain). This is more granular
-        than unlink_path -- it returns the old hash for comparison.
+        than unlink_path — it returns the old hash for comparison.
         """
-        file_hash = self._hash_by_path.pop(path, None)
-        self._mtime_by_path.pop(path, None)
-        self._pdf_files.discard(path)
-        if file_hash and file_hash in self._cards_by_hash:
-            card = self._cards_by_hash[file_hash]
-            if path in card.file_paths:
-                card.file_paths.remove(path)
-            if not card.file_paths:
-                del self._cards_by_hash[file_hash]
-                self._id_to_card.pop(card.id, None)
-        return file_hash
+        return self._detach_path(path)
 
     def filter_and_register(self, pdf_paths: list[Path]) -> tuple[list[Path], list[Path]]:
         """Filter out already-loaded paths and register new ones.
