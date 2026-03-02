@@ -228,10 +228,10 @@ dependencies = [
     { name = "openai" },
     { name = "pillow" },
     { name = "pymupdf" },
-    { name = "pyobjc-framework-cocoa" },
+    { name = "pyobjc-framework-cocoa", marker = "sys_platform == 'darwin'" },
     { name = "sqlalchemy" },
     { name = "tesserocr" },
-    { name = "wxpython" },
+    { name = "wxpython", marker = "sys_platform == 'darwin'" },
 ]
 
 [package.dev-dependencies]
@@ -261,10 +261,10 @@ requires-dist = [
     { name = "openai", specifier = ">=2.22.0" },
     { name = "pillow", specifier = "==12.1.1" },
     { name = "pymupdf", specifier = "==1.27.1" },
-    { name = "pyobjc-framework-cocoa", specifier = "==12.1" },
+    { name = "pyobjc-framework-cocoa", marker = "sys_platform == 'darwin'", specifier = "==12.1" },
     { name = "sqlalchemy", specifier = "==2.0.46" },
     { name = "tesserocr", specifier = ">=2.10.0" },
-    { name = "wxpython", specifier = "==4.2.5" },
+    { name = "wxpython", marker = "sys_platform == 'darwin'", specifier = "==4.2.5" },
 ]
 
 [package.metadata.requires-dev]
@@ -1102,7 +1102,4 @@ sdist = { url = "https://files.pythonhosted.org/packages/22/43/81657a6b126ffc191
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e5/a1/9d8a7c5f60bb311257b04e3a3d9bbf12e4ab1fcc92811a007bbdf43b1e5f/wxpython-4.2.5-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:af2d8388eb3f0d8eaae0713a35c307293435ec279f215a2bbf521b738d7fc91b", size = 17783876, upload-time = "2026-02-08T20:40:27.739Z" },
     { url = "https://files.pythonhosted.org/packages/e9/9c/32862d321db8927f37d2572e606cf480e013942e5c6ce39fef37c4a713cb/wxpython-4.2.5-cp314-cp314-macosx_14_0_x86_64.whl", hash = "sha256:1925485c9b90e79f869272eff2b99438538b00505f9d148d51358dc8e92116b6", size = 18864211, upload-time = "2026-02-08T20:40:30.523Z" },
-    { url = "https://files.pythonhosted.org/packages/51/a7/261bf54686192ebefc42b494da97ba3312bd01c1d37a964f0cb83f271cf0/wxpython-4.2.5-cp314-cp314-win32.whl", hash = "sha256:230ecb4de65a8d2f8bc30bccd4d64366ac3a7cf53759b77920de927d156ad9c5", size = 14859697, upload-time = "2026-02-08T20:40:33.108Z" },
-    { url = "https://files.pythonhosted.org/packages/fd/9a/73f12041178db3728a809ce37c2b64409291cb45567b2918df478f0ceb20/wxpython-4.2.5-cp314-cp314-win_amd64.whl", hash = "sha256:eb1c228f0c20ed93f2799ebd81780abc7fd65cfa8f6b65e989b68c0c18c52707", size = 16947346, upload-time = "2026-02-08T20:40:35.583Z" },
-    { url = "https://files.pythonhosted.org/packages/b6/49/3a39f5fe78a7194c848919c4b681f432fe937006e2e5182a17dd519f8c91/wxpython-4.2.5-cp314-cp314-win_arm64.whl", hash = "sha256:d4439bf4b18ac720afbcf51c37d7822ba62ab6999501e96cce1dfc2f55a19344", size = 15809574, upload-time = "2026-02-08T20:40:38.859Z" },
 ]

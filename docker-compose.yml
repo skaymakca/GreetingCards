@@ -1,0 +1,9 @@
+services:
+  test-linux:
+    build: .
+    image: greeting-cards-test
+    volumes:
+      - .:/app
+      - /app/.venv  # anonymous volume: prevent macOS .venv from leaking in
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1

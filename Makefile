@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev run app app-run build clean icon content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-cov-open tessdata pyright mypy lint lint-fix format format-check security check pycharm-inspect show-scripts visual-test visual-test-app dmg
+.PHONY: help setup setup-dev run app app-run build clean icon content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-cov-open tessdata pyright mypy lint lint-fix format format-check security check pycharm-inspect show-scripts visual-test visual-test-app dmg docker-build docker-test docker-shell
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -235,6 +235,15 @@ show-scripts: ## Show available script invocations (does not run them)
 
 dmg: app ## Build the distributable DMG installer (→ dist/Greeting Cards - X.Y.Z.dmg)
 	uv run python -m scripts.dmg
+
+docker-build: ## Build the Linux test image
+	docker build -t greeting-cards-test .
+
+docker-test: ## Run tests in Linux container
+	docker compose run --rm test-linux
+
+docker-shell: ## Interactive shell in Linux container
+	docker compose run --rm test-linux /bin/bash
 
 clean: ## Remove build artifacts
 	@$(LSREGISTER) -u "dist/Greeting Cards.app" 2>/dev/null || true
