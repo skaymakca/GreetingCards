@@ -22,9 +22,9 @@ Output
 
 Usage
 -----
-    uv run python scripts/benchmark_ocr_concurrency.py ~/Desktop/cards
+    uv run python -m scripts.benchmark.ocr_concurrency ~/Desktop/cards
 
-    uv run python scripts/benchmark_ocr_concurrency.py ~/Desktop/cards \\
+    uv run python -m scripts.benchmark.ocr_concurrency ~/Desktop/cards \\
         --config tesserocr-default-200-3-pillow-0.15 \\
         --levels 1,2,4,8 --models sequential,threads,futures_processes
 

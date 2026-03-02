@@ -717,6 +717,9 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         """Handle window close event."""
         appearance.stop_observer()
 
+        if wx.IsBusy():
+            wx.EndBusyCursor()
+
         self._edit_debounce_timer.Stop()
         if self._prefs_editor is not None:
             self._prefs_editor.Dismiss()

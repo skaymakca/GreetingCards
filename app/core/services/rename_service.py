@@ -54,7 +54,7 @@ class RenameService:
         """
         return build_rename_plan(cards, year)
 
-    def execute(self, plan: list) -> list[RenameResult]:
+    def execute(self, plan: list[RenamePlanItem]) -> list[RenameResult]:
         """Execute a rename plan and update store path mappings.
 
         Calls ``execute_rename_plan()`` then updates the store for every

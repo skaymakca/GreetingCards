@@ -18,6 +18,11 @@ from app.models.card import CardResult
 
 logger = logging.getLogger(__name__)
 
+_ELIGIBILITY_MESSAGES: dict[str, str] = {
+    "card_has_error": "Cannot analyze card with errors.",
+    "no_image": "No preview image available for AI analysis.",
+}
+
 
 class AIMixin:
     """Mixin providing AI batch analysis functionality for MainWindow.
@@ -107,11 +112,6 @@ class AIMixin:
 
         reason = CardService.check_ai_eligibility(card)
         if reason is not None:
-            # Map machine-readable reason to user-facing message (GUI concern)
-            _ELIGIBILITY_MESSAGES = {
-                "card_has_error": "Cannot analyze card with errors.",
-                "no_image": "No preview image available for AI analysis.",
-            }
             wx.MessageBox(
                 _ELIGIBILITY_MESSAGES.get(reason, "Card is not eligible for AI analysis."),
                 "Not Eligible",

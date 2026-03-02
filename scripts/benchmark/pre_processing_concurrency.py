@@ -34,9 +34,9 @@ Output
 
 Usage
 -----
-    uv run python scripts/benchmark_pre_processing_concurrency.py ~/Desktop/cards
+    uv run python -m scripts.benchmark.pre_processing_concurrency ~/Desktop/cards
 
-    uv run python scripts/benchmark_pre_processing_concurrency.py ~/Desktop/cards \\
+    uv run python -m scripts.benchmark.pre_processing_concurrency ~/Desktop/cards \\
         --levels 1,2,4,8 --models sequential,futures_processes
 
 Dependencies
