@@ -106,6 +106,9 @@ Run `make help` to see all available commands.
 | `make pycharm-inspect` | Run PyCharm CLI inspections (skipped if PyCharm is not installed)                           |
 | `make loc`             | Count lines of code in project files (excludes dependencies and build artifacts)            |
 | `make show-scripts`    | Show available script invocations without running them                                      |
+| `make docker-build`    | Build the Linux test image                                                                  |
+| `make docker-test`     | Run core + scripts tests in Linux container                                                 |
+| `make docker-shell`    | Interactive shell in Linux container                                                        |
 | `make clean`           | Remove `_build/` and `dist/` directories                                                    |
 
 ## Manual setup and commands
@@ -438,3 +441,65 @@ found.
 
 See [`docs/architecture/pycharm-inspections.md`](docs/architecture/pycharm-inspections.md) for the full suppression
 inventory.
+
+## Docker (Cross-Platform Testing)
+
+Docker is used to run the test suite on Linux, verifying cross-platform compatibility for non-GUI code. This catches
+platform-specific issues (e.g., path handling, Tesseract integration) that macOS-only testing would miss.
+
+**Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+### Commands
+
+| Command              | Description                                                            |
+|----------------------|------------------------------------------------------------------------|
+| `make docker-build`  | Build the Linux test image (Python 3.14-slim + Tesseract + uv)        |
+| `make docker-test`   | Run core + scripts tests in the Linux container                        |
+| `make docker-shell`  | Open an interactive shell in the container for debugging                |
+
+### What runs in the container
+
+The container runs `tests/core/` and `tests/scripts/` — everything except GUI tests (`tests/gui/`) and macOS-specific
+tests (`test_apple_events.py`). These are excluded because they depend on wxPython and macOS frameworks that aren't
+available in a Linux container.
+
+### Development workflow
+
+Docker Compose mounts the project directory into the container, so code changes are reflected immediately without
+rebuilding. An anonymous volume for `.venv` prevents the macOS virtual environment from leaking into the container.
+
+```bash
+# First time: build the image
+make docker-build
+
+# Iterate: edit code, then run tests
+make docker-test
+
+# Debug: get a shell inside the container
+make docker-shell
+```
+
+See [`docs/architecture/docker-and-ci.md`](docs/architecture/docker-and-ci.md) for implementation details.
+
+## Continuous Integration
+
+CI runs on GitHub Actions (`.github/workflows/ci.yml`) with two jobs:
+
+| Job     | Trigger                  | What it does                                                                        |
+|---------|--------------------------|-------------------------------------------------------------------------------------|
+| `check` | Every push (all branches) | Runs `make check` (pyright + mypy + ruff lint + format-check + bandit)              |
+| `test`  | PRs to `main` only       | Static checks + `make app` build + full test suite with coverage (`make test T=...`) |
+
+Both jobs run on `macos-26` runners with Python 3.14, uv, Tesseract, and lcov installed via a shared composite action
+(`.github/actions/setup-build-env/action.yml`).
+
+### Artifacts
+
+Each job uploads downloadable artifacts:
+
+- **`check` job:** `static-checks.log` — full output of all static analysis tools
+- **`test` job:** `static-checks.log`, `test-results.log`, and the HTML coverage report (`_build/coverage/latest/`)
+
+Artifacts are available from the Actions tab on GitHub for any workflow run.
+
+See [`docs/architecture/docker-and-ci.md`](docs/architecture/docker-and-ci.md) for implementation details.

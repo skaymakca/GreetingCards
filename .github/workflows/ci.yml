@@ -14,7 +14,14 @@ jobs:
       - uses: ./.github/actions/setup-build-env
 
       - name: Static checks
-        run: make check
+        run: make check 2>&1 | tee static-checks.log
+
+      - name: Upload static check log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-checks
+          path: static-checks.log
 
   test:
     name: Tests
@@ -25,17 +32,20 @@ jobs:
       - uses: ./.github/actions/setup-build-env
 
       - name: Static checks
-        run: make check
+        run: make check 2>&1 | tee static-checks.log
 
       - name: Build app bundle
         run: make app
 
       - name: Run tests with coverage
-        run: make test T="all --cov"
+        run: make test T="all --cov" 2>&1 | tee test-results.log
 
-      - name: Upload coverage report
+      - name: Upload logs and coverage
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report
-          path: _build/coverage/latest/
+          name: test-job-logs
+          path: |
+            static-checks.log
+            test-results.log
+            _build/coverage/latest/
