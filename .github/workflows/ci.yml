@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    name: Static checks
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-build-env
+
+      - name: Static checks
+        run: make check
+
+  test:
+    name: Tests
+    runs-on: macos-26
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-build-env
+
+      - name: Static checks
+        run: make check
+
+      - name: Build app bundle
+        run: make app
+
+      - name: Run tests with coverage
+        run: make test T="all --cov"
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: _build/coverage/latest/
