@@ -181,7 +181,7 @@ def _generate_grouped_html(cov_run: Path) -> None:
             "Greeting Cards Coverage",
             "--quiet",
             "--ignore-errors",
-            "inconsistent,corrupt",
+            "inconsistent,inconsistent,corrupt,category",
         ],
         capture_output=True,
         check=False,
