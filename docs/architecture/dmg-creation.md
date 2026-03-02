@@ -58,7 +58,7 @@ The orchestrator package handles the full DMG build:
 |-----------------|-------------------------------------------------------------------------------|
 | `__main__.py`   | CLI entry point: reads version, generates background + README, calls dmgbuild |
 | `readme.py`     | Converts `content/dmg/readme.md` → RTFD with embedded icon                    |
-| `background.py` | Generates 1× and @2x gradient background with arrow and small-caps label      |
+| `background.py` | Generates 1× and @2x gradient background with SF Symbol chevron               |
 
 ### Orchestrator flow (`__main__.py`)
 
@@ -103,8 +103,9 @@ dmgbuild automatically discovers the `@2x` variant when both files are in the sa
 
 The background contains:
 - **Gradient:** Left-to-right steel-blue-gray → near-white
-- **Arrow:** Subtle right-pointing arrow between app and Applications icons, shaft ends at triangle base
-- **Label:** "Drag to Install" in small caps using San Francisco (SFNS.ttf) at Semibold weight (650), with Helvetica fallback
+- **Chevron:** Bold `chevron.right` SF Symbol rendered at Black weight via PyObjC, tinted steel-blue `(155, 170, 190)`, centred between the app and Applications icons — clean, no text (OrbStack-style)
+
+The SF Symbol is rendered via `NSImage.imageWithSystemSymbolName_` with `NSImageSymbolConfiguration` at Black weight and Large scale, tinted with `NSRectFillUsingOperation` (SourceAtop compositing), then converted to a PIL RGBA Image via PNG bytes in a BytesIO buffer. The `_sf_chevron(scale)` helper handles both 1× and 2× by multiplying the point size by the scale factor.
 
 All coordinates scale with a `scale` parameter (1 or 2) so both resolutions are pixel-consistent.
 
@@ -112,7 +113,9 @@ All coordinates scale with a `scale` parameter (1 or 2) so both resolutions are 
 
 ## Read Me
 
-`content/dmg/readme.md` is the committed Markdown source. `scripts/dmg/readme.py` converts it to an RTFD package at build time, injecting:
+`content/dmg/readme.md` is the committed Markdown source. `scripts/dmg/readme.py` converts it to an RTFD package at build time. The RTF preamble includes `\readonlydoc1` — an Apple Cocoa RTF extension that tells TextEdit to open the document in read-only mode with no blinking cursor. Users can still enable editing via `Format > Allow Editing` if needed.
+
+The generated RTFD injects:
 
 - 128×128 app icon (centred, via `\NeXTGraphic` — RTFD is required because TextEdit does not render `\pict\pngblip` images in plain RTF)
 - "Greeting Cards" title (bold, large)

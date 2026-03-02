@@ -5,8 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 from scripts.dmg.background import _gradient, _render, generate
+
+# A small transparent RGBA image standing in for the SF Symbol chevron
+_FAKE_CHEVRON = Image.new("RGBA", (40, 60), (155, 170, 190, 255))
 
 
 class TestGradient:
@@ -37,19 +40,19 @@ class TestGradient:
 
 class TestRender:
     def test_scale_1_image_size(self) -> None:
-        with patch("scripts.dmg.background._load_font", return_value=ImageFont.load_default()):
+        with patch("scripts.dmg.background._sf_chevron", return_value=_FAKE_CHEVRON):
             img = _render(1)
         assert img.width == 660
         assert img.height == 480
 
     def test_scale_2_image_size(self) -> None:
-        with patch("scripts.dmg.background._load_font", return_value=ImageFont.load_default()):
+        with patch("scripts.dmg.background._sf_chevron", return_value=_FAKE_CHEVRON):
             img = _render(2)
         assert img.width == 1320
         assert img.height == 960
 
     def test_returns_rgb_image(self) -> None:
-        with patch("scripts.dmg.background._load_font", return_value=ImageFont.load_default()):
+        with patch("scripts.dmg.background._sf_chevron", return_value=_FAKE_CHEVRON):
             img = _render(1)
         assert img.mode == "RGB"
 
@@ -62,7 +65,7 @@ class TestGenerate:
         with (
             patch("scripts.dmg.background.OUTPUT", output_1x),
             patch("scripts.dmg.background.OUTPUT_2X", output_2x),
-            patch("scripts.dmg.background._load_font", return_value=ImageFont.load_default()),
+            patch("scripts.dmg.background._sf_chevron", return_value=_FAKE_CHEVRON),
         ):
             result = generate()
 
@@ -77,7 +80,7 @@ class TestGenerate:
         with (
             patch("scripts.dmg.background.OUTPUT", output_1x),
             patch("scripts.dmg.background.OUTPUT_2X", output_2x),
-            patch("scripts.dmg.background._load_font", return_value=ImageFont.load_default()),
+            patch("scripts.dmg.background._sf_chevron", return_value=_FAKE_CHEVRON),
         ):
             result = generate()
 

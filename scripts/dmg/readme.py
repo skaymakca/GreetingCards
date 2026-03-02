@@ -122,7 +122,7 @@ def generate(version: str) -> pathlib.Path:
     body = _render_body(md_text)
 
     rtf = (
-        "{\\rtf1\\ansi\\deff0\n"
+        "{\\rtf1\\ansi\\deff0\\readonlydoc1\n"
         "{\\fonttbl{\\f0\\fswiss\\fcharset0 Helvetica;}}\n"
         "{\\colortbl ;\\red128\\green128\\blue128;}\n"
         "\\paperw12240\\paperh15840\n"
