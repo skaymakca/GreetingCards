@@ -6,6 +6,11 @@ define FMT_LINE
 {n=$$1; s=""; while(n>999){s=sprintf(",%03d%s",n%1000,s); n=int(n/1000)} v=sprintf("%d%s",n,s); printf "%-10s%10s lines\n",lbl,v}
 endef
 
+# Banner macro for section headers in `make check` output
+define banner
+	@printf '\n\033[1m── $(1) ──────────────────────────────────────────\033[0m\n\n'
+endef
+
 TESSDATA_DIR := _build/runtime_content/tessdata/fast
 TESSDATA_ENG := $(TESSDATA_DIR)/eng.traineddata
 TESSDATA_URL := https://github.com/tesseract-ocr/tessdata_fast/raw/main/eng.traineddata
@@ -51,12 +56,15 @@ test: ## Run tests (no args shows help; make test T="core --cov -x")
 check: pyright mypy lint format-check security ## Run all static checks
 
 pyright: ## Run pyright type checking
+	$(call banner,Pyright)
 	pyright app/ scripts/ main.py
 
 mypy: ## Run mypy type checking
+	$(call banner,Mypy)
 	uv run mypy app/ scripts/ main.py
 
 lint: ## Run ruff linter
+	$(call banner,Ruff Lint)
 	uv run ruff check app/ scripts/ tests/ main.py
 
 lint-fix: ## Run ruff linter with auto-fix
@@ -66,9 +74,11 @@ format: ## Format code with ruff
 	uv run ruff format app/ scripts/ tests/ main.py
 
 format-check: ## Check formatting (no changes)
+	$(call banner,Ruff Format Check)
 	uv run ruff format --check app/ scripts/ tests/ main.py
 
 security: ## Run bandit security scan
+	$(call banner,Bandit Security)
 	uv run bandit -r app/ scripts/ -c pyproject.toml
 
 pycharm-inspect: ## Run PyCharm inspections (requires PyCharm; skipped if not installed)
