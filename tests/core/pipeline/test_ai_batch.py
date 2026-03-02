@@ -149,7 +149,7 @@ class TestRunAiBatchAsync:
         errors, auth_aborted = args[0]
         assert auth_aborted is True
         assert len(errors) == 1
-        assert errors[0][0] == card1.filename
+        assert errors[0].is_auth
 
     @pytest.mark.asyncio
     async def test_rate_limit_retries_and_succeeds(self):
@@ -221,7 +221,7 @@ class TestRunAiBatchAsync:
         assert mock_analyze.call_count == 1
         errors, _ = on_complete.call_args[0]
         assert len(errors) == 1
-        assert card.filename == errors[0][0]
+        assert errors[0].detail == "unexpected"
 
     @pytest.mark.asyncio
     async def test_progress_reported_for_multiple_cards(self):
@@ -275,7 +275,7 @@ class TestRunAiBatchAsync:
         assert mock_analyze.call_count == 2
         errors, _ = on_complete.call_args[0]
         assert len(errors) == 1
-        assert errors[0][0] == card.filename
+        assert "Rate limit" in errors[0].detail
 
     @pytest.mark.asyncio
     async def test_connection_error_exhausted_after_retry_records_error(self):
@@ -299,7 +299,7 @@ class TestRunAiBatchAsync:
         assert mock_analyze.call_count == 2
         errors, _ = on_complete.call_args[0]
         assert len(errors) == 1
-        assert errors[0][0] == card.filename
+        assert "connection" in errors[0].detail.lower()
 
     @pytest.mark.asyncio
     async def test_auth_failed_skips_card_after_semaphore(self):

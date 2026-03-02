@@ -7,6 +7,7 @@ from pathlib import Path
 from app.core.services.card_service import CardService
 from app.core.services.rename_service import RenameService
 from app.gui.main_window_mixins._protocol import MainWindowProtocol
+from app.gui.rename_display import format_result_status
 from app.models.card import CardResult
 
 
@@ -32,14 +33,14 @@ class AppleEventsMixin:
 
     def _find_card_by_filename(self: MainWindowProtocol, filename: str) -> CardResult | None:
         """Find a card by filename (case-insensitive match on any file_path)."""
-        return self._card_store.find_by_filename(filename)
+        return self._card_service.find_by_filename(filename)
 
     def get_status_for_script(self: MainWindowProtocol) -> dict:
         """Return current app status as a dict."""
         return {
             "is_processing": self.is_processing,
             "is_analyzing": self.is_ai_running,
-            "loaded_count": self._card_store.count,
+            "loaded_count": self._card_service.count,
             "current_model": self._config_service.get_ai_model(),
             "year": self._get_year(),
         }
@@ -50,7 +51,7 @@ class AppleEventsMixin:
 
     def get_all_cards_for_script(self: MainWindowProtocol) -> list[CardResult]:
         """Return all loaded cards."""
-        return self._card_store.get_all_cards()
+        return self._card_service.get_all_cards()
 
     def load_paths_for_script(self: MainWindowProtocol, paths: list[str]) -> dict:
         """Load PDFs from file/folder paths. Returns JSON dict with success and count."""
@@ -77,7 +78,7 @@ class AppleEventsMixin:
                 "success": r.success,
                 "old_path": str(r.old_path),
                 "new_path": str(r.new_path),
-                "error": "" if r.success else r.message,
+                "error": "" if r.success else format_result_status(r),
             }
         return {"success": False, "old_path": "", "new_path": "", "error": "No rename plan generated"}
 
@@ -99,9 +100,10 @@ class AppleEventsMixin:
         if card is None:
             return {"success": False, "error": f"Card not found: {filename}"}
 
-        result = self._card_service.select_candidate_by_rank(card.id, rank)
-        if isinstance(result, str):
-            return {"success": False, "error": result}
+        try:
+            result = self._card_service.select_candidate_by_rank(card.id, rank)
+        except ValueError as e:
+            return {"success": False, "error": str(e)}
         if result:
             self._review_panel.update_card(card.id, result)
         self._refresh_display()
@@ -121,7 +123,7 @@ class AppleEventsMixin:
 
     def analyze_for_script(self: MainWindowProtocol, filename: str | None) -> dict:
         """Start AI analysis. Returns dict with success and count of cards queued."""
-        if self._card_store.is_empty:
+        if self._card_service.is_empty:
             return {"success": False, "error": "No cards loaded"}
 
         if not self._config_service.has_api_key():
@@ -135,7 +137,7 @@ class AppleEventsMixin:
                 return {"success": False, "error": f"Card not eligible for analysis: {filename}"}
             cards = [card]
         else:
-            cards = [c for c in self._card_store.get_all_cards() if CardService.is_ai_eligible(c)]
+            cards = [c for c in self._card_service.get_all_cards() if CardService.is_ai_eligible(c)]
 
         if not cards:
             return {"success": False, "error": "No eligible cards to analyze"}
@@ -151,7 +153,7 @@ class AppleEventsMixin:
                 return {"success": False, "error": f"Card not found: {filename}"}
             cards = [card]
         else:
-            cards = self._card_store.get_all_cards()
+            cards = self._card_service.get_all_cards()
 
         if not cards:
             return {"success": True, "count": 0}
@@ -163,7 +165,7 @@ class AppleEventsMixin:
 
     def reload_for_script(self: MainWindowProtocol) -> dict:
         """Trigger manual reload. Returns dict with success and changed flag."""
-        if not self._card_store.has_paths:
+        if not self._card_service.has_paths:
             return {"success": False, "error": "No paths loaded"}
 
         changed = self._reload_cards(mtime_only=False)

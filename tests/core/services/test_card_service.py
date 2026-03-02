@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from app.core.card_store import CardStore
 from app.core.services.card_service import CardService
 from app.models.card import CandidateInfo, CardResult, Confidence
@@ -261,28 +263,25 @@ class TestSelectCandidateByRank:
         assert card.selected_candidate_id == 10
 
     @patch("app.core.services.card_service.select_candidate")
-    def test_rank_zero_returns_error_string(self, mock_select_candidate: object) -> None:
-        """Rank 0 is invalid and returns descriptive error string."""
+    def test_rank_zero_raises_value_error(self, mock_select_candidate: object) -> None:
+        """Rank 0 is invalid and raises ValueError."""
         card = _make_card()
         _, service = _make_store_and_service(card)
 
-        result = service.select_candidate_by_rank(card.id, 0)
+        with pytest.raises(ValueError, match="Invalid rank 0"):
+            service.select_candidate_by_rank(card.id, 0)
 
-        assert isinstance(result, str)
-        assert "Invalid rank 0" in result
         mock_select_candidate.assert_not_called()  # type: ignore[union-attr]
 
     @patch("app.core.services.card_service.select_candidate")
-    def test_rank_exceeds_candidates_returns_error_string(self, mock_select_candidate: object) -> None:
-        """Rank greater than number of candidates returns descriptive error string."""
+    def test_rank_exceeds_candidates_raises_value_error(self, mock_select_candidate: object) -> None:
+        """Rank greater than number of candidates raises ValueError."""
         card = _make_card()  # 2 candidates
         _, service = _make_store_and_service(card)
 
-        result = service.select_candidate_by_rank(card.id, 3)
+        with pytest.raises(ValueError, match=r"Invalid rank 3.*2 candidates"):
+            service.select_candidate_by_rank(card.id, 3)
 
-        assert isinstance(result, str)
-        assert "Invalid rank 3" in result
-        assert "2 candidates" in result
         mock_select_candidate.assert_not_called()  # type: ignore[union-attr]
 
     @patch("app.core.services.card_service.select_candidate")

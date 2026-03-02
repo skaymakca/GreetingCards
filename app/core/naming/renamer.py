@@ -148,17 +148,17 @@ def execute_rename_plan(plan: list[RenamePlanItem]) -> list[RenameResult]:
     After each successful rename, updates the card's file_paths and primary_path
     so they reflect the new location.
     """
-    _SKIP_OUTCOMES = {
-        STATUS_SKIP_NO_NAME: (RenameOutcome.SKIP_NO_NAME, "No name extracted"),
-        STATUS_SKIP_ERROR: (RenameOutcome.SKIP_ERROR, "Processing error"),
-        STATUS_SKIP_SAME: (RenameOutcome.ALREADY_CORRECT, "Already named correctly"),
+    _STATUS_TO_OUTCOME = {
+        STATUS_SKIP_NO_NAME: RenameOutcome.SKIP_NO_NAME,
+        STATUS_SKIP_ERROR: RenameOutcome.SKIP_ERROR,
+        STATUS_SKIP_SAME: RenameOutcome.ALREADY_CORRECT,
     }
 
     results = []
     for item in plan:
-        if item.status in _SKIP_OUTCOMES:
-            outcome, reason = _SKIP_OUTCOMES[item.status]
-            results.append(RenameResult(item.old_path, item.new_path, True, reason, outcome=outcome, card=item.card))
+        if item.status in _STATUS_TO_OUTCOME:
+            outcome = _STATUS_TO_OUTCOME[item.status]
+            results.append(RenameResult(item.old_path, item.new_path, True, "", outcome=outcome, card=item.card))
             continue
 
         try:
@@ -169,7 +169,7 @@ def execute_rename_plan(plan: list[RenamePlanItem]) -> list[RenameResult]:
                         item.old_path,
                         item.new_path,
                         False,
-                        f"Target already exists: {item.new_path.name}",
+                        "",
                         outcome=RenameOutcome.ERROR_TARGET_EXISTS,
                         card=item.card,
                     )
@@ -190,9 +190,7 @@ def execute_rename_plan(plan: list[RenamePlanItem]) -> list[RenameResult]:
                     card.primary_path = item.new_path
 
             results.append(
-                RenameResult(
-                    item.old_path, item.new_path, True, "Renamed", outcome=RenameOutcome.RENAMED, card=item.card
-                )
+                RenameResult(item.old_path, item.new_path, True, "", outcome=RenameOutcome.RENAMED, card=item.card)
             )
         except OSError as e:
             results.append(

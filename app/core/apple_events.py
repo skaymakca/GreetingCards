@@ -19,8 +19,8 @@ import objc
 from AppKit import NSAppleEventManager
 from Foundation import NSAppleEventDescriptor
 
-from app.core.config import AI_MODELS
 from app.core.scripting_protocol import ScriptingTarget
+from app.core.services.config_service import ConfigService
 from app.models.card import CardResult
 
 logger = logging.getLogger(__name__)
@@ -170,7 +170,7 @@ def _card_summary(card: CardResult) -> dict:
 def _ai_models_to_json() -> str:
     """Serialize available AI models to JSON."""
     models = []
-    for m in AI_MODELS:
+    for m in ConfigService.get_available_models():
         models.append(
             {
                 "model_id": m.model_id,
@@ -237,6 +237,9 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
             return None
         self._window = window
         return self
+
+    # Note: JSON error strings in handler responses are part of the scripting API
+    # contract. Changes to these strings may break external AppleScript clients.
 
     # -- Loading & Status --------------------------------------------------
 
@@ -430,8 +433,7 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
             _set_text_reply(reply, json.dumps({"success": False, "error": "Missing model ID"}))
             return
 
-        valid_ids = {m.model_id for m in AI_MODELS}
-        if model_id not in valid_ids:
+        if not ConfigService.validate_model_id(model_id):
             _set_text_reply(reply, json.dumps({"success": False, "error": f"Unknown model: {model_id}"}))
             return
 
@@ -482,7 +484,7 @@ def register_apple_event_handlers(
     """Register all 14 GrCd Apple Event handlers with NSAppleEventManager.
 
     Args:
-        window: The MainWindow instance for handler callbacks.
+        window: The ScriptingTarget instance for handler callbacks.
         main_thread_dispatch: Callable to dispatch work to the main thread
             (e.g. ``wx.CallAfter``). Stored module-wide for ``_call_on_main_thread``.
 

@@ -2,7 +2,7 @@
 
 Orchestrates card mutations with database persistence. Each method combines
 in-memory CardResult field updates with database calls, ensuring the two
-stay in sync. Runs exclusively on the main (UI) thread — no locking needed.
+stay in sync. Runs exclusively on the main thread — no locking needed.
 """
 
 from __future__ import annotations
@@ -27,9 +27,20 @@ class CardService:
     @staticmethod
     def is_ai_eligible(card: CardResult) -> bool:
         """True if card can be sent for AI analysis (no error, has images)."""
+        return CardService.check_ai_eligibility(card) is None
+
+    @staticmethod
+    def check_ai_eligibility(card: CardResult) -> str | None:
+        """Check if card is eligible for AI analysis.
+
+        Returns None if eligible, or a machine-readable reason string if not.
+        The GUI layer maps these reasons to user-facing messages.
+        """
         if card.error:
-            return False
-        return bool(card.page_images or card.preview_image)
+            return "card_has_error"
+        if not (card.page_images or card.preview_image):
+            return "no_image"
+        return None
 
     def reset(self) -> None:
         """Reset database and clear in-memory state."""
@@ -105,18 +116,17 @@ class CardService:
         select_candidate(card.file_hash, candidate_id, card.remove_family)
         return card
 
-    def select_candidate_by_rank(self, card_id: int, rank: int) -> CardResult | str | None:
+    def select_candidate_by_rank(self, card_id: int, rank: int) -> CardResult | None:
         """Select a candidate by 1-based rank order.
 
-        Returns:
-            Updated CardResult on success, error string on validation failure,
-            None if card not found.
+        Returns updated CardResult on success, None if card not found.
+        Raises ValueError if rank is out of range.
         """
         card = self._store.get_by_id(card_id)
         if card is None:
             return None
         if rank < 1 or rank > len(card.candidates):
-            return f"Invalid rank {rank}: card has {len(card.candidates)} candidates"
+            raise ValueError(f"Invalid rank {rank}: card has {len(card.candidates)} candidates")
 
         cand = card.candidates[rank - 1]
         return self.select_candidate(card_id, cand.id)
@@ -145,6 +155,49 @@ class CardService:
     def unlink_path(self, path: Path) -> None:
         """Remove a path from all tracking dicts and its associated card."""
         self._store.unlink_path(path)
+
+    # ── Read delegation ──
+
+    @property
+    def is_empty(self) -> bool:
+        """True if no cards are loaded."""
+        return self._store.is_empty
+
+    @property
+    def has_paths(self) -> bool:
+        """True if any paths are loaded."""
+        return self._store.has_paths
+
+    @property
+    def count(self) -> int:
+        """Number of unique cards."""
+        return self._store.count
+
+    def get_all_cards(self) -> list[CardResult]:
+        """Return all loaded cards."""
+        return self._store.get_all_cards()
+
+    def get_by_id(self, card_id: int) -> CardResult | None:
+        """Get card by ID."""
+        return self._store.get_by_id(card_id)
+
+    def get_by_hash(self, file_hash: str) -> CardResult | None:
+        """Get card by content hash."""
+        return self._store.get_by_hash(file_hash)
+
+    def find_by_filename(self, filename: str) -> CardResult | None:
+        """Find card by filename (case-insensitive)."""
+        return self._store.find_by_filename(filename)
+
+    def derive_folders(self) -> list[Path]:
+        """Derive sorted unique source folders from all loaded cards."""
+        return self._store.derive_folders()
+
+    def get_all_paths(self) -> set[Path]:
+        """Return snapshot of all loaded paths."""
+        return self._store.get_all_paths()
+
+    # ── AI operations ──
 
     def clear_ai_results(self, cards: list[CardResult]) -> int:
         """Clear AI results for the given cards.

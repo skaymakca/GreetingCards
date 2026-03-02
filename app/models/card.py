@@ -51,11 +51,9 @@ class PdfWorkerResult:
     family_name: str = ""
     confidence: ConfidenceStr = "none"
     method: MethodStr = "missing"
-    alternates: list[str] = field(default_factory=list)
     candidates: list[CandidateInfo] = field(default_factory=list)
     remove_family: bool = False
     selected_candidate_id: int | None = None
-    ocr_text: str = ""
     error: str = ""
     preview_image_bytes: bytes | None = None
     page_images_bytes: list[bytes] = field(default_factory=list)
@@ -72,7 +70,11 @@ class CandidateInfo:
 
     @property
     def display_label(self) -> str:
-        """Formatted label for display in choice lists."""
+        """Formatted label for presentation in choice lists.
+
+        This is a display-only value — do not use as a lookup key.
+        Use ``id`` for programmatic lookups.
+        """
         return f"{self.family_name} ({self.method.upper()} - {self.confidence.capitalize()})"
 
 
@@ -96,13 +98,22 @@ class NameMatch:
     confidence: Confidence
 
 
-# Rename plan status
-RenameStatusStr = Literal["ok", "skip_no_name", "skip_same", "skip_error", "duplicate"]
-STATUS_OK: Final[RenameStatusStr] = "ok"
-STATUS_SKIP_NO_NAME: Final[RenameStatusStr] = "skip_no_name"
-STATUS_SKIP_SAME: Final[RenameStatusStr] = "skip_same"
-STATUS_SKIP_ERROR: Final[RenameStatusStr] = "skip_error"
-STATUS_DUPLICATE: Final[RenameStatusStr] = "duplicate"
+class RenameStatus(Enum):
+    """Status of a rename plan item."""
+
+    OK = "ok"
+    SKIP_NO_NAME = "skip_no_name"
+    SKIP_SAME = "skip_same"
+    SKIP_ERROR = "skip_error"
+    DUPLICATE = "duplicate"
+
+
+# Backward-compat aliases
+STATUS_OK: Final[RenameStatus] = RenameStatus.OK
+STATUS_SKIP_NO_NAME: Final[RenameStatus] = RenameStatus.SKIP_NO_NAME
+STATUS_SKIP_SAME: Final[RenameStatus] = RenameStatus.SKIP_SAME
+STATUS_SKIP_ERROR: Final[RenameStatus] = RenameStatus.SKIP_ERROR
+STATUS_DUPLICATE: Final[RenameStatus] = RenameStatus.DUPLICATE
 
 
 @dataclass
@@ -111,13 +122,18 @@ class RenamePlanItem:
 
     old_path: Path
     new_path: Path
-    status: RenameStatusStr
+    status: RenameStatus
     card: CardResult | None = None  # Back-reference to source card
 
 
 @dataclass
 class RenameResult:
-    """Result of executing a rename operation."""
+    """Result of executing a rename operation.
+
+    ``outcome`` is the machine-readable result. Display text should be
+    derived from ``outcome`` in the presentation layer; ``message`` is
+    retained for backward compatibility during transition.
+    """
 
     old_path: Path
     new_path: Path
@@ -143,16 +159,14 @@ class CardResult:
     selected_candidate_id: int | None = None
     manual_override: str = ""
     remove_family: bool = False
-    alternates: list[str] = field(default_factory=list)
 
     # ── Processing artifacts ──
-    ocr_text: str = ""
     preview_image: Image.Image | None = None
     page_images: list[Image.Image] = field(default_factory=list)
     ai_analyzed: bool = False
     error: str = ""
 
-    # ── UI state (not persisted) ──
+    # ── Transient selection state (not persisted) ──
     # Saved when manual edit starts; restored when candidate re-selected.
     original_confidence: Confidence | None = None
 
@@ -163,13 +177,25 @@ class CardResult:
         """Backward compatibility - returns primary path."""
         return self.primary_path
 
-    # ── Properties (view convenience) ──
+    # ── Properties ──
 
     @property
     def display_name(self) -> str:
         if self.manual_override:
             return self.manual_override
         return self.family_name
+
+    @property
+    def best_preview_images(self) -> list[Image.Image]:
+        """Return the best available preview images, or empty list.
+
+        Priority: multi-page images > single preview image > empty.
+        """
+        if self.page_images:
+            return self.page_images
+        if self.preview_image:
+            return [self.preview_image]
+        return []
 
     @property
     def filename(self) -> str:

@@ -53,7 +53,6 @@ def process_pdf_worker(pdf_path_str: str) -> PdfWorkerResult:
         # New file: run OCR and save raw data
         if not card_state and images:
             ocr_text = extract_text_all_pages(images)
-            result.ocr_text = ocr_text
             save_raw_ocr(file_hash, ocr_text)
 
         # (Re)process candidates from raw data with current cleaning logic
@@ -64,7 +63,6 @@ def process_pdf_worker(pdf_path_str: str) -> PdfWorkerResult:
         if card_state:
             result.family_name = card_state.display_name
             result.confidence = card_state.confidence
-            result.alternates = [c.family_name for c in card_state.candidates]
             result.candidates = card_state.candidates
             result.remove_family = card_state.remove_family
             result.selected_candidate_id = card_state.selected_candidate_id
@@ -72,6 +70,8 @@ def process_pdf_worker(pdf_path_str: str) -> PdfWorkerResult:
 
     except Exception as e:
         logging.getLogger(__name__).exception("Error processing PDF %s", pdf_path)
+        # TODO: Wrap in structured error type once PdfWorkerResult carries
+        # typed errors across the pickle boundary.
         result.error = str(e)
 
     return result

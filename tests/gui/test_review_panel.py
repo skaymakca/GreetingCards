@@ -862,8 +862,8 @@ class TestAIButtonState:
         _select_card(panel, 1)
 
         # Disable then enable
-        panel.set_ai_button_state(1, "disabled")
-        panel.set_ai_button_state(1, "normal")
+        panel.set_ai_button_state(1, False)
+        panel.set_ai_button_state(1, True)
 
         assert panel._detail_panel._ai_btn.IsEnabled()
 
@@ -875,7 +875,7 @@ class TestAIButtonState:
         panel.load_cards(mock_cards)
         _select_card(panel, 1)
 
-        panel.set_ai_button_state(1, "disabled")
+        panel.set_ai_button_state(1, False)
 
         assert not panel._detail_panel._ai_btn.IsEnabled()
 
@@ -888,7 +888,7 @@ class TestAIButtonState:
         _select_card(panel, 1)
 
         # Card 1 is selected, try to disable card 2's button
-        panel.set_ai_button_state(2, "disabled")
+        panel.set_ai_button_state(2, False)
 
         # Button should still be enabled (card 1 is selected)
         assert panel._detail_panel._ai_btn.IsEnabled()
@@ -2543,8 +2543,8 @@ class TestSelectionValidationGuards:
         event = Mock()
         detail._on_candidate(event)  # Should not crash
 
-    def test_on_candidate_with_unknown_label_no_crash(self, parent_frame, mock_cards):
-        """_on_candidate with a label not in _candidate_map does nothing (line 542-544)."""
+    def test_on_candidate_with_unknown_index_no_crash(self, parent_frame, mock_cards):
+        """_on_candidate with an index not in _candidate_map does nothing."""
         called = []
         detail = DetailPanel(
             parent_frame,

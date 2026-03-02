@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.core.paths import get_db_path
-from app.models.card import CandidateInfo, CardState
+from app.models.card import CandidateConfidenceStr, CandidateInfo, CandidateMethodStr, CardState
 
 logger = logging.getLogger(__name__)
 
@@ -276,7 +276,7 @@ def clear_ai_results(file_hashes: list[str]) -> int:
             # Find best remaining OCR candidate
             best_ocr = session.query(Candidate).filter_by(file_hash=card.file_hash, method="ocr").all()
             if best_ocr:
-                best = min(best_ocr, key=lambda c: _CONFIDENCE_ORDER.get(c.confidence, 999))
+                best = min(best_ocr, key=lambda c: _CONFIDENCE_ORDER.get(c.confidence, 999))  # type: ignore[call-overload]  # Candidate.confidence is Mapped[str]
                 card.selected_candidate_id = best.id
             else:
                 card.selected_candidate_id = None
@@ -296,10 +296,10 @@ def compute_file_hash(path: Path) -> str:
 
 # --- Public API ---
 
-# Sort order for candidates dropdown
+# Sort order for candidates list
 # Priority: AI results first, then OCR, sorted by confidence within each method
-_METHOD_ORDER = {"ai": 0, "ocr": 1}
-_CONFIDENCE_ORDER = {"high": 0, "medium": 1, "low": 2}
+_METHOD_ORDER: dict[CandidateMethodStr, int] = {"ai": 0, "ocr": 1}
+_CONFIDENCE_ORDER: dict[CandidateConfidenceStr, int] = {"high": 0, "medium": 1, "low": 2}
 
 
 def _sort_candidates(candidates: list[Any]) -> list[CandidateInfo]:
@@ -333,7 +333,9 @@ def create_or_update_card(file_hash: str, remove_family: bool = False) -> None:
 
 
 # noinspection PyTypeChecker
-def _insert_candidates(session: Session, file_hash: str, family_name: str, method: str, confidence: str) -> int:
+def _insert_candidates(
+    session: Session, file_hash: str, family_name: str, method: CandidateMethodStr, confidence: CandidateConfidenceStr
+) -> int:
     """Insert candidates within an existing session. Returns first candidate ID, or 0 if filtered out.
 
     Applies cleaning/filtering and smart title case. When the cleaning pipeline returns multiple
@@ -375,7 +377,9 @@ def _insert_candidates(session: Session, file_hash: str, family_name: str, metho
     return first_id
 
 
-def _add_candidate_inline(session: Session, file_hash: str, family_name: str, method: str, confidence: str) -> int:
+def _add_candidate_inline(
+    session: Session, file_hash: str, family_name: str, method: CandidateMethodStr, confidence: CandidateConfidenceStr
+) -> int:
     """Add a candidate within an existing session (no new session scope).
 
     Used by reprocess_candidates_from_raw() to keep everything in one transaction.
@@ -384,7 +388,9 @@ def _add_candidate_inline(session: Session, file_hash: str, family_name: str, me
     return _insert_candidates(session, file_hash, family_name, method, confidence)
 
 
-def add_candidate(file_hash: str, family_name: str, method: str, confidence: str) -> int:
+def add_candidate(
+    file_hash: str, family_name: str, method: CandidateMethodStr, confidence: CandidateConfidenceStr
+) -> int:
     """Add a name candidate (OCR or AI result). Returns first candidate ID.
 
     Automatically creates card if it doesn't exist.
@@ -427,7 +433,7 @@ def set_manual_name(file_hash: str, family_name: str, remove_family: bool = Fals
 
 # noinspection DuplicatedCode
 def select_candidate(file_hash: str, candidate_id: int, remove_family: bool = False) -> None:
-    """Select a candidate from the dropdown. Clears selected_family_name."""
+    """Select a candidate for the card. Clears selected_family_name."""
     with _session_scope() as session:
         card = session.query(Card).filter_by(file_hash=file_hash).first()
         if card:
@@ -451,7 +457,11 @@ def update_remove_family(file_hash: str, remove_family: bool) -> None:
 
 # noinspection PyTypeChecker
 def get_card_state(file_hash: str) -> CardState | None:
-    """Get complete card state for display."""
+    """Get complete card state as a read-only DTO.
+
+    Returns the resolved display name, method, confidence, candidates,
+    and preferences for a card identified by its content hash.
+    """
     with _session_scope() as session:
         card = session.query(Card).filter_by(file_hash=file_hash).first()
         if not card:
@@ -622,7 +632,7 @@ def reprocess_candidates_from_raw(file_hash: str) -> None:
         if ocr_result:
             names = extract_family_names(ocr_result.ocr_text)
             for match in names:
-                _add_candidate_inline(session, file_hash, match.name, "ocr", match.confidence.value)
+                _add_candidate_inline(session, file_hash, match.name, "ocr", match.confidence.value)  # type: ignore[arg-type]  # Confidence.value is str
 
         # Re-parse raw AI if exists
         ai_result = session.query(RawAIResult).filter_by(file_hash=file_hash).first()

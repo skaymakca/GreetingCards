@@ -236,7 +236,6 @@ class TestProcessPdfWorkerCardState:
         assert result.family_name == "Smith"
         assert result.confidence == "high"
         assert result.method == "ai"
-        assert result.alternates == ["Smith"]
         assert result.candidates == [candidate]
         assert result.remove_family is True
         assert result.selected_candidate_id == 42
@@ -257,7 +256,6 @@ class TestProcessPdfWorkerCardState:
         assert result.family_name == ""
         assert result.confidence == "none"
         assert result.method == "missing"
-        assert result.alternates == []
         assert result.remove_family is False
         assert result.selected_candidate_id is None
 

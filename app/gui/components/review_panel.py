@@ -30,6 +30,7 @@ from collections.abc import Callable
 import wx
 import wx.dataview as dv
 
+# Stateless platform utilities — no service facade needed
 from app.core.platform import open_file, reveal_in_finder
 from app.gui.context_menu import add_entry_context_menu
 from app.gui.dialogs.common import display_path as _display_path
@@ -40,6 +41,39 @@ from app.models.card import CardResult, Confidence
 
 logger = logging.getLogger(__name__)
 
+# Confidence dot display — maps confidence to (symbol, color_accessor).
+# Used by CardListModel.GetValue/GetAttr for the dot column.
+# Color accessors are callables because Color.* are recomputed on theme change.
+_CONFIDENCE_DOT: dict[Confidence, tuple[str, Callable[[], wx.Colour]]] = {
+    Confidence.HIGH: ("●", lambda: Color.SUCCESS),
+    Confidence.MEDIUM: ("●", lambda: Color.WARNING),
+    Confidence.LOW: ("●", lambda: Color.ERROR),
+    Confidence.MANUAL: ("●", lambda: Color.MANUAL_BLUE),
+    Confidence.NONE: ("⚠", lambda: Color.TEXT_SECONDARY),
+}
+_ERROR_DOT = ("✕", lambda: Color.ERROR)
+
+
+def _default_dot_color() -> wx.Colour:
+    """Fallback dot color when confidence is not in the mapping."""
+    return Color.TEXT_PRIMARY
+
+
+def _get_confidence_symbol(card: CardResult) -> str:
+    """Return the dot symbol for a card's confidence level."""
+    if card.error:
+        return _ERROR_DOT[0]
+    entry = _CONFIDENCE_DOT.get(card.confidence)
+    return entry[0] if entry else "●"
+
+
+def _get_confidence_color(card: CardResult) -> wx.Colour:
+    """Return the dot color for a card's confidence level."""
+    if card.error:
+        return _ERROR_DOT[1]()
+    entry = _CONFIDENCE_DOT.get(card.confidence)
+    return entry[1]() if entry else _default_dot_color()
+
 
 class _ConfidenceLegendPopup(wx.PopupWindow):
     """Styled popup showing confidence legend with colored dots."""
@@ -49,6 +83,8 @@ class _ConfidenceLegendPopup(wx.PopupWindow):
         panel = wx.Panel(self)
         sizer = wx.BoxSizer(wx.VERTICAL)
 
+        # Confidence legend — intentionally view-layer domain documentation.
+        # Maps confidence levels to user-facing labels for the sidebar legend.
         rows = [
             ("●", Color.SUCCESS, "High — strong pattern match or AI result"),
             ("●", Color.WARNING, "Medium — partial pattern match"),
@@ -166,14 +202,8 @@ class CardListModel(dv.PyDataViewModel):
         card = self._cards[row]
 
         match col:
-            case 0:  # Confidence dot
-                match card:
-                    case CardResult(error=e) if e:
-                        return "✕"
-                    case CardResult(confidence=Confidence.NONE):
-                        return "⚠"
-                    case _:
-                        return "●"
+            case 0:  # Confidence dot symbol
+                return _get_confidence_symbol(card)
             case 1:  # Filename
                 return card.filename
             case 2:  # Family name
@@ -194,22 +224,8 @@ class CardListModel(dv.PyDataViewModel):
         card = self._cards[row]
 
         match col:
-            case 0:  # Confidence dot color
-                match card:
-                    case CardResult(error=e) if e:
-                        attr.SetColour(Color.ERROR)
-                    case CardResult(confidence=Confidence.NONE):
-                        attr.SetColour(Color.TEXT_SECONDARY)
-                    case CardResult(confidence=Confidence.HIGH):
-                        attr.SetColour(Color.SUCCESS)
-                    case CardResult(confidence=Confidence.MEDIUM):
-                        attr.SetColour(Color.WARNING)
-                    case CardResult(confidence=Confidence.LOW):
-                        attr.SetColour(Color.ERROR)
-                    case CardResult(confidence=Confidence.MANUAL):
-                        attr.SetColour(Color.MANUAL_BLUE)
-                    case _:
-                        attr.SetColour(Color.TEXT_PRIMARY)
+            case 0:  # Confidence dot color from mapping
+                attr.SetColour(_get_confidence_color(card))
                 return True
 
             case 1:  # Filename - blue for multi-path cards
@@ -219,6 +235,15 @@ class CardListModel(dv.PyDataViewModel):
                 return False
 
         return False
+
+
+def _is_card_editable(card: CardResult) -> bool:
+    """True if card's name/candidate fields should be enabled.
+
+    Cards with errors are not editable — the user must resolve the error
+    first (e.g. by re-processing or removing the card).
+    """
+    return not card.error
 
 
 # noinspection PyAttributeOutsideInit,PyMethodMayBeStatic,PyUnusedLocal,PyTypeChecker
@@ -247,7 +272,7 @@ class DetailPanel(wx.Panel):
         self._invalid_chars = invalid_chars
         self._current_card: CardResult | None = None
         self._suppress_events = False
-        self._candidate_map: dict[str, int] = {}
+        self._candidate_map: dict[int, int] = {}  # Choice index → candidate.id
         self._ai_buttons_locked = False
 
         self._build_ui()
@@ -398,16 +423,15 @@ class DetailPanel(wx.Panel):
         self._name_text.SetValue(card.display_name)
         self._remove_family_check.SetValue(card.remove_family)
 
-        # Populate candidates
+        # Populate candidates — map Choice index → candidate.id for lookup
         self._candidates_choice.Clear()
         self._candidate_map = {}
         if card.candidates:
-            for cand in card.candidates:
-                label = cand.display_label
-                self._candidates_choice.Append(label)
-                self._candidate_map[label] = cand.id
             placeholder = f"Select from {len(card.candidates)} candidate{'s' if len(card.candidates) != 1 else ''}"
-            self._candidates_choice.Insert(placeholder, 0)
+            self._candidates_choice.Append(placeholder)
+            for i, cand in enumerate(card.candidates):
+                self._candidates_choice.Append(cand.display_label)
+                self._candidate_map[i + 1] = cand.id  # +1 to skip placeholder at index 0
             self._candidates_choice.SetSelection(0)
             self._candidates_choice.Enable()
         else:
@@ -415,11 +439,11 @@ class DetailPanel(wx.Panel):
             self._candidates_choice.SetSelection(0)
             self._candidates_choice.Enable(False)
 
-        # Enable/disable based on error state
-        has_error = bool(card.error)
-        self._name_text.Enable(not has_error)
-        self._remove_family_check.Enable(not has_error)
-        self._ai_btn.Enable(not has_error and not self._ai_buttons_locked)
+        # Enable/disable based on error state — view reads model flag
+        editable = _is_card_editable(card)
+        self._name_text.Enable(editable)
+        self._remove_family_check.Enable(editable)
+        self._ai_btn.Enable(editable and not self._ai_buttons_locked)
         self._remove_btn.Enable(True)
 
         # Update file locations section
@@ -494,7 +518,11 @@ class DetailPanel(wx.Panel):
             self._ai_btn.Enable(False)
 
     def _on_name_char(self, event: wx.KeyEvent) -> None:
-        """Block filesystem-invalid characters from being typed."""
+        """Block filesystem-invalid characters from being typed.
+
+        View-layer input filtering using a character set injected by the
+        controller (sourced from RenameService.INVALID_FILENAME_CHARS).
+        """
         key = event.GetUnicodeKey()
         if key != wx.WXK_NONE and chr(key) in self._invalid_chars:
             return  # Swallow the keystroke
@@ -529,8 +557,7 @@ class DetailPanel(wx.Panel):
         if selection <= 0:  # Placeholder selected
             return
 
-        label = self._candidates_choice.GetString(selection)
-        candidate_id = self._candidate_map.get(label)
+        candidate_id = self._candidate_map.get(selection)
 
         if candidate_id is not None and self._on_candidate_select:
             self._on_candidate_select(self._current_card.id, candidate_id)
@@ -1051,12 +1078,11 @@ class ReviewPanelMasterDetail(wx.Panel):
         """Clear all selection."""
         self._list_ctrl.UnselectAll()
 
-    def set_ai_button_state(self, card_id: int, state: str) -> None:
-        """Set AI button state (enabled/disabled)."""
+    def set_ai_button_state(self, card_id: int, enabled: bool) -> None:
+        """Set AI button state for a card. Only affects detail if card is selected."""
         # Only affects currently selected card in detail panel
         if self.selected_card_id == card_id:
-            enable = state == "normal"
-            self._detail_panel.enable_ai_button(enable)
+            self._detail_panel.enable_ai_button(enabled)
 
     def set_ai_buttons_locked(self, locked: bool) -> None:
         """Lock or unlock all AI buttons during batch processing."""

@@ -113,7 +113,7 @@ CardService
 ├── reset()                              # Reset database + clear in-memory state
 ├── set_name(card_id, name)              # Manual name override + DB persist
 ├── select_candidate(card_id, cand_id)   # Select candidate + DB persist
-├── select_candidate_by_rank(card_id, rank)  # By 1-based rank → CardResult | str | None
+├── select_candidate_by_rank(card_id, rank)  # By 1-based rank → CardResult | None (raises ValueError)
 ├── set_remove_family(card_id, value)    # Toggle flag + DB persist
 ├── clear_ai_results(cards)              # Delete AI data + reload from DB
 ├── clear_cards()                        # Clear all in-memory state (no DB reset)
@@ -121,7 +121,7 @@ CardService
 └── is_ai_eligible(card) [static]        # True if card can be sent for AI analysis
 ```
 
-**`select_candidate_by_rank`** returns `CardResult` on success, an error `str` on validation failure (invalid rank), or `None` if the card is not found. Callers (e.g. the scripting bridge) can check `isinstance(result, str)` to report the error without duplicating validation logic.
+**`select_candidate_by_rank`** returns `CardResult` on success or `None` if the card is not found. Raises `ValueError` on invalid rank (out of range). Callers (e.g. the scripting bridge) catch `ValueError` to report the error.
 
 **`is_ai_eligible`** checks that a card has no error and has at least one image (`page_images` or `preview_image`). Used by both the GUI AI button handler and the scripting bridge's `analyze` command to avoid duplicating eligibility logic.
 

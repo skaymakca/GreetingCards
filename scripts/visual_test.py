@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING
 import wx
 
 if TYPE_CHECKING:
+    from app.core.pipeline.ai_analyzer import AIError
     from app.gui.components.filter_sidebar import FilterSidebar
 
 from app.gui import appearance  # type: ignore[attr-defined]
@@ -36,6 +37,7 @@ from app.models.card import (
     CandidateInfo,
     CardResult,
     Confidence,
+    RenameOutcome,
     RenamePlanItem,
     RenameResult,
 )
@@ -71,7 +73,6 @@ def _mock_cards() -> list[CardResult]:
             confidence=conf,
             method=method,  # type: ignore[arg-type]  # mypy can't narrow tuple unpacking
             ai_analyzed=analyzed,
-            ocr_text=f"Sample OCR text for card {i}\nDear {name or 'Friend'} Family,\nHappy Holidays!",
             candidates=[
                 CandidateInfo(id=i * 10, family_name=name, method=method, confidence=conf.value),  # type: ignore[arg-type]
                 CandidateInfo(
@@ -82,8 +83,6 @@ def _mock_cards() -> list[CardResult]:
             else [],
             selected_candidate_id=i * 10 if name else None,
         )
-        if name:
-            card.alternates = [name + "son", name[0:3] + "ley"]
         cards.append(card)
     return cards
 
@@ -126,29 +125,34 @@ def _mock_rename_results() -> list[RenameResult]:
             old_path=Path("/tmp/mock/card_001.pdf"),
             new_path=Path("/tmp/mock/Johnson Family.pdf"),
             success=True,
-            message="Renamed",
+            message="",
+            outcome=RenameOutcome.RENAMED,
         ),
         RenameResult(
             old_path=Path("/tmp/mock/card_002.pdf"),
             new_path=Path("/tmp/mock/Williams Family.pdf"),
             success=True,
-            message="Renamed",
+            message="",
+            outcome=RenameOutcome.RENAMED,
         ),
         RenameResult(
             old_path=Path("/tmp/mock/card_003.pdf"),
             new_path=Path("/tmp/mock/Garcia Family.pdf"),
             success=False,
             message="Permission denied",
+            outcome=RenameOutcome.ERROR_OS,
         ),
     ]
 
 
-def _mock_errors() -> list[tuple[str, str]]:
+def _mock_errors() -> list[AIError]:
     """Create mock errors for ErrorListDialog."""
+    from app.core.pipeline.ai_analyzer import AIError, AIErrorKind
+
     return [
-        ("card_010.pdf", "File is encrypted and cannot be read"),
-        ("card_011.pdf", "Corrupt PDF — no pages found"),
-        ("card_012.pdf", "API rate limit exceeded (429)"),
+        AIError(kind=AIErrorKind.UNKNOWN, detail="File is encrypted and cannot be read"),
+        AIError(kind=AIErrorKind.CONNECTION, detail="Corrupt PDF \u2014 no pages found"),
+        AIError(kind=AIErrorKind.RATE_LIMIT, detail="API rate limit exceeded (429)"),
     ]
 
 
@@ -161,7 +165,12 @@ _MOCK_NAMES = ["Johnson", "Williams", "Garcia", "Smith", "(no name)", "O'Brien-T
 
 # noinspection PyProtectedMember,PyMethodMayBeStatic
 class VisualTestFrame(wx.Frame):
-    """Main launcher window with buttons to open each dialog/panel."""
+    """Main launcher window with buttons to open each dialog/panel.
+
+    Note: This test harness necessarily accesses private APIs of MainWindow
+    and CardStore to inject mock data and exercise internal UI controls.
+    All such accesses are marked with ``# Test-only: accesses private API``.
+    """
 
     def __init__(self) -> None:
         Color.refresh()
@@ -445,7 +454,7 @@ class VisualTestFrame(wx.Frame):
     def _show_progress(self, _evt: wx.CommandEvent) -> None:
         window = self._get_main_window()
         if window:
-            window._show_progress_strip(8, "Processing Cards...")
+            window._show_progress_strip(8, "Processing Cards...")  # Test-only: accesses private API
 
     def _cycle_progress(self, _evt: wx.CommandEvent) -> None:
         window = self._get_main_window()
@@ -455,7 +464,7 @@ class VisualTestFrame(wx.Frame):
         self._strip_count = 0
         if self._strip_timer is not None:
             self._strip_timer.Stop()
-        window._show_progress_strip(8, "Processing Cards...")
+        window._show_progress_strip(8, "Processing Cards...")  # Test-only: accesses private API
         self._strip_timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self._on_strip_tick, self._strip_timer)
         self._strip_timer.Start(1875)  # 15s / 8 cards
@@ -471,11 +480,11 @@ class VisualTestFrame(wx.Frame):
         self._strip_count += 1
         if self._strip_count <= 8:
             name = _MOCK_NAMES[self._strip_count - 1]
-            window._update_progress_strip(self._strip_count, f"Processing: {name}")
+            window._update_progress_strip(self._strip_count, f"Processing: {name}")  # Test-only: accesses private API
         else:
             # Loop: reset and re-show
             self._strip_count = 0
-            window._show_progress_strip(8, "Processing Cards...")
+            window._show_progress_strip(8, "Processing Cards...")  # Test-only: accesses private API
 
     def _hide_progress(self, _evt: wx.CommandEvent) -> None:
         if self._strip_timer is not None:
@@ -483,7 +492,7 @@ class VisualTestFrame(wx.Frame):
             self._strip_timer = None
         window = self._get_main_window()
         if window:
-            window._hide_progress_strip()
+            window._hide_progress_strip()  # Test-only: accesses private API
 
     # -- Dialog launchers --
 
@@ -634,7 +643,10 @@ class VisualTestFrame(wx.Frame):
 
         window = MainWindow()
         window.run()
-        # Inject mock cards into the main window's internal card store
+        # Test-only: accesses private API — inject mock cards into CardStore.
+        # CardStore.add_or_update() requires a PdfWorkerResult (with OCR text,
+        # file hash from disk, etc.) which doesn't exist for mock data, so we
+        # populate the internal dicts directly.
         for card in self._cards:
             fake_hash = f"mock_hash_{card.id}"
             card.file_hash = fake_hash
@@ -644,9 +656,9 @@ class VisualTestFrame(wx.Frame):
                 window._card_store._hash_by_path[fp] = fake_hash
         window._card_store._next_card_id = len(self._cards) + 1
         folders = list({fp.parent for c in self._cards for fp in c.file_paths})
-        window._sidebar.update_folders(sorted(folders))
-        window._refresh_display()
-        window._set_empty_state(False)
+        window._sidebar.update_folders(sorted(folders))  # Test-only: accesses private API
+        window._refresh_display()  # Test-only: accesses private API
+        window._set_empty_state(False)  # Test-only: accesses private API
         self._last_main_window = window
 
     # -- Notification triggers (sent to last "with mock cards" main window) --
@@ -660,7 +672,7 @@ class VisualTestFrame(wx.Frame):
                 wx.OK | wx.ICON_WARNING,
             )
             return None
-        return self._last_main_window._sidebar
+        return self._last_main_window._sidebar  # Test-only: accesses private API
 
     def _notify_cards_loaded(self, _evt: wx.CommandEvent) -> None:
         sidebar = self._get_sidebar()

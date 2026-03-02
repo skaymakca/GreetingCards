@@ -1,7 +1,7 @@
 """PDF processing orchestration service.
 
 Manages the ProcessPoolExecutor lifecycle and worker dispatch.  Has zero
-wxPython dependency — the caller wraps callbacks with ``wx.CallAfter``.
+wxPython dependency — the caller is responsible for thread-safe callback dispatch.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ class ProcessingService:
     def scan_for_pdfs(path: Path) -> list[Path]:
         """Recursively scan path for PDFs.
 
-        Wraps ``scan_for_pdfs()`` so GUI callers don't import core
+        Wraps ``scan_for_pdfs()`` so callers don't import core
         pipeline internals directly.
         """
         return scan_for_pdfs(path)

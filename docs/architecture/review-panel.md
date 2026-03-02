@@ -97,7 +97,7 @@ Without `preserve_selection`, any change to the displayed list (search, filter, 
 | `update_card(card_id, card)`                | Update single card (after AI analysis)          |
 | `select_next_card()` / `select_prev_card()` | Keyboard navigation (collapses multi-selection) |
 | `select_all()` / `select_none()`            | Cmd+A / Cmd+Shift+A                             |
-| `set_ai_button_state(card_id, state)`        | Enable/disable AI button                        |
+| `set_ai_button_state(card_id, enabled)`       | Enable/disable AI button (bool)                 |
 
 ## Drag Highlight
 

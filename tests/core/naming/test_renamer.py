@@ -408,13 +408,13 @@ class TestExecuteRenamePlan:
         new_path = tmp_path / "Holiday Cards 2024 - Smith Family.pdf"
 
         card = _make_card(1, [old_file], family_name="Smith")
-        plan = [RenamePlanItem(old_file, new_path, "ok", card=card)]
+        plan = [RenamePlanItem(old_file, new_path, STATUS_OK, card=card)]
 
         results = execute_rename_plan(plan)
 
         assert len(results) == 1
         assert results[0].success is True
-        assert results[0].message == "Renamed"
+        assert results[0].message == ""
         assert results[0].outcome == RenameOutcome.RENAMED
         assert new_path.exists()
         assert not old_file.exists()
@@ -424,7 +424,7 @@ class TestExecuteRenamePlan:
         assert card.primary_path == new_path
 
     def test_skip_items_pass_through(self):
-        """Skipped items are reported as success with descriptive messages and outcomes."""
+        """Skipped items are reported as success with empty messages and correct outcomes."""
         plan = [
             RenamePlanItem(Path("/a.pdf"), Path("/a.pdf"), STATUS_SKIP_NO_NAME),
             RenamePlanItem(Path("/b.pdf"), Path("/b.pdf"), STATUS_SKIP_ERROR),
@@ -435,11 +435,11 @@ class TestExecuteRenamePlan:
 
         assert len(results) == 3
         assert all(r.success for r in results)
-        assert results[0].message == "No name extracted"
+        assert results[0].message == ""
         assert results[0].outcome == RenameOutcome.SKIP_NO_NAME
-        assert results[1].message == "Processing error"
+        assert results[1].message == ""
         assert results[1].outcome == RenameOutcome.SKIP_ERROR
-        assert results[2].message == "Already named correctly"
+        assert results[2].message == ""
         assert results[2].outcome == RenameOutcome.ALREADY_CORRECT
 
     def test_race_condition_target_exists(self, tmp_path):
@@ -451,14 +451,14 @@ class TestExecuteRenamePlan:
         new_path.touch()
 
         card = _make_card(1, [old_file], family_name="Smith")
-        plan = [RenamePlanItem(old_file, new_path, "ok", card=card)]
+        plan = [RenamePlanItem(old_file, new_path, STATUS_OK, card=card)]
 
         results = execute_rename_plan(plan)
 
         assert len(results) == 1
         assert results[0].success is False
         assert results[0].outcome == RenameOutcome.ERROR_TARGET_EXISTS
-        assert "Target already exists" in results[0].message
+        assert results[0].message == ""
         # Original file should still exist (not renamed)
         assert old_file.exists()
 
@@ -477,8 +477,8 @@ class TestExecuteRenamePlan:
         new_b = tmp_path / "dir_b" / "Holiday Cards 2024 - Smith Family.pdf"
 
         plan = [
-            RenamePlanItem(file_a, new_a, "ok", card=card),
-            RenamePlanItem(file_b, new_b, "ok", card=card),
+            RenamePlanItem(file_a, new_a, STATUS_OK, card=card),
+            RenamePlanItem(file_b, new_b, STATUS_OK, card=card),
         ]
 
         results = execute_rename_plan(plan)
@@ -494,7 +494,7 @@ class TestExecuteRenamePlan:
         new_path = tmp_path / "new.pdf"
 
         card = _make_card(1, [old_file], family_name="Smith")
-        plan = [RenamePlanItem(old_file, new_path, "ok", card=card)]
+        plan = [RenamePlanItem(old_file, new_path, STATUS_OK, card=card)]
 
         results = execute_rename_plan(plan)
 
@@ -509,7 +509,7 @@ class TestExecuteRenamePlan:
 
         # Card's file_paths contains a different path (out of sync)
         card = _make_card(1, [Path("/other/path.pdf")], family_name="Smith")
-        plan = [RenamePlanItem(old_file, new_path, "ok", card=card)]
+        plan = [RenamePlanItem(old_file, new_path, STATUS_OK, card=card)]
 
         results = execute_rename_plan(plan)
 
@@ -646,7 +646,7 @@ class TestExecuteRenamePlanErrorPaths:
 
         assert len(results) == 1
         assert results[0].success is True
-        assert results[0].message == "Renamed"
+        assert results[0].message == ""
         assert new_path.exists()
         assert not old_file.exists()
 

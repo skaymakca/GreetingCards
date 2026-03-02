@@ -7,6 +7,7 @@ import threading
 
 import wx
 
+from app.core.pipeline.ai_analyzer import AIError, AIErrorKind
 from app.core.services.ai_service import AIService
 from app.core.services.card_service import CardService
 from app.gui.dialogs import ErrorListDialog
@@ -27,7 +28,7 @@ class AIMixin:
 
     def _get_action_menu_label(self: MainWindowProtocol, base: str, shortcut: str) -> str:
         """Build dynamic menu label like 'AI Analyze Selected (3)\\tCtrl+Shift+I'."""
-        if self._card_store.is_empty:
+        if self._card_service.is_empty:
             return f"{base}{shortcut}"
         cards, scope = self._get_target_cards()
         scope_label = "Selected" if scope == "selected" else "Visible"
@@ -35,7 +36,7 @@ class AIMixin:
 
     def _on_clear_ai_results(self: MainWindowProtocol, event: wx.CommandEvent) -> None:
         """Clear AI results for selected or visible cards."""
-        if self._card_store.is_empty:
+        if self._card_service.is_empty:
             return
 
         cards, scope = self._get_target_cards()
@@ -87,8 +88,8 @@ class AIMixin:
     def _get_target_cards(self: MainWindowProtocol) -> tuple[list[CardResult], str]:
         """Return (cards, scope) based on selection state.
 
-        If 2+ cards are selected, returns those cards with scope "selected".
-        Otherwise, returns all visible (filtered) cards with scope "visible".
+        UI-policy: 2+ selected cards -> scoped batch; otherwise all visible cards.
+        This is a presentation-layer decision about what the user intends to target.
         """
         selected_ids = self._review_panel.selected_card_ids
         if len(selected_ids) >= 2:
@@ -104,9 +105,18 @@ class AIMixin:
         if not card:
             return
 
-        if not CardService.is_ai_eligible(card):
+        reason = CardService.check_ai_eligibility(card)
+        if reason is not None:
+            # Map machine-readable reason to user-facing message (GUI concern)
+            _ELIGIBILITY_MESSAGES = {
+                "card_has_error": "Cannot analyze card with errors.",
+                "no_image": "No preview image available for AI analysis.",
+            }
             wx.MessageBox(
-                "No preview image available for AI analysis.", "No Image", wx.OK | wx.ICON_WARNING, self._frame
+                _ELIGIBILITY_MESSAGES.get(reason, "Card is not eligible for AI analysis."),
+                "Not Eligible",
+                wx.OK | wx.ICON_WARNING,
+                self._frame,
             )
             return
 
@@ -115,7 +125,7 @@ class AIMixin:
 
         # Disable AI button before delegating (after API key check so
         # cancelling the key dialog doesn't leave the button stuck disabled)
-        self._review_panel.set_ai_button_state(card_id, "disabled")
+        self._review_panel.set_ai_button_state(card_id, False)
 
         self._start_ai_all(cards=[card], title="AI Analysis")
 
@@ -129,7 +139,7 @@ class AIMixin:
                    If None, determines scope from selection state.
             title: Progress dialog title. If None, auto-generated from scope.
         """
-        if self._card_store.is_empty:
+        if self._card_service.is_empty:
             return
 
         if not self._ensure_api_key():
@@ -175,7 +185,7 @@ class AIMixin:
         except Exception as e:
             error_msg = str(e)
             logger.error("AI batch processing failed: %s", error_msg)
-            wx.CallAfter(self._ai_all_complete, [("Batch", error_msg)])
+            wx.CallAfter(self._ai_all_complete, [AIError(kind=AIErrorKind.UNKNOWN, detail=error_msg)])
         except BaseException:
             # Ensure flag is always cleared (e.g. KeyboardInterrupt, SystemExit)
             wx.CallAfter(self._ai_all_complete, [])
@@ -195,7 +205,7 @@ class AIMixin:
         if card is not None:
             self._review_panel.update_card(card_id, card)
 
-    def _ai_all_complete(self: MainWindowProtocol, errors: list[tuple[str, str]], auth_aborted: bool = False) -> None:
+    def _ai_all_complete(self: MainWindowProtocol, errors: list[AIError], auth_aborted: bool = False) -> None:
         """Called when batch AI processing completes."""
         self._ai_batch_running = False
         self._hide_progress_strip()
@@ -214,5 +224,5 @@ class AIMixin:
             dialog.Destroy()
         else:
             # Show success message with auto-dismiss
-            count = len(self._ai_target_cards) or self._card_store.count
+            count = len(self._ai_target_cards) or self._card_service.count
             self._show_info_message(f"Analysis complete\n{_plural(count, 'card')} analyzed", wx.ICON_INFORMATION)

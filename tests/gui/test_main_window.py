@@ -7,7 +7,6 @@ import pytest
 import wx
 
 from app.core.pipeline.card_processor import (
-    derive_folders,
     load_card_state_from_db,
     scan_for_pdfs,
     worker_result_to_card,
@@ -275,12 +274,10 @@ def test_worker_result_to_card_conversion():
         family_name="Smith",
         confidence="high",
         method="ocr",
-        alternates=["Smyth"],
         candidates=[],
         remove_family=False,
         selected_candidate_id=None,
-        ocr_text="Smith Family",
-        error=None,
+        error="",
         preview_image_bytes=img_bytes,
         page_images_bytes=[img_bytes],
     )
@@ -897,21 +894,6 @@ def test_both_filters_intersection(wx_app):
     window._frame.Destroy()
 
 
-def test_derive_folders():
-    """Test derive_folders returns sorted unique parent paths."""
-    from app.models.card import CardResult
-
-    folder_a = Path("/test/aaa")
-    folder_b = Path("/test/bbb")
-
-    card1 = CardResult(id=0, file_paths=[folder_b / "x.pdf"], primary_path=folder_b / "x.pdf")
-    card2 = CardResult(id=1, file_paths=[folder_a / "y.pdf"], primary_path=folder_a / "y.pdf")
-    card3 = CardResult(id=2, file_paths=[folder_b / "z.pdf"], primary_path=folder_b / "z.pdf")
-
-    folders = derive_folders([card1, card2, card3])
-    assert folders == [folder_a, folder_b]  # sorted, unique
-
-
 def test_clear_all_hides_folders(wx_app):
     """Test _clear_all hides the folder section."""
     from app.models.card import CardResult
@@ -1328,7 +1310,7 @@ def test_refresh_display_syncs_sidebar_fallback(wx_app):
 
 def test_remove_completed_results_full_success(wx_app):
     """All cards renamed successfully → all removed, empty state shown."""
-    from app.models.card import CardResult, Confidence, RenameResult
+    from app.models.card import CardResult, Confidence, RenameOutcome, RenameResult
 
     window = MainWindow()
     path1 = Path("/test/old1.pdf")
@@ -1350,8 +1332,8 @@ def test_remove_completed_results_full_success(wx_app):
     window._card_store._pdf_files = {new1, new2}
 
     results = [
-        RenameResult(path1, new1, True, "Renamed", card=card1),
-        RenameResult(path2, new2, True, "Renamed", card=card2),
+        RenameResult(path1, new1, True, "", outcome=RenameOutcome.RENAMED, card=card1),
+        RenameResult(path2, new2, True, "", outcome=RenameOutcome.RENAMED, card=card2),
     ]
 
     window._remove_completed_results(results)
@@ -1384,7 +1366,7 @@ def test_remove_completed_results_partial_failure(wx_app):
     window._card_store._pdf_files = {new_path, fail_path}
 
     results = [
-        RenameResult(Path("/test/old1.pdf"), new_path, True, "Renamed", card=card1),
+        RenameResult(Path("/test/old1.pdf"), new_path, True, "", outcome=RenameOutcome.RENAMED, card=card1),
         RenameResult(
             fail_path,
             Path("/test/Holiday Cards 2024 - Jones Family.pdf"),
@@ -1423,7 +1405,7 @@ def test_remove_completed_results_skip_same(wx_app):
     window._card_store._pdf_files = {path1}
 
     results = [
-        RenameResult(path1, path1, True, "Already named correctly", outcome=RenameOutcome.ALREADY_CORRECT, card=card1),
+        RenameResult(path1, path1, True, "", outcome=RenameOutcome.ALREADY_CORRECT, card=card1),
     ]
 
     window._remove_completed_results(results)
@@ -1450,7 +1432,7 @@ def test_remove_completed_results_skip_no_name_kept(wx_app):
     window._card_store._pdf_files = {path1}
 
     results = [
-        RenameResult(path1, path1, True, "No name extracted", outcome=RenameOutcome.SKIP_NO_NAME, card=card1),
+        RenameResult(path1, path1, True, "", outcome=RenameOutcome.SKIP_NO_NAME, card=card1),
     ]
 
     window._remove_completed_results(results)
@@ -1479,7 +1461,7 @@ def test_remove_completed_results_multi_path_card(wx_app):
     window._card_store._pdf_files = {new_path, fail_path}
 
     results = [
-        RenameResult(Path("/test/dir_a/old.pdf"), new_path, True, "Renamed", card=card),
+        RenameResult(Path("/test/dir_a/old.pdf"), new_path, True, "", outcome=RenameOutcome.RENAMED, card=card),
         RenameResult(
             fail_path,
             Path("/test/dir_b/Holiday Cards 2024 - Smith Family.pdf"),
@@ -3701,7 +3683,9 @@ def test_ai_all_complete_re_enables_tools_shows_errors(wx_app):
     ):
         mock_dialog = MagicMock()
         mock_dialog_cls.return_value = mock_dialog
-        window._ai_all_complete(errors=[("card.pdf", "API error")])
+        from app.core.pipeline.ai_analyzer import AIError, AIErrorKind
+
+        window._ai_all_complete(errors=[AIError(kind=AIErrorKind.UNKNOWN, detail="API error")])
 
         assert window._ai_batch_running is False
         assert window._toolbar.GetToolEnabled(window._reload_id)
@@ -3752,7 +3736,7 @@ def test_on_rename_execute_plan_update_paths(wx_app):
     """_start_rename executes plan, updates path mappings, shows completion."""
     from unittest.mock import MagicMock, patch
 
-    from app.models.card import CardResult, Confidence, RenameResult
+    from app.models.card import CardResult, Confidence, RenameOutcome, RenameResult
 
     window = MainWindow()
 
@@ -3770,7 +3754,7 @@ def test_on_rename_execute_plan_update_paths(wx_app):
 
     window._year_ctrl.SetValue("2024")
 
-    results = [RenameResult(old_path, new_path, True, "Renamed", card=card)]
+    results = [RenameResult(old_path, new_path, True, "", outcome=RenameOutcome.RENAMED, card=card)]
 
     with (
         patch("app.core.services.rename_service.build_rename_plan", return_value=[MagicMock()]),

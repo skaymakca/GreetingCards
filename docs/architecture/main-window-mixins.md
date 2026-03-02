@@ -70,13 +70,13 @@ Search field and sidebar filter logic.
 | `_on_search_cancel` | Clears search field and refreshes |
 | `_on_category_filter_change` | Updates `_current_category_filters`, refreshes |
 | `_on_folder_filter_change` | Updates `_current_folder_filters`, refreshes |
-| `_refresh_display` | Cross-filtered pipeline: search → folder → category → UI update |
+| `_refresh_display` | Delegates to `compute_filtered_view()`, updates sidebar + list |
 | `_has_active_filters` | Returns True when any filter is narrowing the view |
-| `_get_search_filtered_cards` | Applies text search query |
-| `_apply_folder_filters` | Applies folder sidebar filters to a card list |
-| `_apply_category_filters` | Applies confidence/category sidebar filters |
+| `_get_search_filtered_cards` | Applies text search query (used by tests) |
+| `_apply_folder_filters` | Applies folder sidebar filters to a card list (used by tests) |
+| `_apply_category_filters` | Applies confidence/category sidebar filters (used by tests) |
 
-`_refresh_display` is the central method that coordinates the cross-filter pipeline (see `filter-pipeline.md`).
+`_refresh_display` delegates the two-pass cross-filter algorithm to `filter_service.compute_filtered_view()` (see `filter-pipeline.md`).
 
 ### SelectionMixin (`selection_mixin.py`) — Group F
 

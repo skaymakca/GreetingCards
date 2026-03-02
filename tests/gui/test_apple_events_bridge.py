@@ -280,14 +280,21 @@ class TestRenameCardForScript:
         assert "year" in result["error"].lower()
 
     def test_success(self, window):
-        from app.models.card import RenameResult
+        from app.models.card import RenameOutcome, RenameResult
 
         card = _make_card()
         _inject_card(window, card)
         old_path = card.primary_path
         new_path = Path("/tmp/Holiday Cards 2025 - Smith Family.pdf")
 
-        mock_result = RenameResult(old_path, new_path, True, "Renamed", card=card)
+        mock_result = RenameResult(
+            old_path,
+            new_path,
+            True,
+            "",
+            outcome=RenameOutcome.RENAMED,
+            card=card,
+        )
 
         with (
             patch("app.core.services.rename_service.build_rename_plan"),
@@ -300,11 +307,18 @@ class TestRenameCardForScript:
         assert result["new_path"] == str(new_path)
 
     def test_custom_year(self, window):
-        from app.models.card import RenameResult
+        from app.models.card import RenameOutcome, RenameResult
 
         card = _make_card()
         _inject_card(window, card)
-        mock_result = RenameResult(card.primary_path, Path("/tmp/out.pdf"), True, "Renamed", card=card)
+        mock_result = RenameResult(
+            card.primary_path,
+            Path("/tmp/out.pdf"),
+            True,
+            "",
+            outcome=RenameOutcome.RENAMED,
+            card=card,
+        )
 
         with (
             patch("app.core.services.rename_service.build_rename_plan") as mock_plan,
@@ -316,11 +330,18 @@ class TestRenameCardForScript:
             assert mock_plan.call_args[0][1] == "2024"
 
     def test_os_error(self, window):
-        from app.models.card import RenameResult
+        from app.models.card import RenameOutcome, RenameResult
 
         card = _make_card()
         _inject_card(window, card)
-        mock_result = RenameResult(card.primary_path, Path("/tmp/out.pdf"), False, "Permission denied", card=card)
+        mock_result = RenameResult(
+            card.primary_path,
+            Path("/tmp/out.pdf"),
+            False,
+            "Permission denied",
+            outcome=RenameOutcome.ERROR_OS,
+            card=card,
+        )
 
         with (
             patch("app.core.services.rename_service.build_rename_plan"),
@@ -329,7 +350,7 @@ class TestRenameCardForScript:
             result = window.rename_card_for_script("test.pdf", "Smith", "2025")
 
         assert result["success"] is False
-        assert result["error"] == "Permission denied"
+        assert result["error"] == "ERROR: Permission denied"
 
 
 # ── analyze_for_script ──────────────────────────────────────────────────

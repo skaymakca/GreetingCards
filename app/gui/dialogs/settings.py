@@ -4,7 +4,7 @@ from collections.abc import Callable
 
 import wx
 
-from app.core.config import AI_MODELS
+from app.core.services.config_service import ConfigService
 from app.gui import styles
 
 _PREFS_PAD = 20
@@ -81,12 +81,13 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
         sizer.AddSpacer(8)
 
         # Model dropdown
-        model_labels = [f"{m.label} \u2014 {m.description}" for m in AI_MODELS]
+        models = ConfigService.get_available_models()
+        model_labels = [f"{m.label} \u2014 {m.description}" for m in models]
         self._model_choice = wx.Choice(panel, choices=model_labels)
         self._model_choice.SetMaxSize(wx.Size(340, -1))
 
         current_model = self._get_ai_model()
-        for i, m in enumerate(AI_MODELS):
+        for i, m in enumerate(models):
             if m.model_id == current_model:
                 self._model_choice.SetSelection(i)
                 break
@@ -109,7 +110,7 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
             return
         idx = self._model_choice.GetSelection()
         if idx != wx.NOT_FOUND:
-            self._save_ai_model_cb(AI_MODELS[idx].model_id)
+            self._save_ai_model_cb(ConfigService.get_available_models()[idx].model_id)
 
     def _save_api_key(self, event: wx.CommandEvent) -> None:
         """Save API key and show status."""

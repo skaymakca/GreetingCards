@@ -5,6 +5,7 @@ from __future__ import annotations
 import wx
 
 from app.core.services import filter_service
+from app.core.services.filter_service import FilterCategory
 from app.gui.main_window_mixins._protocol import MainWindowProtocol
 from app.models.card import CardResult
 
@@ -46,64 +47,51 @@ class FilterMixin:
     def _refresh_display(self: MainWindowProtocol) -> None:
         """Refresh sidebar counts and cards table using cross-filtered pipeline.
 
-        Re-entrancy-free: sidebar count updates may auto-reset internal filter
-        state (e.g. when all selected categories go to zero count). We sync
-        MainWindow's filter state from sidebar after count updates, then
-        recompute display. If display is still empty but search has results,
-        auto-reset checkbox filters (keep search text).
+        Delegates the two-pass cross-filter algorithm to
+        ``filter_service.compute_filtered_view()`` so business logic stays in
+        the service layer.  The view reads the result and updates widgets.
         """
-        search_cards = self._get_search_filtered_cards()
-
-        # Capture filter state BEFORE sidebar sync / auto-reset may clear them
+        # Capture filter state BEFORE compute may trigger auto-reset
         had_active_filters = self._has_active_filters()
 
-        # First pass: compute cross-filtered counts
-        folder_filtered = self._apply_folder_filters(search_cards)
-        category_filtered = self._apply_category_filters(search_cards)
-        self._sidebar.update_category_counts(filter_service.count_by_category(folder_filtered))
-        self._sidebar.update_folder_counts(
-            filter_service.count_by_folder(category_filtered, self._sidebar.folder_filter_keys)
+        view = filter_service.compute_filtered_view(
+            all_cards=self._card_service.get_all_cards(),
+            search_query=self._search_ctrl.GetValue(),
+            category_filters=self._current_category_filters,
+            folder_filters=self._current_folder_filters,
+            folder_keys=self._sidebar.folder_filter_keys,
         )
 
-        # Sync filter state back (sidebar may have auto-reset empty categories/folders)
-        self._current_category_filters = self._sidebar.get_selected_category_filters()
-        self._current_folder_filters = self._sidebar.get_selected_folder_filters()
+        # Update sidebar counts (may auto-disable zero-count checkboxes)
+        self._sidebar.update_category_counts(view.category_counts)
+        self._sidebar.update_folder_counts(view.folder_counts)
 
-        # Recompute display with synced filters
-        folder_filtered = self._apply_folder_filters(search_cards)
-        display_cards = self._apply_category_filters(folder_filtered)
-
-        # Auto-reset checkbox filters when display is empty but cards exist
-        if not display_cards and search_cards:
-            self._current_category_filters = ["all"]
+        # Sync filter state: if compute_filtered_view auto-reset categories,
+        # push the reset into the sidebar and our local state.
+        if view.filters_were_reset:
+            self._current_category_filters = [FilterCategory.ALL.value]
+            self._sidebar.set_category_filters([FilterCategory.ALL.value])
             self._current_folder_filters = self._sidebar.get_selected_folder_filters()
-            self._sidebar.set_category_filters(["all"])
-            self._sidebar.set_folder_filters(self._current_folder_filters)
-            # Recompute with reset filters
-            folder_filtered = self._apply_folder_filters(search_cards)
-            display_cards = self._apply_category_filters(folder_filtered)
-            # Update counts to reflect reset state
-            self._sidebar.update_category_counts(filter_service.count_by_category(folder_filtered))
-            self._sidebar.update_folder_counts(
-                filter_service.count_by_folder(display_cards, self._sidebar.folder_filter_keys)
-            )
+        else:
+            self._current_category_filters = self._sidebar.get_selected_category_filters()
+            self._current_folder_filters = self._sidebar.get_selected_folder_filters()
 
-        self._review_panel.load_cards(display_cards, preserve_selection=not had_active_filters)
+        self._review_panel.load_cards(view.display_cards, preserve_selection=not had_active_filters)
 
         # Toggle overlay vs content area based on whether any cards exist at all
-        self._set_empty_state(self._card_store.is_empty)
+        self._set_empty_state(self._card_service.is_empty)
 
     def _has_active_filters(self: MainWindowProtocol) -> bool:
         """Return True if any search or filter is narrowing the view."""
         if self._search_ctrl.GetValue().strip():
             return True
-        if "all" not in self._current_category_filters:
+        if FilterCategory.ALL.value not in self._current_category_filters:
             return True
         return "all_folders" not in self._current_folder_filters
 
     def _get_search_filtered_cards(self: MainWindowProtocol) -> list[CardResult]:
         """Get cards filtered by search query only."""
-        cards = self._card_store.get_all_cards()
+        cards = self._card_service.get_all_cards()
         query = self._search_ctrl.GetValue()
         return filter_service.search_filter(cards, query)
 
@@ -112,6 +100,5 @@ class FilterMixin:
         return filter_service.apply_folder_filters(cards, self._current_folder_filters)
 
     def _apply_category_filters(self: MainWindowProtocol, cards: list[CardResult]) -> list[CardResult]:
-        """Apply sidebar category filters and sort by filename for display."""
-        filtered = filter_service.apply_category_filters(cards, self._current_category_filters)
-        return sorted(filtered, key=lambda c: c.filename.lower())
+        """Apply sidebar category filters to a card list."""
+        return filter_service.apply_category_filters(cards, self._current_category_filters)

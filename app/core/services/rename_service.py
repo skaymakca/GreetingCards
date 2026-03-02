@@ -31,7 +31,7 @@ class RenameService:
     def validate_year(year_str: str) -> bool:
         """Return True if year_str is a valid 4-digit year.
 
-        Wraps ``validate_year()`` so GUI callers don't import core
+        Wraps ``validate_year()`` so callers don't import core
         naming internals directly.
         """
         return validate_year(year_str)
@@ -40,7 +40,7 @@ class RenameService:
     def target_filename(card: CardResult, year: str) -> str:
         """Build the target filename for *card* given a *year*.
 
-        Wraps ``build_target_filename()`` so GUI callers don't import
+        Wraps ``build_target_filename()`` so callers don't import
         core naming internals directly.
         """
         return build_target_filename(card, year)
@@ -49,7 +49,7 @@ class RenameService:
     def build_plan(cards: list[CardResult], year: str) -> list[RenamePlanItem]:
         """Build a rename plan from cards and year.
 
-        Wraps ``build_rename_plan()`` so GUI callers don't import core
+        Wraps ``build_rename_plan()`` so callers don't import core
         naming internals directly.
         """
         return build_rename_plan(cards, year)
@@ -97,7 +97,7 @@ class RenameService:
     def get_completed_paths(results: list[RenameResult]) -> set[Path]:
         """Return paths for fully resolved rename results.
 
-        Wraps ``filter_completed_renames()`` so GUI callers don't import
+        Wraps ``filter_completed_renames()`` so callers don't import
         core naming internals directly.
         """
         return filter_completed_renames(results)

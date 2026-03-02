@@ -5,10 +5,12 @@ from pathlib import Path
 import wx
 import wx.dataview as dv
 
+from app.core.pipeline.ai_analyzer import AIError
 from app.gui import styles
 from app.gui.rename_display import (
     filter_visible_results,
     format_plan_summary,
+    format_result_status,
     format_results_summary,
     get_plan_item_display,
     is_skip_status,
@@ -305,9 +307,7 @@ class RenameConfirmDialog(wx.Dialog):
 class ErrorListDialog(wx.Dialog):
     """Dialog showing AI analysis errors in a structured table."""
 
-    def __init__(
-        self, parent: wx.Window, title: str, errors: list[tuple[str, str]], auth_aborted: bool = False
-    ) -> None:
+    def __init__(self, parent: wx.Window, title: str, errors: list[AIError], auth_aborted: bool = False) -> None:
         super().__init__(parent, title=title, size=(650, 400), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
 
         # Main sizer
@@ -327,7 +327,7 @@ class ErrorListDialog(wx.Dialog):
 
         summary = f"{len(errors)} error(s)"
         if auth_aborted:
-            summary += " — batch aborted"
+            summary += " \u2014 batch aborted"
         self._summary_label = wx.StaticText(self, label=summary)
         self._summary_label.SetFont(styles.Font.HEADING())
         self._summary_label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
@@ -337,8 +337,8 @@ class ErrorListDialog(wx.Dialog):
 
         sizer.AddSpacer(_SECTION_GAP)
 
-        # Prepare data and colors (all errors in red)
-        data = [[filename, error_msg] for filename, error_msg in errors]
+        # Prepare data and colors from AIError objects (all errors in red)
+        data = [[err.kind.value, err.detail] for err in errors]
         colors = [styles.Color.ERROR] * len(errors)
 
         # Create model and ctrl
@@ -346,10 +346,11 @@ class ErrorListDialog(wx.Dialog):
         self.list_ctrl = dv.DataViewCtrl(self, style=dv.DV_ROW_LINES | dv.DV_VERT_RULES)
         self.list_ctrl.AssociateModel(self.model)
 
-        # Add columns — split space equally
-        col_width = (650 - 2 * _DIALOG_PADDING - _SCROLLBAR_WIDTH) // 2
-        self.list_ctrl.AppendTextColumn("File Name", 0, width=col_width)
-        self.list_ctrl.AppendTextColumn("Error", 1, width=col_width)
+        # Add columns — type column is narrow, detail gets remaining space
+        type_col_width = _STATUS_COL_WIDTH
+        detail_col_width = 650 - 2 * _DIALOG_PADDING - _SCROLLBAR_WIDTH - type_col_width
+        self.list_ctrl.AppendTextColumn("Type", 0, width=type_col_width)
+        self.list_ctrl.AppendTextColumn("Details", 1, width=detail_col_width)
 
         sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
@@ -419,12 +420,8 @@ class CompletionDialog(wx.Dialog):
         for r in visible:
             path = r.new_path if r.success else r.old_path
             display_name = display_path(path) if multi_dir else path.name
-            if r.success:
-                result_text = "OK"
-                colors.append(styles.Color.SUCCESS)
-            else:
-                result_text = f"ERROR: {r.message}"
-                colors.append(styles.Color.ERROR)
+            result_text = format_result_status(r)
+            colors.append(styles.Color.SUCCESS if r.success else styles.Color.ERROR)
             data.append([display_name, result_text])
 
         # Create model and ctrl

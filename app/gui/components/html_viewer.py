@@ -561,7 +561,7 @@ def build_help_menu(frame: wx.Frame) -> wx.Menu:
     ``frame.GetParent()`` should be the main window so that new viewers
     are parented correctly.
     """
-    from app.core.config import GITHUB_URL
+    from app.core.services.config_service import ConfigService
     from app.gui.dialogs.changelog import show_changelog
     from app.gui.dialogs.help import show_help
     from app.gui.dialogs.licenses import show_licenses
@@ -599,7 +599,7 @@ def build_help_menu(frame: wx.Frame) -> wx.Menu:
     frame.Bind(wx.EVT_MENU, lambda e: show_help(parent), id=wx.ID_HELP)
     frame.Bind(wx.EVT_MENU, lambda e: show_changelog(parent), id=whats_new_id)
     frame.Bind(wx.EVT_MENU, lambda e: show_licenses(parent), id=licenses_id)
-    frame.Bind(wx.EVT_MENU, lambda e: wx.LaunchDefaultBrowser(GITHUB_URL), id=github_id)
+    frame.Bind(wx.EVT_MENU, lambda e: wx.LaunchDefaultBrowser(ConfigService.get_github_url()), id=github_id)
 
     return menu
 

@@ -15,6 +15,7 @@ from app.models.card import (
     RenameOutcome,
     RenamePlanItem,
     RenameResult,
+    RenameStatus,
 )
 
 
@@ -76,19 +77,43 @@ def get_plan_item_display(item: RenamePlanItem) -> tuple[str, str]:
     Categories: ``'ok'``, ``'duplicate'``, ``'skip'``, ``'error'``.
     Labels: ``'OK'``, ``'DUP'``, ``'SKIP'``, ``'SAME'``, ``'ERROR'``.
     """
-    _DISPLAY: dict[str, tuple[str, str]] = {
+    _DISPLAY: dict[RenameStatus, tuple[str, str]] = {
         STATUS_OK: ("OK", "ok"),
         STATUS_DUPLICATE: ("DUP", "duplicate"),
         STATUS_SKIP_NO_NAME: ("SKIP", "skip"),
         STATUS_SKIP_SAME: ("SAME", "skip"),
         STATUS_SKIP_ERROR: ("ERROR", "error"),
     }
-    return _DISPLAY.get(item.status, (item.status, "error"))
+    return _DISPLAY.get(item.status, (item.status.value, "error"))
 
 
 def is_skip_status(item: RenamePlanItem) -> bool:
     """True if this item should show '-' instead of a new path."""
     return item.status in {STATUS_SKIP_NO_NAME, STATUS_SKIP_SAME, STATUS_SKIP_ERROR}
+
+
+def format_result_status(result: RenameResult) -> str:
+    """Derive a short display label from a rename result's outcome.
+
+    The label is derived entirely from ``result.outcome``.  For error
+    outcomes, ``result.message`` is appended as diagnostic detail when
+    available (e.g. an OS-level error string).
+
+    Returns a short string suitable for table cells such as ``"OK"``,
+    ``"ERROR: Permission denied"``, or ``"Skipped (no name)"``.
+    """
+    _OUTCOME_DISPLAY: dict[RenameOutcome, str] = {
+        RenameOutcome.RENAMED: "OK",
+        RenameOutcome.ALREADY_CORRECT: "Already correct",
+        RenameOutcome.SKIP_NO_NAME: "Skipped (no name)",
+        RenameOutcome.SKIP_ERROR: "Skipped (error)",
+        RenameOutcome.ERROR_TARGET_EXISTS: "ERROR: Target exists",
+        RenameOutcome.ERROR_OS: "ERROR",
+    }
+    label = _OUTCOME_DISPLAY.get(result.outcome, result.outcome.value)
+    if result.outcome in (RenameOutcome.ERROR_TARGET_EXISTS, RenameOutcome.ERROR_OS) and result.message:
+        return f"ERROR: {result.message}"
+    return label
 
 
 def filter_visible_results(results: list[RenameResult]) -> list[RenameResult]:

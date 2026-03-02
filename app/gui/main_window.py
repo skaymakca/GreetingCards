@@ -12,10 +12,10 @@ import wx.adv
 logger = logging.getLogger(__name__)
 
 from app.core.card_store import CardStore
-from app.core.constants import RELOAD_COOLDOWN
-from app.core.platform import get_commit_hash
+from app.core.platform import get_commit_hash  # Stateless platform utility for About dialog
 from app.core.services.card_service import CardService
 from app.core.services.config_service import ConfigService
+from app.core.services.filter_service import FilterCategory
 from app.core.services.processing_service import ProcessingService
 from app.core.services.rename_service import RenameService
 from app.gui.components.drop_target import DropOverlay as _DropOverlay
@@ -41,13 +41,15 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         self._frame = wx.Frame(None, title="Greeting Cards", size=(Layout.WINDOW_WIDTH, Layout.WINDOW_HEIGHT))
         self._frame.SetMinSize(Layout.MIN_FRAME_SIZE)
 
-        # State - Content-based deduplication (multi-load architecture)
+        # Service initialization — wxPython's two-phase construction requires
+        # these to be created here rather than injected via constructor.
+        # CardStore is the internal data store; services are the public facade.
         self._card_store = CardStore()
         self._card_service = CardService(self._card_store)
         self._config_service = ConfigService()
         self._rename_service = RenameService(self._card_store)
         self._processing_service = ProcessingService(self._card_store)
-        self._current_category_filters = ["all"]  # Current sidebar category filters
+        self._current_category_filters = [FilterCategory.ALL.value]  # Current sidebar category filters
         self._current_folder_filters = ["all_folders"]  # Current sidebar folder filters
         self._ai_target_cards: list[CardResult] = []  # Cards for current AI batch
         self._processing_files: list[Path] = []  # Files currently being processed
@@ -100,7 +102,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
     def _get_card_by_id(self, card_id: int) -> CardResult | None:
         """Get card by ID. O(1) lookup via CardStore."""
-        return self._card_store.get_by_id(card_id)
+        return self._card_service.get_by_id(card_id)
 
     def _on_select_all(self, event: wx.CommandEvent) -> None:
         """Handle Select All — route to text field if focused, else select all cards."""
@@ -401,8 +403,10 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
     def _clear_all(self) -> None:
         """Clear all loaded cards (from all sources) and reset UI."""
+        # --- Business state ---
         self._card_service.clear_cards()
 
+        # --- UI state ---
         self._review_panel.load_cards([])
         self._preview_panel.clear()
         self._sidebar.update_category_counts({})
@@ -416,9 +420,9 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         self._search_ctrl.SetValue("")
 
         # Reset sidebar filters
-        self._current_category_filters = ["all"]
+        self._current_category_filters = [FilterCategory.ALL.value]
         self._current_folder_filters = ["all_folders"]
-        self._sidebar.set_category_filters(["all"])
+        self._sidebar.set_category_filters([FilterCategory.ALL.value])
 
         # Show confirmation
         self._show_info_message("All cards cleared", wx.ICON_INFORMATION)
@@ -434,7 +438,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
     def _refresh_folders(self) -> None:
         """Update sidebar folders, sync filter state, and refresh display."""
-        self._sidebar.update_folders(self._card_store.derive_folders())
+        self._sidebar.update_folders(self._card_service.derive_folders())
         self._current_folder_filters = self._sidebar.get_selected_folder_filters()
         self._refresh_display()
 
@@ -458,7 +462,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         Returns:
             True if anything changed (files modified or deleted).
         """
-        if not self._card_store.has_paths:
+        if not self._card_service.has_paths:
             return False
 
         # Update cooldown timestamp (prevents rapid re-triggers from EVT_ACTIVATE)
@@ -476,7 +480,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         elif deleted_paths:
             # Only deletions — update UI
             self._refresh_folders()
-            if self._card_store.is_empty:
+            if self._card_service.is_empty:
                 self._enable_action_tools(reload=False, ai=False, rename=False, clear=False)
             self._show_info_message(
                 f"Reload: {_plural(len(deleted_paths), 'file')} removed",
@@ -493,7 +497,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         Args:
             files: Specific files to process. If None, processes all known PDF paths.
         """
-        files_to_process = files or list(self._card_store.get_all_paths())
+        files_to_process = files or list(self._card_service.get_all_paths())
         if not files_to_process:
             return
 
@@ -554,7 +558,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         self._enable_action_tools(reload=True, ai=True, rename=True, clear=True)
 
         # Show success message
-        count = self._card_store.count
+        count = self._card_service.count
         self._show_info_message(
             f"Processing complete\n{_plural(count, 'card')} loaded",
             wx.ICON_INFORMATION,
@@ -612,7 +616,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         self._refresh_folders()
 
         # Disable toolbar tools if no cards remain
-        if self._card_store.is_empty:
+        if self._card_service.is_empty:
             self._enable_action_tools(reload=False, ai=False, rename=False, clear=False)
             self._search_ctrl.SetValue("")
 
@@ -688,13 +692,13 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         event.Skip()
         if not event.GetActive():
             return
-        if not self._card_store.has_paths:
+        if not self._card_service.has_paths:
             return
         # Skip if processing is in progress
         if self._is_processing_busy:
             return
         now = time.monotonic()
-        if now - self._last_reload_time < RELOAD_COOLDOWN:
+        if now - self._last_reload_time < self._config_service.get_reload_cooldown():
             return
         self._last_reload_time = now
         self._reload_cards(mtime_only=True)

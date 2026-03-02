@@ -202,9 +202,9 @@ class ToolbarManager:
         year_label = wx.StaticText(toolbar, label="Year:")
         year_label.SetFont(Font.BODY())
         toolbar.AddControl(year_label)
-        from app.core.constants import default_year
+        from app.core.services.config_service import ConfigService
 
-        w._year_ctrl = wx.TextCtrl(toolbar, value=default_year(), size=(Layout.YEAR_WIDTH, -1))
+        w._year_ctrl = wx.TextCtrl(toolbar, value=ConfigService.get_default_year(), size=(Layout.YEAR_WIDTH, -1))
         w._year_ctrl.SetToolTip("Year to use in renamed file names (e.g., 2024)")
         toolbar.AddControl(w._year_ctrl)
 

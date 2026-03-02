@@ -12,7 +12,7 @@ from typing import Protocol
 
 import wx
 
-from app.core.card_store import CardStore
+from app.core.pipeline.ai_analyzer import AIError
 from app.core.services.card_service import CardService
 from app.core.services.config_service import ConfigService
 from app.core.services.processing_service import ProcessingService
@@ -41,7 +41,6 @@ class MainWindowProtocol(Protocol):
     _preview_panel: PreviewPanel
 
     # --- Services ---
-    _card_store: CardStore
     _card_service: CardService
     _config_service: ConfigService
     _rename_service: RenameService
@@ -128,7 +127,7 @@ class MainWindowProtocol(Protocol):
         card: CardResult | None,
     ) -> None: ...
 
-    def _ai_all_complete(self, errors: list[tuple[str, str]], auth_aborted: bool = False) -> None: ...
+    def _ai_all_complete(self, errors: list[AIError], auth_aborted: bool = False) -> None: ...
 
     # --- AppleEventsMixin methods ---
 

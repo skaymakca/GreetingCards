@@ -93,7 +93,6 @@ class TestWorkerResultToCard:
         wr = self._make_worker_result(
             preview_image_bytes=img_bytes,
             page_images_bytes=[img_bytes],
-            alternates=["Smyth"],
         )
         card = worker_result_to_card(wr, card_id=1)
 
@@ -131,31 +130,6 @@ class TestWorkerResultToCard:
         wr = self._make_worker_result(file_hash=None, error="Failed")
         card = worker_result_to_card(wr, card_id=1)
         assert card.file_hash == ""
-
-
-class TestDeriveFolders:
-    """Tests for derive_folders()."""
-
-    def test_sorted_unique(self):
-        """Returns sorted unique parent directories."""
-        from app.core.pipeline.card_processor import derive_folders
-        from app.models.card import CardResult
-
-        folder_a = Path("/test/aaa")
-        folder_b = Path("/test/bbb")
-
-        card1 = CardResult(id=0, file_paths=[folder_b / "x.pdf"], primary_path=folder_b / "x.pdf")
-        card2 = CardResult(id=1, file_paths=[folder_a / "y.pdf"], primary_path=folder_a / "y.pdf")
-        card3 = CardResult(id=2, file_paths=[folder_b / "z.pdf"], primary_path=folder_b / "z.pdf")
-
-        result = derive_folders([card1, card2, card3])
-        assert result == [folder_a, folder_b]
-
-    def test_empty(self):
-        """Returns empty list for no cards."""
-        from app.core.pipeline.card_processor import derive_folders
-
-        assert derive_folders([]) == []
 
 
 class TestLoadCardStateFromDb:

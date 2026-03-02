@@ -1,4 +1,4 @@
-"""Processing constants shared between core and GUI layers."""
+"""Application-wide processing constants."""
 
 import multiprocessing
 from datetime import datetime

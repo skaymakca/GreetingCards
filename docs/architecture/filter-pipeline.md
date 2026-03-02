@@ -31,15 +31,15 @@ Three independent filter axes are applied in sequence:
 ```
 All cards (_cards_by_hash.values())
     │
-    ├─ 1. Search filter  → _get_search_filtered_cards()
+    ├─ 1. Search filter  → search_filter()
     │      Matches query against filename + family_name (case-insensitive)
     │
-    ├─ 2. Folder filter  → _apply_folder_filters()
+    ├─ 2. Folder filter  → apply_folder_filters()
     │      "all_folders" = pass-through; else match card.file_paths parent dirs
     │
-    └─ 3. Category filter → _apply_category_filters()
+    └─ 3. Category filter → apply_category_filters()
            "all" = pass-through; else match by Confidence enum values
-           GUI layer sorts results alphabetically by filename after filtering
+           compute_filtered_view() sorts results alphabetically by filename
 ```
 
 ## Counting Functions (FilterService)
@@ -57,14 +57,14 @@ Sidebar counts show how many cards **would** match each filter option given the 
 
 ```
 _refresh_display():
-    search_cards = search-filtered cards
-
-    # Cross-filtered counts:
-    folder_filtered = apply_folder_filters(search_cards)   # for category counts
-    category_filtered = apply_category_filters(search_cards) # for folder counts
-
-    sidebar.update_category_counts(folder_filtered)   # counts reflect folder selection
-    sidebar.update_folder_counts(category_filtered)    # counts reflect category selection
+    view = filter_service.compute_filtered_view(all_cards, search_query,
+                                                 category_filters, folder_filters,
+                                                 folder_keys)
+    # view.category_counts reflects folder selection
+    # view.folder_counts reflects category selection
+    # view.display_cards is sorted alphabetically by filename
+    sidebar.update_category_counts(view.category_counts)
+    sidebar.update_folder_counts(view.folder_counts)
 ```
 
 **Why:** If "High Confidence" is selected and folder A has 0 high-confidence cards, its count shows 0 and it gets disabled. Without cross-filtering, folder A would show its total card count, misleading the user.
@@ -73,25 +73,29 @@ _refresh_display():
 
 `update_category_counts()` and `update_folder_counts()` may auto-reset internal sidebar state when all selected filters have zero count (e.g., user selected "High Confidence" but after folder filtering, no high cards remain).
 
-The sidebar resets its own `_selected_*_filters` internally but does **not** fire callbacks. After count updates, `_refresh_display` syncs main window state from sidebar:
+The sidebar resets its own `_selected_*_filters` internally but does **not** fire callbacks. After count updates, `_refresh_display` syncs main window state from sidebar. If `compute_filtered_view()` auto-reset category filters (indicated by `filters_were_reset`), the sidebar is also programmatically updated:
 
 ```python
-# Sync filter state back (sidebar may have auto-reset)
-self._current_category_filters = self._sidebar.get_selected_category_filters()
-self._current_folder_filters = self._sidebar.get_selected_folder_filters()
+if view.filters_were_reset:
+    self._current_category_filters = [FilterCategory.ALL.value]
+    self._sidebar.set_category_filters([FilterCategory.ALL.value])
+else:
+    self._current_category_filters = self._sidebar.get_selected_category_filters()
+    self._current_folder_filters = self._sidebar.get_selected_folder_filters()
 ```
 
 This avoids re-entrant calls: sidebar mutates state silently, main window reads it once.
 
 ## Auto-Reset on Empty Display
 
-After full filtering, if `display_cards` is empty but `search_cards` is non-empty, category checkboxes are reset to "All" while preserving folder selection and search text:
+After full filtering, if `display_cards` is empty but `search_cards` is non-empty, `compute_filtered_view()` auto-resets category filters to "All" while preserving folder selection and search text. The `filters_were_reset` flag in `FilteredView` signals this to the UI layer:
 
 ```python
+# In compute_filtered_view():
 if not display_cards and search_cards:
-    self._current_category_filters = ["all"]
-    self._sidebar.set_category_filters(["all"])
-    # Recompute with reset filters...
+    category_filters = [FilterCategory.ALL.value]
+    # ... recompute ...
+    filters_were_reset = True
 ```
 
 This prevents the user from getting stuck with an empty list when the combination of filters produces no results.

@@ -20,6 +20,7 @@ def load_drop_background() -> wx.Bitmap | None:
     try:
         from PIL import Image, ImageEnhance
 
+        # Stateless path utility — no service facade needed
         from app.core.paths import get_runtime_content_path
 
         img_path = get_runtime_content_path("images/drop-target-background.png")

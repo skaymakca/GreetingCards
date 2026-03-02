@@ -27,10 +27,8 @@ class SelectionMixin:
 
         if card.error:
             self._preview_panel.show_error(card.error, card.filename)
-        elif card.page_images:
-            self._preview_panel.show_images(card.page_images, card.filename)
-        elif card.preview_image:
-            self._preview_panel.show_images([card.preview_image], card.filename)
+        elif images := card.best_preview_images:
+            self._preview_panel.show_images(images, card.filename)
         else:
             self._preview_panel.clear()
 
@@ -71,7 +69,7 @@ class SelectionMixin:
         Args:
             file_hash: The content hash of the card to remove
         """
-        card = self._card_store.get_by_hash(file_hash)
+        card = self._card_service.get_by_hash(file_hash)
         if not card:
             return
 
