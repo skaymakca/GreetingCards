@@ -120,14 +120,14 @@ Apple Events are dispatched by macOS on the application's main run loop, which i
 ```python
 _main_thread_dispatch: Callable | None = None  # injected by register_apple_event_handlers()
 
-def _call_on_main_thread(func):
+def _call_on_main_thread[T](func: Callable[[], T]) -> T | None:
     if threading.current_thread() is threading.main_thread():
         return func()            # fast path — no overhead
 
     if _main_thread_dispatch is None:
         raise RuntimeError("No main-thread dispatcher registered")
 
-    result_holder: list = []
+    result_holder: list[T] = []
     done = threading.Event()
     def _wrapper():
         result_holder.append(func())

@@ -202,7 +202,7 @@ def _status_to_json(window: ScriptingTarget) -> str:
 _main_thread_dispatch: Callable | None = None
 
 
-def _call_on_main_thread(func):
+def _call_on_main_thread[T](func: Callable[[], T]) -> T | None:
     """Call func on the main thread. If already on main thread, call directly."""
     if threading.current_thread() is threading.main_thread():
         return func()
@@ -210,7 +210,7 @@ def _call_on_main_thread(func):
     if _main_thread_dispatch is None:
         raise RuntimeError("No main-thread dispatcher registered — call register_apple_event_handlers() first")
 
-    result_holder: list = []
+    result_holder: list[T] = []
     done = threading.Event()
 
     def _wrapper():
@@ -244,20 +244,26 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
         self._window = window
         return self
 
+    def _ensure_window(self) -> ScriptingTarget:
+        assert self._window is not None, "AppleEventHandler not initialized"  # nosec B101
+        return self._window
+
     # Note: JSON error strings in handler responses are part of the scripting API
     # contract. Changes to these strings may break external AppleScript clients.
 
     # -- Loading & Status --------------------------------------------------
 
-    def handleLoadPaths_reply_(self, event, reply):
+    def handleLoadPaths_reply_(self, event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
         """load paths — load PDFs from files/folders."""
         paths = _get_text_list_param(event)
         if not paths:
             _set_text_reply(reply, json.dumps({"success": True, "count": 0}))
             return
 
+        window = self._ensure_window()
+
         def _do():
-            return self._window.load_paths_for_script(paths)
+            return window.load_paths_for_script(paths)
 
         result = _call_on_main_thread(_do)
         if result is None:
@@ -265,20 +271,21 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
         else:
             _set_text_reply(reply, json.dumps(result))
 
-    def handleGetStatus_reply_(self, _event, reply):
+    def handleGetStatus_reply_(self, _event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
         """get status — return app status as JSON."""
+        window = self._ensure_window()
 
         def _do():
-            return _status_to_json(self._window)
+            return _status_to_json(window)
 
         result = _call_on_main_thread(_do)
         _set_text_reply(reply, result or "{}")
 
-    def handleReload_reply_(self, _event, reply):
+    def handleReload_reply_(self, _event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
         """reload — trigger manual reload."""
 
         def _do():
-            return self._window.reload_for_script()
+            return self._ensure_window().reload_for_script()
 
         result = _call_on_main_thread(_do)
         if result is None:
@@ -286,11 +293,11 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
         else:
             _set_text_reply(reply, json.dumps(result))
 
-    def handleClearAll_reply_(self, _event, reply):
+    def handleClearAll_reply_(self, _event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
         """clear all — clear all loaded cards."""
 
         def _do():
-            return self._window.clear_all_for_script()
+            return self._ensure_window().clear_all_for_script()
 
         result = _call_on_main_thread(_do)
         if result is None:
@@ -300,15 +307,17 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
 
     # -- Card Queries ------------------------------------------------------
 
-    def handleGetCardInfo_reply_(self, event, reply):
+    def handleGetCardInfo_reply_(self, event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
         """get card info — return card state as JSON."""
         filename = _get_direct_text(event)
         if not filename:
             _set_text_reply(reply, json.dumps({"error": "No filename provided"}))
             return
 
+        window = self._ensure_window()
+
         def _do():
-            card = self._window.get_card_info_for_script(filename)
+            card = window.get_card_info_for_script(filename)
             if card is None:
                 return json.dumps({"error": f"Card not found: {filename}"})
             return _card_to_json(card)
@@ -316,11 +325,12 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
         result = _call_on_main_thread(_do)
         _set_text_reply(reply, result or "{}")
 
-    def handleGetLoadedCards_reply_(self, _event, reply):
+    def handleGetLoadedCards_reply_(self, _event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
         """get loaded cards — return all cards as JSON array."""
+        window = self._ensure_window()
 
         def _do():
-            cards = self._window.get_all_cards_for_script()
+            cards = window.get_all_cards_for_script()
             return json.dumps([_card_summary(c) for c in cards])
 
         result = _call_on_main_thread(_do)
@@ -328,7 +338,7 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
 
     # -- Card Mutations ----------------------------------------------------
 
-    def handleRenameCard_reply_(self, event, reply):
+    def handleRenameCard_reply_(self, event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
         """rename card — rename a card on disk."""
         filename = _get_direct_text(event)
         new_name = _get_text_param(event, _K_NEW_NAME)
@@ -338,13 +348,15 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
             _set_text_reply(reply, json.dumps({"success": False, "error": "Missing filename or name"}))
             return
 
+        window = self._ensure_window()
+
         def _do():
-            return self._window.rename_card_for_script(filename, new_name, year)
+            return window.rename_card_for_script(filename, new_name, year)
 
         result = _call_on_main_thread(_do)
         _set_text_reply(reply, json.dumps(result) if result else json.dumps({"success": False, "error": "timeout"}))
 
-    def handleSetCardName_reply_(self, event, reply):
+    def handleSetCardName_reply_(self, event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
         """set card name — set/clear manual name override."""
         filename = _get_direct_text(event)
         new_name = _get_text_param(event, _K_NEW_NAME)
@@ -353,8 +365,10 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
             _set_text_reply(reply, json.dumps({"success": False, "error": "Missing filename or name"}))
             return
 
+        window = self._ensure_window()
+
         def _do():
-            return self._window.set_card_name_for_script(filename, new_name)
+            return window.set_card_name_for_script(filename, new_name)
 
         result = _call_on_main_thread(_do)
         if result is None:
@@ -362,7 +376,7 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
         else:
             _set_text_reply(reply, json.dumps(result))
 
-    def handleSelectCandidate_reply_(self, event, reply):
+    def handleSelectCandidate_reply_(self, event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
         """select candidate — select candidate by rank."""
         filename = _get_direct_text(event)
         rank = _get_int_param(event, _K_RANK)
@@ -371,8 +385,10 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
             _set_text_reply(reply, json.dumps({"success": False, "error": "Missing filename or rank"}))
             return
 
+        window = self._ensure_window()
+
         def _do():
-            return self._window.select_candidate_for_script(filename, rank)
+            return window.select_candidate_for_script(filename, rank)
 
         result = _call_on_main_thread(_do)
         if result is None:
@@ -380,7 +396,7 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
         else:
             _set_text_reply(reply, json.dumps(result))
 
-    def handleSetRemoveFamily_reply_(self, event, reply):
+    def handleSetRemoveFamily_reply_(self, event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
         """set remove family — toggle Remove Family checkbox."""
         filename = _get_direct_text(event)
         new_value = _get_bool_param(event, _K_NEW_VALUE)
@@ -389,8 +405,10 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
             _set_text_reply(reply, json.dumps({"success": False, "error": "Missing filename or value"}))
             return
 
+        window = self._ensure_window()
+
         def _do():
-            return self._window.set_remove_family_for_script(filename, new_value)
+            return window.set_remove_family_for_script(filename, new_value)
 
         result = _call_on_main_thread(_do)
         if result is None:
@@ -400,12 +418,13 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
 
     # -- AI Operations -----------------------------------------------------
 
-    def handleAnalyzeCards_reply_(self, event, reply):
+    def handleAnalyzeCards_reply_(self, event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
         """analyze cards — start AI analysis."""
         filename = _get_direct_text(event)
+        window = self._ensure_window()
 
         def _do():
-            return self._window.analyze_for_script(filename)
+            return window.analyze_for_script(filename)
 
         result = _call_on_main_thread(_do)
         if result is None:
@@ -413,12 +432,13 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
         else:
             _set_text_reply(reply, json.dumps(result))
 
-    def handleClearAiResults_reply_(self, event, reply):
+    def handleClearAiResults_reply_(self, event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
         """clear AI results — clear AI results."""
         filename = _get_direct_text(event)
+        window = self._ensure_window()
 
         def _do():
-            return self._window.clear_ai_for_script(filename)
+            return window.clear_ai_for_script(filename)
 
         result = _call_on_main_thread(_do)
         if result is None:
@@ -428,11 +448,11 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
 
     # -- Model Management --------------------------------------------------
 
-    def handleGetModels_reply_(self, _event, reply):
+    def handleGetModels_reply_(self, _event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
         """get models — return available models as JSON."""
         _set_text_reply(reply, _ai_models_to_json())
 
-    def handleSetModel_reply_(self, event, reply):
+    def handleSetModel_reply_(self, event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
         """set model — set the active AI model."""
         model_id = _get_direct_text(event)
         if not model_id:
@@ -443,8 +463,10 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
             _set_text_reply(reply, json.dumps({"success": False, "error": f"Unknown model: {model_id}"}))
             return
 
+        window = self._ensure_window()
+
         def _do():
-            return self._window.set_ai_model_for_script(model_id)
+            return window.set_ai_model_for_script(model_id)
 
         result = _call_on_main_thread(_do)
         if result is None:
@@ -454,9 +476,10 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
 
     # -- Lifecycle ---------------------------------------------------------
 
-    def handleQuit_reply_(self, _event, _reply):
+    def handleQuit_reply_(self, _event: NSAppleEventDescriptor, _reply: NSAppleEventDescriptor) -> None:
         """quit — close the application."""
-        _call_on_main_thread(lambda: self._window.quit_for_script())
+        window = self._ensure_window()
+        _call_on_main_thread(lambda: window.quit_for_script())
 
 
 # ---------------------------------------------------------------------------
