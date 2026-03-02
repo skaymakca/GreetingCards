@@ -13,16 +13,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
+# Non-root user for realistic filesystem permission behavior
+RUN useradd --create-home --uid 1000 tester
+USER tester
+
 WORKDIR /app
 
 # Layer-cached dependency install: copy only dependency files first
-COPY pyproject.toml uv.lock ./
+COPY --chown=tester:tester pyproject.toml uv.lock ./
 
 # Install dependencies (without the project itself)
 RUN uv sync --no-install-project
 
 # Copy the rest of the source
-COPY . .
+COPY --chown=tester:tester . .
 
 # Install the project
 RUN uv sync
