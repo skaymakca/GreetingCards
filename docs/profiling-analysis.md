@@ -71,4 +71,4 @@ uv run python -m scripts.profiling ~/Desktop/Cards
 uv run python -m scripts.profiling ~/Desktop/Cards --limit 10  # quick test
 ```
 
-Output goes to `_build/script_output/YYYYMMDD_HHMM-profiling/` with HTML reports, pyinstrument profiles, and machine-readable data exports (JSON, TSV).
+Output goes to `_build/script_output/YYYYMMDDThhmm-profiling/` with HTML reports, pyinstrument profiles, and machine-readable data exports (JSON, TSV).

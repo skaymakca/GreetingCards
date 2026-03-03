@@ -162,7 +162,7 @@ async def async_main() -> None:
     )
     # Show INFO from our modules (e.g., chatty Claude responses)
     logging.getLogger("scripts.generate_sample_cards").setLevel(logging.INFO)
-    start_time = time.time()
+    start_time = time.monotonic()
 
     console.print(f"Plan: {count} cards\n")
 
@@ -236,7 +236,7 @@ async def async_main() -> None:
         created = sum(results)
 
         # Summary
-        elapsed = time.time() - start_time
+        elapsed = time.monotonic() - start_time
         console.print(f"\nGenerated {created}/{len(specs)} cards in {elapsed:.1f}s")
         console.print(f"Output: {output_dir}")
 

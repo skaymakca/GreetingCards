@@ -305,7 +305,7 @@ only contains derived/cached data, never source data.
 Utility and benchmark scripts live in `scripts/` (a Python package). Run them with `uv run python -m scripts.<name>`. All
 script dependencies are included in the dev group — run `make setup-dev` first.
 
-Output goes to `_build/script_output/` with timestamped directories (e.g., `20260223_2011-generate_sample_cards/`) so
+Output goes to `_build/script_output/` with timestamped directories (e.g., `20260223T2011-generate_sample_cards/`) so
 runs don't overwrite each other. Empty output directories are automatically cleaned up if a script errors out before
 writing any files.
 

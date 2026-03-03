@@ -113,12 +113,12 @@ All script output goes to `_build/script_output/` with timestamped subdirectorie
 
 ```
 _build/script_output/
-  20260225_1425-generate_sample_cards/
-  20260225_1510-ocr_configuration_quality/
-  20260225_1515-ocr_concurrency/
+  20260225T1425-generate_sample_cards/
+  20260225T1510-ocr_configuration_quality/
+  20260225T1515-ocr_concurrency/
 ```
 
-**Format:** `YYYYMMDD_HHMM-<script_name>/`
+**Format:** `YYYYMMDDThhmm-<script_name>/`
 
 ### `script_output_dir()` Context Manager
 
@@ -126,7 +126,7 @@ Defined in `scripts/helpers.py`. Manages the lifecycle of output directories:
 
 ```python
 with script_output_dir("generate_sample_cards") as output_dir:
-    # output_dir is a Path like _build/script_output/20260225_1425-generate_sample_cards/
+    # output_dir is a Path like _build/script_output/20260225T1425-generate_sample_cards/
     # Generate files into output_dir...
 ```
 

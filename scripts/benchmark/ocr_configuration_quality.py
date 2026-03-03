@@ -113,7 +113,7 @@ AI scoring with Haiku for lower cost:
 
 Open the report:
 
-    open _build/script_output/YYYYMMDD_HHMM-benchmark_ocr_configuration_quality/index.html
+    open _build/script_output/YYYYMMDDThhmm-benchmark_ocr_configuration_quality/index.html
 
 Environment Variables
 ---------------------

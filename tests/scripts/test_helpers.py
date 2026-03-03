@@ -16,11 +16,11 @@ def test_make_output_dir_creates_timestamped_dir(tmp_path: Path) -> None:
 
     assert result.exists()
     assert result.is_dir()
-    # Name format: YYYYMMDD_HHMM-my_script
+    # Name format: YYYYMMDDThhmm-my_script
     assert result.name.endswith("-my_script")
     prefix = result.name.split("-")[0]
-    assert len(prefix) == 13  # YYYYMMDD_HHMM
-    assert prefix[8] == "_"
+    assert len(prefix) == 13  # YYYYMMDDThhmm
+    assert prefix[8] == "T"
 
 
 def test_make_output_dir_creates_under_root(tmp_path: Path) -> None:

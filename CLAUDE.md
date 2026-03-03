@@ -271,6 +271,14 @@ When adding or removing tests, update the test count in `README.md` (search for 
 
 After adding or updating packages with `uv add`, run `make licenses-sync` to update the license registry and extract new license texts. Then run `make content` to regenerate the HTML.
 
+### Timestamp Conventions
+
+- **Core/app code** (`app/`): Use UTC-aware timestamps (`datetime.now(UTC)`)
+- **Scripts** (`scripts/`): Use naive local time (`datetime.now()`) — scripts run locally
+- **Filename timestamps**: `strftime("%Y%m%dT%H%M")` → `YYYYMMDDThhmm` (e.g., `20260303T1422`)
+- **Log format**: ISO 8601 with `T` separator (`%Y-%m-%dT%H:%M:%S`)
+- **Elapsed timers**: Use `time.monotonic()`, never `time.time()`
+
 ---
 
 ## Code Quality Audit

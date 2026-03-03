@@ -136,7 +136,7 @@ def build_pytest_args(
 
 def _create_cov_dir() -> Path:
     """Create a timestamped coverage output directory."""
-    stamp = datetime.now().strftime("%Y%m%d_%H%M")
+    stamp = datetime.now().strftime("%Y%m%dT%H%M")
     cov_run = COV_DIR / stamp
     cov_run.mkdir(parents=True, exist_ok=True)
     return cov_run
