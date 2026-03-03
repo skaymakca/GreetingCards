@@ -260,7 +260,8 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
         return self
 
     def _ensure_window(self) -> ScriptingTarget:
-        assert self._window is not None, "AppleEventHandler not initialized"  # nosec B101
+        if self._window is None:
+            raise RuntimeError("AppleEventHandler not initialized")
         return self._window
 
     # Note: JSON error strings in handler responses are part of the scripting API
