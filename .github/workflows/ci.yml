@@ -8,20 +8,22 @@ on:
 jobs:
   check:
     name: Static checks
+    if: github.event_name == 'push'
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-build-env
 
       - name: Static checks
-        run: make check 2>&1 | tee static-checks.log
+        run: make check 2>&1 | tee ${{ github.event.repository.name }}-${{ github.run_number }}-static-checks.log
 
       - name: Upload static check log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: static-checks
-          path: static-checks.log
+          name: ${{ github.event.repository.name }}-${{ github.run_number }}-static-checks.log
+          path: ${{ github.event.repository.name }}-${{ github.run_number }}-static-checks.log
+          archive: false
 
   test:
     name: Tests
@@ -32,20 +34,33 @@ jobs:
       - uses: ./.github/actions/setup-build-env
 
       - name: Static checks
-        run: make check 2>&1 | tee static-checks.log
+        run: make check 2>&1 | tee ${{ github.event.repository.name }}-${{ github.run_number }}-static-checks.log
 
       - name: Build app bundle
         run: make app
 
       - name: Run tests with coverage
-        run: make test T="all --cov" 2>&1 | tee test-results.log
+        run: make test T="default --cov" 2>&1 | tee ${{ github.event.repository.name }}-${{ github.run_number }}-test-results.log
 
-      - name: Upload logs and coverage
+      - name: Upload static check log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: test-job-logs
-          path: |
-            static-checks.log
-            test-results.log
-            _build/coverage/latest/
+          name: ${{ github.event.repository.name }}-${{ github.run_number }}-static-checks.log
+          path: ${{ github.event.repository.name }}-${{ github.run_number }}-static-checks.log
+          archive: false
+
+      - name: Upload test results log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ github.event.repository.name }}-${{ github.run_number }}-test-results.log
+          path: ${{ github.event.repository.name }}-${{ github.run_number }}-test-results.log
+          archive: false
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ github.event.repository.name }}-${{ github.run_number }}-coverage-report
+          path: _build/coverage/latest/

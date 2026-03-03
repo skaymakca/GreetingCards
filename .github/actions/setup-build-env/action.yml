@@ -11,7 +11,7 @@ runs:
 
     - uses: gerlero/brew-install@v1
       with:
-        packages: tesseract leptonica pkg-config lcov
+        packages: tesseract leptonica lcov
 
     - name: Install project dependencies
       run: uv sync
