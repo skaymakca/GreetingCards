@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import sys
+
+import pytest
+
 from app.core.scripting_protocol import ScriptingTarget
 
 
@@ -33,6 +37,7 @@ def test_protocol_is_runtime_checkable() -> None:
         assert hasattr(ScriptingTarget, method_name), f"Missing method: {method_name}"
 
 
+@pytest.mark.skipif(sys.platform != "darwin", reason="Needs wxPython (macOS-only)")
 def test_apple_events_mixin_satisfies_protocol() -> None:
     """AppleEventsMixin should declare all methods required by ScriptingTarget."""
     from app.gui.main_window_mixins.apple_events_mixin import AppleEventsMixin

@@ -8,9 +8,10 @@ Called by scripts/dmg/__main__.py before dmgbuild; the 1× path is passed
 as the "background" define to scripts/dmg/dmgbuild_settings.py.
 """
 
+import io
 import pathlib
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 _ROOT = pathlib.Path(__file__).parent.parent.parent
 OUTPUT = _ROOT / "_build" / "dmg" / "background.png"
@@ -22,27 +23,12 @@ WIDTH, HEIGHT = 660, 480
 # Icon centres in logical pixels (match icon_locations in dmgbuild_settings.py)
 APP_X, APP_Y = 152, 105  # Greeting Cards.app
 APPS_X, APPS_Y = 482, 105  # Applications
-ARROW_MARGIN = 60  # pixels clear of each icon edge (80pt icons)
 
-# San Francisco variable font — Weight axis 1–1000
-_SF_PATH = "/System/Library/Fonts/SFNS.ttf"
-_FALLBACK_PATH = "/System/Library/Fonts/Helvetica.ttc"
+# Chevron colour — matches the steel-blue palette of the gradient
+_CHEVRON_COLOR = (155, 170, 190)
 
-
-def _load_font(size: int, weight: int = 400) -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
-    """Load SF at the given optical size and weight, or fall back to Helvetica."""
-    try:
-        font = ImageFont.truetype(_SF_PATH, size)
-        font.set_variation_by_axes([100, size, 400, weight])  # Width, OpticalSize, GRAD, Weight
-        return font
-    except OSError:
-        pass
-    except AttributeError:
-        pass
-    try:
-        return ImageFont.truetype(_FALLBACK_PATH, size)
-    except OSError:
-        return ImageFont.load_default()
+# SF Symbol point size (logical pixels) — tuned for visual balance between icons
+_CHEVRON_PT = 44
 
 
 def _gradient(draw: ImageDraw.ImageDraw, w: int, h: int) -> None:
@@ -57,79 +43,59 @@ def _gradient(draw: ImageDraw.ImageDraw, w: int, h: int) -> None:
         draw.line([(x, 0), (x, h)], fill=(r, g, b))
 
 
-def _arrow(draw: ImageDraw.ImageDraw, scale: int) -> None:
-    """Subtle right-pointing arrow between app icon and Applications folder."""
-    y = APP_Y * scale
-    x1 = (APP_X + ARROW_MARGIN) * scale
-    x2 = (APPS_X - ARROW_MARGIN) * scale
-    color = (155, 170, 190)
+def _sf_chevron(scale: int) -> Image.Image:
+    """Render SF Symbol `chevron.right` at Black weight via PyObjC.
 
-    head = 11 * scale
-    # Shaft ends at the triangle base so line corners don't poke through
-    draw.line([(x1, y), (x2 - head, y)], fill=color, width=3 * scale)
+    Returns an RGBA PIL Image at the given scale factor.
+    """
+    import AppKit
+    import Foundation
 
-    draw.polygon(
-        [(x2, y), (x2 - head, y - head // 2), (x2 - head, y + head // 2)],
-        fill=color,
+    symbol_name = "chevron.right"
+    pt_size = _CHEVRON_PT * scale
+
+    # Create the symbol image
+    ns_image = AppKit.NSImage.imageWithSystemSymbolName_accessibilityDescription_(symbol_name, None)
+    if ns_image is None:
+        msg = f"SF Symbol '{symbol_name}' not found"
+        raise RuntimeError(msg)
+
+    # Configure for Black weight, large scale
+    config = AppKit.NSImageSymbolConfiguration.configurationWithPointSize_weight_scale_(
+        pt_size, AppKit.NSFontWeightBlack, AppKit.NSImageSymbolScaleLarge
     )
+    ns_image = ns_image.imageWithSymbolConfiguration_(config)
 
+    # Get the symbol's pixel size
+    size = ns_image.size()
+    px_w = int(size.width)
+    px_h = int(size.height)
 
-def _small_caps(draw: ImageDraw.ImageDraw, text: str, x: int, y: int, scale: int) -> None:
-    """Draw text in small caps: leading caps at full size, others as smaller uppercase."""
-    cap_size = 13 * scale
-    small_size = int(10 * scale)
-    weight = 650  # Semibold — matches Finder icon labels
+    # Render to a bitmap
+    init = AppKit.NSBitmapImageRep.alloc().initWithBitmapDataPlanes_pixelsWide_pixelsHigh_bitsPerSample_samplesPerPixel_hasAlpha_isPlanar_colorSpaceName_bytesPerRow_bitsPerPixel_
+    rep = init(None, px_w, px_h, 8, 4, True, False, AppKit.NSDeviceRGBColorSpace, 0, 0)
 
-    cap_font = _load_font(cap_size, weight)
-    small_font = _load_font(small_size, weight)
-    color = (125, 143, 165)
-    spacing = int(1.5 * scale)  # letter spacing for small-caps feel
+    # Draw into the bitmap context
+    AppKit.NSGraphicsContext.saveGraphicsState()
+    ctx = AppKit.NSGraphicsContext.graphicsContextWithBitmapImageRep_(rep)
+    AppKit.NSGraphicsContext.setCurrentContext_(ctx)
 
-    # Measure total width for centering
-    total_w = 0
-    for ch in text:
-        if ch == " ":
-            total_w += 4 * scale
-        elif ch.isupper():
-            bbox = draw.textbbox((0, 0), ch, font=cap_font)
-            total_w += int(bbox[2] - bbox[0]) + spacing
-        else:
-            bbox = draw.textbbox((0, 0), ch.upper(), font=small_font)
-            total_w += int(bbox[2] - bbox[0]) + spacing
-    total_w -= spacing  # no trailing space
+    # Tint with the chevron colour
+    r, g, b = _CHEVRON_COLOR
+    color = AppKit.NSColor.colorWithDeviceRed_green_blue_alpha_(r / 255.0, g / 255.0, b / 255.0, 1.0)
+    color.set()
+    rect = Foundation.NSMakeRect(0, 0, px_w, px_h)
+    ns_image.drawInRect_fromRect_operation_fraction_(
+        rect, Foundation.NSZeroRect, AppKit.NSCompositingOperationSourceOver, 1.0
+    )
+    # Apply tint: redraw with SourceAtop to recolor while preserving alpha
+    AppKit.NSRectFillUsingOperation(rect, AppKit.NSCompositingOperationSourceAtop)
 
-    # Draw character by character
-    cx = x - total_w // 2
-    for ch in text:
-        if ch == " ":
-            cx += 4 * scale
-            continue
-        if ch.isupper():
-            font = cap_font
-            glyph = ch
-            bbox = draw.textbbox((0, 0), glyph, font=font)
-            draw.text((cx, y), glyph, fill=color, font=font)
-            cx += int(bbox[2] - bbox[0]) + spacing
-        else:
-            font = small_font
-            glyph = ch.upper()
-            bbox = draw.textbbox((0, 0), glyph, font=font)
-            # Align small-cap baseline with cap baseline
-            cap_bbox = draw.textbbox((0, 0), "D", font=cap_font)
-            small_bbox = draw.textbbox((0, 0), "D", font=small_font)
-            baseline_offset = int(cap_bbox[3] - cap_bbox[1]) - int(small_bbox[3] - small_bbox[1])
-            draw.text((cx, y + baseline_offset), glyph, fill=color, font=font)
-            cx += int(bbox[2] - bbox[0]) + spacing
+    AppKit.NSGraphicsContext.restoreGraphicsState()
 
-
-def _label(draw: ImageDraw.ImageDraw, scale: int) -> None:
-    """'Drag to Install' label in small caps, centred below the arrow."""
-    x1 = (APP_X + ARROW_MARGIN) * scale
-    x2 = (APPS_X - ARROW_MARGIN) * scale
-    centre_x = (x1 + x2) // 2
-    label_y = (APP_Y + 14) * scale
-
-    _small_caps(draw, "Drag to Install", centre_x, label_y, scale)
+    # Convert to PIL via PNG bytes
+    png_data = rep.representationUsingType_properties_(AppKit.NSBitmapImageFileTypePNG, {})
+    return Image.open(io.BytesIO(bytes(png_data))).convert("RGBA")
 
 
 def _render(scale: int) -> Image.Image:
@@ -138,8 +104,15 @@ def _render(scale: int) -> Image.Image:
     img = Image.new("RGB", (w, h))
     draw = ImageDraw.Draw(img)
     _gradient(draw, w, h)
-    _arrow(draw, scale)
-    _label(draw, scale)
+
+    # Composite the SF Symbol chevron between app and Applications icons
+    chevron = _sf_chevron(scale)
+    cx = (APP_X + APPS_X) // 2 * scale
+    cy = APP_Y * scale
+    paste_x = cx - chevron.width // 2
+    paste_y = cy - chevron.height // 2
+    img.paste(chevron, (paste_x, paste_y), chevron)
+
     return img
 
 

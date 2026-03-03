@@ -1,0 +1,22 @@
+name: Setup Build Environment
+description: Install Python, uv, system deps, and project dependencies
+
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@v6
+      with:
+        python-version: "3.14"
+        prune-cache: false
+
+    - uses: gerlero/brew-install@v1
+      with:
+        packages: tesseract leptonica pkg-config lcov
+
+    - name: Install project dependencies
+      run: uv sync
+      shell: bash
+
+    - name: Install pyright
+      run: uv tool install pyright
+      shell: bash

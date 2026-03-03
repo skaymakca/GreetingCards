@@ -113,7 +113,7 @@ pip install package-name
 - ✅ Use the `run_in_background` parameter on the Bash tool
 
 ### Prefer make targets and dedicated tools
-- Use `make check`, `make lint`, `make build` etc. — single simple commands
+- Use `make check`, `make lint`, `make app` etc. — single simple commands
 - Use Read/Write/Edit/Grep/Glob tools instead of cat/echo/sed/grep/find
 
 ### General principle
@@ -201,6 +201,7 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `app/core/naming/family_name/*.py`                                                                                                                                                  | `docs/architecture/name-pipeline.md`                                  |
 | `app/core/naming/extractor.py`, `app/core/naming/filename_safety.py`                                                                                                                | `docs/architecture/name-pipeline.md`                                  |
 | `app/core/database.py`, `app/core/naming/renamer.py`                                                                                                                                | `docs/architecture/name-pipeline.md`                                  |
+| `app/gui/rename_display.py`                                                                                                                                                         | `docs/architecture/name-pipeline.md`                                  |
 | `app/gui/dialogs/help.py`, `app/core/content/help_builder.py`                                                                                                                       | `docs/architecture/help-system.md`                                    |
 | `content/html/help/*.md`                                                                                                                                                            | `docs/architecture/help-system.md`                                    |
 | `app/gui/components/html_viewer.py`, `content/html/common/js/search.js`                                                                                                             | `docs/architecture/html-viewer.md`                                    |
@@ -225,6 +226,7 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `scripts/dmg/**` (including `dmgbuild_settings.py`)                                                                                                                                 | `docs/architecture/dmg-creation.md`                                   |
 | `content/dmg/readme.md`, `content/dmg/Sample Cards/`                                                                                                                                | `docs/architecture/dmg-creation.md`                                   |
 | Markdown tables in any `*.md` file                                                                                                                                                  | `docs/pycharm-table-formatting.md`                                    |
+| `Dockerfile`, `docker-compose.yml`, `.github/workflows/ci.yml`, `.github/actions/setup-build-env/action.yml`                                                                        | `docs/architecture/docker-and-ci.md`                                  |
 
 ### Test Count
 When adding or removing tests, update the test count in `README.md` (search for "tests** covering") to match the actual number from `pytest` output.

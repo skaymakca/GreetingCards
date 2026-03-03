@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev run app app-run build clean icon content licenses-sync loc version bump-patch bump-minor bump-major tag tag-push test test-cov test-cov-open tessdata pyright mypy lint lint-fix format format-check security check pycharm-inspect show-scripts visual-test visual-test-app dmg
+.PHONY: help setup setup-dev tessdata run test check pyright mypy lint lint-fix format format-check security pycharm-inspect content licenses-sync icon app app-run dmg version bump-patch bump-minor bump-major tag tag-push visual-test visual-test-app show-scripts loc docker-build docker-test docker-shell clean
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -6,11 +6,25 @@ define FMT_LINE
 {n=$$1; s=""; while(n>999){s=sprintf(",%03d%s",n%1000,s); n=int(n/1000)} v=sprintf("%d%s",n,s); printf "%-10s%10s lines\n",lbl,v}
 endef
 
-help: ## Show this help message
+# Banner macro for section headers in `make check` output
+define banner
+	@printf '\n\033[1m── $(1) ──────────────────────────────────────────\033[0m\n\n'
+endef
+
+TESSDATA_DIR := _build/runtime_content/tessdata/fast
+TESSDATA_ENG := $(TESSDATA_DIR)/eng.traineddata
+TESSDATA_URL := https://github.com/tesseract-ocr/tessdata_fast/raw/main/eng.traineddata
+INSPECT_OUT := /tmp/pycharm-inspect-out
+PYCHARM_APP ?= $(firstword $(wildcard $(HOME)/Applications/PyCharm.app $(HOME)/Applications/PyCharm\ CE.app /Applications/PyCharm.app /Applications/PyCharm\ CE.app))
+LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister
+
+help: # Show this help message
 	@echo "Greeting Cards - Available make commands:"
 	@echo ""
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
+	@awk '/^##@/{printf "\n  \033[1m%s\033[0m\n",substr($$0,5)} /^[a-zA-Z_-]+:.*## /{t=$$0;sub(/:.*/, "",t);d=$$0;sub(/^[^#]*## /,"",d);printf "  \033[36m%-18s\033[0m %s\n",t,d}' $(MAKEFILE_LIST)
 	@echo ""
+
+##@ Setup
 
 setup: ## Install production dependencies (creates venv automatically)
 	uv sync --no-dev
@@ -24,14 +38,12 @@ setup-dev: ## Install all dependencies including dev/testing tools
 	@echo "✓ Development setup complete!"
 	@echo "  Run 'make test' to run tests."
 
-TESSDATA_DIR := _build/runtime_content/tessdata/fast
-TESSDATA_ENG := $(TESSDATA_DIR)/eng.traineddata
-TESSDATA_URL := https://github.com/tesseract-ocr/tessdata_fast/raw/main/eng.traineddata
-
 tessdata: $(TESSDATA_ENG) ## Download tessdata (eng.traineddata)
 $(TESSDATA_ENG):
 	@mkdir -p $(TESSDATA_DIR)
 	@curl -sL -o $@ $(TESSDATA_URL)
+
+##@ Development
 
 run: content tessdata ## Run the app from source
 	uv run python main.py
@@ -39,19 +51,20 @@ run: content tessdata ## Run the app from source
 test: ## Run tests (no args shows help; make test T="core --cov -x")
 	@uv run python scripts/run_tests.py $(T)
 
-test-cov: ## Run all tests with coverage reports
-	@uv run python scripts/run_tests.py default --cov
+##@ Code Quality
 
-test-cov-open: ## Run all tests with coverage, open in browser
-	@uv run python scripts/run_tests.py default --cov --open
+check: pyright mypy lint format-check security ## Run all static checks
 
 pyright: ## Run pyright type checking
+	$(call banner,Pyright)
 	pyright app/ scripts/ main.py
 
 mypy: ## Run mypy type checking
+	$(call banner,Mypy)
 	uv run mypy app/ scripts/ main.py
 
 lint: ## Run ruff linter
+	$(call banner,Ruff Lint)
 	uv run ruff check app/ scripts/ tests/ main.py
 
 lint-fix: ## Run ruff linter with auto-fix
@@ -61,18 +74,12 @@ format: ## Format code with ruff
 	uv run ruff format app/ scripts/ tests/ main.py
 
 format-check: ## Check formatting (no changes)
+	$(call banner,Ruff Format Check)
 	uv run ruff format --check app/ scripts/ tests/ main.py
 
 security: ## Run bandit security scan
+	$(call banner,Bandit Security)
 	uv run bandit -r app/ scripts/ -c pyproject.toml
-
-check: pyright mypy lint format-check security ## Run all static checks
-
-INSPECT_OUT := /tmp/pycharm-inspect-out
-
-# Find PyCharm — Toolbox (~/Applications) first, then system (/Applications).
-# Override with PYCHARM_APP env var for non-standard locations.
-PYCHARM_APP ?= $(firstword $(wildcard $(HOME)/Applications/PyCharm.app $(HOME)/Applications/PyCharm\ CE.app /Applications/PyCharm.app /Applications/PyCharm\ CE.app))
 
 pycharm-inspect: ## Run PyCharm inspections (requires PyCharm; skipped if not installed)
 	@if [ -z "$(PYCHARM_APP)" ] || [ ! -x "$(PYCHARM_APP)/Contents/bin/inspect.sh" ]; then \
@@ -93,9 +100,7 @@ pycharm-inspect: ## Run PyCharm inspections (requires PyCharm; skipped if not in
 		fi; \
 	fi
 
-build: app ## Build the macOS .app bundle (alias for 'app')
-
-LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister
+##@ Build
 
 content: ## Generate runtime content (HTML, data files, images)
 	@mkdir -p _build/runtime_content/html/common/css _build/runtime_content/html/common/js _build/runtime_content/images _build/runtime_content/data
@@ -111,14 +116,6 @@ content: ## Generate runtime content (HTML, data files, images)
 
 licenses-sync: ## Sync license registry from uv.lock + .dist-info
 	uv run python -c "from app.core.content.license_sync import sync_registry; sync_registry()"
-
-app: icon content tessdata ## Build the macOS .app bundle
-	@$(LSREGISTER) -u "dist/Greeting Cards.app" 2>/dev/null || true
-	uv run pyinstaller --workpath _build/pyinstaller_build -y "Greeting Cards.spec"
-	@rm -rf "dist/Greeting Cards"
-
-app-run: app ## Build and run the .app bundle (logs visible in terminal)
-	"dist/Greeting Cards.app/Contents/MacOS/Greeting Cards"
 
 icon: content/images/icon.png ## Generate icon.icns from icon.png
 	@mkdir -p _build/runtime_content icon.iconset
@@ -136,21 +133,18 @@ icon: content/images/icon.png ## Generate icon.icns from icon.png
 	@rm -rf icon.iconset
 	@echo "Generated _build/runtime_content/icon.icns"
 
-loc: ## Count lines of code (excludes dependencies)
-	@echo "Lines of code (project files only):"
-	@echo ""
-	@find . -name "*.py" -not -path "./.venv/*" -not -path "./_build/*" -not -path "./dist/*" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="Python:" '$(FMT_LINE)'
-	@(find ./app -name "*.py" -not -path "*/gui/*" -not -path "*/__pycache__/*" -exec cat {} + ; cat main.py) | wc -l | awk -v lbl="  Core:" '$(FMT_LINE)'
-	@find ./app/gui -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  GUI:" '$(FMT_LINE)'
-	@find ./scripts -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  Scripts:" '$(FMT_LINE)'
-	@find ./tests -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  Tests:" '$(FMT_LINE)'
-	@echo ""
-	@find ./content/html/help \( -name "*.md" \) -exec cat {} + 2>/dev/null | wc -l | awk -v lbl="Help MD:" '$(FMT_LINE)'
-	@find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null | wc -l | awk -v lbl="Web:" '$(FMT_LINE)'
-	@echo ""
-	@wc -l Makefile "Greeting Cards.spec" 2>/dev/null | tail -1 | awk -v lbl="Config:" '$(FMT_LINE)'
-	@echo ""
-	@(find . -name "*.py" -not -path "./.venv/*" -not -path "./_build/*" -not -path "./dist/*" -not -path "*/__pycache__/*" -exec cat {} + ; find ./content/html/help -name "*.md" -exec cat {} + 2>/dev/null; find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null; cat Makefile "Greeting Cards.spec") | wc -l | awk -v lbl="Total:" '$(FMT_LINE)'
+app: icon content tessdata ## Build the macOS .app bundle
+	@$(LSREGISTER) -u "dist/Greeting Cards.app" 2>/dev/null || true
+	uv run pyinstaller --workpath _build/pyinstaller_build -y "Greeting Cards.spec"
+	@rm -rf "dist/Greeting Cards"
+
+app-run: app ## Build and run the .app bundle (logs visible in terminal)
+	"dist/Greeting Cards.app/Contents/MacOS/Greeting Cards"
+
+dmg: app ## Build the distributable DMG installer (→ dist/Greeting Cards - X.Y.Z.dmg)
+	uv run python -m scripts.dmg
+
+##@ Version & Release
 
 version: ## Show current version
 	@uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
@@ -185,6 +179,8 @@ tag: ## Create git tag vX.Y.Z from current version
 
 tag-push: ## Push all tags to remote
 	@git push --tags && echo "Tags pushed"
+
+##@ Tools
 
 visual-test: content ## Run visual test harness from source
 	uv run python scripts/visual_test.py
@@ -233,8 +229,34 @@ show-scripts: ## Show available script invocations (does not run them)
 	@echo "  All scripts support --help."
 	@echo "  Output goes to _build/script_output/ with timestamped directories."
 
-dmg: app ## Build the distributable DMG installer (→ dist/Greeting Cards - X.Y.Z.dmg)
-	uv run python -m scripts.dmg
+loc: ## Count lines of code (excludes dependencies)
+	@echo "Lines of code (project files only):"
+	@echo ""
+	@find . -name "*.py" -not -path "./.venv/*" -not -path "./_build/*" -not -path "./dist/*" -not -path "./.claude/*" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="Python:" '$(FMT_LINE)'
+	@(find ./app -name "*.py" -not -path "*/gui/*" -not -path "*/__pycache__/*" -exec cat {} + ; cat main.py) | wc -l | awk -v lbl="  Core:" '$(FMT_LINE)'
+	@find ./app/gui -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  GUI:" '$(FMT_LINE)'
+	@find ./scripts -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  Scripts:" '$(FMT_LINE)'
+	@find ./tests -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  Tests:" '$(FMT_LINE)'
+	@echo ""
+	@find ./content/html/help \( -name "*.md" \) -exec cat {} + 2>/dev/null | wc -l | awk -v lbl="Help MD:" '$(FMT_LINE)'
+	@find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null | wc -l | awk -v lbl="Web:" '$(FMT_LINE)'
+	@echo ""
+	@wc -l Makefile "Greeting Cards.spec" 2>/dev/null | tail -1 | awk -v lbl="Config:" '$(FMT_LINE)'
+	@echo ""
+	@(find . -name "*.py" -not -path "./.venv/*" -not -path "./_build/*" -not -path "./dist/*" -not -path "./.claude/*" -not -path "*/__pycache__/*" -exec cat {} + ; find ./content/html/help -name "*.md" -exec cat {} + 2>/dev/null; find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null; cat Makefile "Greeting Cards.spec") | wc -l | awk -v lbl="Total:" '$(FMT_LINE)'
+
+##@ Docker
+
+docker-build: ## Build the Linux test image
+	docker build -t greeting-cards-test .
+
+docker-test: ## Run tests in Linux container
+	docker compose run --rm test-linux
+
+docker-shell: ## Interactive shell in Linux container
+	docker compose run --rm test-linux /bin/bash
+
+##@ Cleanup
 
 clean: ## Remove build artifacts
 	@$(LSREGISTER) -u "dist/Greeting Cards.app" 2>/dev/null || true
