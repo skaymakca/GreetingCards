@@ -85,10 +85,15 @@ Run `make help` to see all available commands.
 | `make licenses-sync`   | Sync license registry from uv.lock + .dist-info                                  |
 | `make visual-test`     | Run visual test harness from source                                              |
 | `make visual-test-app` | Build and run visual test harness as `.app` bundle (logs visible)                |
-| `make dmg`             | Build the distributable DMG installer (→ `dist/Greeting Cards - X.Y.Z.dmg`)      |
+| `make dmg`             | Build the distributable DMG installer (→ `dist/Greeting-Cards-X.Y.Z.dmg`)        |
 | `make app`             | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`)                |
 | `make app-run`         | Build and run the `.app` bundle with logs visible in terminal                    |
 | `make icon`            | Generate `icon.icns` from `icon.png` (auto-run by build)                         |
+| `make sign`            | Sign the app bundle (requires Developer ID certificate)                          |
+| `make notarize`        | Sign + DMG + notarize (requires Apple Developer credentials)                     |
+| `make release`         | Full release: build, sign, DMG, notarize, checksum                               |
+| `make release-draft`   | Full release + create draft GitHub release                                       |
+| `make release-publish` | Publish the latest draft release                                                 |
 | `make version`         | Print the current version                                                        |
 | `make bump-patch`      | Bump patch version (e.g. 0.5.0 → 0.5.1)                                          |
 | `make bump-minor`      | Bump minor version (e.g. 0.5.1 → 0.6.0)                                          |
@@ -147,7 +152,7 @@ uv run python main.py
 Build the `.app` bundle:
 
 ```bash
-uv run pyinstaller -y "Greeting Cards.spec"
+uv run pyinstaller -y "packaging/Greeting Cards.spec"
 ```
 
 ## Testing
@@ -224,8 +229,11 @@ tests/
     ├── build_family_name_db/        # merger, unicode, Census/Faker/Smashew sources
     ├── dmg/                         # readme RTF, background PNG, dmgbuild orchestration
     ├── generate_diagnostic_cards/   # CLI argument parsing, PDF creation
-    └── generate_sample_cards/       # models, display, pdf_composer, image_generator,
-                                     #   spec_generator, cli; spec_generators/ sub-package
+    ├── generate_sample_cards/       # models, display, pdf_composer, image_generator,
+    │                                #   spec_generator, cli; spec_generators/ sub-package
+    ├── notarize/                    # notarization CLI, submission, stapling
+    ├── release/                     # changelog extraction, checksum, GitHub release
+    └── sign/                        # Mach-O detection, tier classification, codesign
 ```
 
 ### Running Tests
@@ -245,7 +253,7 @@ tests/
 
 ### Current Coverage
 
-- **2376 tests** covering core logic, GUI components, and scripts
+- **2428 tests** covering core logic, GUI components, and scripts
 - **Core** (services/, pipeline/, naming/, content/ sub-packages + top-level): AI analysis, AI batch, AI service,
   Apple Events, card model, card processor, card service, card store, changelog, changelog models, config,
   config service, database, family name cleaning, family name data, family name formatting, filename safety,
@@ -258,7 +266,9 @@ tests/
 - **Integration**: AppleScript end-to-end tests (requires `--run-integration`)
 - **Scripts** (tests/scripts/): helpers, build_family_name_db (merger, Unicode, Census/Faker/Smashew sources), dmg
   (readme RTF, background PNG, dmgbuild orchestration), generate_diagnostic_cards (CLI), generate_sample_cards
-  (models, display, pdf_composer, image_generator, spec_generator, cli, spec_generators/ sub-package)
+  (models, display, pdf_composer, image_generator, spec_generator, cli, spec_generators/ sub-package), sign (Mach-O
+  detection, tier classification, codesign orchestration), notarize (submission, stapling, verification), release
+  (changelog extraction, checksum, GitHub release commands)
 
 ### Adding Tests
 
@@ -401,6 +411,36 @@ uv run python -m scripts.dmg
 ```
 
 This is also available as `make dmg`, which builds the `.app` bundle first if needed.
+
+### Code Signing
+
+`sign` signs all Mach-O binaries in the app bundle using inside-out signing order.
+
+```bash
+uv run python -m scripts.sign                     # uses $CODESIGN_IDENTITY
+uv run python -m scripts.sign --identity "-"       # ad-hoc signing (testing)
+uv run python -m scripts.sign --dry-run            # print commands only
+```
+
+### Notarization
+
+`notarize` submits the signed DMG to Apple's notary service and staples the ticket.
+
+```bash
+uv run python -m scripts.notarize
+uv run python -m scripts.notarize --dry-run
+```
+
+### Release Automation
+
+`release` provides subcommands for changelog extraction, checksum generation, and GitHub Release management.
+
+```bash
+uv run python -m scripts.release changelog         # extract release notes
+uv run python -m scripts.release checksum          # SHA256 checksum
+uv run python -m scripts.release draft             # create draft GitHub release
+uv run python -m scripts.release publish           # publish the draft
+```
 
 ## IDE Setup (PyCharm)
 

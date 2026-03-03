@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev tessdata run test check pyright mypy lint lint-fix format format-check security pycharm-inspect content licenses-sync icon app app-run dmg version bump-patch bump-minor bump-major tag tag-push visual-test visual-test-app show-scripts loc docker-build docker-test docker-shell clean
+.PHONY: help setup setup-dev tessdata run test check pyright mypy lint lint-fix format format-check security pycharm-inspect content licenses-sync icon app app-run dmg sign notarize release release-draft release-publish version bump-patch bump-minor bump-major tag tag-push visual-test visual-test-app show-scripts loc docker-build docker-test docker-shell clean
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -137,13 +137,13 @@ icon: content/images/icon.png ## Generate icon.icns from icon.png
 
 app: icon content tessdata ## Build the macOS .app bundle
 	@$(LSREGISTER) -u "dist/Greeting Cards.app" 2>/dev/null || true
-	uv run pyinstaller --workpath _build/pyinstaller_build -y "Greeting Cards.spec"
+	uv run pyinstaller --workpath _build/pyinstaller_build -y "packaging/Greeting Cards.spec"
 	@rm -rf "dist/Greeting Cards"
 
 app-run: app ## Build and run the .app bundle (logs visible in terminal)
 	"dist/Greeting Cards.app/Contents/MacOS/Greeting Cards"
 
-dmg: app ## Build the distributable DMG installer (→ dist/Greeting Cards - X.Y.Z.dmg)
+dmg: app ## Build the distributable DMG installer (→ dist/Greeting-Cards-X.Y.Z.dmg)
 	uv run python -m scripts.dmg
 
 ##@ Version & Release
@@ -175,6 +175,22 @@ bump-major: ## Bump major version (0.6.0 → 1.0.0)
 	t=open(p).read().replace('version = \"'+old+'\"','version = \"'+nv+'\"',1); \
 	open(p,'w').write(t); print(nv)"
 
+sign: app ## Sign the app bundle (requires Developer ID certificate)
+	uv run python -m scripts.sign
+
+notarize: sign dmg ## Notarize the DMG (requires Apple Developer credentials)
+	uv run python -m scripts.notarize
+
+release: notarize ## Full release: build, sign, DMG, notarize, checksum
+	uv run python -m scripts.release checksum
+
+release-draft: release ## Create a draft GitHub release
+	uv run python -m scripts.release changelog
+	uv run python -m scripts.release draft
+
+release-publish: ## Publish the latest draft release
+	uv run python -m scripts.release publish
+
 tag: ## Create git tag vX.Y.Z from current version
 	@v=$$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"); \
 	git tag "v$$v" && echo "Tagged v$$v"
@@ -188,7 +204,7 @@ visual-test: content ## Run visual test harness from source
 	uv run python scripts/visual_test.py
 
 visual-test-app: icon content tessdata ## Build and run visual test harness as .app bundle (logs visible)
-	uv run pyinstaller --workpath _build/pyinstaller_build -y "scripts/Visual Test.spec"
+	uv run pyinstaller --workpath _build/pyinstaller_build -y "packaging/Visual Test.spec"
 	@rm -rf "dist/Visual Test"
 	"dist/Visual Test.app/Contents/MacOS/Visual Test"
 
@@ -228,6 +244,20 @@ show-scripts: ## Show available script invocations (does not run them)
 	@echo "  \033[36mdmg\033[0m                          Build the distributable DMG installer"
 	@echo "    uv run python -m scripts.dmg"
 	@echo ""
+	@echo "  \033[36msign\033[0m                         Sign the app bundle for distribution"
+	@echo "    uv run python -m scripts.sign"
+	@echo "    uv run python -m scripts.sign --identity \"-\" --dry-run"
+	@echo ""
+	@echo "  \033[36mnotarize\033[0m                     Submit signed DMG to Apple notary service"
+	@echo "    uv run python -m scripts.notarize"
+	@echo "    uv run python -m scripts.notarize --dry-run"
+	@echo ""
+	@echo "  \033[36mrelease\033[0m                      Release automation (changelog, checksum, GitHub release)"
+	@echo "    uv run python -m scripts.release changelog"
+	@echo "    uv run python -m scripts.release checksum"
+	@echo "    uv run python -m scripts.release draft"
+	@echo "    uv run python -m scripts.release publish"
+	@echo ""
 	@echo "  All scripts support --help."
 	@echo "  Output goes to _build/script_output/ with timestamped directories."
 
@@ -243,20 +273,20 @@ loc: ## Count lines of code (excludes dependencies)
 	@find ./content/html/help \( -name "*.md" \) -exec cat {} + 2>/dev/null | wc -l | awk -v lbl="Help MD:" '$(FMT_LINE)'
 	@find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null | wc -l | awk -v lbl="Web:" '$(FMT_LINE)'
 	@echo ""
-	@wc -l Makefile "Greeting Cards.spec" 2>/dev/null | tail -1 | awk -v lbl="Config:" '$(FMT_LINE)'
+	@wc -l Makefile "packaging/Greeting Cards.spec" 2>/dev/null | tail -1 | awk -v lbl="Config:" '$(FMT_LINE)'
 	@echo ""
-	@(find . -name "*.py" -not -path "./.venv/*" -not -path "./_build/*" -not -path "./dist/*" -not -path "./.claude/*" -not -path "*/__pycache__/*" -exec cat {} + ; find ./content/html/help -name "*.md" -exec cat {} + 2>/dev/null; find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null; cat Makefile "Greeting Cards.spec") | wc -l | awk -v lbl="Total:" '$(FMT_LINE)'
+	@(find . -name "*.py" -not -path "./.venv/*" -not -path "./_build/*" -not -path "./dist/*" -not -path "./.claude/*" -not -path "*/__pycache__/*" -exec cat {} + ; find ./content/html/help -name "*.md" -exec cat {} + 2>/dev/null; find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null; cat Makefile "packaging/Greeting Cards.spec") | wc -l | awk -v lbl="Total:" '$(FMT_LINE)'
 
 ##@ Docker
 
 docker-build: ## Build the Linux test image
-	docker build -t greeting-cards-test .
+	docker build -t greeting-cards-test -f docker/Dockerfile .
 
 docker-test: ## Run tests in Linux container
-	docker compose run --rm test-linux
+	docker compose -f docker/docker-compose.yml run --rm test-linux
 
 docker-shell: ## Interactive shell in Linux container
-	docker compose run --rm test-linux /bin/bash
+	docker compose -f docker/docker-compose.yml run --rm test-linux /bin/bash
 
 ##@ Cleanup
 

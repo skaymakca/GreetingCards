@@ -84,6 +84,27 @@ class TestMain:
 
         mock_dmg.build_dmg.assert_called_once()
 
+    def test_output_filename_uses_hyphens(self, tmp_path: Path) -> None:
+        bg_path = tmp_path / "background.png"
+        readme_path = tmp_path / "Read Me.rtfd"
+
+        with (
+            patch("scripts.dmg.__main__._read_version", return_value="1.2.3"),
+            patch("scripts.dmg.__main__._generate_background", return_value=bg_path),
+            patch("scripts.dmg.__main__._generate_readme", return_value=readme_path),
+            patch("scripts.dmg.__main__.dmgbuild") as mock_dmg,
+            patch("sys.argv", ["dmg"]),
+        ):
+            mock_dmg.build_dmg = MagicMock()
+            from scripts.dmg.__main__ import main
+
+            main()
+
+        call_kwargs = mock_dmg.build_dmg.call_args
+        filename = call_kwargs.kwargs.get("filename") or call_kwargs[0][0]
+        assert "Greeting-Cards-1.2.3.dmg" in filename
+        assert "Greeting Cards -" not in filename
+
     def test_editable_flag_adds_udrw_format(self, tmp_path: Path) -> None:
         bg_path = tmp_path / "background.png"
         readme_path = tmp_path / "Read Me.rtfd"

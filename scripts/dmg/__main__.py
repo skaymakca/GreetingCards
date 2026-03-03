@@ -8,7 +8,7 @@ Usage:
     uv run python -m scripts.dmg
     uv run python -m scripts.dmg --help
 
-Output: dist/Greeting Cards - X.Y.Z.dmg
+Output: dist/Greeting-Cards-X.Y.Z.dmg
 """
 
 import argparse
@@ -32,7 +32,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Build the Greeting Cards DMG installer.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="Reads version from pyproject.toml.\nOutput: dist/Greeting Cards - X.Y.Z.dmg",
+        epilog="Reads version from pyproject.toml.\nOutput: dist/Greeting-Cards-X.Y.Z.dmg",
     )
     parser.add_argument(
         "--editable",
@@ -47,7 +47,7 @@ def main() -> None:
     settings_path = _ROOT / "scripts" / "dmg" / "dmgbuild_settings.py"
     app_path = _ROOT / "dist" / "Greeting Cards.app"
     sample_cards_path = _ROOT / "content" / "dmg" / "Sample Cards"
-    output_path = _ROOT / "dist" / f"Greeting Cards - {version}.dmg"
+    output_path = _ROOT / "dist" / f"Greeting-Cards-{version}.dmg"
 
     # Step 1: Generate background image
     print("Generating background …")

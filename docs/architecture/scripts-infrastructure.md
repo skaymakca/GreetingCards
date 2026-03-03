@@ -64,6 +64,21 @@ scripts/profiling/
   __init__.py
   __main__.py              # Entry point
   cli.py                   # Profiles PDF processing pipeline with pyinstrument
+
+scripts/sign/
+  __init__.py
+  __main__.py              # Entry point
+  cli.py                   # Inside-out code signing for .app bundle
+
+scripts/notarize/
+  __init__.py
+  __main__.py              # Entry point
+  cli.py                   # Apple notarization: submit, staple, verify
+
+scripts/release/
+  __init__.py
+  __main__.py              # Entry point
+  cli.py                   # Changelog extraction, checksum, GitHub release draft/publish
 ```
 
 ## Package Structure

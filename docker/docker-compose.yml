@@ -1,10 +1,12 @@
 services:
   test-linux:
-    build: .
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
     image: greeting-cards-test
     user: "1000:1000"
     volumes:
-      - .:/app
+      - ..:/app
       - /app/.venv  # anonymous volume: prevent macOS .venv from leaking in
     environment:
       - PYTHONDONTWRITEBYTECODE=1

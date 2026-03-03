@@ -6,6 +6,8 @@
 4. Click **AI Analyze** to extract text and find the family name from the PDFs using AI.
 5. Review the suggestions and click **Rename** to rename your files.
 
+This app is signed and notarized by Apple. If macOS shows a security warning, right-click the app and choose **Open** to bypass Gatekeeper on first launch.
+
 ## Sample Cards
 
 The **Sample Cards** folder includes example PDFs with the kind of filenames you might have after scanning or importing cards. Open this folder in the app to see how it extracts family names and suggests cleaner filenames.

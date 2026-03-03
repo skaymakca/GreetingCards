@@ -166,7 +166,9 @@ app/
   core/         # Business logic (OCR, AI, rename, database, PDF, config)
   gui/          # wxPython UI (main window, panels, dialogs, styles, icons)
   models/       # Data models (CardResult, RenamePlanItem, etc.)
-content/        # Static assets (HTML templates, CSS, JS, help Markdown, licenses)
+content/        # Static assets (HTML templates, CSS, JS, help Markdown, licenses, sdef)
+docker/         # Docker infrastructure (Dockerfile, docker-compose.yml)
+packaging/      # PyInstaller specs + signing configs (entitlements.plist)
 scripts/        # Standalone scripts and benchmarks
   benchmark/    # OCR and concurrency benchmark suite
 tests/          # Pytest suite (mirrors app/ structure)
@@ -176,7 +178,7 @@ main.py         # Entry point
 Key entry points:
 - `main.py` → `app.gui.main_window.MainWindow` — the app
 - `scripts/visual_test.py` — visual test harness for all dialogs/panels
-- `Greeting Cards.spec` — PyInstaller bundle config
+- `packaging/Greeting Cards.spec` — PyInstaller bundle config
 
 ---
 
@@ -225,8 +227,10 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `# noinspection` comments in any `*.py` file                                                                                                                                        | `docs/architecture/pycharm-inspections.md`                            |
 | `scripts/dmg/**` (including `dmgbuild_settings.py`)                                                                                                                                 | `docs/architecture/dmg-creation.md`                                   |
 | `content/dmg/readme.md`, `content/dmg/Sample Cards/`                                                                                                                                | `docs/architecture/dmg-creation.md`                                   |
+| `scripts/sign/**`, `scripts/notarize/**`, `scripts/release/**`                                                                                                                      | `docs/architecture/release-pipeline.md`                               |
+| `packaging/entitlements.plist`, `packaging/Greeting Cards.spec` (upx/signing)                                                                                                       | `docs/architecture/release-pipeline.md`                               |
 | Markdown tables in any `*.md` file                                                                                                                                                  | `docs/pycharm-table-formatting.md`                                    |
-| `Dockerfile`, `docker-compose.yml`, `.github/workflows/ci.yml`, `.github/actions/setup-build-env/action.yml`                                                                        | `docs/architecture/docker-and-ci.md`                                  |
+| `docker/Dockerfile`, `docker/docker-compose.yml`, `.github/workflows/ci.yml`, `.github/actions/setup-build-env/action.yml`                                                           | `docs/architecture/docker-and-ci.md`                                  |
 
 ### Test Count
 When adding or removing tests, update the test count in `README.md` (search for "tests** covering") to match the actual number from `pytest` output.

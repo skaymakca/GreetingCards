@@ -14,7 +14,7 @@ make dmg
   └── uv run python -m scripts.dmg
         ├── scripts.dmg.background.generate()  → _build/dmg/background.png + background@2x.png
         ├── scripts.dmg.readme.generate()      → _build/dmg/Read Me.rtfd/
-        └── dmgbuild.build_dmg(...)            → dist/Greeting Cards - X.Y.Z.dmg
+        └── dmgbuild.build_dmg(...)            → dist/Greeting-Cards-X.Y.Z.dmg
 ```
 
 ---
@@ -69,7 +69,9 @@ The orchestrator package handles the full DMG build:
    - Settings: `scripts/dmg/dmgbuild_settings.py`
    - Volume name: `"Greeting Cards - {version}"`
    - Defines: `app_path`, `readme_path`, `sample_cards_path`, `background`
-   - Output: `dist/Greeting Cards - {version}.dmg`
+   - Output: `dist/Greeting-Cards-{version}.dmg`
+
+The output filename uses hyphens (`Greeting-Cards-X.Y.Z.dmg`) for URL-friendliness in GitHub Releases, while the volume name retains spaces (`Greeting Cards - X.Y.Z`) for a clean Finder display.
 
 The `--editable` flag builds a read-write (UDRW) DMG for manual icon positioning in Finder.
 
@@ -198,7 +200,7 @@ The DMG volume is named `"Greeting Cards - X.Y.Z"` (version injected at build ti
 ## Gotchas & Lessons Learned
 
 ### General
-- **Spaces in paths:** The output filename contains spaces (`Greeting Cards - X.Y.Z.dmg`). Use `str(output_path)` when passing to dmgbuild.
+- **DMG filename:** The output filename uses hyphens (`Greeting-Cards-X.Y.Z.dmg`) for URL-friendliness. The volume name still contains spaces (`Greeting Cards - X.Y.Z`).
 - **badge_icon path:** Constructed from `app_path` at runtime (`app_path + "/Contents/Resources/icon.icns"`). If the app bundle moves, this breaks — always pass the correct `app_path`.
 - **`defines` F821:** ruff suppresses F821 for `scripts/dmg/dmgbuild_settings.py` only, not project-wide. pyright also excludes this file.
 - **dmgbuild version:** Requires `>=1.6.1` for reliable Python-based config and UDBZ support.
