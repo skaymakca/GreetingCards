@@ -61,36 +61,47 @@ GitHub Actions CI is defined in `.github/workflows/ci.yml`. It uses a shared com
 1. Python 3.14 + uv (`astral-sh/setup-uv@v6` with `python-version` and `prune-cache: false` — caches the uv dependency
    cache across runs; pruning is disabled because `uv cache prune --ci` removes nearly all cached packages, making
    subsequent cache restores useless)
-2. System dependencies: `tesseract`, `leptonica`, `pkg-config`, `lcov` (`gerlero/brew-install@v1` — caches Homebrew
-   packages across runs)
+2. System dependencies: `tesseract`, `leptonica`, `lcov` (`gerlero/brew-install@v1` — caches Homebrew packages across
+   runs; `pkg-config` is omitted because macOS runners already provide `pkgconf`, its successor)
 3. Project dependencies (`uv sync`)
 4. pyright (`uv tool install pyright`)
 
 ### Jobs
 
-| Job     | Trigger                           | Runner      | Steps                                                           |
-|---------|-----------------------------------|-------------|-----------------------------------------------------------------|
-| `check` | Every push (all branches)         | `macos-26`  | Checkout, setup, `make check`, upload `static-checks.log`       |
-| `test`  | PRs to `main` only (`if` guard)   | `macos-26`  | Checkout, setup, `make check`, `make app`, `make test T="all --cov"`, upload logs + coverage |
+| Job     | Trigger                             | Runner      | Steps                                                               |
+|---------|-------------------------------------|-------------|---------------------------------------------------------------------|
+| `check` | Pushes only (`if` guard skips PRs)  | `macos-26`  | Checkout, setup, `make check`, upload `static-checks.log`           |
+| `test`  | PRs to `main` only (`if` guard)     | `macos-26`  | Checkout, setup, `make check`, `make app`, `make test T="default --cov"`, upload logs + coverage |
 
 ### Artifacts
 
-Both jobs use `actions/upload-artifact@v4` with `if: always()` so artifacts are uploaded even on failure:
+Both jobs use `actions/upload-artifact@v7` with `if: always()` so artifacts are uploaded even on failure. Log files use
+`archive: false` so they're viewable directly in the browser without downloading a zip.
 
-- **`check` job** uploads `static-checks` artifact: `static-checks.log`
-- **`test` job** uploads `test-job-logs` artifact: `static-checks.log`, `test-results.log`, and `_build/coverage/latest/` (HTML coverage report)
+Artifact names follow the pattern `<repo> #<run> - <artifact>` using GitHub Actions expressions
+(`github.event.repository.name` and `github.run_number`), e.g., `GreetingCards #42 - static-checks.log`. This makes
+artifacts self-identifying when browsing multiple runs or repos.
+
+- **`check` job:** `static-checks.log` (unzipped, viewable in browser)
+- **`test` job:** `static-checks.log` and `test-results.log` (unzipped, viewable in browser), plus `coverage-report`
+  (zipped directory — the HTML coverage report has multiple files so it must be downloaded)
 
 ### Triggers
 
 ```yaml
 on:
-  push:           # all branches — runs 'check' job
+  push:           # all branches — runs 'check' job only
   pull_request:
-    branches: [main]  # PRs to main — runs both 'check' and 'test' jobs
+    branches: [main]  # PRs to main — runs 'test' job only
 ```
 
-The `test` job has an additional `if: github.event_name == 'pull_request'` guard so it only runs on PRs, not on every
-push.
+Each job has an `if` guard that restricts it to one event type:
+
+- **`check`** has `if: github.event_name == 'push'` — runs on pushes only, skipped on PRs (where the `test` job already
+  includes `make check` as its first step)
+- **`test`** has `if: github.event_name == 'pull_request'` — runs on PRs only, not on every push
+
+This avoids duplicate work: on a PR, only one runner is used instead of two.
 
 ## Gotchas
 
@@ -105,3 +116,7 @@ push.
 - **`make check` runs on macOS CI, not in Docker:** Static analysis (pyright, mypy, ruff, bandit) runs natively on
   macOS runners because the tools need access to macOS-specific stubs (wx, AppKit, Foundation). Docker is only for
   cross-platform test execution.
+- **Integration tests don't run in CI:** The `test` job uses the `default` scope (core + gui + scripts), not `all`.
+  Integration tests launch the `.app` bundle via `osascript` and talk to it over Apple Events. On CI runners, TCC
+  (Transparency, Consent, and Control) blocks `osascript` from getting automation permission, so every integration test
+  hangs until its 60-second timeout. Use `make test T=all` locally to include integration tests.

@@ -487,10 +487,10 @@ See [`docs/architecture/docker-and-ci.md`](docs/architecture/docker-and-ci.md) f
 
 CI runs on GitHub Actions (`.github/workflows/ci.yml`) with two jobs:
 
-| Job     | Trigger                   | What it does                                                                         |
-|---------|---------------------------|--------------------------------------------------------------------------------------|
-| `check` | Every push (all branches) | Runs `make check` (pyright + mypy + ruff lint + format-check + bandit)               |
-| `test`  | PRs to `main` only        | Static checks + `make app` build + full test suite with coverage (`make test T=...`) |
+| Job     | Trigger            | What it does                                                                         |
+|---------|--------------------|--------------------------------------------------------------------------------------|
+| `check` | Pushes only        | Runs `make check` (pyright + mypy + ruff lint + format-check + bandit)               |
+| `test`  | PRs to `main` only | Static checks + `make app` build + full test suite with coverage (`make test T=...`) |
 
 Both jobs run on `macos-26` runners with Python 3.14, uv, Tesseract, and lcov installed via a shared composite action
 (`.github/actions/setup-build-env/action.yml`).

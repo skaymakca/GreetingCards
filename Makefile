@@ -6,9 +6,11 @@ define FMT_LINE
 {n=$$1; s=""; while(n>999){s=sprintf(",%03d%s",n%1000,s); n=int(n/1000)} v=sprintf("%d%s",n,s); printf "%-10s%10s lines\n",lbl,v}
 endef
 
-# Banner macro for section headers in `make check` output
+# Banner macro for section headers in `make check` output (fixed 64-char width)
 define banner
-	@printf '\n\033[1m── $(1) ──────────────────────────────────────────\033[0m\n\n'
+	@label="$(1)"; n=$$(( 60 - $${#label} )); \
+	trail=$$(printf '%*s' "$$n" '' | sed 's/ /─/g'); \
+	printf '\n\033[1m── %s %s\033[0m\n\n' "$$label" "$$trail"
 endef
 
 TESSDATA_DIR := _build/runtime_content/tessdata/fast
