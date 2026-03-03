@@ -275,11 +275,11 @@ After adding or updating packages with `uv add`, run `make licenses-sync` to upd
 
 ## Code Quality Audit
 
-When asked to audit the codebase, follow the checklist in [`docs/code-quality-audit.md`](docs/code-quality-audit.md).
+When asked to audit the codebase, follow the methodology in [`docs/code-quality-audit.md`](docs/code-quality-audit.md). Findings go into `.local/audits/YYYYMMDDThhmm-code-quality.md`.
 
 ## MVC Compliance Audit
 
-When asked to audit MVC compliance, follow the methodology in [`docs/mvc-compliance-audit.md`](docs/mvc-compliance-audit.md). Findings go into `.claude/mvc-audit-findings.md`.
+When asked to audit MVC compliance, follow the methodology in [`docs/mvc-compliance-audit.md`](docs/mvc-compliance-audit.md). Findings go into `.local/audits/YYYYMMDDThhmm-mvc-compliance.md`.
 
 ---
 
