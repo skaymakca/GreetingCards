@@ -44,35 +44,26 @@ def autocrop_whitespace(image: Image.Image, threshold: int = 245, padding: int =
 
 def render_pdf_page(pdf_path: Path, page_num: int = 0, dpi: int = 200) -> Image.Image:
     """Render a single PDF page to a PIL Image (capped at native resolution)."""
-    doc = fitz.open(str(pdf_path))
-    try:
+    with fitz.open(str(pdf_path)) as doc:
         page = doc[page_num]
         pix = page.get_pixmap(matrix=_capped_zoom(page, dpi))
         img_data = pix.tobytes("png")
         return autocrop_whitespace(Image.open(io.BytesIO(img_data)))
-    finally:
-        doc.close()
 
 
 # noinspection DuplicatedCode
 def render_all_pages(pdf_path: Path, dpi: int = 200) -> list[Image.Image]:
     """Render all pages of a PDF to PIL Images (capped at native resolution)."""
-    doc = fitz.open(str(pdf_path))
     images = []
-    try:
+    with fitz.open(str(pdf_path)) as doc:
         for page in doc:
             pix = page.get_pixmap(matrix=_capped_zoom(page, dpi))
             img_data = pix.tobytes("png")
             images.append(autocrop_whitespace(Image.open(io.BytesIO(img_data))))
-    finally:
-        doc.close()
     return images
 
 
 def get_page_count(pdf_path: Path) -> int:
     """Return the number of pages in a PDF."""
-    doc = fitz.open(str(pdf_path))
-    try:
+    with fitz.open(str(pdf_path)) as doc:
         return len(doc)
-    finally:
-        doc.close()

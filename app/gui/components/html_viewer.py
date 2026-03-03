@@ -9,7 +9,7 @@ from typing import NamedTuple
 import wx
 import wx.html2
 
-from app.gui.icons import clear_cache, load_menu_icon, load_sf_symbol
+from app.gui.icons import load_menu_icon, load_sf_symbol
 from app.gui.styles import Color
 
 # Singleton weakrefs keyed by viewer type
@@ -351,6 +351,9 @@ class HTMLViewerWindow:
         size: tuple[int, int] = (800, 600),
         search_hint: str = "Search",
     ) -> None:
+        if not page_order:
+            raise ValueError("page_order must not be empty")
+
         self._page_order = page_order
         self._base_path = base_path
 
@@ -536,7 +539,6 @@ class HTMLViewerWindow:
 
     def refresh_colors(self) -> None:
         """Update toolbar icons and border for current appearance mode."""
-        clear_cache()
         for tool_id, symbol_name in self._tool_icons:
             bmp = _toolbar_icon(symbol_name)
             self._toolbar.SetToolNormalBitmap(tool_id, wx.BitmapBundle(bmp))

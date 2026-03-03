@@ -139,6 +139,13 @@ def _make_mock_doc(num_pages=1):
     doc.__getitem__ = lambda self, idx: pages[idx]
     doc.__iter__ = lambda self: iter(pages)
     doc.__len__ = lambda self: num_pages
+    doc.__enter__ = lambda self: self
+
+    def _exit(self, *args):
+        self.close()
+        return False  # Do not suppress exceptions
+
+    doc.__exit__ = _exit
     doc.close = MagicMock()
     return doc
 
@@ -164,6 +171,13 @@ class TestRenderPdfPage:
     def test_closes_on_error(self, mock_fitz_open):
         doc = MagicMock()
         doc.__getitem__ = MagicMock(side_effect=RuntimeError("bad page"))
+        doc.__enter__ = lambda self: self
+
+        def _exit(self, *args):
+            self.close()
+            return False  # Do not suppress exceptions
+
+        doc.__exit__ = _exit
         doc.close = MagicMock()
         mock_fitz_open.return_value = doc
         with pytest.raises(RuntimeError):

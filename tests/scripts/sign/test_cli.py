@@ -216,7 +216,7 @@ class TestMainArgParsing:
         with (
             patch("sys.argv", ["sign", "--dry-run"]),
             patch.dict("os.environ", {"CODESIGN_IDENTITY": "Test ID"}),
-            patch("scripts.sign.cli._APP_PATH", app),
+            patch("scripts.sign.cli.app_path", return_value=app),
             patch("scripts.sign.cli._ENTITLEMENTS", ent),
             patch("scripts.sign.cli.sign_app") as mock_sign,
         ):

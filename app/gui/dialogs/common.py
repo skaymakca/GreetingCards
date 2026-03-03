@@ -28,6 +28,11 @@ _SCROLLBAR_WIDTH = 20  # Reserve space for vertical scrollbar
 _STATUS_COL_WIDTH = 100  # Width for short status columns (OK, SKIP, SAME, ERROR, DUP)
 _RESULT_COL_WIDTH = 140  # Width for result columns (OK, ERROR: msg)
 
+# Dialog widths (used in both size= and column-width arithmetic)
+_RENAME_DIALOG_WIDTH = 700
+_ERROR_DIALOG_WIDTH = 650
+_COMPLETION_DIALOG_WIDTH = 650
+
 
 def display_path(path: Path) -> str:
     """Format a path as ~/relative for display (or just filename if under home)."""
@@ -112,7 +117,6 @@ class ProgressDialog(wx.Dialog):
         )
 
         self._total = total
-        self._current = 0
 
         # Create panel
         panel = wx.Panel(self)
@@ -165,7 +169,6 @@ class ProgressDialog(wx.Dialog):
             current: Current progress value
             message: Optional message to display
         """
-        self._current = current
         self._progress.SetValue(current)
         self._count_label.SetLabel(f"{current} / {self._total}")
         if message:
@@ -183,10 +186,11 @@ class RenameConfirmDialog(wx.Dialog):
 
     def __init__(self, parent: wx.Window, plan: list[RenamePlanItem]) -> None:
         super().__init__(
-            parent, title="Confirm Rename", size=(700, 500), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
+            parent,
+            title="Confirm Rename",
+            size=(_RENAME_DIALOG_WIDTH, 500),
+            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER,
         )
-
-        self.result = False
 
         # Main sizer
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -244,7 +248,7 @@ class RenameConfirmDialog(wx.Dialog):
         # Add columns — file name columns share remaining space equally
         col_label = "Original" if multi_dir else "Original File Name"
         new_label = "New" if multi_dir else "New File Name"
-        file_col_width = (700 - 2 * _DIALOG_PADDING - _SCROLLBAR_WIDTH - _STATUS_COL_WIDTH) // 2
+        file_col_width = (_RENAME_DIALOG_WIDTH - 2 * _DIALOG_PADDING - _SCROLLBAR_WIDTH - _STATUS_COL_WIDTH) // 2
         self.list_ctrl.AppendTextColumn(col_label, 0, width=file_col_width)
         self.list_ctrl.AppendTextColumn(new_label, 1, width=file_col_width)
         status_col = self.list_ctrl.AppendTextColumn("Status", 2, width=_STATUS_COL_WIDTH)
@@ -284,12 +288,10 @@ class RenameConfirmDialog(wx.Dialog):
 
     def _on_confirm(self, event: wx.CommandEvent) -> None:
         """Handle Rename All button."""
-        self.result = True
         self.EndModal(wx.ID_OK)
 
     def _on_cancel(self, event: wx.CommandEvent) -> None:
         """Handle Cancel button."""
-        self.result = False
         self.EndModal(wx.ID_CANCEL)
 
     def _on_key(self, event: wx.KeyEvent) -> None:
@@ -308,7 +310,9 @@ class ErrorListDialog(wx.Dialog):
     """Dialog showing AI analysis errors in a structured table."""
 
     def __init__(self, parent: wx.Window, title: str, errors: list[AIError], auth_aborted: bool = False) -> None:
-        super().__init__(parent, title=title, size=(650, 400), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        super().__init__(
+            parent, title=title, size=(_ERROR_DIALOG_WIDTH, 400), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
+        )
 
         # Main sizer
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -348,7 +352,7 @@ class ErrorListDialog(wx.Dialog):
 
         # Add columns — type column is narrow, detail gets remaining space
         type_col_width = _STATUS_COL_WIDTH
-        detail_col_width = 650 - 2 * _DIALOG_PADDING - _SCROLLBAR_WIDTH - type_col_width
+        detail_col_width = _ERROR_DIALOG_WIDTH - 2 * _DIALOG_PADDING - _SCROLLBAR_WIDTH - type_col_width
         self.list_ctrl.AppendTextColumn("Type", 0, width=type_col_width)
         self.list_ctrl.AppendTextColumn("Details", 1, width=detail_col_width)
 
@@ -380,7 +384,9 @@ class CompletionDialog(wx.Dialog):
     """Dialog showing rename results in a structured table."""
 
     def __init__(self, parent: wx.Window, title: str, results: list[RenameResult]) -> None:
-        super().__init__(parent, title=title, size=(650, 420), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        super().__init__(
+            parent, title=title, size=(_COMPLETION_DIALOG_WIDTH, 420), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
+        )
 
         # Compute counts
         counts = summarize_results(results)
@@ -430,7 +436,7 @@ class CompletionDialog(wx.Dialog):
         self.list_ctrl.AssociateModel(self.model)
 
         # Add columns
-        file_col_width = 650 - 2 * _DIALOG_PADDING - _SCROLLBAR_WIDTH - _RESULT_COL_WIDTH
+        file_col_width = _COMPLETION_DIALOG_WIDTH - 2 * _DIALOG_PADDING - _SCROLLBAR_WIDTH - _RESULT_COL_WIDTH
         self.list_ctrl.AppendTextColumn("File Name", 0, width=file_col_width)
         self.list_ctrl.AppendTextColumn("Result", 1, width=_RESULT_COL_WIDTH)
 

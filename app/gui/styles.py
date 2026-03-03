@@ -120,32 +120,6 @@ class Font:
         """Create monospace font (11pt, Menlo)."""
         return wx.Font(wx.FontInfo(11).FaceName("Menlo").Family(wx.FONTFAMILY_TELETYPE))
 
-    @staticmethod
-    def from_tuple(font_tuple: tuple) -> wx.Font:
-        """Convert font tuple to wx.Font.
-
-        Args:
-            font_tuple: Tuple like ("Helvetica Neue", 12) or ("Helvetica Neue", 12, "bold")
-
-        Returns:
-            wx.Font object
-        """
-        family_name = font_tuple[0]
-        size = font_tuple[1]
-        is_bold = len(font_tuple) > 2 and font_tuple[2] == "bold"
-
-        # Create font info
-        font_info = wx.FontInfo(size).FaceName(family_name)
-
-        # Determine font family
-        if "Mono" in family_name or "Menlo" in family_name or "Courier" in family_name:
-            font_info = font_info.Family(wx.FONTFAMILY_TELETYPE)
-
-        if is_bold:
-            font_info = font_info.Bold()
-
-        return wx.Font(font_info)
-
 
 class Layout:
     """Layout dimensions for the application."""

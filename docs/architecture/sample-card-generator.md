@@ -30,7 +30,7 @@ CLI (argparse)
   │
   ├─ Spec Generation Pipeline ──────────────────────────────────────────────┐
   │                                                                         │
-  │  assign_deterministic_fields(count)                                     │
+  │  assign_generated_fields(count)                                     │
   │    → holidays, visual_styles, page_counts, back_page_types,             │
   │      back_photo_modes (Python)                                          │
   │                                                                         │
@@ -252,7 +252,7 @@ prompt variants give the model different constraints:
   like variations of the same shot.
 
 `back_photo_mode` ("single" or "collage") is assigned deterministically by Python during
-`assign_deterministic_fields()`. Image quality is always "high".
+`assign_generated_fields()`. Image quality is always "high".
 
 Images are saved as temporary PNGs in a temp directory. The caller cleans them up after PDF composition.
 

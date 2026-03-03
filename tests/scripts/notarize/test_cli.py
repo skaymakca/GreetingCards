@@ -7,26 +7,7 @@ import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
-from scripts.notarize.cli import _dmg_path, _read_version, staple, submit, verify
-
-
-class TestReadVersion:
-    def test_reads_version(self, tmp_path: pathlib.Path) -> None:
-        pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_text('[project]\nversion = "1.2.3"\n', encoding="utf-8")
-
-        with patch("scripts.notarize.cli._ROOT", tmp_path):
-            result = _read_version()
-
-        assert result == "1.2.3"
-
-
-class TestDmgPath:
-    def test_uses_hyphenated_filename(self) -> None:
-        with patch("scripts.notarize.cli._ROOT", pathlib.Path("/project")):
-            result = _dmg_path("1.2.3")
-
-        assert result == pathlib.Path("/project/dist/Greeting-Cards-1.2.3.dmg")
+from scripts.notarize.cli import staple, submit, verify
 
 
 class TestSubmit:

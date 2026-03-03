@@ -3,7 +3,7 @@
 import wx
 
 # Read-only content builder — no service facade needed
-from app.core.content.changelog import get_page_order
+from app.core.content.template_env import get_page_order
 
 # Stateless path utility — no service facade needed
 from app.core.paths import get_runtime_content_path

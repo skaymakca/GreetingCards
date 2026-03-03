@@ -262,7 +262,7 @@ def profile_full_parallel(
     workers = min(len(pdfs), multiprocessing.cpu_count())
 
     task = progress.add_task("Full (parallel)", total=len(pdfs))
-    start = time.perf_counter()
+    start = time.monotonic()
     with ProcessPoolExecutor(
         max_workers=workers,
         initializer=_worker_init,
@@ -272,7 +272,7 @@ def profile_full_parallel(
         for future in as_completed(futures):
             future.result()  # propagate exceptions
             progress.advance(task)
-    total = time.perf_counter() - start
+    total = time.monotonic() - start
 
     speedup = sequential_seconds / total if total > 0 else 0
 

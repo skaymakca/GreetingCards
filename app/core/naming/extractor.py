@@ -82,6 +82,10 @@ def extract_family_names(text: str) -> list[NameMatch]:
     lines = [line.strip() for line in text.split("\n") if line.strip()]
 
     # HIGH confidence patterns
+    # Note: [A-Z] ASCII-only character classes are intentional — OCR output
+    # for greeting cards is English text, and restricting to ASCII avoids
+    # false-positive matches on misrecognized diacritics / symbols.
+
     # "The Smith Family" or "The Smiths Family"
     for line in lines:
         m = re.search(r"[Tt]he\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\s+[Ff]amily", line)

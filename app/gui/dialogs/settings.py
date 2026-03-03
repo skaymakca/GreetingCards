@@ -10,6 +10,12 @@ from app.gui import styles
 _PREFS_PAD = 20
 _PREFS_WIDTH = 480
 _STATUS_DISPLAY_MS = 3000
+_SECTION_GAP = 16
+_HEADING_GAP = 8
+_BUTTON_LEFT_MARGIN = 12
+_BOTTOM_PADDING = 20
+_ADVANCED_BOTTOM_PADDING = 30
+_MODEL_CHOICE_MAX_WIDTH = 340
 
 
 # noinspection PyAttributeOutsideInit,PyUnusedLocal
@@ -35,14 +41,14 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
         panel.SetMaxSize(wx.Size(_PREFS_WIDTH, -1))
         sizer = wx.BoxSizer(wx.VERTICAL)
 
-        sizer.AddSpacer(16)
+        sizer.AddSpacer(_SECTION_GAP)
 
         # API Key heading
         api_heading = wx.StaticText(panel, label="API Key")
         api_heading.SetFont(styles.Font.HEADING())
         sizer.Add(api_heading, 0, wx.LEFT | wx.RIGHT, _PREFS_PAD)
 
-        sizer.AddSpacer(8)
+        sizer.AddSpacer(_HEADING_GAP)
 
         # Key entry with Save button
         key_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -57,7 +63,7 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
 
         save_btn = wx.Button(panel, label="Save")
         save_btn.Bind(wx.EVT_BUTTON, self._save_api_key)
-        key_sizer.Add(save_btn, 0, wx.LEFT, 12)
+        key_sizer.Add(save_btn, 0, wx.LEFT, _BUTTON_LEFT_MARGIN)
 
         sizer.Add(key_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, _PREFS_PAD)
 
@@ -71,20 +77,20 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
         # Reset status when preferences window is reopened
         panel.Bind(wx.EVT_SHOW, self._on_panel_shown)
 
-        sizer.AddSpacer(16)
+        sizer.AddSpacer(_SECTION_GAP)
 
         # AI Model heading
         model_heading = wx.StaticText(panel, label="AI Model")
         model_heading.SetFont(styles.Font.HEADING())
         sizer.Add(model_heading, 0, wx.LEFT | wx.RIGHT, _PREFS_PAD)
 
-        sizer.AddSpacer(8)
+        sizer.AddSpacer(_HEADING_GAP)
 
         # Model dropdown
         models = ConfigService.get_available_models()
         model_labels = [f"{m.label} \u2014 {m.description}" for m in models]
         self._model_choice = wx.Choice(panel, choices=model_labels)
-        self._model_choice.SetMaxSize(wx.Size(340, -1))
+        self._model_choice.SetMaxSize(wx.Size(_MODEL_CHOICE_MAX_WIDTH, -1))
 
         current_model = self._get_ai_model()
         for i, m in enumerate(models):
@@ -99,7 +105,7 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
         model_desc.SetFont(styles.Font.SMALL())
         sizer.Add(model_desc, 0, wx.LEFT | wx.RIGHT | wx.TOP, _PREFS_PAD)
 
-        sizer.AddSpacer(20)
+        sizer.AddSpacer(_BOTTOM_PADDING)
 
         panel.SetSizer(sizer)
         return panel
@@ -172,14 +178,14 @@ class AdvancedPreferencesPage(wx.StockPreferencesPage):
         panel.SetMaxSize(wx.Size(_PREFS_WIDTH, -1))
         sizer = wx.BoxSizer(wx.VERTICAL)
 
-        sizer.AddSpacer(16)
+        sizer.AddSpacer(_SECTION_GAP)
 
         # Database heading
         db_heading = wx.StaticText(panel, label="Database")
         db_heading.SetFont(styles.Font.HEADING())
         sizer.Add(db_heading, 0, wx.LEFT | wx.RIGHT, _PREFS_PAD)
 
-        sizer.AddSpacer(8)
+        sizer.AddSpacer(_HEADING_GAP)
 
         db_row = wx.BoxSizer(wx.HORIZONTAL)
 
@@ -192,11 +198,11 @@ class AdvancedPreferencesPage(wx.StockPreferencesPage):
 
         rebuild_btn = wx.Button(panel, label="Reset All Card Data")
         rebuild_btn.Bind(wx.EVT_BUTTON, self._reset_card_data)
-        db_row.Add(rebuild_btn, 0, wx.LEFT, 12)
+        db_row.Add(rebuild_btn, 0, wx.LEFT, _BUTTON_LEFT_MARGIN)
 
         sizer.Add(db_row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, _PREFS_PAD)
 
-        sizer.AddSpacer(30)
+        sizer.AddSpacer(_ADVANCED_BOTTOM_PADDING)
 
         panel.SetSizer(sizer)
         return panel

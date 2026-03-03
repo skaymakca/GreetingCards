@@ -497,6 +497,9 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         Args:
             files: Specific files to process. If None, processes all known PDF paths.
         """
+        if self._is_processing_busy:
+            return
+
         files_to_process = files or list(self._card_service.get_all_paths())
         if not files_to_process:
             return

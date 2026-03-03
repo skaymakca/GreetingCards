@@ -8,14 +8,12 @@ Source: https://github.com/smashew/NameDatabases
 
 from __future__ import annotations
 
-import re
-import unicodedata
 from pathlib import Path
 from urllib.request import urlopen
 
 from rich.console import Console
 
-from scripts.build_family_name_db._unicode import UNICODE_SPECIAL as _UNICODE_SPECIAL
+from scripts.build_family_name_db._unicode import normalize
 
 # Raw GitHub URLs for surname files
 SMASHEW_BASE = "https://raw.githubusercontent.com/smashew/NameDatabases/master/NamesDatabases/surnames"
@@ -32,16 +30,6 @@ SMASHEW_FILES = [
     "nl.txt",  # Dutch
     "in.txt",  # Indian
 ]
-
-
-def normalize(name: str) -> str:
-    """Normalize for lookup: Unicode-fold to ASCII, lowercase, strip non-alpha."""
-    lowered = name.lower()
-    for char, repl in _UNICODE_SPECIAL.items():
-        if char in lowered:
-            lowered = lowered.replace(char, repl)
-    decomposed = unicodedata.normalize("NFKD", lowered)
-    return re.sub(r"[^a-z]", "", decomposed)
 
 
 def _download_file(url: str, cache_path: Path) -> str:

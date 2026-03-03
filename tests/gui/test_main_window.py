@@ -1999,32 +1999,6 @@ def test_on_name_change_missing_card(wx_app):
 
 
 # ============================================================================
-# utils: create_text_ctrl callback (line 132)
-# ============================================================================
-
-
-def test_create_text_ctrl_with_callback(wx_app):
-    """create_text_ctrl binds callback on EVT_TEXT (line 132)."""
-    from app.gui.utils import create_text_ctrl
-
-    frame = wx.Frame(None)
-    called = []
-
-    ctrl = create_text_ctrl(frame, value="initial", callback=lambda s: called.append(s))
-
-    # Fire EVT_TEXT directly instead of SetValue + Yield, because Yield
-    # can trigger unrelated macOS timer callbacks that segfault.
-    evt = wx.CommandEvent(wx.wxEVT_TEXT, ctrl.GetId())
-    evt.SetString("new value")
-    ctrl.GetEventHandler().ProcessEvent(evt)
-
-    assert len(called) == 1
-    assert called[0] == "new value"
-
-    frame.Destroy()
-
-
-# ============================================================================
 # icons: load_cursor_from_symbol exception handler (lines 180-183)
 # ============================================================================
 

@@ -13,9 +13,9 @@ from app.core.naming.family_name.data import family_name_db
 
 # --- Constants ---
 
-_MAC_EXCEPTIONS = ["macintosh", "machine", "mach", "macro", "mace"]
-_PARTICLES = ["van", "von", "de", "del", "der", "den", "la", "le", "da", "di", "st"]
-_SUFFIXES = ["ii", "iii", "iv", "v", "jr", "sr"]
+_MAC_EXCEPTIONS = frozenset({"macintosh", "machine", "mach", "macro", "mace"})
+_PARTICLES = frozenset({"van", "von", "de", "del", "der", "den", "la", "le", "da", "di", "st"})
+_SUFFIXES = frozenset({"ii", "iii", "iv", "v", "jr", "sr"})
 
 
 # --- Helper Functions ---

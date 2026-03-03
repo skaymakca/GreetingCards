@@ -15,12 +15,9 @@ Key locales:
 
 from __future__ import annotations
 
-import re
-import unicodedata
-
 from rich.console import Console
 
-from scripts.build_family_name_db._unicode import UNICODE_SPECIAL as _UNICODE_SPECIAL
+from scripts.build_family_name_db._unicode import normalize
 
 # Locales to extract, in priority order (earlier = higher priority for display form)
 FAKER_LOCALES = [
@@ -33,16 +30,6 @@ FAKER_LOCALES = [
     "de_DE",
     "en_US",
 ]
-
-
-def normalize(name: str) -> str:
-    """Normalize for lookup: Unicode-fold to ASCII, lowercase, strip non-alpha."""
-    lowered = name.lower()
-    for char, repl in _UNICODE_SPECIAL.items():
-        if char in lowered:
-            lowered = lowered.replace(char, repl)
-    decomposed = unicodedata.normalize("NFKD", lowered)
-    return re.sub(r"[^a-z]", "", decomposed)
 
 
 def _extract_locale_names(locale: str) -> list[str]:

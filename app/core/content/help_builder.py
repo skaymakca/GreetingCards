@@ -240,8 +240,3 @@ def generate_help_html() -> None:
     (output_dir / "page_order.txt").write_text("\n".join(order), encoding="utf-8")
 
     logger.info("Generated %d help pages in %s", len(pages), output_dir)
-
-
-# noinspection PyUnusedImports
-# Re-export for consumers that import from here
-from app.core.content.template_env import get_page_order  # noqa: E402

@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev tessdata run test check pyright mypy lint lint-fix format format-check security pycharm-inspect content licenses-sync icon app app-run dmg sign notarize release release-draft release-publish configure-release shellcheck version bump-patch bump-minor bump-major tag tag-push visual-test visual-test-app show-scripts loc docker-build docker-test docker-shell clean
+.PHONY: help setup setup-dev tessdata run test test-everything check pyright mypy lint lint-fix format format-check security pycharm-inspect content licenses-sync icon app app-run release-publish configure-release shellcheck version bump-patch bump-minor bump-major tag tag-push visual-test visual-test-app show-scripts loc docker-build docker-test docker-shell clean
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -52,6 +52,9 @@ run: content tessdata ## Run the app from source
 
 test: ## Run tests (no args shows help; make test T="core --cov -x")
 	@uv run python scripts/run_tests.py $(T)
+
+test-everything: ## Run all tests with coverage and open reports
+	@uv run python scripts/run_tests.py all --cov --open
 
 ##@ Code Quality
 
@@ -143,9 +146,6 @@ app: icon content tessdata ## Build the macOS .app bundle
 app-run: app ## Build and run the .app bundle (logs visible in terminal)
 	"dist/Greeting Cards.app/Contents/MacOS/Greeting Cards"
 
-dmg: app ## Build the distributable DMG installer (→ dist/Greeting-Cards-X.Y.Z.dmg)
-	uv run python -m scripts.dmg
-
 ##@ Version & Release
 
 version: ## Show current version
@@ -174,19 +174,6 @@ bump-major: ## Bump major version (0.6.0 → 1.0.0)
 	v=[int(x) for x in old.split('.')]; v[0]+=1; v[1]=0; v[2]=0; nv='.'.join(map(str,v)); \
 	t=open(p).read().replace('version = \"'+old+'\"','version = \"'+nv+'\"',1); \
 	open(p,'w').write(t); print(nv)"
-
-sign: app ## Sign the app bundle (requires Developer ID certificate)
-	uv run python -m scripts.sign
-
-notarize: sign dmg ## Notarize the DMG (requires Apple Developer credentials)
-	uv run python -m scripts.notarize
-
-release: notarize ## Full release: build, sign, DMG, notarize, checksum
-	uv run python -m scripts.release checksum
-
-release-draft: release ## Create a draft GitHub release
-	uv run python -m scripts.release changelog
-	uv run python -m scripts.release draft
 
 release-publish: ## Publish the latest draft release
 	uv run python -m scripts.release publish
@@ -229,6 +216,9 @@ show-scripts: ## Show available script invocations (does not run them)
 	@echo "  \033[36mbuild_family_name_db\033[0m         Build master family name database from Census + Faker + smashew"
 	@echo "    uv run python -m scripts.build_family_name_db"
 	@echo "    uv run python -m scripts.build_family_name_db --no-smashew"
+	@echo ""
+	@echo "  \033[36mbuild_family_name_db.benchmark_compression\033[0m  Benchmark compression formats for the name database"
+	@echo "    uv run python -m scripts.build_family_name_db.benchmark_compression"
 	@echo ""
 	@echo "  \033[36mdark_mode_cycler\033[0m             Toggle macOS dark/light mode every 5s (Ctrl-C to stop)"
 	@echo "    uv run python -m scripts.dark_mode_cycler"

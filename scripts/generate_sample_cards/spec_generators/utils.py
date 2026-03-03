@@ -54,9 +54,13 @@ def extract_json(text: str) -> Any:
         end = max(text.rfind("]"), text.rfind("}"))
         if end > start:
             json_slice = text[start : end + 1]
-            result = json.loads(json_slice)
-            _log_extra_text(text[:start], text[end + 1 :])
-            return result
+            try:
+                result = json.loads(json_slice)
+            except json.JSONDecodeError:
+                pass
+            else:
+                _log_extra_text(text[:start], text[end + 1 :])
+                return result
 
     msg = f"No valid JSON found in response: {text[:100]}"
     raise ValueError(msg)

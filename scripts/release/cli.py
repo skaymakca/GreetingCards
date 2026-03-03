@@ -17,28 +17,19 @@ import hashlib
 import pathlib
 import re
 import subprocess
-import tomllib
 
-_ROOT = pathlib.Path(__file__).parent.parent.parent
-_CHANGELOG = _ROOT / "CHANGELOG.md"
+from scripts.helpers import PROJECT_ROOT, dmg_path, read_version
+
+_CHANGELOG = PROJECT_ROOT / "CHANGELOG.md"
 _REPO = "skaymakca/GreetingCards"
 
 
-def _read_version() -> str:
-    with open(_ROOT / "pyproject.toml", "rb") as f:
-        return tomllib.load(f)["project"]["version"]
-
-
-def _dmg_path(version: str) -> pathlib.Path:
-    return _ROOT / "dist" / f"Greeting-Cards-{version}.dmg"
-
-
 def _checksum_path(version: str) -> pathlib.Path:
-    return _ROOT / "dist" / f"Greeting-Cards-{version}.sha256"
+    return PROJECT_ROOT / "dist" / f"Greeting-Cards-{version}.sha256"
 
 
 def _release_notes_path() -> pathlib.Path:
-    out = _ROOT / "_build" / "release"
+    out = PROJECT_ROOT / "_build" / "release"
     out.mkdir(parents=True, exist_ok=True)
     return out / "release-notes.md"
 
@@ -72,7 +63,7 @@ def extract_changelog(version: str, changelog_path: pathlib.Path | None = None) 
 
 def generate_checksum(version: str) -> pathlib.Path:
     """Generate a SHA256 checksum file for the DMG."""
-    dmg = _dmg_path(version)
+    dmg = dmg_path(version)
     if not dmg.exists():
         raise FileNotFoundError(f"DMG not found: {dmg}")
 
@@ -126,7 +117,7 @@ def cmd_draft(version: str) -> None:
         print("Extracting release notes first …")
         cmd_changelog(version)
 
-    dmg = _dmg_path(version)
+    dmg = dmg_path(version)
     checksum = _checksum_path(version)
 
     if not dmg.exists():
@@ -170,7 +161,7 @@ def main() -> None:
     subparsers.add_parser("publish", help="Publish the latest draft release")
     args = parser.parse_args()
 
-    version = _read_version()
+    version = read_version()
 
     commands = {
         "changelog": cmd_changelog,

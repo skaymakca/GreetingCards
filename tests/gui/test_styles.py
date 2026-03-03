@@ -81,19 +81,6 @@ class TestFont:
         f = Font.SMALL()
         assert f.GetPointSize() == 11
 
-    def test_from_tuple_basic(self, wx_app):
-        f = Font.from_tuple(("Helvetica Neue", 14))
-        assert isinstance(f, wx.Font)
-        assert f.GetPointSize() == 14
-
-    def test_from_tuple_bold(self, wx_app):
-        f = Font.from_tuple(("Helvetica Neue", 14, "bold"))
-        assert f.GetWeight() == wx.FONTWEIGHT_BOLD
-
-    def test_from_tuple_mono(self, wx_app):
-        f = Font.from_tuple(("Menlo", 12))
-        assert f.GetFamily() == wx.FONTFAMILY_TELETYPE
-
 
 class TestLayout:
     """Tests for Layout class."""

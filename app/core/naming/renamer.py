@@ -16,6 +16,8 @@ from app.models.card import (
 
 logger = logging.getLogger(__name__)
 
+_FILENAME_TEMPLATE = "Holiday Cards {year} - {name}.pdf"
+
 
 def validate_year(year_str: str) -> bool:
     """Return True if year_str is a valid 4-digit year."""
@@ -37,7 +39,7 @@ def build_target_filename(card: CardResult, year: str) -> str:
     name = sanitize_for_filename(name)
     if not card.remove_family and not name.lower().endswith("family"):
         name = f"{name} Family"
-    return f"Holiday Cards {year} - {name}.pdf"
+    return _FILENAME_TEMPLATE.format(year=year, name=name)
 
 
 def _is_same_file(a: Path, b: Path) -> bool:

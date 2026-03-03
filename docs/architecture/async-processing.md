@@ -28,8 +28,9 @@ ProcessPoolExecutor for PDF rendering + OCR, asyncio for AI batch, and thread-sa
 ## PDF Processing: ProcessPoolExecutor
 
 ### Entry Point: `_start_processing()`
-1. Shows inline progress strip, begins busy cursor
-2. Spawns `threading.Thread(target=_process_cards)`
+1. Re-entry guard: early-returns if `_is_processing_busy` is already `True` (prevents stacked busy cursors)
+2. Shows inline progress strip, begins busy cursor
+3. Spawns `threading.Thread(target=_process_cards)`
 
 ### Worker: `process_pdf_worker()` in `app/core/pipeline/pdf_worker.py`
 Runs in a **separate process** (via `ProcessPoolExecutor`). Must be module-level (not a method) for pickling. Lives in the core layer since it contains only core logic (PDF rendering, OCR, database ops, image serialization) with zero GUI dependencies.

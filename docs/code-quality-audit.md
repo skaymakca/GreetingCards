@@ -133,6 +133,15 @@ If this pass finds zero new findings, the audit is **converged**. Otherwise, rep
 
 All findings go into `.local/audits/YYYYMMDDThhmm-code-quality.md` (timestamp of when the audit started). After convergence, group related findings into **clusters** — sets of findings that share a root cause or would be fixed together.
 
+### Presentation Guidelines
+
+- **HIGH and MEDIUM findings**: List individually in full detail tables (one row per finding). These are significant enough to warrant individual attention.
+- **LOW findings**: Group by theme in a summary table. Each row is a theme (e.g., "Magic constants in GUI", "Missing type annotations in scripts") with a count and representative examples — not one row per finding.
+- **STYLE findings**: Group by theme, same as LOW.
+- **Missing Tests**: Separate table listing coverage gaps.
+- **Clusters**: Present as a single table, not prose sections. Each row is a cluster with columns for name, included findings, root cause, fix approach, and priority.
+- **Assessment**: After findings and clusters, write a prose section evaluating overall codebase quality, common themes across findings, and prioritized remediation recommendations.
+
 ### Findings File Template
 
 Use this template for the findings file:
@@ -189,26 +198,58 @@ Use this template for the findings file:
 |----|-----|------|-------|---------|------|
 | M1 | RC  | `path/to/file.py` | 10 | **Description.** Details. | P1 |
 
-### LOW — Minor issues
+### LOW — Minor issues (grouped by theme)
 
-| ID | Cat | File | Lines | Finding | Pass |
-|----|-----|------|-------|---------|------|
-| L1 | MC  | `path/to/file.py` | 5 | **Description.** Details. | P1 |
+| Theme | IDs | Count | Examples |
+|-------|-----|-------|----------|
+| Magic constants in GUI | L1, L4, L8 | 3 | `panel.py:42` hardcoded 600px width; `dialog.py:15` literal color |
+| Missing type annotations | L2, L5 | 2 | `helper.py:10` missing return type; `utils.py:22` untyped param |
 
-### STYLE — Informational only
+### STYLE — Informational only (grouped by theme)
 
-| ID | Cat | File | Lines | Finding | Pass |
-|----|-----|------|-------|---------|------|
-| S1 | UP  | `path/to/file.py` | 99 | **Description.** Details. | P1 |
+| Theme | IDs | Count | Examples |
+|-------|-----|-------|----------|
+| Unpythonic patterns | S1, S3 | 2 | `foo.py:10` uses `len(x) == 0` instead of `not x` |
+
+### Missing Tests
+
+| ID | Source File | Gap | Pass |
+|----|------------|-----|------|
+| T1 | `path/to/file.py` | No tests for error paths in `method_name()` | P1 |
 
 ---
 
 ## Clusters
 
-### Cluster 1: [Name]
-**Findings:** H1, M2, L5
-**Root cause:** Description of the shared root cause.
-**Fix:** Suggested approach.
+| # | Name | Findings | Root Cause | Fix | Priority |
+|---|------|----------|------------|-----|----------|
+| 1 | [Cluster name] | H1, M2, L5 | Shared root cause description | Suggested approach | High / Medium / Low |
+
+---
+
+## Assessment
+
+### Overall Quality
+
+Prose evaluation of the codebase's overall health — architecture, consistency, test coverage, error handling patterns, and how the findings compare to what you'd expect for a project of this size and maturity.
+
+### Common Themes
+
+Recurring patterns observed across multiple findings or clusters. These are systemic tendencies rather than isolated issues (e.g., "error paths are under-tested throughout", "magic constants concentrate in GUI code").
+
+### Remediation Recommendations
+
+Prioritized list of recommended actions, ordered by impact. Group by effort level (quick wins vs. larger refactors) and note which clusters each recommendation addresses.
+
+---
+
+## Rejected Findings
+
+Findings that were raised in earlier passes but rejected during consolidation. Keep for transparency.
+
+| ID | Cat | Finding | Reason Rejected | Pass |
+|----|-----|---------|-----------------|------|
+| ~A1~ | BL | **Description.** | Reason for rejection. | P1→P2 |
 
 ---
 

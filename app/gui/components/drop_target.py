@@ -9,6 +9,7 @@ from PIL import Image, ImageEnhance
 
 from app.core.paths import get_runtime_content_path
 from app.gui.styles import Color, Font, Layout
+from app.gui.utils import draw_drag_highlight
 
 logger = logging.getLogger(__name__)
 
@@ -99,12 +100,7 @@ class DropOverlay(wx.Panel):
 
         # If drag active, draw solid blue border at panel edges
         if self._drag_active:
-            inset = Layout.HIGHLIGHT_INSET
-            edge_path = gc.CreatePath()
-            edge_path.AddRoundedRectangle(inset, inset, w - inset * 2, h - inset * 2, Layout.HIGHLIGHT_RADIUS)
-            gc.SetPen(gc.CreatePen(wx.GraphicsPenInfo(Color.ACCENT).Width(Layout.HIGHLIGHT_WIDTH)))
-            gc.SetBrush(wx.NullBrush)
-            gc.StrokePath(edge_path)
+            draw_drag_highlight(gc, w, h)
 
         # Background image scaled to fraction of overlay area, centered
         img_area_w = int(w * Layout.DROP_BG_SCALE)

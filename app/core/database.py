@@ -106,6 +106,14 @@ _Session: sessionmaker[Session] | None = None
 _init_lock = threading.Lock()
 
 
+def _drop_tables(engine: Engine, table_names: set[str] | list[str]) -> None:
+    """Drop the given tables from the database."""
+    if table_names:
+        with engine.begin() as conn:
+            for table_name in table_names:
+                conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))
+
+
 def _get_engine() -> Engine:
     """Return the engine, raising if not yet initialized."""
     if _engine is None:
@@ -182,10 +190,7 @@ def _ensure_schema() -> None:
     known_tables = {table.name for table in Base.metadata.tables.values()}
     orphaned = set(all_tables) - known_tables
 
-    if orphaned:
-        with engine.begin() as conn:
-            for table_name in orphaned:
-                conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))
+    _drop_tables(engine, orphaned)
 
     # Create new schema
     Base.metadata.create_all(engine)
@@ -217,11 +222,7 @@ def reset_database() -> None:
     # Drop all tables including orphaned ones
     db_inspector = inspect(engine)
     all_tables = db_inspector.get_table_names()
-
-    if all_tables:
-        with engine.begin() as conn:
-            for table_name in all_tables:
-                conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))
+    _drop_tables(engine, all_tables)
 
     # Create new schema
     Base.metadata.create_all(engine)
@@ -292,11 +293,14 @@ def clear_ai_results(file_hashes: list[str]) -> int:
         return changed
 
 
+_HASH_CHUNK_SIZE = 8192
+
+
 def compute_file_hash(path: Path) -> str:
     """Compute SHA256 hash of a file's contents."""
     h = hashlib.sha256()
     with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
+        for chunk in iter(lambda: f.read(_HASH_CHUNK_SIZE), b""):
             h.update(chunk)
     return h.hexdigest()
 
@@ -367,11 +371,13 @@ def _insert_candidates(
             continue
 
         candidate = Candidate(file_hash=file_hash, family_name=clean_name, method=method, confidence=confidence)
-        session.add(candidate)
         try:
-            session.flush()
+            # Savepoint so a constraint violation only rolls back this insert,
+            # not the entire session — post-rollback queries stay valid.
+            with session.begin_nested():
+                session.add(candidate)
+                session.flush()
         except IntegrityError:
-            session.rollback()
             existing = (
                 session.query(Candidate).filter_by(file_hash=file_hash, family_name=clean_name, method=method).first()
             )

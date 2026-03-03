@@ -17,6 +17,9 @@ from app.models.card import CardResult
 
 logger = logging.getLogger(__name__)
 
+_MAX_ATTEMPTS = 2  # 1 initial + 1 app-level retry
+_TRANSIENT_RETRY_DELAY_S = 2
+
 
 async def run_ai_batch_async(
     target_cards: list[CardResult],
@@ -55,7 +58,7 @@ async def run_ai_batch_async(
             on_progress(completed, total, card.filename, card_id, None)
             return
 
-        for attempt in range(2):  # 1 initial + 1 app-level retry
+        for attempt in range(_MAX_ATTEMPTS):
             await gate.wait_if_paused()
 
             async with semaphore:
@@ -105,7 +108,7 @@ async def run_ai_batch_async(
                 except (anthropic.APITimeoutError, anthropic.APIConnectionError) as e:
                     if attempt == 0:
                         logger.warning("Transient error on %s, retrying: %s", card.filename, e)
-                        await asyncio.sleep(2)
+                        await asyncio.sleep(_TRANSIENT_RETRY_DELAY_S)
                         continue  # retry once
                     errors.append(classify_ai_error(e))
                 except Exception as e:

@@ -27,6 +27,10 @@ class CardStore:
         self._lock = threading.Lock()
 
     # ── Queries (main thread, no lock needed) ──
+    # These read-only accessors run exclusively on the main (UI) thread.
+    # Thread safety relies on the GIL guaranteeing atomic dict reads; the
+    # background worker only mutates via add_or_update() under self._lock.
+    # This is an intentional design choice — no lock is needed here.
 
     def get_by_id(self, card_id: int) -> CardResult | None:
         """Get card by ID. O(1) lookup."""
@@ -108,6 +112,9 @@ class CardStore:
                 card_id = self._next_card_id
                 self._next_card_id += 1
                 card = worker_result_to_card(worker_result, card_id)
+                # Cards with null file_hash (e.g. processing errors) are intentionally
+                # not stored in the lookup dicts — they exist only as transient results
+                # and cannot be deduplicated or looked up by hash.
                 if file_hash is not None:
                     self._cards_by_hash[file_hash] = card
                     self._id_to_card[card.id] = card
@@ -127,6 +134,13 @@ class CardStore:
     def register_new_pdfs(self, paths: list[Path]) -> None:
         """Add paths to the pdf_files set (called before processing)."""
         self._pdf_files.update(paths)
+
+    # The methods below (register_new_pdfs, _detach_path, unlink_path,
+    # update_path_mapping, remove_hash_for_path) run on the main (UI) thread
+    # and mutate dicts without holding self._lock.  This is safe because the
+    # background worker only touches these dicts inside add_or_update() under
+    # the lock, and Python's GIL makes individual dict operations atomic.
+    # Low-risk unlocked mutations — intentional design choice.
 
     # noinspection GrazieInspection
     def _detach_path(self, path: Path) -> str | None:

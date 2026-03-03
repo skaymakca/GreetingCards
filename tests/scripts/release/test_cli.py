@@ -72,7 +72,8 @@ class TestGenerateChecksum:
         dmg.write_bytes(b"fake dmg content")
 
         with (
-            patch("scripts.release.cli._ROOT", tmp_path),
+            patch("scripts.release.cli.PROJECT_ROOT", tmp_path),
+            patch("scripts.release.cli.dmg_path", side_effect=lambda v: tmp_path / "dist" / f"Greeting-Cards-{v}.dmg"),
         ):
             result = generate_checksum("1.0.0")
 
@@ -91,7 +92,10 @@ class TestGenerateChecksum:
 
         expected = hashlib.sha256(data).hexdigest()
 
-        with patch("scripts.release.cli._ROOT", tmp_path):
+        with (
+            patch("scripts.release.cli.PROJECT_ROOT", tmp_path),
+            patch("scripts.release.cli.dmg_path", side_effect=lambda v: tmp_path / "dist" / f"Greeting-Cards-{v}.dmg"),
+        ):
             result = generate_checksum("2.0.0")
 
         content = result.read_text(encoding="utf-8")
@@ -99,7 +103,8 @@ class TestGenerateChecksum:
 
     def test_missing_dmg_raises(self, tmp_path: pathlib.Path) -> None:
         with (
-            patch("scripts.release.cli._ROOT", tmp_path),
+            patch("scripts.release.cli.PROJECT_ROOT", tmp_path),
+            patch("scripts.release.cli.dmg_path", side_effect=lambda v: tmp_path / "dist" / f"Greeting-Cards-{v}.dmg"),
             pytest.raises(FileNotFoundError),
         ):
             generate_checksum("1.0.0")
@@ -138,7 +143,7 @@ class TestMain:
 
         with (
             patch("sys.argv", ["release", "changelog"]),
-            patch("scripts.release.cli._read_version", return_value="0.12.0"),
+            patch("scripts.release.cli.read_version", return_value="0.12.0"),
             patch("scripts.release.cli._CHANGELOG", changelog),
             patch("scripts.release.cli._release_notes_path", return_value=build_dir / "release-notes.md"),
         ):
@@ -157,8 +162,9 @@ class TestMain:
 
         with (
             patch("sys.argv", ["release", "checksum"]),
-            patch("scripts.release.cli._read_version", return_value="1.0.0"),
-            patch("scripts.release.cli._ROOT", tmp_path),
+            patch("scripts.release.cli.read_version", return_value="1.0.0"),
+            patch("scripts.release.cli.PROJECT_ROOT", tmp_path),
+            patch("scripts.release.cli.dmg_path", side_effect=lambda v: tmp_path / "dist" / f"Greeting-Cards-{v}.dmg"),
         ):
             from scripts.release.cli import main
 
@@ -182,8 +188,9 @@ class TestMain:
 
         with (
             patch("sys.argv", ["release", "draft"]),
-            patch("scripts.release.cli._read_version", return_value="1.0.0"),
-            patch("scripts.release.cli._ROOT", tmp_path),
+            patch("scripts.release.cli.read_version", return_value="1.0.0"),
+            patch("scripts.release.cli.PROJECT_ROOT", tmp_path),
+            patch("scripts.release.cli.dmg_path", side_effect=lambda v: tmp_path / "dist" / f"Greeting-Cards-{v}.dmg"),
             patch("scripts.release.cli._release_notes_path", return_value=notes),
         ):
             from scripts.release.cli import main
@@ -199,7 +206,7 @@ class TestMain:
     def test_publish_subcommand(self, mock_run: MagicMock) -> None:
         with (
             patch("sys.argv", ["release", "publish"]),
-            patch("scripts.release.cli._read_version", return_value="1.0.0"),
+            patch("scripts.release.cli.read_version", return_value="1.0.0"),
         ):
             from scripts.release.cli import main
 

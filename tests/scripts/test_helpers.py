@@ -91,3 +91,70 @@ def test_script_output_dir_reraises_exception(tmp_path: Path) -> None:
         script_output_dir("my_script"),
     ):
         raise RuntimeError("boom")
+
+
+# ---------------------------------------------------------------------------
+# PROJECT_ROOT
+# ---------------------------------------------------------------------------
+
+
+def test_project_root_is_absolute() -> None:
+    from scripts.helpers import PROJECT_ROOT
+
+    assert PROJECT_ROOT.is_absolute()
+
+
+def test_project_root_contains_pyproject_toml() -> None:
+    from scripts.helpers import PROJECT_ROOT
+
+    assert (PROJECT_ROOT / "pyproject.toml").exists()
+
+
+# ---------------------------------------------------------------------------
+# read_version()
+# ---------------------------------------------------------------------------
+
+
+def test_read_version_returns_string() -> None:
+    from scripts.helpers import read_version
+
+    version = read_version()
+    assert isinstance(version, str)
+    # Should look like a semver string (digits and dots)
+    parts = version.split(".")
+    assert len(parts) == 3
+    assert all(p.isdigit() for p in parts)
+
+
+# ---------------------------------------------------------------------------
+# app_path()
+# ---------------------------------------------------------------------------
+
+
+def test_app_path_ends_with_app_bundle() -> None:
+    from scripts.helpers import app_path
+
+    result = app_path()
+    assert result.name == "Greeting Cards.app"
+    assert result.parent.name == "dist"
+
+
+# ---------------------------------------------------------------------------
+# dmg_path()
+# ---------------------------------------------------------------------------
+
+
+def test_dmg_path_with_explicit_version() -> None:
+    from scripts.helpers import dmg_path
+
+    result = dmg_path("1.2.3")
+    assert result.name == "Greeting-Cards-1.2.3.dmg"
+    assert result.parent.name == "dist"
+
+
+def test_dmg_path_without_version_reads_pyproject() -> None:
+    from scripts.helpers import dmg_path, read_version
+
+    version = read_version()
+    result = dmg_path()
+    assert result.name == f"Greeting-Cards-{version}.dmg"

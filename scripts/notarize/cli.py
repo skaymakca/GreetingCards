@@ -15,19 +15,8 @@ import argparse
 import pathlib
 import re
 import subprocess
-import tomllib
 
-_ROOT = pathlib.Path(__file__).parent.parent.parent
-_APP_PATH = _ROOT / "dist" / "Greeting Cards.app"
-
-
-def _read_version() -> str:
-    with open(_ROOT / "pyproject.toml", "rb") as f:
-        return tomllib.load(f)["project"]["version"]
-
-
-def _dmg_path(version: str) -> pathlib.Path:
-    return _ROOT / "dist" / f"Greeting-Cards-{version}.dmg"
+from scripts.helpers import app_path, dmg_path, read_version
 
 
 def _run(cmd: list[str], *, dry_run: bool = False, capture: bool = False) -> subprocess.CompletedProcess[str]:
@@ -119,17 +108,18 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    version = _read_version()
-    dmg = _dmg_path(version)
+    version = read_version()
+    dmg = dmg_path(version)
+    app = app_path()
 
     if not args.dry_run:
         if not dmg.exists():
             parser.error(f"DMG not found at {dmg}\n  Run 'make dmg' first.")
-        if not _APP_PATH.exists():
-            parser.error(f"App bundle not found at {_APP_PATH}\n  Run 'make app' first.")
+        if not app.exists():
+            parser.error(f"App bundle not found at {app}\n  Run 'make app' first.")
 
     submit(dmg, args.keychain_profile, dry_run=args.dry_run)
-    staple(_APP_PATH, dmg, dry_run=args.dry_run)
-    verify(_APP_PATH, dry_run=args.dry_run)
+    staple(app, dmg, dry_run=args.dry_run)
+    verify(app, dry_run=args.dry_run)
 
     print("Notarization complete.")

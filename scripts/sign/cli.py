@@ -16,9 +16,9 @@ import os
 import pathlib
 import subprocess
 
-_ROOT = pathlib.Path(__file__).parent.parent.parent
-_APP_PATH = _ROOT / "dist" / "Greeting Cards.app"
-_ENTITLEMENTS = _ROOT / "packaging" / "entitlements.plist"
+from scripts.helpers import PROJECT_ROOT, app_path
+
+_ENTITLEMENTS = PROJECT_ROOT / "packaging" / "entitlements.plist"
 
 # Mach-O magic numbers (big-endian and little-endian, including fat/universal)
 _MACHO_MAGICS = {
@@ -29,6 +29,14 @@ _MACHO_MAGICS = {
     b"\xca\xfe\xba\xbe",  # FAT_MAGIC (universal)
     b"\xbe\xba\xfe\xca",  # FAT_CIGAM (universal, reversed)
 }
+
+
+def _run(cmd: list[str], *, dry_run: bool = False, verbose: bool = False) -> None:
+    """Run a command, printing it in dry-run or verbose mode. Skip execution in dry-run mode."""
+    if dry_run or verbose:
+        print(f"  {'[dry-run] ' if dry_run else ''}{' '.join(cmd)}")
+    if not dry_run:
+        subprocess.run(cmd, check=True)
 
 
 def is_macho(path: pathlib.Path) -> bool:
@@ -93,10 +101,7 @@ def sign_binary(
         identity,
         str(path),
     ]
-    if dry_run or verbose:
-        print(f"  {'[dry-run] ' if dry_run else ''}{' '.join(cmd)}")
-    if not dry_run:
-        subprocess.run(cmd, check=True)
+    _run(cmd, dry_run=dry_run, verbose=verbose)
 
 
 def sign_app(
@@ -128,10 +133,7 @@ def sign_app(
         identity,
         str(app_path),
     ]
-    if dry_run or verbose:
-        print(f"  {'[dry-run] ' if dry_run else ''}{' '.join(bundle_cmd)}")
-    if not dry_run:
-        subprocess.run(bundle_cmd, check=True)
+    _run(bundle_cmd, dry_run=dry_run, verbose=verbose)
 
     # Verify
     print("Verifying …")
@@ -142,10 +144,7 @@ def sign_app(
         "--strict",
         str(app_path),
     ]
-    if dry_run or verbose:
-        print(f"  {'[dry-run] ' if dry_run else ''}{' '.join(verify_cmd)}")
-    if not dry_run:
-        subprocess.run(verify_cmd, check=True)
+    _run(verify_cmd, dry_run=dry_run, verbose=verbose)
 
     print("Signing complete.")
 
@@ -181,10 +180,11 @@ def main() -> None:
             '  For testing, use --identity "-" (ad-hoc signing).'
         )
 
-    if not _APP_PATH.exists():
-        parser.error(f"App bundle not found at {_APP_PATH}\n  Run 'make app' first.")
+    _app = app_path()
+    if not _app.exists():
+        parser.error(f"App bundle not found at {_app}\n  Run 'make app' first.")
 
     if not _ENTITLEMENTS.exists():
         parser.error(f"Entitlements file not found at {_ENTITLEMENTS}")
 
-    sign_app(_APP_PATH, identity, _ENTITLEMENTS, dry_run=args.dry_run, verbose=args.verbose)
+    sign_app(_app, identity, _ENTITLEMENTS, dry_run=args.dry_run, verbose=args.verbose)

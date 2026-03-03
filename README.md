@@ -85,14 +85,9 @@ Run `make help` to see all available commands.
 | `make licenses-sync`   | Sync license registry from uv.lock + .dist-info                                  |
 | `make visual-test`     | Run visual test harness from source                                              |
 | `make visual-test-app` | Build and run visual test harness as `.app` bundle (logs visible)                |
-| `make dmg`             | Build the distributable DMG installer (→ `dist/Greeting-Cards-X.Y.Z.dmg`)        |
 | `make app`             | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`)                |
 | `make app-run`         | Build and run the `.app` bundle with logs visible in terminal                    |
 | `make icon`            | Generate `icon.icns` from `icon.png` (auto-run by build)                         |
-| `make sign`            | Sign the app bundle (requires Developer ID certificate)                          |
-| `make notarize`        | Sign + DMG + notarize (requires Apple Developer credentials)                     |
-| `make release`         | Full release: build, sign, DMG, notarize, checksum                               |
-| `make release-draft`   | Full release + create draft GitHub release                                       |
 | `make release-publish` | Publish the latest draft release                                                 |
 | `make configure-release` | Configure local signing identity & profile (generates `release-local.sh`)      |
 | `make shellcheck`      | Run shellcheck on `release-local.sh` (if it exists)                              |
@@ -255,7 +250,7 @@ tests/
 
 ### Current Coverage
 
-- **2456 tests** covering core logic, GUI components, and scripts
+- **2426 tests** covering core logic, GUI components, and scripts
 - **Core** (services/, pipeline/, naming/, content/ sub-packages + top-level): AI analysis, AI batch, AI service,
   Apple Events, card model, card processor, card service, card store, changelog, changelog models, config,
   config service, database, family name cleaning, family name data, family name formatting, filename safety,
@@ -413,7 +408,7 @@ uv run python -m scripts.reformat_md_tables docs/**/*.md README.md CLAUDE.md
 uv run python -m scripts.dmg
 ```
 
-This is also available as `make dmg`, which builds the `.app` bundle first if needed.
+When releasing, use `./release-local.sh 3` instead of running this directly (see [Release Configuration](#release-configuration)).
 
 ### Code Signing
 

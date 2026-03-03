@@ -10,8 +10,6 @@ from __future__ import annotations
 
 import csv
 import io
-import re
-import unicodedata
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,7 +17,7 @@ from urllib.request import urlopen
 
 from rich.console import Console
 
-from scripts.build_family_name_db._unicode import UNICODE_SPECIAL as _UNICODE_SPECIAL
+from scripts.build_family_name_db._unicode import normalize
 
 CENSUS_URL = "https://www2.census.gov/topics/genealogy/2010surnames/names.zip"
 CENSUS_CSV_NAME = "Names_2010Census.csv"
@@ -32,16 +30,6 @@ class CensusEntry:
     name: str  # Original ALL-CAPS name from Census
     rank: int
     count: int
-
-
-def normalize(name: str) -> str:
-    """Normalize for lookup: Unicode-fold to ASCII, lowercase, strip non-alpha."""
-    lowered = name.lower()
-    for char, repl in _UNICODE_SPECIAL.items():
-        if char in lowered:
-            lowered = lowered.replace(char, repl)
-    decomposed = unicodedata.normalize("NFKD", lowered)
-    return re.sub(r"[^a-z]", "", decomposed)
 
 
 def download_census(console: Console, cache_dir: Path) -> dict[str, CensusEntry]:

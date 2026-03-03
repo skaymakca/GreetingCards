@@ -99,11 +99,13 @@ class Config:
 # tessdata management
 # ---------------------------------------------------------------------------
 
+from scripts.helpers import PROJECT_ROOT
+
 TESSDATA_BEST_URL = "https://github.com/tesseract-ocr/tessdata_best/raw/main/eng.traineddata"
-TESSDATA_BEST_DIR = Path(__file__).resolve().parent.parent / "_build" / "script_cache" / "tessdata" / "best"
+TESSDATA_BEST_DIR = PROJECT_ROOT / "_build" / "script_cache" / "tessdata" / "best"
 
 
-def _detect_system_tessdata() -> str | None:
+def detect_system_tessdata() -> str | None:
     """Find system tessdata directory (Homebrew or default locations)."""
     candidates = [
         "/opt/homebrew/share/tessdata",
@@ -136,7 +138,7 @@ def get_tessdata_path(tessdata: str) -> str | None:
     TESSDATA_PREFIX environment variable.
     """
     if tessdata == "default":
-        return _detect_system_tessdata()
+        return detect_system_tessdata()
     return str(ensure_tessdata_best())
 
 

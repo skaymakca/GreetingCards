@@ -72,8 +72,8 @@ from scripts.benchmark.common import (
     OCR_FNS,
     PREPROCESS_FNS,
     Config,
-    _detect_system_tessdata,
     build_jobs,
+    detect_system_tessdata,
     ensure_tessdata_best,
     find_pdfs,
     html_escape,
@@ -317,7 +317,7 @@ def run_benchmark(
     _validate_config(cfg)
 
     # Set TESSDATA_PREFIX for worker processes
-    system_tessdata = _detect_system_tessdata()
+    system_tessdata = detect_system_tessdata()
     if system_tessdata:
         os.environ["TESSDATA_PREFIX"] = system_tessdata
 

@@ -36,7 +36,7 @@ from app.gui.context_menu import add_entry_context_menu
 from app.gui.dialogs.common import display_path as _display_path
 from app.gui.icons import load_menu_icon, load_sf_symbol
 from app.gui.styles import Color, Font, Layout
-from app.gui.utils import create_static_text
+from app.gui.utils import create_static_text, draw_drag_highlight
 from app.models.card import CardResult, Confidence
 
 logger = logging.getLogger(__name__)
@@ -1059,13 +1059,7 @@ class ReviewPanelMasterDetail(wx.Panel):
         if not gc:
             return
         w, h = self.GetSize()
-        pen = gc.CreatePen(wx.GraphicsPenInfo(Color.ACCENT).Width(Layout.HIGHLIGHT_WIDTH))
-        gc.SetPen(pen)
-        gc.SetBrush(wx.NullBrush)
-        path = gc.CreatePath()
-        inset = Layout.HIGHLIGHT_INSET
-        path.AddRoundedRectangle(inset, inset, w - inset * 2, h - inset * 2, Layout.HIGHLIGHT_RADIUS)
-        gc.StrokePath(path)
+        draw_drag_highlight(gc, w, h)
 
     def select_all(self) -> None:
         """Select all cards in the list."""

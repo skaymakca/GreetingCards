@@ -5,7 +5,7 @@
 ```
 scripts/
   __init__.py              # Empty (makes scripts/ a Python package)
-  helpers.py               # Shared utilities: output dirs
+  helpers.py               # Shared utilities: PROJECT_ROOT, version, paths, output dirs
   dark_mode_cycler.py      # Standalone: toggles macOS dark/light mode every 5s
   reformat_md_tables.py    # Standalone: reformat Markdown tables for PyCharm
   run_tests.py             # Test runner: scopes, coverage, pytest arg builder
@@ -135,6 +135,19 @@ with script_output_dir("generate_sample_cards") as output_dir:
 - Yields the `Path` for use inside the block
 - **On exception:** removes the directory if it's empty (no partial output left behind)
 - **On success:** keeps the directory as-is
+
+### Shared Constants and Path Helpers
+
+Also defined in `scripts/helpers.py`:
+
+| Export           | Type / Signature                          | Description                                                                 |
+|------------------|-------------------------------------------|-----------------------------------------------------------------------------|
+| `PROJECT_ROOT`   | `Path`                                    | Absolute path to the project root (parent of `scripts/`)                    |
+| `read_version()` | `() -> str`                               | Reads the `[project].version` field from `pyproject.toml`                   |
+| `app_path()`     | `() -> Path`                              | Returns `PROJECT_ROOT / "dist" / "Greeting Cards.app"`                      |
+| `dmg_path()`     | `(version: str \| None = None) -> Path`   | Returns `PROJECT_ROOT / "dist" / "Greeting-Cards-{version}.dmg"`; auto-reads version if `None` |
+
+These are used by `scripts/dmg/`, `scripts/sign/`, `scripts/notarize/`, and `scripts/release/` to avoid duplicating project-root resolution and version reading.
 
 ## CLI Conventions
 
