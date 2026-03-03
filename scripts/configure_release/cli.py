@@ -7,7 +7,12 @@ import os
 import pathlib
 import stat
 
-from scripts.configure_release.generator import ReleaseConfig, generate_script
+from scripts.configure_release.generator import (
+    ExistingConfig,
+    ReleaseConfig,
+    generate_script,
+    parse_existing_script,
+)
 from scripts.configure_release.keychain import find_signing_identities
 from scripts.configure_release.ui import InteractiveInput, UserInput
 
@@ -20,8 +25,14 @@ _GREEN = "\033[32m"
 _RESET = "\033[0m"
 
 
-def configure(ui: UserInput) -> ReleaseConfig:
+def configure(
+    ui: UserInput,
+    existing: ExistingConfig | None = None,
+) -> ReleaseConfig:
     """Interactively configure signing identity and notarization profile.
+
+    When *existing* is provided (from a previous release-local.sh), its values
+    are offered as defaults so the user can keep them with a single Enter.
 
     Raises SystemExit if no signing identities are found.
     """
@@ -35,13 +46,26 @@ def configure(ui: UserInput) -> ReleaseConfig:
     # Build options list and find default
     options = [f"{ident.common_name}  ({ident.sha1[:8]}…)" for ident in identities]
     default_idx: int | None = None
-    for i, ident in enumerate(identities):
-        if ident.common_name.startswith("Developer ID Application:"):
-            default_idx = i
-            break
+
+    if existing and existing.signing_identity:
+        # Insert "Keep current" as the first option
+        options.insert(0, f"Keep current: {existing.signing_identity}")
+        default_idx = 0
+        # Shift any auto-detected default by 1 (but "Keep current" takes priority)
+    else:
+        for i, ident in enumerate(identities):
+            if ident.common_name.startswith("Developer ID Application:"):
+                default_idx = i
+                break
 
     selected = ui.choose("Select a signing identity:", options, default=default_idx)
-    identity = identities[selected].common_name
+
+    if existing and existing.signing_identity and selected == 0:
+        identity = existing.signing_identity
+    else:
+        # Adjust index when "Keep current" was prepended
+        ident_index = selected - 1 if (existing and existing.signing_identity) else selected
+        identity = identities[ident_index].common_name
 
     print("")
     print("Notarization requires credentials stored in the macOS Keychain.")
@@ -53,7 +77,11 @@ def configure(ui: UserInput) -> ReleaseConfig:
     print("    --password app-specific-password")
     print("")
 
-    profile = ui.ask("Keychain profile name", default="GreetingCards")
+    profile_default = "GreetingCards"
+    if existing and existing.keychain_profile:
+        profile_default = existing.keychain_profile
+
+    profile = ui.ask("Keychain profile name", default=profile_default)
 
     return ReleaseConfig(signing_identity=identity, keychain_profile=profile)
 
@@ -106,8 +134,14 @@ def main() -> None:
     print("  Release Configuration")
     print("=" * 50)
 
+    # Parse existing script for re-run detection
+    existing: ExistingConfig | None = None
+    if _OUTPUT_PATH.exists():
+        content = _OUTPUT_PATH.read_text(encoding="utf-8")
+        existing = parse_existing_script(content)
+
     ui = InteractiveInput()
-    config = configure(ui)
+    config = configure(ui, existing=existing)
     write_script(config)
 
     rel_path = os.path.relpath(_OUTPUT_PATH)

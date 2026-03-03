@@ -42,6 +42,28 @@ class TestChoose:
 
         assert result == 0  # "1" → index 0
 
+    def test_choose_out_of_range_then_valid(self, monkeypatch: object) -> None:
+        import builtins
+
+        inputs = iter(["99", "1"])
+        monkeypatch.setattr(builtins, "input", lambda _prompt: next(inputs))  # type: ignore[attr-defined]
+
+        ui = InteractiveInput()
+        result = ui.choose("Pick one:", ["Alpha", "Beta"])
+
+        assert result == 0
+
+    def test_choose_empty_no_default_then_valid(self, monkeypatch: object) -> None:
+        import builtins
+
+        inputs = iter(["", "2"])
+        monkeypatch.setattr(builtins, "input", lambda _prompt: next(inputs))  # type: ignore[attr-defined]
+
+        ui = InteractiveInput()
+        result = ui.choose("Pick one:", ["Alpha", "Beta"])
+
+        assert result == 1
+
 
 class TestAsk:
     """Test InteractiveInput.ask()."""
@@ -66,6 +88,16 @@ class TestAsk:
 
         assert result == "GreetingCards"
 
+    def test_ask_whitespace_returns_default(self, monkeypatch: object) -> None:
+        import builtins
+
+        monkeypatch.setattr(builtins, "input", lambda _prompt: "   ")  # type: ignore[attr-defined]
+
+        ui = InteractiveInput()
+        result = ui.ask("Profile name", default="Fallback")
+
+        assert result == "Fallback"
+
 
 class TestConfirm:
     """Test InteractiveInput.confirm()."""
@@ -84,6 +116,46 @@ class TestConfirm:
         import builtins
 
         monkeypatch.setattr(builtins, "input", lambda _prompt: "n")  # type: ignore[attr-defined]
+
+        ui = InteractiveInput()
+        result = ui.confirm("Continue?", default=True)
+
+        assert result is False
+
+    def test_confirm_default_false_empty(self, monkeypatch: object) -> None:
+        import builtins
+
+        monkeypatch.setattr(builtins, "input", lambda _prompt: "")  # type: ignore[attr-defined]
+
+        ui = InteractiveInput()
+        result = ui.confirm("Continue?", default=False)
+
+        assert result is False
+
+    def test_confirm_explicit_yes(self, monkeypatch: object) -> None:
+        import builtins
+
+        monkeypatch.setattr(builtins, "input", lambda _prompt: "y")  # type: ignore[attr-defined]
+
+        ui = InteractiveInput()
+        result = ui.confirm("Continue?", default=False)
+
+        assert result is True
+
+    def test_confirm_explicit_yes_full(self, monkeypatch: object) -> None:
+        import builtins
+
+        monkeypatch.setattr(builtins, "input", lambda _prompt: "yes")  # type: ignore[attr-defined]
+
+        ui = InteractiveInput()
+        result = ui.confirm("Continue?", default=False)
+
+        assert result is True
+
+    def test_confirm_non_boolean_input(self, monkeypatch: object) -> None:
+        import builtins
+
+        monkeypatch.setattr(builtins, "input", lambda _prompt: "maybe")  # type: ignore[attr-defined]
 
         ui = InteractiveInput()
         result = ui.confirm("Continue?", default=True)
