@@ -33,6 +33,7 @@ dev = [
     "pyinstrument>=5.1.2",
     "types-markdown>=3.10.2.20260211",
     "dmgbuild>=1.6.1",
+    "shellcheck-py>=0.11.0.1",
 ]
 
 [tool.pytest.ini_options]

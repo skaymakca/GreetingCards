@@ -94,6 +94,8 @@ Run `make help` to see all available commands.
 | `make release`         | Full release: build, sign, DMG, notarize, checksum                               |
 | `make release-draft`   | Full release + create draft GitHub release                                       |
 | `make release-publish` | Publish the latest draft release                                                 |
+| `make configure-release` | Configure local signing identity & profile (generates `release-local.sh`)      |
+| `make shellcheck`      | Run shellcheck on `release-local.sh` (if it exists)                              |
 | `make version`         | Print the current version                                                        |
 | `make bump-patch`      | Bump patch version (e.g. 0.5.0 → 0.5.1)                                          |
 | `make bump-minor`      | Bump minor version (e.g. 0.5.1 → 0.6.0)                                          |
@@ -253,7 +255,7 @@ tests/
 
 ### Current Coverage
 
-- **2428 tests** covering core logic, GUI components, and scripts
+- **2456 tests** covering core logic, GUI components, and scripts
 - **Core** (services/, pipeline/, naming/, content/ sub-packages + top-level): AI analysis, AI batch, AI service,
   Apple Events, card model, card processor, card service, card store, changelog, changelog models, config,
   config service, database, family name cleaning, family name data, family name formatting, filename safety,
@@ -266,9 +268,10 @@ tests/
 - **Integration**: AppleScript end-to-end tests (requires `--run-integration`)
 - **Scripts** (tests/scripts/): helpers, build_family_name_db (merger, Unicode, Census/Faker/Smashew sources), dmg
   (readme RTF, background PNG, dmgbuild orchestration), generate_diagnostic_cards (CLI), generate_sample_cards
-  (models, display, pdf_composer, image_generator, spec_generator, cli, spec_generators/ sub-package), sign (Mach-O
-  detection, tier classification, codesign orchestration), notarize (submission, stapling, verification), release
-  (changelog extraction, checksum, GitHub release commands)
+  (models, display, pdf_composer, image_generator, spec_generator, cli, spec_generators/ sub-package),
+  configure_release (keychain scanning, interactive UI, script generation, shellcheck validation, CLI orchestration),
+  sign (Mach-O detection, tier classification, codesign orchestration), notarize (submission, stapling, verification),
+  release (changelog extraction, checksum, GitHub release commands)
 
 ### Adding Tests
 
@@ -430,6 +433,25 @@ uv run python -m scripts.sign --dry-run            # print commands only
 uv run python -m scripts.notarize
 uv run python -m scripts.notarize --dry-run
 ```
+
+### Release Configuration
+
+`configure_release` scans the macOS Keychain for signing identities, asks for a notarization profile name, and
+generates a `release-local.sh` script (gitignored) with the full pipeline pre-configured for your machine.
+
+```bash
+uv run python -m scripts.configure_release
+```
+
+The generated script supports selective step execution:
+
+```bash
+./release-local.sh           # show help listing all 7 steps
+./release-local.sh 3         # run step 3 only
+./release-local.sh 1-5       # run steps 1 through 5
+```
+
+This is also available as `make configure-release`.
 
 ### Release Automation
 

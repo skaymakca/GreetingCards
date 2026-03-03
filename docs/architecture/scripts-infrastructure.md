@@ -65,6 +65,14 @@ scripts/profiling/
   __main__.py              # Entry point
   cli.py                   # Profiles PDF processing pipeline with pyinstrument
 
+scripts/configure_release/
+  __init__.py
+  __main__.py              # Entry point
+  cli.py                   # Orchestrator: keychain + UI + generator, writes release-local.sh
+  keychain.py              # Keychain scanning: security find-identity → SigningIdentity list
+  ui.py                    # UserInput protocol + InteractiveInput (stdin-based)
+  generator.py             # Pure function: ReleaseConfig → shell script string
+
 scripts/sign/
   __init__.py
   __main__.py              # Entry point

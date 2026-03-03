@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev tessdata run test check pyright mypy lint lint-fix format format-check security pycharm-inspect content licenses-sync icon app app-run dmg sign notarize release release-draft release-publish version bump-patch bump-minor bump-major tag tag-push visual-test visual-test-app show-scripts loc docker-build docker-test docker-shell clean
+.PHONY: help setup setup-dev tessdata run test check pyright mypy lint lint-fix format format-check security pycharm-inspect content licenses-sync icon app app-run dmg sign notarize release release-draft release-publish configure-release shellcheck version bump-patch bump-minor bump-major tag tag-push visual-test visual-test-app show-scripts loc docker-build docker-test docker-shell clean
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -191,6 +191,12 @@ release-draft: release ## Create a draft GitHub release
 release-publish: ## Publish the latest draft release
 	uv run python -m scripts.release publish
 
+configure-release: ## Configure local signing identity & profile (generates release-local.sh)
+	uv run python -m scripts.configure_release
+
+shellcheck: ## Run shellcheck on release-local.sh (if it exists)
+	@if [ -f release-local.sh ]; then shellcheck release-local.sh; else echo "No release-local.sh found. Run 'make configure-release' first."; fi
+
 tag: ## Create git tag vX.Y.Z from current version
 	@v=$$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"); \
 	git tag "v$$v" && echo "Tagged v$$v"
@@ -257,6 +263,9 @@ show-scripts: ## Show available script invocations (does not run them)
 	@echo "    uv run python -m scripts.release checksum"
 	@echo "    uv run python -m scripts.release draft"
 	@echo "    uv run python -m scripts.release publish"
+	@echo ""
+	@echo "  \033[36mconfigure_release\033[0m            Configure local signing identity & notarization profile"
+	@echo "    uv run python -m scripts.configure_release"
 	@echo ""
 	@echo "  All scripts support --help."
 	@echo "  Output goes to _build/script_output/ with timestamped directories."

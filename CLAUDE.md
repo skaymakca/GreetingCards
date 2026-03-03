@@ -14,6 +14,20 @@
 
 ---
 
+## 🚫 CRITICAL: NO SENSITIVE DATA IN COMMITS 🚫
+
+**NEVER commit secrets, credentials, or user-specific identity information.**
+
+- ❌ Do NOT commit certificate files (`.cer`, `.p12`, `.p8`, `.pem`, `.key`)
+- ❌ Do NOT commit `.env` files or inline secrets in code
+- ❌ Do NOT hardcode signing identities, Apple IDs, team IDs, or keychain profile names
+- ❌ Do NOT include user-specific paths, names, or identifiers in committed code
+- ✅ Use environment variables (`$CODESIGN_IDENTITY`) or macOS Keychain for credentials
+- ✅ Use CLI flags (`--identity`, `--keychain-profile`) that read from env/keychain
+- ✅ Keep examples generic: `your@email.com`, `TEAMID`, `YOUR_IDENTITY`
+
+---
+
 ## 🚫 CRITICAL: DO NOT MODIFY GITHUB ISSUES 🚫
 
 **NEVER create, close, or edit GitHub issues without explicit user permission.**
@@ -228,6 +242,7 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `scripts/dmg/**` (including `dmgbuild_settings.py`)                                                                                                                                 | `docs/architecture/dmg-creation.md`                                   |
 | `content/dmg/readme.md`, `content/dmg/Sample Cards/`                                                                                                                                | `docs/architecture/dmg-creation.md`                                   |
 | `scripts/sign/**`, `scripts/notarize/**`, `scripts/release/**`                                                                                                                      | `docs/architecture/release-pipeline.md`                               |
+| `scripts/configure_release/*.py`                                                                                                                                                    | `docs/architecture/release-pipeline.md`                               |
 | `packaging/entitlements.plist`, `packaging/Greeting Cards.spec` (upx/signing)                                                                                                       | `docs/architecture/release-pipeline.md`                               |
 | Markdown tables in any `*.md` file                                                                                                                                                  | `docs/pycharm-table-formatting.md`                                    |
 | `docker/Dockerfile`, `docker/docker-compose.yml`, `.github/workflows/ci.yml`, `.github/actions/setup-build-env/action.yml`                                                           | `docs/architecture/docker-and-ci.md`                                  |

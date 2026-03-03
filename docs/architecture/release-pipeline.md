@@ -2,7 +2,7 @@
 
 Full pipeline for building, signing, notarizing, and publishing a release of Greeting Cards.
 
-**Key files:** `packaging/entitlements.plist`, `scripts/sign/`, `scripts/notarize/`, `scripts/release/`
+**Key files:** `packaging/entitlements.plist`, `scripts/sign/`, `scripts/notarize/`, `scripts/release/`, `scripts/configure_release/`
 
 ---
 
@@ -141,6 +141,49 @@ uv run python -m scripts.release publish     # publish the draft
 | `make release`   | Full pipeline: sign → DMG → notarize → checksum          |
 | `make release-draft` | Full pipeline + extract changelog + create draft release |
 | `make release-publish` | Publish the latest draft release                     |
+| `make configure-release` | Generate `release-local.sh` with signing identity and profile |
+| `make shellcheck`      | Run shellcheck on `release-local.sh` (if it exists)  |
+
+---
+
+## Release Configuration (`scripts/configure_release/`)
+
+Automates local developer setup by scanning the Keychain for signing identities, prompting for a notarization profile, and generating a `release-local.sh` script (gitignored) that encodes the full pipeline.
+
+### What It Does
+
+1. Runs `security find-identity -v -p codesigning` to list available certificates
+2. Presents an interactive menu to pick a signing identity (pre-selects "Developer ID Application:" if present)
+3. Asks for the `notarytool` Keychain profile name (default: `"GreetingCards"`)
+4. Generates `release-local.sh` in the repo root with the selected config baked in
+5. Shows a colored diff of changes (or "new file" on first run)
+
+### Step Selector
+
+The generated script supports selective step execution:
+
+```bash
+./release-local.sh           # show help listing all steps
+./release-local.sh 3         # run step 3 only
+./release-local.sh 1-5       # run steps 1 through 5
+./release-local.sh 3-7       # run steps 3 through 7
+```
+
+### Steps
+
+| Step | Description             | Command                                             |
+|------|-------------------------|-----------------------------------------------------|
+| 1    | Building app            | `make app`                                           |
+| 2    | Signing app             | `scripts.sign --identity "$CODESIGN_IDENTITY"`       |
+| 3    | Creating DMG            | `scripts.dmg`                                        |
+| 4    | Notarizing              | `scripts.notarize --keychain-profile "$KEYCHAIN_PROFILE"` |
+| 5    | Generating checksum     | `scripts.release checksum`                           |
+| 6    | Extracting changelog    | `scripts.release changelog`                          |
+| 7    | Creating draft release  | `scripts.release draft`                              |
+
+### Maintenance
+
+When pipeline steps are added, removed, or reordered, update the `STEPS` tuple in `scripts/configure_release/generator.py`. This is the single source of truth for step definitions — the script body and help text are both generated from it.
 
 ---
 
