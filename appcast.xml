@@ -3,6 +3,24 @@
   <channel>
     <title>Greeting Cards</title>
     <item>
+      <title>Version 0.13.0</title>
+      <sparkle:version>1772664525</sparkle:version>
+      <sparkle:shortVersionString>0.13.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <pubDate>Wed, 04 Mar 2026 22:48:45 +0000</pubDate>
+      <description>Greeting Cards now updates itself. The app uses the Sparkle framework — the
+same updater trusted by apps like Firefox, VLC, and iTerm — to check for new
+versions automatically in the background. When an update is available you'll
+see a native macOS prompt with release notes and a one-click install. Updates
+are cryptographically signed so only authentic releases are accepted.
+
+- Automatic background update checks with a native macOS update prompt
+- "Check for Updates" menu item under File for manual checks anytime
+- First-launch opt-in dialog — choose whether to enable automatic checks (changeable in Settings)
+- Updates delivered as signed DMGs from GitHub Releases with EdDSA signature verification</description>
+      <enclosure url="https://github.com/skaymakca/GreetingCards/releases/download/v0.13.0/Greeting-Cards-0.13.0.dmg" sparkle:edSignature="cN652sXBXex29rNzxS6j3JYanPhcZZR6KIuOGAH0Yo78KR+WJmWREhVG1XZ6Y8lXDrot98hZMct1gkM7KTTFBQ==" length="90525347" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.12.1</title>
       <sparkle:version>1772657426</sparkle:version>
       <sparkle:shortVersionString>0.12.1</sparkle:shortVersionString>
