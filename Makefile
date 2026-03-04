@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev tessdata run test test-everything check pyright mypy lint lint-fix format format-check security pycharm-inspect content licenses-sync icon app app-run release-publish configure-release shellcheck version bump-patch bump-minor bump-major tag tag-push visual-test visual-test-app show-scripts loc docker-build docker-test docker-shell clean
+.PHONY: help setup setup-dev tessdata run test test-everything check pyright mypy lint lint-fix format format-check security pycharm-inspect content licenses-sync icon app app-run dmg configure-release shellcheck version bump-patch bump-minor bump-major tag tag-push visual-test visual-test-app show-scripts loc docker-build docker-test docker-shell clean
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -146,6 +146,9 @@ app: icon content tessdata ## Build the macOS .app bundle
 app-run: app ## Build and run the .app bundle (logs visible in terminal)
 	"dist/Greeting Cards.app/Contents/MacOS/Greeting Cards"
 
+dmg: app ## Build the distributable DMG installer
+	uv run python -m scripts.dmg
+
 ##@ Version & Release
 
 version: ## Show current version
@@ -175,10 +178,7 @@ bump-major: ## Bump major version (0.6.0 → 1.0.0)
 	t=open(p).read().replace('version = \"'+old+'\"','version = \"'+nv+'\"',1); \
 	open(p,'w').write(t); print(nv)"
 
-release-publish: ## Publish the latest draft release
-	uv run python -m scripts.release publish
-
-configure-release: ## Configure local signing identity & profile (generates release-local.sh)
+configure-release: ## Generate the release pipeline script (release-local.sh)
 	uv run python -m scripts.configure_release
 
 shellcheck: ## Run shellcheck on release-local.sh (if it exists)
@@ -244,9 +244,12 @@ show-scripts: ## Show available script invocations (does not run them)
 	@echo "    uv run python -m scripts.sign"
 	@echo "    uv run python -m scripts.sign --identity \"-\" --dry-run"
 	@echo ""
-	@echo "  \033[36mnotarize\033[0m                     Submit signed DMG to Apple notary service"
-	@echo "    uv run python -m scripts.notarize"
-	@echo "    uv run python -m scripts.notarize --dry-run"
+	@echo "  \033[36mnotarize\033[0m                     Apple notarization (async workflow)"
+	@echo "    uv run python -m scripts.notarize submit          # submit to notary"
+	@echo "    uv run python -m scripts.notarize status          # check status"
+	@echo "    uv run python -m scripts.notarize log             # fetch log"
+	@echo "    uv run python -m scripts.notarize staple          # staple + verify"
+	@echo "    uv run python -m scripts.notarize --dry-run submit"
 	@echo ""
 	@echo "  \033[36mrelease\033[0m                      Release automation (changelog, checksum, GitHub release)"
 	@echo "    uv run python -m scripts.release changelog"

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.1 — Infrastructure & Reliability (2026-03-04)
+
+Internal improvements to build infrastructure, test coverage, and release automation.
+
 ## 0.12.0 — Scripting & Distribution (2026-03-02)
 
 AppleScript automation and a polished macOS installer.

@@ -1,6 +1,18 @@
 # Greeting Cards
 
-Scans holiday/greeting card PDFs, extracts family names via OCR and AI, and batch-renames the files.
+A macOS desktop app for organizing holiday and greeting card PDFs. Drop a folder of scanned cards, and Greeting Cards extracts family names using offline OCR and Claude AI vision, then batch-renames every file into a clean, consistent format — no manual typing required.
+
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Make commands](#make-commands)
+- [Manual setup and commands](#manual-setup-and-commands)
+- [Testing](#testing)
+- [Database](#database)
+- [Scripts](#scripts)
+- [IDE Setup (PyCharm)](#ide-setup-pycharm)
+- [Docker (Cross-Platform Testing)](#docker-cross-platform-testing)
+- [Continuous Integration](#continuous-integration)
 
 ## Features
 
@@ -80,6 +92,7 @@ Run `make help` to see all available commands.
 | `make setup-dev`         | Install all dependencies including dev/testing tools                             |
 | `make run`               | Run the app from source                                                          |
 | `make test`              | Run tests (no args shows help; `make test T="core --cov -x"`)                    |
+| `make test-everything`   | Run all tests (including integration) with coverage and open reports              |
 | `make tessdata`          | Download tessdata (eng.traineddata) for OCR                                      |
 | `make content`           | Generate runtime content (HTML, data files, images)                              |
 | `make licenses-sync`     | Sync license registry from uv.lock + .dist-info                                  |
@@ -88,8 +101,7 @@ Run `make help` to see all available commands.
 | `make app`               | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`)                |
 | `make app-run`           | Build and run the `.app` bundle with logs visible in terminal                    |
 | `make icon`              | Generate `icon.icns` from `icon.png` (auto-run by build)                         |
-| `make release-publish`   | Publish the latest draft release                                                 |
-| `make configure-release` | Configure local signing identity & profile (generates `release-local.sh`)        |
+| `make configure-release` | Generate the release pipeline script (`release-local.sh`)                        |
 | `make shellcheck`        | Run shellcheck on `release-local.sh` (if it exists)                              |
 | `make version`           | Print the current version                                                        |
 | `make bump-patch`        | Bump patch version (e.g. 0.5.0 → 0.5.1)                                          |
@@ -228,7 +240,7 @@ tests/
     ├── generate_diagnostic_cards/   # CLI argument parsing, PDF creation
     ├── generate_sample_cards/       # models, display, pdf_composer, image_generator,
     │                                #   spec_generator, cli; spec_generators/ sub-package
-    ├── notarize/                    # notarization CLI, submission, stapling
+    ├── notarize/                    # async notarization (submit, status, log, staple)
     ├── release/                     # changelog extraction, checksum, GitHub release
     └── sign/                        # Mach-O detection, tier classification, codesign
 ```
@@ -250,7 +262,7 @@ tests/
 
 ### Current Coverage
 
-- **2577 tests** covering core logic, GUI components, and scripts
+- **2599 tests** covering core logic, GUI components, and scripts
 - **Core** (services/, pipeline/, naming/, content/ sub-packages + top-level): AI analysis, AI batch, AI service,
   Apple Events, card model, card processor, card service, card store, changelog, changelog models, config,
   config service, database, family name cleaning, family name data, family name formatting, filename safety,
@@ -265,7 +277,7 @@ tests/
   (readme RTF, background PNG, dmgbuild orchestration), generate_diagnostic_cards (CLI), generate_sample_cards
   (models, display, pdf_composer, image_generator, spec_generator, cli, spec_generators/ sub-package),
   configure_release (keychain scanning, interactive UI, script generation, shellcheck validation, CLI orchestration),
-  sign (Mach-O detection, tier classification, codesign orchestration), notarize (submission, stapling, verification),
+  sign (Mach-O detection, tier classification, codesign orchestration), notarize (async submit, status, log, staple),
   release (changelog extraction, checksum, GitHub release commands)
 
 ### Adding Tests
@@ -400,6 +412,21 @@ uv run python -m scripts.build_family_name_db
 uv run python -m scripts.reformat_md_tables docs/**/*.md README.md CLAUDE.md
 ```
 
+### Building & Releasing
+
+The release pipeline builds, signs, notarizes, and packages the app for distribution. The one-time setup
+generates a machine-specific `release-local.sh` script (gitignored) that orchestrates the full pipeline:
+
+```bash
+make configure-release          # one-time: generate release-local.sh
+./release-local.sh build-draft  # build + sign + DMG + notarize + draft release
+./release-local.sh staple       # staple notarization ticket after approval
+./release-local.sh publish      # publish the GitHub release
+```
+
+See [`README-Release-Checklist.md`](README-Release-Checklist.md) for the full pre-release checklist,
+and [`docs/architecture/release-pipeline.md`](docs/architecture/release-pipeline.md) for pipeline internals.
+
 ### DMG Installer
 
 `dmg` builds the distributable macOS DMG installer from the current `.app` bundle.
@@ -422,11 +449,15 @@ uv run python -m scripts.sign --dry-run            # print commands only
 
 ### Notarization
 
-`notarize` submits the signed DMG to Apple's notary service and staples the ticket.
+`notarize` handles Apple notarization as an async workflow: submit, check status, and staple as separate steps.
 
 ```bash
-uv run python -m scripts.notarize
-uv run python -m scripts.notarize --dry-run
+uv run python -m scripts.notarize submit                    # submit to notary (async)
+uv run python -m scripts.notarize status                    # check notarization status
+uv run python -m scripts.notarize log                       # fetch notarization log
+uv run python -m scripts.notarize staple                    # staple ticket + verify
+uv run python -m scripts.notarize --dry-run submit          # print commands only
+uv run python -m scripts.notarize staple --submission-id X  # explicit ID override
 ```
 
 ### Release Configuration
@@ -441,7 +472,7 @@ uv run python -m scripts.configure_release
 The generated script supports selective step execution:
 
 ```bash
-./release-local.sh           # show help listing all 7 steps
+./release-local.sh           # show help listing all 8 steps
 ./release-local.sh 3         # run step 3 only
 ./release-local.sh 1-5       # run steps 1 through 5
 ```

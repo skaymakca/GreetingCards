@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import pathlib
+import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
 from scripts.release.cli import (
+    ReleaseError,
+    _preflight_tag_check,
     _release_notes_path,
+    _run,
     build_draft_command,
     cmd_draft,
+    cmd_publish,
     extract_changelog,
     generate_checksum,
 )
@@ -54,11 +59,11 @@ class TestExtractChangelog:
         assert "Non-modal progress strip" in result
         assert "AppleScript" not in result
 
-    def test_version_not_found_raises(self, tmp_path: pathlib.Path) -> None:
+    def test_version_not_found_shows_available(self, tmp_path: pathlib.Path) -> None:
         changelog = tmp_path / "CHANGELOG.md"
         changelog.write_text(_SAMPLE_CHANGELOG, encoding="utf-8")
 
-        with pytest.raises(ValueError, match=r"99\.0\.0"):
+        with pytest.raises(ValueError, match=r"Found: 0\.12\.0, 0\.11\.0"):
             extract_changelog("99.0.0", changelog)
 
     def test_returns_stripped_body_with_trailing_newline(self, tmp_path: pathlib.Path) -> None:
@@ -145,21 +150,21 @@ class TestMain:
     def test_changelog_subcommand(self, tmp_path: pathlib.Path) -> None:
         changelog = tmp_path / "CHANGELOG.md"
         changelog.write_text(_SAMPLE_CHANGELOG, encoding="utf-8")
-        build_dir = tmp_path / "_build" / "release"
+        dist_dir = tmp_path / "dist"
 
         with (
             patch("sys.argv", ["release", "changelog"]),
             patch("scripts.release.cli.read_version", return_value="0.12.0"),
             patch("scripts.release.cli._CHANGELOG", changelog),
-            patch("scripts.release.cli._release_notes_path", return_value=build_dir / "release-notes.md"),
+            patch("scripts.release.cli._release_notes_path", return_value=dist_dir / "release-notes.md"),
         ):
-            build_dir.mkdir(parents=True)
+            dist_dir.mkdir(parents=True)
 
             from scripts.release.cli import main
 
             main()
 
-        assert (build_dir / "release-notes.md").exists()
+        assert (dist_dir / "release-notes.md").exists()
 
     def test_checksum_subcommand(self, tmp_path: pathlib.Path) -> None:
         dmg = tmp_path / "dist" / "Greeting-Cards-1.0.0.dmg"
@@ -188,11 +193,11 @@ class TestMain:
         checksum = tmp_path / "dist" / "Greeting-Cards-1.0.0.sha256"
         checksum.write_text("abc  Greeting-Cards-1.0.0.dmg\n", encoding="utf-8")
 
-        notes = tmp_path / "_build" / "release" / "release-notes.md"
-        notes.parent.mkdir(parents=True)
+        notes = tmp_path / "dist" / "release-notes.md"
         notes.write_text("notes", encoding="utf-8")
 
         with (
+            patch("scripts.release.cli._preflight_tag_check"),
             patch("sys.argv", ["release", "draft"]),
             patch("scripts.release.cli.read_version", return_value="1.0.0"),
             patch("scripts.release.cli.PROJECT_ROOT", tmp_path),
@@ -229,13 +234,13 @@ class TestReleaseNotesPath:
         """_release_notes_path creates the parent directory if it doesn't exist."""
         fake_root = tmp_path / "project"
         # Directory doesn't exist yet
-        assert not (fake_root / "_build" / "release").exists()
+        assert not (fake_root / "dist").exists()
 
         with patch("scripts.release.cli.PROJECT_ROOT", fake_root):
             result = _release_notes_path()
 
-        assert (fake_root / "_build" / "release").is_dir()
-        assert result == fake_root / "_build" / "release" / "release-notes.md"
+        assert (fake_root / "dist").is_dir()
+        assert result == fake_root / "dist" / "release-notes.md"
 
 
 class TestCmdDraft:
@@ -253,10 +258,11 @@ class TestCmdDraft:
         checksum = tmp_path / "dist" / "Greeting-Cards-0.12.0.sha256"
         checksum.write_text("abc  Greeting-Cards-0.12.0.dmg\n", encoding="utf-8")
 
-        notes_file = tmp_path / "_build" / "release" / "release-notes.md"
+        notes_file = tmp_path / "dist" / "release-notes.md"
         # notes_file does NOT exist yet — cmd_draft should auto-create it
 
         with (
+            patch("scripts.release.cli._preflight_tag_check"),
             patch("scripts.release.cli.PROJECT_ROOT", tmp_path),
             patch("scripts.release.cli._CHANGELOG", changelog),
             patch("scripts.release.cli._release_notes_path", return_value=notes_file),
@@ -273,14 +279,219 @@ class TestCmdDraft:
 
     def test_missing_dmg_raises(self, tmp_path: pathlib.Path) -> None:
         """cmd_draft raises FileNotFoundError when DMG doesn't exist."""
-        notes_file = tmp_path / "_build" / "release" / "release-notes.md"
+        notes_file = tmp_path / "dist" / "release-notes.md"
         notes_file.parent.mkdir(parents=True)
         notes_file.write_text("notes", encoding="utf-8")
 
         with (
+            patch("scripts.release.cli._preflight_tag_check"),
             patch("scripts.release.cli.PROJECT_ROOT", tmp_path),
             patch("scripts.release.cli._release_notes_path", return_value=notes_file),
             patch("scripts.release.cli.dmg_path", side_effect=lambda v: tmp_path / "dist" / f"Greeting-Cards-{v}.dmg"),
             pytest.raises(FileNotFoundError, match="DMG not found"),
         ):
             cmd_draft("1.0.0")
+
+
+class TestDryRun:
+    """Tests for --dry-run support on draft and publish subcommands."""
+
+    @patch("scripts.release.cli.subprocess.run")
+    def test_draft_dry_run_skips_subprocess(self, mock_run: MagicMock, tmp_path: pathlib.Path) -> None:
+        """--dry-run on draft prints the command but does not call subprocess.run."""
+        dmg = tmp_path / "dist" / "Greeting-Cards-1.0.0.dmg"
+        dmg.parent.mkdir(parents=True)
+        dmg.write_bytes(b"content")
+
+        checksum = tmp_path / "dist" / "Greeting-Cards-1.0.0.sha256"
+        checksum.write_text("abc  Greeting-Cards-1.0.0.dmg\n", encoding="utf-8")
+
+        notes = tmp_path / "dist" / "release-notes.md"
+        notes.write_text("notes", encoding="utf-8")
+
+        with (
+            patch("scripts.release.cli._preflight_tag_check"),
+            patch("scripts.release.cli.PROJECT_ROOT", tmp_path),
+            patch("scripts.release.cli.dmg_path", side_effect=lambda v: tmp_path / "dist" / f"Greeting-Cards-{v}.dmg"),
+            patch("scripts.release.cli._release_notes_path", return_value=notes),
+        ):
+            cmd_draft("1.0.0", dry_run=True)
+
+        mock_run.assert_not_called()
+
+    @patch("scripts.release.cli.subprocess.run")
+    def test_publish_dry_run_skips_subprocess(self, mock_run: MagicMock) -> None:
+        """--dry-run on publish prints the command but does not call subprocess.run."""
+        cmd_publish("1.0.0", dry_run=True)
+        mock_run.assert_not_called()
+
+    @patch("scripts.release.cli.subprocess.run")
+    def test_draft_dry_run_via_main(self, mock_run: MagicMock, tmp_path: pathlib.Path) -> None:
+        """--dry-run flag is threaded through main() to cmd_draft."""
+        dmg = tmp_path / "dist" / "Greeting-Cards-1.0.0.dmg"
+        dmg.parent.mkdir(parents=True)
+        dmg.write_bytes(b"content")
+
+        checksum = tmp_path / "dist" / "Greeting-Cards-1.0.0.sha256"
+        checksum.write_text("abc  Greeting-Cards-1.0.0.dmg\n", encoding="utf-8")
+
+        notes = tmp_path / "dist" / "release-notes.md"
+        notes.write_text("notes", encoding="utf-8")
+
+        with (
+            patch("scripts.release.cli._preflight_tag_check"),
+            patch("sys.argv", ["release", "--dry-run", "draft"]),
+            patch("scripts.release.cli.read_version", return_value="1.0.0"),
+            patch("scripts.release.cli.PROJECT_ROOT", tmp_path),
+            patch("scripts.release.cli.dmg_path", side_effect=lambda v: tmp_path / "dist" / f"Greeting-Cards-{v}.dmg"),
+            patch("scripts.release.cli._release_notes_path", return_value=notes),
+        ):
+            from scripts.release.cli import main
+
+            main()
+
+        mock_run.assert_not_called()
+
+
+class TestCalledProcessError:
+    """Tests for CalledProcessError → SystemExit(1) with friendly message."""
+
+    def test_draft_gh_failure_raises_system_exit(self, tmp_path: pathlib.Path) -> None:
+        """gh failure in cmd_draft produces SystemExit(1) with helpful message."""
+        dmg = tmp_path / "dist" / "Greeting-Cards-1.0.0.dmg"
+        dmg.parent.mkdir(parents=True)
+        dmg.write_bytes(b"content")
+
+        checksum = tmp_path / "dist" / "Greeting-Cards-1.0.0.sha256"
+        checksum.write_text("abc  Greeting-Cards-1.0.0.dmg\n", encoding="utf-8")
+
+        notes = tmp_path / "dist" / "release-notes.md"
+        notes.write_text("notes", encoding="utf-8")
+
+        with (
+            patch("scripts.release.cli._preflight_tag_check"),
+            patch("scripts.release.cli.PROJECT_ROOT", tmp_path),
+            patch("scripts.release.cli.dmg_path", side_effect=lambda v: tmp_path / "dist" / f"Greeting-Cards-{v}.dmg"),
+            patch("scripts.release.cli._release_notes_path", return_value=notes),
+            patch(
+                "scripts.release.cli.subprocess.run",
+                side_effect=subprocess.CalledProcessError(1, "gh"),
+            ),
+            pytest.raises(SystemExit, match="1"),
+        ):
+            cmd_draft("1.0.0")
+
+    def test_publish_gh_failure_raises_system_exit(self) -> None:
+        """gh failure in cmd_publish produces SystemExit(1) with helpful message."""
+        with (
+            patch(
+                "scripts.release.cli.subprocess.run",
+                side_effect=subprocess.CalledProcessError(1, "gh"),
+            ),
+            pytest.raises(SystemExit, match="1"),
+        ):
+            cmd_publish("1.0.0")
+
+
+class TestRunHelper:
+    """Tests for the _run() helper function."""
+
+    @patch("scripts.release.cli.subprocess.run")
+    def test_dry_run_returns_empty_result(self, mock_run: MagicMock) -> None:
+        result = _run(["gh", "release", "create"], dry_run=True)
+        mock_run.assert_not_called()
+        assert result.returncode == 0
+        assert result.stdout == ""
+
+    @patch("scripts.release.cli.subprocess.run", return_value=subprocess.CompletedProcess(["gh"], 0))
+    def test_real_run_calls_subprocess(self, mock_run: MagicMock) -> None:
+        _run(["gh", "release", "create"])
+        mock_run.assert_called_once_with(["gh", "release", "create"], check=True, text=True)
+
+
+class TestPreflightTagCheck:
+    """Tests for _preflight_tag_check() git tag validation."""
+
+    def _make_run_side_effect(
+        self,
+        *,
+        local_tag: str = "v1.0.0\n",
+        remote_tag: str = "abc123\trefs/tags/v1.0.0\n",
+        tag_sha: str = "aaa",
+        head_sha: str = "aaa",
+    ):
+        """Build a side_effect for subprocess.run that returns canned git outputs."""
+
+        def side_effect(cmd, **_kwargs):
+            if cmd[:3] == ["git", "tag", "--list"]:
+                return subprocess.CompletedProcess(cmd, 0, stdout=local_tag, stderr="")
+            if cmd[:3] == ["git", "ls-remote", "--tags"]:
+                return subprocess.CompletedProcess(cmd, 0, stdout=remote_tag, stderr="")
+            if cmd[:2] == ["git", "rev-parse"]:
+                # tag^{commit} vs HEAD
+                stdout = tag_sha if "^{commit}" in cmd[2] else head_sha
+                return subprocess.CompletedProcess(cmd, 0, stdout=stdout, stderr="")
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        return side_effect
+
+    @patch("scripts.release.cli.subprocess.run")
+    def test_all_checks_pass(self, mock_run: MagicMock) -> None:
+        mock_run.side_effect = self._make_run_side_effect()
+        _preflight_tag_check("1.0.0")  # should not raise
+
+    @patch("scripts.release.cli.subprocess.run")
+    def test_missing_local_tag_raises(self, mock_run: MagicMock) -> None:
+        mock_run.side_effect = self._make_run_side_effect(local_tag="")
+        with pytest.raises(ReleaseError, match="make tag"):
+            _preflight_tag_check("1.0.0")
+
+    @patch("scripts.release.cli.subprocess.run")
+    def test_missing_remote_tag_raises(self, mock_run: MagicMock) -> None:
+        mock_run.side_effect = self._make_run_side_effect(remote_tag="")
+        with pytest.raises(ReleaseError, match="make tag-push"):
+            _preflight_tag_check("1.0.0")
+
+    @patch("scripts.release.cli.sys.stdin")
+    @patch("scripts.release.cli.subprocess.run")
+    def test_tag_not_on_head_aborts_on_no(self, mock_run: MagicMock, mock_stdin: MagicMock) -> None:
+        mock_stdin.isatty.return_value = True
+        mock_run.side_effect = self._make_run_side_effect(tag_sha="aaa", head_sha="bbb")
+        with (
+            patch("builtins.input", return_value="n"),
+            pytest.raises(ReleaseError, match="Aborted"),
+        ):
+            _preflight_tag_check("1.0.0")
+
+    @patch("scripts.release.cli.sys.stdin")
+    @patch("scripts.release.cli.subprocess.run")
+    def test_tag_not_on_head_continues_on_yes(self, mock_run: MagicMock, mock_stdin: MagicMock) -> None:
+        mock_stdin.isatty.return_value = True
+        mock_run.side_effect = self._make_run_side_effect(tag_sha="aaa", head_sha="bbb")
+        with patch("builtins.input", return_value="y"):
+            _preflight_tag_check("1.0.0")  # should not raise
+
+    @patch("scripts.release.cli.subprocess.run")
+    def test_dry_run_skips_prompt(self, mock_run: MagicMock) -> None:
+        mock_run.side_effect = self._make_run_side_effect(tag_sha="aaa", head_sha="bbb")
+        _preflight_tag_check("1.0.0", dry_run=True)  # should not raise or prompt
+
+
+class TestEmptyReleaseNotes:
+    """Tests for empty release notes validation."""
+
+    def test_empty_body_raises(self, tmp_path: pathlib.Path) -> None:
+        """Release notes with only a heading and no body raises ValueError."""
+        changelog = tmp_path / "CHANGELOG.md"
+        changelog.write_text("# Changelog\n\n## 1.0.0 — Title\n\n## 0.9.0 — Old\n\nOld content.\n", encoding="utf-8")
+
+        # extract_changelog returns "\n" for an empty body (strip + "\n")
+        # but cmd_changelog checks the stripped result
+        from scripts.release.cli import cmd_changelog
+
+        with (
+            patch("scripts.release.cli._CHANGELOG", changelog),
+            patch("scripts.release.cli._release_notes_path", return_value=tmp_path / "notes.md"),
+            pytest.raises(ValueError, match="empty"),
+        ):
+            cmd_changelog("1.0.0")
