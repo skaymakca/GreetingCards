@@ -11,6 +11,7 @@ import wx.adv
 
 logger = logging.getLogger(__name__)
 
+from app.core import sparkle
 from app.core.card_store import CardStore
 from app.core.platform import get_commit_hash  # Stateless platform utility for About dialog
 from app.core.services.card_service import CardService
@@ -719,6 +720,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
     def _on_close(self, event: wx.CloseEvent) -> None:
         """Handle window close event."""
         appearance.stop_observer()
+        sparkle.cleanup()
 
         if wx.IsBusy():
             wx.EndBusyCursor()

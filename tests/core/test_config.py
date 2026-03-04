@@ -15,8 +15,10 @@ from app.core.config import (
     _write_plist,
     get_ai_model,
     get_api_key,
+    has_prompted_auto_update,
     save_ai_model,
     save_api_key,
+    set_prompted_auto_update,
 )
 
 
@@ -220,6 +222,43 @@ class TestSaveAiModel:
             written = mock_write.call_args[0][0]
             assert written["ANTHROPIC_API_KEY"] == "sk-key"
             assert written["AI_MODEL"] == "claude-haiku-4-5"
+
+
+class TestHasPromptedAutoUpdate:
+    """Tests for has_prompted_auto_update()."""
+
+    def test_default_false(self):
+        """Returns False when plist has no auto-update prompted flag."""
+        with patch("app.core.config._read_plist", return_value={}):
+            assert has_prompted_auto_update() is False
+
+    def test_true_when_set(self):
+        """Returns True when flag is set in plist."""
+        with patch("app.core.config._read_plist", return_value={"AUTO_UPDATE_PROMPTED": True}):
+            assert has_prompted_auto_update() is True
+
+
+class TestSetPromptedAutoUpdate:
+    """Tests for set_prompted_auto_update()."""
+
+    def test_sets_flag(self):
+        """Sets the auto-update prompted flag in plist."""
+        with patch("app.core.config._read_plist", return_value={}), patch("app.core.config._write_plist") as mock_write:
+            set_prompted_auto_update()
+            mock_write.assert_called_once()
+            written = mock_write.call_args[0][0]
+            assert written["AUTO_UPDATE_PROMPTED"] is True
+
+    def test_preserves_existing_plist_data(self):
+        """Existing plist data is preserved when setting flag."""
+        with (
+            patch("app.core.config._read_plist", return_value={"ANTHROPIC_API_KEY": "sk-key"}),
+            patch("app.core.config._write_plist") as mock_write,
+        ):
+            set_prompted_auto_update()
+            written = mock_write.call_args[0][0]
+            assert written["ANTHROPIC_API_KEY"] == "sk-key"
+            assert written["AUTO_UPDATE_PROMPTED"] is True
 
 
 class TestPlistPath:

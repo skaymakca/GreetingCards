@@ -183,8 +183,8 @@ class TestStepsDataModel:
         for i, step in enumerate(STEPS, start=1):
             assert step.number == i
 
-    def test_eight_steps(self) -> None:
-        assert len(STEPS) == 8
+    def test_nine_steps(self) -> None:
+        assert len(STEPS) == 9
 
     def test_word_ids_unique(self) -> None:
         ids = [s.word_id for s in STEPS]

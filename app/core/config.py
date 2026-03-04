@@ -12,6 +12,7 @@ GITHUB_URL = "https://github.com/skaymakca/GreetingCards"
 _PLIST_NAME = "preferences.plist"
 _KEY_NAME = "ANTHROPIC_API_KEY"
 _MODEL_KEY = "AI_MODEL"
+_AUTO_UPDATE_PROMPTED_KEY = "AUTO_UPDATE_PROMPTED"
 
 
 @dataclass(frozen=True)
@@ -132,4 +133,16 @@ def save_ai_model(model_id: str) -> None:
     """Persist the AI model choice to preferences.plist."""
     prefs = _read_plist()
     prefs[_MODEL_KEY] = model_id
+    _write_plist(prefs)
+
+
+def has_prompted_auto_update() -> bool:
+    """Return True if the user has already been shown the auto-update opt-in dialog."""
+    return bool(_read_plist().get(_AUTO_UPDATE_PROMPTED_KEY, False))
+
+
+def set_prompted_auto_update() -> None:
+    """Record that the auto-update opt-in dialog has been shown."""
+    prefs = _read_plist()
+    prefs[_AUTO_UPDATE_PROMPTED_KEY] = True
     _write_plist(prefs)

@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev tessdata run test test-everything check pyright mypy lint lint-fix format format-check security pycharm-inspect content licenses-sync icon app app-run dmg configure-release shellcheck version bump-patch bump-minor bump-major tag tag-push visual-test visual-test-app show-scripts loc docker-build docker-test docker-shell clean
+.PHONY: help setup setup-dev tessdata run test test-everything check pyright mypy lint lint-fix format format-check security pycharm-inspect content licenses-sync icon sparkle app app-run dmg configure-release shellcheck version bump-patch bump-minor bump-major tag tag-push visual-test visual-test-app show-scripts loc docker-build docker-test docker-shell clean
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -16,6 +16,7 @@ endef
 TESSDATA_DIR := _build/runtime_content/tessdata/fast
 TESSDATA_ENG := $(TESSDATA_DIR)/eng.traineddata
 TESSDATA_URL := https://github.com/tesseract-ocr/tessdata_fast/raw/main/eng.traineddata
+SPARKLE_VERSION := 2.9.0
 INSPECT_OUT := /tmp/pycharm-inspect-out
 PYCHARM_APP ?= $(firstword $(wildcard $(HOME)/Applications/PyCharm.app $(HOME)/Applications/PyCharm\ CE.app /Applications/PyCharm.app /Applications/PyCharm\ CE.app))
 LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister
@@ -105,6 +106,24 @@ pycharm-inspect: ## Run PyCharm inspections (requires PyCharm; skipped if not in
 		fi; \
 	fi
 
+sparkle: packaging/Sparkle.framework/Sparkle ## Download Sparkle framework
+
+packaging/Sparkle.framework/Sparkle:
+	@echo "Downloading Sparkle $(SPARKLE_VERSION)..."
+	@mkdir -p /tmp/sparkle-download
+	@curl -sL -o /tmp/sparkle-download/Sparkle-$(SPARKLE_VERSION).tar.xz \
+		"https://github.com/sparkle-project/Sparkle/releases/download/$(SPARKLE_VERSION)/Sparkle-$(SPARKLE_VERSION).tar.xz"
+	@mkdir -p /tmp/sparkle-download/extracted
+	@tar -xf /tmp/sparkle-download/Sparkle-$(SPARKLE_VERSION).tar.xz -C /tmp/sparkle-download/extracted
+	@mkdir -p packaging/sparkle-bin
+	@ditto /tmp/sparkle-download/extracted/Sparkle.framework packaging/Sparkle.framework
+	@cp /tmp/sparkle-download/extracted/bin/generate_keys packaging/sparkle-bin/
+	@cp /tmp/sparkle-download/extracted/bin/sign_update packaging/sparkle-bin/
+	@cp /tmp/sparkle-download/extracted/bin/generate_appcast packaging/sparkle-bin/
+	@chmod +x packaging/sparkle-bin/*
+	@rm -rf /tmp/sparkle-download
+	@echo "Sparkle $(SPARKLE_VERSION) installed to packaging/"
+
 ##@ Build
 
 content: ## Generate runtime content (HTML, data files, images)
@@ -138,10 +157,12 @@ icon: content/images/icon.png ## Generate icon.icns from icon.png
 	@rm -rf icon.iconset
 	@echo "Generated _build/runtime_content/icon.icns"
 
-app: icon content tessdata ## Build the macOS .app bundle
+app: icon content tessdata sparkle ## Build the macOS .app bundle
 	@$(LSREGISTER) -u "dist/Greeting Cards.app" 2>/dev/null || true
 	uv run pyinstaller --workpath _build/pyinstaller_build -y "packaging/Greeting Cards.spec"
 	@rm -rf "dist/Greeting Cards"
+	@mkdir -p "dist/Greeting Cards.app/Contents/Frameworks"
+	@ditto packaging/Sparkle.framework "dist/Greeting Cards.app/Contents/Frameworks/Sparkle.framework"
 
 app-run: app ## Build and run the .app bundle (logs visible in terminal)
 	"dist/Greeting Cards.app/Contents/MacOS/Greeting Cards"
@@ -256,6 +277,11 @@ show-scripts: ## Show available script invocations (does not run them)
 	@echo "    uv run python -m scripts.release checksum"
 	@echo "    uv run python -m scripts.release draft"
 	@echo "    uv run python -m scripts.release publish"
+	@echo ""
+	@echo "  \033[36mappcast\033[0m                       Sparkle appcast generation and publishing"
+	@echo "    uv run python -m scripts.appcast generate"
+	@echo "    uv run python -m scripts.appcast push"
+	@echo "    uv run python -m scripts.appcast --dry-run generate"
 	@echo ""
 	@echo "  \033[36mconfigure_release\033[0m            Configure local signing identity & notarization profile"
 	@echo "    uv run python -m scripts.configure_release"

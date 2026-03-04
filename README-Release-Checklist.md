@@ -47,7 +47,7 @@ Step-by-step checklist for preparing and publishing a release. Work through each
 - [ ] `make tag` — creates `vX.Y.Z` locally
 - [ ] `make tag-push` — pushes tag to origin
 - [ ] `make configure-release` — ensure `release-local.sh` exists (one-time setup)
-- [ ] `./release-local.sh build-draft` — full pipeline: build, sign, DMG, submit, staple, checksum, changelog, draft
+- [ ] `./release-local.sh build-draft` — full pipeline: build, sign, DMG, submit, staple, checksum, changelog, appcast, draft
 
 ## Phase 7: Notarization (Async)
 
@@ -59,6 +59,7 @@ Step-by-step checklist for preparing and publishing a release. Work through each
 
 - [ ] Review draft release on GitHub (title, notes, assets)
 - [ ] `./release-local.sh publish` — publish the draft
+- [ ] `./release-local.sh appcastpush` — push appcast.xml to gh-pages (after publish, so DMG URL is live)
 - [ ] Verify download link works
 - [ ] Verify app launches from DMG on a clean machine (quarantine/Gatekeeper check)
 - [ ] Optionally bump version for next dev cycle (`make bump-patch`)

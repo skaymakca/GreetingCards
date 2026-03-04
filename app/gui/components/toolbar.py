@@ -12,6 +12,7 @@ from typing import Any
 import wx
 import wx.adv
 
+from app.core import sparkle
 from app.core.services.config_service import ConfigService
 from app.gui.components.html_viewer import build_help_menu
 from app.gui.icons import load_menu_icon, load_sf_symbol
@@ -79,6 +80,7 @@ class ToolbarManager:
             clear_item.SetBitmap(clear_icon)
 
         file_menu.AppendSeparator()
+
         file_menu.Append(wx.ID_PREFERENCES, "Settings...\tCtrl+,")
         file_menu.AppendSeparator()
         file_menu.Append(wx.ID_CLOSE, "Close Window\tCtrl+W")
@@ -125,9 +127,18 @@ class ToolbarManager:
 
         w._frame.SetMenuBar(menubar)
 
+        # Sparkle: insert "Check for Updates..." into the macOS application menu,
+        # after Settings (which wxPython auto-places at index 2).
+        if sparkle.is_available():
+            apple_menu = menubar.OSXGetAppleMenu()
+            w._check_updates_id = wx.NewIdRef()
+            apple_menu.Insert(3, w._check_updates_id, "Check for Updates...")
+
         # Bind events
         w._frame.Bind(wx.EVT_MENU, lambda e: w._show_about(), id=wx.ID_ABOUT)
         w._frame.Bind(wx.EVT_MENU, lambda e: w._add_files_folders(), id=wx.ID_OPEN)
+        if sparkle.is_available():
+            w._frame.Bind(wx.EVT_MENU, lambda e: sparkle.check_for_updates(), id=w._check_updates_id)
         w._frame.Bind(wx.EVT_MENU, lambda e: w._show_preferences(), id=wx.ID_PREFERENCES)
         w._frame.Bind(wx.EVT_MENU, w._on_close_window, id=wx.ID_CLOSE)
         w._frame.Bind(wx.EVT_MENU, lambda e: w._frame.Close(), id=wx.ID_EXIT)

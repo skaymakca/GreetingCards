@@ -55,6 +55,8 @@ A macOS desktop app for organizing holiday and greeting card PDFs. Drop a folder
   source mode also reads `ANTHROPIC_API_KEY` env var (bundle ignores env var)
 - **AI model selection** — choose between Claude Haiku 4.5, Sonnet 4.6, or Opus 4.6 in Settings; persisted to
   preferences plist; stale/outdated model IDs are auto-migrated to the current default
+- **Auto-update** — built-in Sparkle 2 integration checks for updates automatically and via File > Check for Updates;
+  updates are signed with EdDSA and delivered via GitHub Releases
 
 ## Prerequisites
 
@@ -262,7 +264,7 @@ tests/
 
 ### Current Coverage
 
-- **2599 tests** covering core logic, GUI components, and scripts
+- **2625 tests** covering core logic, GUI components, and scripts
 - **Core** (services/, pipeline/, naming/, content/ sub-packages + top-level): AI analysis, AI batch, AI service,
   Apple Events, card model, card processor, card service, card store, changelog, changelog models, config,
   config service, database, family name cleaning, family name data, family name formatting, filename safety,
@@ -278,7 +280,7 @@ tests/
   (models, display, pdf_composer, image_generator, spec_generator, cli, spec_generators/ sub-package),
   configure_release (keychain scanning, interactive UI, script generation, shellcheck validation, CLI orchestration),
   sign (Mach-O detection, tier classification, codesign orchestration), notarize (async submit, status, log, staple),
-  release (changelog extraction, checksum, GitHub release commands)
+  release (changelog extraction, checksum, GitHub release commands), appcast (XML generation, DMG signing, error handling)
 
 ### Adding Tests
 

@@ -4,7 +4,17 @@ Routes all config read/write operations through a single service so
 callers never import ``app.core.config`` persistence functions directly.
 """
 
-from app.core.config import AI_MODELS, GITHUB_URL, ModelInfo, get_ai_model, get_api_key, save_ai_model, save_api_key
+from app.core.config import (
+    AI_MODELS,
+    GITHUB_URL,
+    ModelInfo,
+    get_ai_model,
+    get_api_key,
+    has_prompted_auto_update,
+    save_ai_model,
+    save_api_key,
+    set_prompted_auto_update,
+)
 from app.core.constants import RELOAD_COOLDOWN, default_year
 
 
@@ -50,6 +60,16 @@ class ConfigService:
     def get_default_year() -> str:
         """Return the default year for card naming."""
         return default_year()
+
+    @staticmethod
+    def has_prompted_auto_update() -> bool:
+        """Return True if the auto-update opt-in dialog has been shown."""
+        return has_prompted_auto_update()
+
+    @staticmethod
+    def set_prompted_auto_update() -> None:
+        """Record that the auto-update opt-in dialog has been shown."""
+        set_prompted_auto_update()
 
     @staticmethod
     def get_reload_cooldown() -> float:

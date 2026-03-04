@@ -10,7 +10,7 @@ The app uses two persistence mechanisms for different purposes:
 
 | What                                  | Storage                            | Why                                                      |
 |---------------------------------------|------------------------------------|----------------------------------------------------------|
-| API key, AI model choice              | `preferences.plist` (binary plist) | User preferences — small, simple key-value pairs         |
+| API key, AI model, auto-update prompt | `preferences.plist` (XML plist)    | User preferences — small, simple key-value pairs         |
 | OCR results, AI results, manual edits | `GreetingCards.sqlite` (SQLite)    | Cached/derived data — structured, queryable, rebuildable |
 
 Both files live in the same data directory (see below). The plist is read/written via `plistlib`; the database via SQLAlchemy.
@@ -63,6 +63,14 @@ This autocorrects on first read (typically at app startup when the Settings dial
 ### Usage in AI Analyzer
 
 `analyze_card_with_ai_async()` in `ai_analyzer.py` calls `get_ai_model()` to get the model ID for each API request. The model is read fresh each time, so changing it in Settings takes effect immediately for the next analysis.
+
+## First-Launch Auto-Update Opt-In
+
+`has_prompted_auto_update()` / `set_prompted_auto_update()` manage a boolean flag (`AUTO_UPDATE_PROMPTED`) in `preferences.plist`.
+
+On first launch (bundled mode only), `main.py` checks this flag before starting Sparkle. If the user hasn't been prompted yet, a `wx.MessageBox` asks whether to enable automatic update checks. The choice is written to Sparkle's `NSUserDefaults` via `set_auto_check_enabled()`, and the flag is set so the dialog never appears again.
+
+Existing users who upgrade to a version with this feature will see the dialog once — a polite one-time ask consistent with standard macOS app behavior.
 
 ## Settings Dialog
 
