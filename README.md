@@ -228,7 +228,7 @@ tests/
     ├── generate_diagnostic_cards/   # CLI argument parsing, PDF creation
     ├── generate_sample_cards/       # models, display, pdf_composer, image_generator,
     │                                #   spec_generator, cli; spec_generators/ sub-package
-    ├── notarize/                    # notarization CLI, submission, stapling
+    ├── notarize/                    # async notarization (submit, status, log, staple)
     ├── release/                     # changelog extraction, checksum, GitHub release
     └── sign/                        # Mach-O detection, tier classification, codesign
 ```
@@ -250,7 +250,7 @@ tests/
 
 ### Current Coverage
 
-- **2577 tests** covering core logic, GUI components, and scripts
+- **2598 tests** covering core logic, GUI components, and scripts
 - **Core** (services/, pipeline/, naming/, content/ sub-packages + top-level): AI analysis, AI batch, AI service,
   Apple Events, card model, card processor, card service, card store, changelog, changelog models, config,
   config service, database, family name cleaning, family name data, family name formatting, filename safety,
@@ -265,7 +265,7 @@ tests/
   (readme RTF, background PNG, dmgbuild orchestration), generate_diagnostic_cards (CLI), generate_sample_cards
   (models, display, pdf_composer, image_generator, spec_generator, cli, spec_generators/ sub-package),
   configure_release (keychain scanning, interactive UI, script generation, shellcheck validation, CLI orchestration),
-  sign (Mach-O detection, tier classification, codesign orchestration), notarize (submission, stapling, verification),
+  sign (Mach-O detection, tier classification, codesign orchestration), notarize (async submit, status, log, staple),
   release (changelog extraction, checksum, GitHub release commands)
 
 ### Adding Tests
@@ -422,11 +422,15 @@ uv run python -m scripts.sign --dry-run            # print commands only
 
 ### Notarization
 
-`notarize` submits the signed DMG to Apple's notary service and staples the ticket.
+`notarize` handles Apple notarization as an async workflow: submit, check status, and staple as separate steps.
 
 ```bash
-uv run python -m scripts.notarize
-uv run python -m scripts.notarize --dry-run
+uv run python -m scripts.notarize submit                    # submit to notary (async)
+uv run python -m scripts.notarize status                    # check notarization status
+uv run python -m scripts.notarize log                       # fetch notarization log
+uv run python -m scripts.notarize staple                    # staple ticket + verify
+uv run python -m scripts.notarize --dry-run submit          # print commands only
+uv run python -m scripts.notarize staple --submission-id X  # explicit ID override
 ```
 
 ### Release Configuration

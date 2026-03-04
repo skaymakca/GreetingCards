@@ -6,9 +6,11 @@ import subprocess
 
 from scripts.configure_release.generator import (
     STEPS,
+    UTILITIES,
     ExistingConfig,
     ReleaseConfig,
     Scope,
+    Utility,
     generate_script,
     parse_existing_script,
 )
@@ -41,7 +43,7 @@ class TestGenerateScript:
         script = self._generate(profile="MyProfile")
         assert 'KEYCHAIN_PROFILE="MyProfile"' in script
 
-    def test_all_seven_steps_present(self) -> None:
+    def test_all_eight_steps_present(self) -> None:
         script = self._generate()
         for step in STEPS:
             assert f"step_{step.number}()" in script
@@ -87,10 +89,32 @@ class TestGenerateScript:
         assert "release-local.sh dmg" in script
         assert "release-local.sh build-dmg" in script
 
+    def test_help_examples_show_utilities(self) -> None:
+        script = self._generate()
+        assert "release-local.sh status" in script
+        assert "release-local.sh submit" in script
+
     def test_special_characters_in_identity(self) -> None:
         identity = "Developer ID Application: O'Brien & Sons (TEAM)"
         script = self._generate(identity=identity)
         assert identity in script
+
+    def test_utility_functions_in_output(self) -> None:
+        script = self._generate()
+        for util in UTILITIES:
+            assert f"util_{util.word_id}()" in script
+
+    def test_utility_case_dispatch(self) -> None:
+        script = self._generate()
+        for util in UTILITIES:
+            assert f"{util.word_id}) util_{util.word_id}; exit 0" in script
+
+    def test_help_utilities_section(self) -> None:
+        script = self._generate()
+        assert "Utilities:" in script
+        for util in UTILITIES:
+            assert util.word_id in script
+            assert util.label in script
 
     def test_shellcheck_passes(self, tmp_path: object) -> None:
         import pathlib
@@ -159,6 +183,9 @@ class TestStepsDataModel:
         for i, step in enumerate(STEPS, start=1):
             assert step.number == i
 
+    def test_eight_steps(self) -> None:
+        assert len(STEPS) == 8
+
     def test_word_ids_unique(self) -> None:
         ids = [s.word_id for s in STEPS]
         assert len(ids) == len(set(ids))
@@ -177,3 +204,29 @@ class TestStepsDataModel:
         config = ExistingConfig()
         assert config.signing_identity is None
         assert config.keychain_profile is None
+
+
+class TestUtility:
+    """Test the Utility dataclass and UTILITIES tuple."""
+
+    def test_utility_instances(self) -> None:
+        for util in UTILITIES:
+            assert isinstance(util, Utility)
+
+    def test_utility_fields(self) -> None:
+        for util in UTILITIES:
+            assert util.word_id
+            assert util.label
+            assert util.command
+            assert isinstance(util.scope, Scope)
+
+    def test_word_id_uniqueness_across_steps_and_utilities(self) -> None:
+        step_ids = {s.word_id for s in STEPS}
+        util_ids = {u.word_id for u in UTILITIES}
+        assert not step_ids & util_ids, f"Overlapping IDs: {step_ids & util_ids}"
+
+    def test_utility_word_ids_lowercase_alpha(self) -> None:
+        import re
+
+        for util in UTILITIES:
+            assert re.fullmatch(r"[a-z]+", util.word_id), f"Bad word ID: {util.word_id}"
