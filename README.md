@@ -88,8 +88,7 @@ Run `make help` to see all available commands.
 | `make app`               | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`)                |
 | `make app-run`           | Build and run the `.app` bundle with logs visible in terminal                    |
 | `make icon`              | Generate `icon.icns` from `icon.png` (auto-run by build)                         |
-| `make release-publish`   | Publish the latest draft release                                                 |
-| `make configure-release` | Configure local signing identity & profile (generates `release-local.sh`)        |
+| `make configure-release` | Generate the release pipeline script (`release-local.sh`)                        |
 | `make shellcheck`        | Run shellcheck on `release-local.sh` (if it exists)                              |
 | `make version`           | Print the current version                                                        |
 | `make bump-patch`        | Bump patch version (e.g. 0.5.0 → 0.5.1)                                          |
@@ -250,7 +249,7 @@ tests/
 
 ### Current Coverage
 
-- **2598 tests** covering core logic, GUI components, and scripts
+- **2599 tests** covering core logic, GUI components, and scripts
 - **Core** (services/, pipeline/, naming/, content/ sub-packages + top-level): AI analysis, AI batch, AI service,
   Apple Events, card model, card processor, card service, card store, changelog, changelog models, config,
   config service, database, family name cleaning, family name data, family name formatting, filename safety,
