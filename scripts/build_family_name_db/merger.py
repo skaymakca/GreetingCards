@@ -9,7 +9,6 @@ from pathlib import Path
 from rich.console import Console
 
 from scripts.build_family_name_db._unicode import UNICODE_SPECIAL as _UNICODE_SPECIAL
-from scripts.build_family_name_db._unicode import normalize
 from scripts.build_family_name_db.sources.census import CensusEntry
 
 # Row format: (normalized, display, rank, count, alternates)

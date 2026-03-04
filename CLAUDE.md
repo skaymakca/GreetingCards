@@ -245,7 +245,7 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `scripts/configure_release/*.py`                                                                                                                                                    | `docs/architecture/release-pipeline.md`                               |
 | `packaging/entitlements.plist`, `packaging/Greeting Cards.spec` (upx/signing)                                                                                                       | `docs/architecture/release-pipeline.md`                               |
 | Markdown tables in any `*.md` file                                                                                                                                                  | `docs/pycharm-table-formatting.md`                                    |
-| `docker/Dockerfile`, `docker/docker-compose.yml`, `.github/workflows/ci.yml`, `.github/actions/setup-build-env/action.yml`                                                           | `docs/architecture/docker-and-ci.md`                                  |
+| `docker/Dockerfile`, `docker/docker-compose.yml`, `.github/workflows/ci.yml`, `.github/actions/setup-build-env/action.yml`                                                          | `docs/architecture/docker-and-ci.md`                                  |
 
 ### Test Count
 When adding or removing tests, update the test count in `README.md` (search for "tests** covering") to match the actual number from `pytest` output.

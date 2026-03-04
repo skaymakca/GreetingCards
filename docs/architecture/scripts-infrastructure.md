@@ -140,12 +140,12 @@ with script_output_dir("generate_sample_cards") as output_dir:
 
 Also defined in `scripts/helpers.py`:
 
-| Export           | Type / Signature                          | Description                                                                 |
-|------------------|-------------------------------------------|-----------------------------------------------------------------------------|
-| `PROJECT_ROOT`   | `Path`                                    | Absolute path to the project root (parent of `scripts/`)                    |
-| `read_version()` | `() -> str`                               | Reads the `[project].version` field from `pyproject.toml`                   |
-| `app_path()`     | `() -> Path`                              | Returns `PROJECT_ROOT / "dist" / "Greeting Cards.app"`                      |
-| `dmg_path()`     | `(version: str \| None = None) -> Path`   | Returns `PROJECT_ROOT / "dist" / "Greeting-Cards-{version}.dmg"`; auto-reads version if `None` |
+| Export           | Type / Signature                        | Description                                                                                    |
+|------------------|-----------------------------------------|------------------------------------------------------------------------------------------------|
+| `PROJECT_ROOT`   | `Path`                                  | Absolute path to the project root (parent of `scripts/`)                                       |
+| `read_version()` | `() -> str`                             | Reads the `[project].version` field from `pyproject.toml`                                      |
+| `app_path()`     | `() -> Path`                            | Returns `PROJECT_ROOT / "dist" / "Greeting Cards.app"`                                         |
+| `dmg_path()`     | `(version: str \| None = None) -> Path` | Returns `PROJECT_ROOT / "dist" / "Greeting-Cards-{version}.dmg"`; auto-reads version if `None` |
 
 These are used by `scripts/dmg/`, `scripts/sign/`, `scripts/notarize/`, and `scripts/release/` to avoid duplicating project-root resolution and version reading.
 

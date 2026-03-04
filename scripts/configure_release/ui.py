@@ -28,6 +28,7 @@ class UserInput(Protocol):
 class InteractiveInput:
     """Real stdin-based implementation of UserInput."""
 
+    # noinspection PyMethodMayBeStatic,PyTypeChecker
     def choose(self, prompt: str, options: list[str], default: int | None = None) -> int:
         """Present numbered options and return the selected index (0-based)."""
         print(f"\n{prompt}")
@@ -52,12 +53,14 @@ class InteractiveInput:
                 return choice - 1
             print(f"  Please enter a number between 1 and {len(options)}.")
 
+    # noinspection PyMethodMayBeStatic
     def ask(self, prompt: str, default: str = "") -> str:
         """Ask for a free-text value, returning default if empty."""
         hint = f" [{default}]" if default else ""
         raw = input(f"{prompt}{hint}: ").strip()
         return raw if raw else default
 
+    # noinspection PyMethodMayBeStatic
     def confirm(self, prompt: str, default: bool = True) -> bool:
         """Ask a yes/no question, returning a boolean."""
         hint = "Y/n" if default else "y/N"

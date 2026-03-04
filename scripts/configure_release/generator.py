@@ -91,6 +91,7 @@ def parse_existing_script(content: str) -> ExistingConfig:
 
 def generate_script(config: ReleaseConfig) -> str:
     """Generate the complete release-local.sh script content."""
+    # noinspection PyListCreation
     lines: list[str] = []
 
     # Header

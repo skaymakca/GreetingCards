@@ -114,13 +114,15 @@ wxPython stubs mistype `tuple[int,int]` vs `wx.Size`, `Bitmap` vs `BitmapBundle`
 **Files:** `app/gui/main_window.py`, `app/gui/components/review_panel.py`, `app/gui/components/filter_sidebar.py`,
 `app/gui/components/preview_panel.py`, `app/gui/dialogs/common.py`, `app/gui/icons.py`, `app/gui/context_menu.py`,
 `app/gui/components/html_viewer.py` (`build_help_menu` — `Bitmap` vs `BitmapBundle`), `app/core/database.py` (
-`add_candidate`, `_add_candidate_inline` — `InstrumentedAttribute[int]` vs `int`), `app/gui/components/toolbar.py` (
-class-level `# noinspection PyProtectedMember,PyTypeChecker` — `Bitmap` vs `BitmapBundle`, `tuple[int,int]` vs
-`wx.Size`, and protected `MainWindow` member access by design), `scripts/helpers.py` (`script_output_dir` —
-`@contextmanager` transforms `Generator[Path]` into `AbstractContextManager[Path]` at runtime; PyCharm can't see through
-the decorator), `scripts/benchmark/ocr_concurrency.py`, `scripts/benchmark/ocr_configuration_quality.py`,
+`add_candidate`, `_add_candidate_inline` — `InstrumentedAttribute[int]` vs `int`; `_drop_tables` — `engine.begin()`
+context manager), `app/gui/components/toolbar.py` (class-level `# noinspection PyProtectedMember,PyTypeChecker` —
+`Bitmap` vs `BitmapBundle`, `tuple[int,int]` vs `wx.Size`, and protected `MainWindow` member access by design),
+`scripts/helpers.py` (`script_output_dir` — `@contextmanager` transforms `Generator[Path]` into
+`AbstractContextManager[Path]` at runtime; PyCharm can't see through the decorator),
+`scripts/benchmark/ocr_concurrency.py`, `scripts/benchmark/ocr_configuration_quality.py`,
 `scripts/benchmark/pre_processing_concurrency.py`, `scripts/generate_sample_cards/cli.py`,
-`scripts/generate_sample_cards/image_generator.py`, `scripts/generate_sample_cards/spec_generator.py`
+`scripts/generate_sample_cards/image_generator.py`, `scripts/generate_sample_cards/spec_generator.py`,
+`scripts/configure_release/ui.py` (`choose` — Protocol conformance false positive)
 
 #### PyUnusedLocal — wxPython callback `event` parameters
 
@@ -142,7 +144,7 @@ resolve at runtime on macOS but have no type stubs. `app/gui/main_window.py` has
 
 **Files:** `app/gui/icons.py`, `app/gui/appearance.py`, `app/gui/main_window.py`, `app/core/apple_events.py` (
 `objc.super`, `objc.selector`), `app/gui/components/html_viewer.py` (`RunScript`, `GetCurrentURL`, `LoadURL` — wxPython
-WebView C++ extensions)
+WebView C++ extensions), `scripts/dmg/background.py` (`_sf_chevron` — AppKit/Foundation symbols without type stubs)
 
 #### PyBroadException — intentional broad catches
 
@@ -210,7 +212,8 @@ the instance even if they don't currently use `self`.
 
 **Files:** `app/gui/components/filter_sidebar.py`, `app/gui/main_window.py`, `app/gui/components/preview_panel.py`,
 `app/gui/components/review_panel.py`, `app/core/services/card_service.py` (`clear_ai_results` — part of public instance
-API), `scripts/visual_test.py`
+API), `scripts/visual_test.py`, `scripts/configure_release/ui.py` (`choose`, `ask`, `confirm` — Protocol conformance
+requires instance methods)
 
 #### PyArgumentList — dynamic dispatch false positives
 
@@ -229,7 +232,8 @@ Benchmark scripts reuse variable names in isolated loop iterations and helper fu
 
 Benchmark report generation builds lists incrementally for readability.
 
-**Files:** `scripts/benchmark/ocr_concurrency.py`, `scripts/benchmark/pre_processing_concurrency.py`
+**Files:** `scripts/benchmark/ocr_concurrency.py`, `scripts/benchmark/pre_processing_concurrency.py`,
+`scripts/configure_release/generator.py` (`generate_script` — idiomatic empty list init with conditional appends)
 
 #### GrazieInspection — technical prose false positives
 

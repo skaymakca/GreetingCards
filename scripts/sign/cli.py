@@ -68,10 +68,10 @@ def _classify_tier(path: pathlib.Path) -> int:
     return 2
 
 
-def find_binaries(app_path: pathlib.Path) -> list[pathlib.Path]:
+def find_binaries(bundle_path: pathlib.Path) -> list[pathlib.Path]:
     """Walk the app bundle and return all Mach-O binaries sorted by signing tier."""
     binaries: list[pathlib.Path] = []
-    for item in app_path.rglob("*"):
+    for item in bundle_path.rglob("*"):
         if item.is_file() and is_macho(item):
             binaries.append(item)
 
@@ -105,7 +105,7 @@ def sign_binary(
 
 
 def sign_app(
-    app_path: pathlib.Path,
+    bundle_path: pathlib.Path,
     identity: str,
     entitlements: pathlib.Path,
     *,
@@ -113,7 +113,7 @@ def sign_app(
     verbose: bool = False,
 ) -> None:
     """Sign all binaries in the app bundle, then sign the bundle itself."""
-    binaries = find_binaries(app_path)
+    binaries = find_binaries(bundle_path)
     print(f"Found {len(binaries)} Mach-O binaries to sign")
 
     for binary in binaries:
@@ -131,7 +131,7 @@ def sign_app(
         str(entitlements),
         "--sign",
         identity,
-        str(app_path),
+        str(bundle_path),
     ]
     _run(bundle_cmd, dry_run=dry_run, verbose=verbose)
 
@@ -142,7 +142,7 @@ def sign_app(
         "--verify",
         "--deep",
         "--strict",
-        str(app_path),
+        str(bundle_path),
     ]
     _run(verify_cmd, dry_run=dry_run, verbose=verbose)
 

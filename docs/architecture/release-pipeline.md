@@ -33,7 +33,7 @@ draft     → scripts.release draft    (gh release create --draft)
 | Entitlement                                              | Why                                                     |
 |----------------------------------------------------------|---------------------------------------------------------|
 | `com.apple.security.cs.allow-unsigned-executable-memory` | Python `mmap` with executable pages                     |
-| `com.apple.security.cs.disable-library-validation`       | Bundled third-party `.so` files not signed by Apple      |
+| `com.apple.security.cs.disable-library-validation`       | Bundled third-party `.so` files not signed by Apple     |
 | `com.apple.security.cs.allow-jit`                        | ctypes/cffi in C extensions (wxPython, tesserocr, etc.) |
 
 ---
@@ -44,11 +44,11 @@ Code signing must proceed from innermost binaries outward so that outer signatur
 
 ### Tier Classification
 
-| Tier | Files                      | Signed |
-|------|----------------------------|--------|
-| 0    | `.so` and `.dylib` files    | First  |
-| 1    | Framework binaries          | Second |
-| 2    | Main executable + `.app`    | Last   |
+| Tier | Files                    | Signed |
+|------|--------------------------|--------|
+| 0    | `.so` and `.dylib` files | First  |
+| 1    | Framework binaries       | Second |
+| 2    | Main executable + `.app` | Last   |
 
 ### Mach-O Detection
 
@@ -136,12 +136,12 @@ uv run python -m scripts.release publish     # publish the draft
 
 ## Makefile Targets
 
-| Target                   | Description                                                      |
-|--------------------------|------------------------------------------------------------------|
-| `make app`               | Build the `.app` bundle (used by `release-local.sh` step 1)     |
-| `make release-publish`   | Publish the latest draft release                                 |
-| `make configure-release` | Generate `release-local.sh` with signing identity and profile    |
-| `make shellcheck`        | Run shellcheck on `release-local.sh` (if it exists)              |
+| Target                   | Description                                                   |
+|--------------------------|---------------------------------------------------------------|
+| `make app`               | Build the `.app` bundle (used by `release-local.sh` step 1)   |
+| `make release-publish`   | Publish the latest draft release                              |
+| `make configure-release` | Generate `release-local.sh` with signing identity and profile |
+| `make shellcheck`        | Run shellcheck on `release-local.sh` (if it exists)           |
 
 The full build → sign → DMG → notarize → draft pipeline is driven entirely by `release-local.sh`. Individual Make targets for signing, DMG, and notarization were removed because Make's PHONY dependency model caused the app to be rebuilt (unsigned) between signing and DMG creation.
 
@@ -175,15 +175,15 @@ Help output displays a formatted table with ID, Name, and Scope columns.
 
 ### Steps
 
-| ID        | Name                   | Scope  | Command                                              |
-|-----------|------------------------|--------|------------------------------------------------------|
-| build     | Building app           | Local  | `make app`                                            |
-| sign      | Signing app            | Local  | `scripts.sign --identity "$CODESIGN_IDENTITY"`        |
-| dmg       | Creating DMG           | Local  | `scripts.dmg`                                         |
+| ID        | Name                   | Scope  | Command                                                   |
+|-----------|------------------------|--------|-----------------------------------------------------------|
+| build     | Building app           | Local  | `make app`                                                |
+| sign      | Signing app            | Local  | `scripts.sign --identity "$CODESIGN_IDENTITY"`            |
+| dmg       | Creating DMG           | Local  | `scripts.dmg`                                             |
 | notarize  | Notarizing             | Apple  | `scripts.notarize --keychain-profile "$KEYCHAIN_PROFILE"` |
-| checksum  | Generating checksum    | Local  | `scripts.release checksum`                            |
-| changelog | Extracting changelog   | Local  | `scripts.release changelog`                           |
-| draft     | Creating draft release | GitHub | `scripts.release draft`                               |
+| checksum  | Generating checksum    | Local  | `scripts.release checksum`                                |
+| changelog | Extracting changelog   | Local  | `scripts.release changelog`                               |
+| draft     | Creating draft release | GitHub | `scripts.release draft`                                   |
 
 ### Maintenance
 
@@ -218,12 +218,12 @@ Actually signing and notarizing requires a Developer ID Application certificate 
 
 ## Troubleshooting
 
-| Problem                                    | Cause                                       | Fix                                                              |
-|--------------------------------------------|---------------------------------------------|------------------------------------------------------------------|
-| `errSecInternalComponent` during signing    | Keychain locked or cert not found            | Unlock keychain; verify cert in Keychain Access                  |
-| Notarization "invalid signature"            | Binary not signed or UPX compressed          | Check `upx=False` in spec; re-run `./release-local.sh sign`      |
-| Notarization "The signature is invalid"     | Inner binary unsigned                        | Inside-out signing missed a file; check `find_binaries()`        |
-| Notarization "hardened runtime not enabled" | Missing `--options runtime`                  | Verify `sign_binary()` includes `--options runtime`              |
-| `spctl` rejects after stapling             | Ticket not stapled or wrong bundle           | Re-run `xcrun stapler staple` on both `.app` and `.dmg`          |
-| "app is damaged" on user's machine          | Not notarized or quarantine attr set          | Notarize properly; user can remove quarantine with `xattr -cr`   |
-| `gh: command not found`                     | GitHub CLI not installed                     | `brew install gh` and `gh auth login`                            |
+| Problem                                     | Cause                                | Fix                                                            |
+|---------------------------------------------|--------------------------------------|----------------------------------------------------------------|
+| `errSecInternalComponent` during signing    | Keychain locked or cert not found    | Unlock keychain; verify cert in Keychain Access                |
+| Notarization "invalid signature"            | Binary not signed or UPX compressed  | Check `upx=False` in spec; re-run `./release-local.sh sign`    |
+| Notarization "The signature is invalid"     | Inner binary unsigned                | Inside-out signing missed a file; check `find_binaries()`      |
+| Notarization "hardened runtime not enabled" | Missing `--options runtime`          | Verify `sign_binary()` includes `--options runtime`            |
+| `spctl` rejects after stapling              | Ticket not stapled or wrong bundle   | Re-run `xcrun stapler staple` on both `.app` and `.dmg`        |
+| "app is damaged" on user's machine          | Not notarized or quarantine attr set | Notarize properly; user can remove quarantine with `xattr -cr` |
+| `gh: command not found`                     | GitHub CLI not installed             | `brew install gh` and `gh auth login`                          |

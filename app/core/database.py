@@ -109,6 +109,7 @@ _init_lock = threading.Lock()
 def _drop_tables(engine: Engine, table_names: set[str] | list[str]) -> None:
     """Drop the given tables from the database."""
     if table_names:
+        # noinspection PyTypeChecker
         with engine.begin() as conn:
             for table_name in table_names:
                 conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))

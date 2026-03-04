@@ -14,13 +14,13 @@ macOS-only testing would miss.
 
 `docker/Dockerfile` builds a test image based on `python:3.14-slim-bookworm`:
 
-| Layer                      | What it does                                                                       |
-|----------------------------|------------------------------------------------------------------------------------|
+| Layer                      | What it does                                                                                                 |
+|----------------------------|--------------------------------------------------------------------------------------------------------------|
 | System deps                | Installs `build-essential`, `pkg-config`, `libtesseract-dev`, `libleptonica-dev`, `tesseract-ocr-eng`, `git` |
-| uv                         | Copies the `uv` binary from the official `ghcr.io/astral-sh/uv` image             |
-| Non-root user              | Creates a `tester` user (UID 1000) for realistic filesystem permission behavior    |
-| Layer-cached deps          | Copies `pyproject.toml` + `uv.lock` first, runs `uv sync --no-install-project`    |
-| Full source + project sync | Copies remaining source, runs `uv sync` to install the project itself              |
+| uv                         | Copies the `uv` binary from the official `ghcr.io/astral-sh/uv` image                                        |
+| Non-root user              | Creates a `tester` user (UID 1000) for realistic filesystem permission behavior                              |
+| Layer-cached deps          | Copies `pyproject.toml` + `uv.lock` first, runs `uv sync --no-install-project`                               |
+| Full source + project sync | Copies remaining source, runs `uv sync` to install the project itself                                        |
 
 The default `CMD` runs `pytest tests/core/ tests/scripts/ --ignore=tests/core/test_apple_events.py -x --tb=short`.
 
@@ -43,9 +43,9 @@ The default `CMD` runs `pytest tests/core/ tests/scripts/ --ignore=tests/core/te
 
 ### Make targets
 
-| Target         | Description                                           |
-|----------------|-------------------------------------------------------|
-| `docker-build` | Builds the `greeting-cards-test` image                |
+| Target         | Description                                            |
+|----------------|--------------------------------------------------------|
+| `docker-build` | Builds the `greeting-cards-test` image                 |
 | `docker-test`  | Runs the default test command via `docker compose run` |
 | `docker-shell` | Opens an interactive bash shell in the container       |
 
@@ -69,10 +69,10 @@ GitHub Actions CI is defined in `.github/workflows/ci.yml`. It uses a shared com
 
 ### Jobs
 
-| Job     | Trigger                             | Runner      | Steps                                                               |
-|---------|-------------------------------------|-------------|---------------------------------------------------------------------|
-| `check` | Pushes only (`if` guard skips PRs)  | `macos-26`  | Checkout, setup, `make check`, upload `static-checks.log`           |
-| `test`  | PRs to `main` only (`if` guard)     | `macos-26`  | Checkout, setup, `make check`, `make app`, `make test T="default --cov"`, upload logs + coverage |
+| Job     | Trigger                            | Runner     | Steps                                                                                            |
+|---------|------------------------------------|------------|--------------------------------------------------------------------------------------------------|
+| `check` | Pushes only (`if` guard skips PRs) | `macos-26` | Checkout, setup, `make check`, upload `static-checks.log`                                        |
+| `test`  | PRs to `main` only (`if` guard)    | `macos-26` | Checkout, setup, `make check`, `make app`, `make test T="default --cov"`, upload logs + coverage |
 
 ### Artifacts
 

@@ -6,13 +6,13 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from scripts.build_family_name_db._unicode import normalize
 from scripts.build_family_name_db.merger import (
     _heuristic_display,
     _sanity_check,
     apply_overrides,
     ascii_fold,
     merge_sources,
-    normalize,
     write_tsv,
 )
 from scripts.build_family_name_db.sources.census import CensusEntry
