@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='utf-8'?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+  <channel>
+    <title>Greeting Cards</title>
+    <item>
+      <title>Version 0.12.1</title>
+      <sparkle:version>1772657426</sparkle:version>
+      <sparkle:shortVersionString>0.12.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <pubDate>Wed, 04 Mar 2026 20:50:26 +0000</pubDate>
+      <description>Internal improvements to build infrastructure, test coverage, and release automation.</description>
+      <enclosure url="https://github.com/skaymakca/GreetingCards/releases/download/v0.12.1/Greeting-Cards-0.12.1.dmg" sparkle:edSignature="Emrx2MK9DaTB+B/xyQukXxeygtapx/ehE0aGG8uWRL392z2GTAwED8yH322nIC15pgpssw+2tOhyTzgWG6eUBg==" length="90513590" type="application/octet-stream" />
+    </item>
+  </channel>
+</rss>
