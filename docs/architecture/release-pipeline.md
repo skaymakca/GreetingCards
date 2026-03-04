@@ -73,7 +73,7 @@ Each binary is signed with:
 codesign --force --options runtime --timestamp --entitlements packaging/entitlements.plist --sign IDENTITY <path>
 ```
 
-After all binaries: the `.app` bundle itself is signed, then verified with `codesign --verify --deep --strict`.
+After all individual binaries: nested bundles (`.xpc`, `.app`, `.framework`) are signed deepest-first, then the outer `.app` bundle is signed and verified with `codesign --verify --deep --strict`.
 
 ### CLI
 

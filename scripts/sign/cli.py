@@ -104,6 +104,25 @@ def sign_binary(
     _run(cmd, dry_run=dry_run, verbose=verbose)
 
 
+_BUNDLE_SUFFIXES = {".framework", ".app", ".xpc"}
+
+
+def find_nested_bundles(bundle_path: pathlib.Path) -> list[pathlib.Path]:
+    """Find nested bundles (.framework, .app, .xpc) sorted deepest-first.
+
+    Each nested bundle must be signed as a whole after its contents are signed,
+    so deeper bundles come first (inside-out order).
+    """
+    bundles: list[pathlib.Path] = []
+    for item in bundle_path.rglob("*"):
+        if item.is_dir() and item.suffix in _BUNDLE_SUFFIXES and item != bundle_path:
+            bundles.append(item)
+
+    # Sort by depth (deepest first), then by path for determinism
+    bundles.sort(key=lambda p: (-len(p.parts), str(p)))
+    return bundles
+
+
 def sign_app(
     bundle_path: pathlib.Path,
     identity: str,
@@ -118,6 +137,13 @@ def sign_app(
 
     for binary in binaries:
         sign_binary(binary, identity, entitlements, dry_run=dry_run, verbose=verbose)
+
+    # Sign nested bundles (deepest first) so outer signatures cover inner ones
+    nested = find_nested_bundles(bundle_path)
+    if nested:
+        print(f"Signing {len(nested)} nested bundles …")
+        for bundle in nested:
+            sign_binary(bundle, identity, entitlements, dry_run=dry_run, verbose=verbose)
 
     # Sign the .app bundle itself
     print("Signing app bundle …")
