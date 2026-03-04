@@ -285,6 +285,10 @@ After adding or updating packages with `uv add`, run `make licenses-sync` to upd
 
 When asked to audit the codebase, follow the methodology in [`docs/code-quality-audit.md`](docs/code-quality-audit.md). Findings go into `.local/audits/YYYYMMDDThhmm-code-quality.md`.
 
+## Coverage Analysis
+
+When asked to analyze or improve test coverage, follow the methodology in [`docs/coverage-analysis.md`](docs/coverage-analysis.md). Analysis goes into `_build/coverage/YYYYMMDDThhmm/coverage-analysis.md`; remediation reports go into `_build/coverage/YYYYMMDDThhmm/remediation-report.md`.
+
 ## MVC Compliance Audit
 
 When asked to audit MVC compliance, follow the methodology in [`docs/mvc-compliance-audit.md`](docs/mvc-compliance-audit.md). Findings go into `.local/audits/YYYYMMDDThhmm-mvc-compliance.md`.
