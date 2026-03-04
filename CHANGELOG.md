@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.13.0 — Auto-Update (2026-03-04)
+
+Greeting Cards now updates itself. The app uses the Sparkle framework — the
+same updater trusted by apps like Firefox, VLC, and iTerm — to check for new
+versions automatically in the background. When an update is available you'll
+see a native macOS prompt with release notes and a one-click install. Updates
+are cryptographically signed so only authentic releases are accepted.
+
+- Automatic background update checks with a native macOS update prompt
+- "Check for Updates" menu item under File for manual checks anytime
+- First-launch opt-in dialog — choose whether to enable automatic checks (changeable in Settings)
+- Updates delivered as signed DMGs from GitHub Releases with EdDSA signature verification
+
 ## 0.12.1 — Infrastructure & Reliability (2026-03-04)
 
 Internal improvements to build infrastructure, test coverage, and release automation.
