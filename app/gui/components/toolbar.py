@@ -81,10 +81,6 @@ class ToolbarManager:
 
         file_menu.AppendSeparator()
 
-        if sparkle.is_available():
-            w._check_updates_id = wx.NewIdRef()
-            file_menu.Append(w._check_updates_id, "Check for Updates...")
-
         file_menu.Append(wx.ID_PREFERENCES, "Settings...\tCtrl+,")
         file_menu.AppendSeparator()
         file_menu.Append(wx.ID_CLOSE, "Close Window\tCtrl+W")
@@ -130,6 +126,13 @@ class ToolbarManager:
         menubar.Append(help_menu, "&Help")
 
         w._frame.SetMenuBar(menubar)
+
+        # Sparkle: insert "Check for Updates..." into the macOS application menu,
+        # after Settings (which wxPython auto-places at index 2).
+        if sparkle.is_available():
+            apple_menu = menubar.OSXGetAppleMenu()
+            w._check_updates_id = wx.NewIdRef()
+            apple_menu.Insert(3, w._check_updates_id, "Check for Updates...")
 
         # Bind events
         w._frame.Bind(wx.EVT_MENU, lambda e: w._show_about(), id=wx.ID_ABOUT)

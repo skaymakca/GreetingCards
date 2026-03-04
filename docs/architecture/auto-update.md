@@ -77,6 +77,34 @@ MainWindow._on_close():
 
 ---
 
+## First-Launch Opt-In
+
+On first launch, before Sparkle starts its automatic check schedule, a dialog asks the user whether to enable automatic update checks:
+
+```
+┌─────────────────────────────────────────────┐
+│  Automatic Updates                          │
+│                                             │
+│  Would you like Greeting Cards to           │
+│  automatically check for updates?           │
+│                                             │
+│  You can change this later in Settings.     │
+│                                             │
+│              [No]    [Yes]                   │
+└─────────────────────────────────────────────┘
+```
+
+**Implementation:**
+- `main.py` → `_startup_sparkle()` checks `has_prompted_auto_update()` from `app/core/config.py`
+- The flag `AUTO_UPDATE_PROMPTED` is stored in our `preferences.plist` (not Sparkle's `NSUserDefaults`)
+- The user's choice is written to Sparkle via `set_auto_check_enabled()`
+- `set_prompted_auto_update()` records that the dialog has been shown
+- The dialog appears only once, even across app restarts
+
+**Existing users:** Users who upgrade to a version with this feature will see the dialog once on their next launch — a polite one-time ask consistent with standard macOS behavior when adding auto-update support.
+
+---
+
 ## Build Pipeline
 
 ### Framework Acquisition
