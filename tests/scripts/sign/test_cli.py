@@ -159,9 +159,11 @@ class TestSignBinary:
 class TestSignApp:
     """Test full app signing orchestration."""
 
+    _MACHO_DATA = b"\xcf\xfa\xed\xfe" + b"\x00" * 100
+
     def _make_app(self, tmp_path: pathlib.Path) -> pathlib.Path:
         app = tmp_path / "Test.app"
-        macho_data = b"\xcf\xfa\xed\xfe" + b"\x00" * 100
+        macho_data = self._MACHO_DATA
         exe = app / "Contents" / "MacOS" / "Test"
         exe.parent.mkdir(parents=True)
         exe.write_bytes(macho_data)
@@ -203,6 +205,27 @@ class TestSignApp:
         assert last_cmd[0] == "codesign"
         assert "--verify" in last_cmd
 
+    @patch("scripts.sign.cli.subprocess.run")
+    def test_nested_framework_bundle_signed(self, mock_run: MagicMock, tmp_path: pathlib.Path) -> None:
+        """Nested .framework bundles trigger extra sign_binary calls."""
+        app = self._make_app(tmp_path)
+        # Add a .framework inside Frameworks
+        fw_dir = app / "Contents" / "Frameworks" / "Sparkle.framework"
+        fw_binary = fw_dir / "Versions" / "B" / "Sparkle"
+        fw_binary.parent.mkdir(parents=True)
+        fw_binary.write_bytes(self._MACHO_DATA)
+
+        entitlements = tmp_path / "entitlements.plist"
+        entitlements.write_text("<plist/>", encoding="utf-8")
+
+        sign_app(app, "Test", entitlements)
+
+        # Should have: 3 binaries + 1 nested bundle (.framework) + 1 bundle sign + 1 verify = 6
+        all_cmds = [call[0][0] for call in mock_run.call_args_list]
+        codesign_cmds = [c for c in all_cmds if c[0] == "codesign" and "--verify" not in c]
+        # 3 binaries + 1 framework bundle + 1 app bundle = 5 sign calls
+        assert len(codesign_cmds) == 5
+
 
 class TestMainArgParsing:
     """Test CLI argument parsing and validation."""
@@ -231,6 +254,32 @@ class TestMainArgParsing:
         with (
             patch("sys.argv", ["sign"]),
             patch.dict("os.environ", {}, clear=True),
+            pytest.raises(SystemExit),
+        ):
+            from scripts.sign.cli import main
+
+            main()
+
+    def test_app_not_found_errors(self, tmp_path: pathlib.Path) -> None:
+        """main() errors when app bundle does not exist."""
+        with (
+            patch("sys.argv", ["sign", "--identity", "Test"]),
+            patch("scripts.sign.cli.app_path", return_value=tmp_path / "Missing.app"),
+            pytest.raises(SystemExit),
+        ):
+            from scripts.sign.cli import main
+
+            main()
+
+    def test_entitlements_not_found_errors(self, tmp_path: pathlib.Path) -> None:
+        """main() errors when entitlements file does not exist."""
+        app = tmp_path / "Test.app"
+        app.mkdir()
+
+        with (
+            patch("sys.argv", ["sign", "--identity", "Test"]),
+            patch("scripts.sign.cli.app_path", return_value=app),
+            patch("scripts.sign.cli._ENTITLEMENTS", tmp_path / "missing.plist"),
             pytest.raises(SystemExit),
         ):
             from scripts.sign.cli import main

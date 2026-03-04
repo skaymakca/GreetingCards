@@ -16,5 +16,6 @@ Greeting Cards is open source. Visit the [GitHub repository](https://github.com/
 - [Preview Panel](pages/preview.html) — Viewing and navigating cards
 - [Keyboard Shortcuts](pages/shortcuts.html) — Shortcuts and zoom controls
 - [AI Models](pages/ai-models.html) — Model selection and cost estimates
+- [Auto-Update](pages/auto-update.html) — Automatic updates and version checks
 - [Scripting](pages/scripting.html) — AppleScript automation
 - [Tips](pages/tips.html) — Usage tips and best practices

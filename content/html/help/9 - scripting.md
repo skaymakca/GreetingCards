@@ -11,7 +11,7 @@ Greeting Cards supports AppleScript automation. You can control the app from Scr
 
 - The installed `.app` bundle (scripting does not work with `uv run python main.py`)
 - Script Editor or `osascript` in Terminal
-- macOS 12 or later
+- macOS 13 Ventura or later
 
 ## Quick Start
 

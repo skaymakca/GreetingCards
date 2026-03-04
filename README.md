@@ -48,7 +48,7 @@ A macOS desktop app for organizing holiday and greeting card PDFs. Drop a folder
 - **Keyboard navigation** — Up/Down to select cards, Shift+Up/Down to extend selection, Cmd+A to select all, Left/Right
   to page through previews, Cmd+Delete to remove selected cards, Cmd+F to search, Cmd+O to open files, Cmd+Shift+R to
   reload, Cmd+Shift+I to AI analyze, Cmd+R to rename, Cmd+, for Settings, Escape to defocus
-- **Help system** — built-in WebView help viewer with 9 pages, cross-page search with highlighted matches, and
+- **Help system** — built-in WebView help viewer with 10 pages, cross-page search with highlighted matches, and
   Previous/Next match navigation
 - **Native macOS UI** — native toolbar, preferences editor (Cmd+,), About dialog, and system colors throughout
 - **API key management** — prompts for the Anthropic API key on first AI use; key is saved to `preferences.plist`;
@@ -237,7 +237,10 @@ tests/
 └── scripts/
     ├── test_helpers.py              # script_output_dir lifecycle
     ├── test_run_tests.py            # test runner scopes and argument building
+    ├── appcast/                     # XML generation, DMG signing, error handling
     ├── build_family_name_db/        # merger, unicode, Census/Faker/Smashew sources
+    ├── configure_release/           # keychain scanning, interactive UI, script generation,
+    │                                #   shellcheck validation, CLI orchestration
     ├── dmg/                         # readme RTF, background PNG, dmgbuild orchestration
     ├── generate_diagnostic_cards/   # CLI argument parsing, PDF creation
     ├── generate_sample_cards/       # models, display, pdf_composer, image_generator,
@@ -264,7 +267,7 @@ tests/
 
 ### Current Coverage
 
-- **2625 tests** covering core logic, GUI components, and scripts
+- **2693 tests** covering core logic, GUI components, and scripts
 - **Core** (services/, pipeline/, naming/, content/ sub-packages + top-level): AI analysis, AI batch, AI service,
   Apple Events, card model, card processor, card service, card store, changelog, changelog models, config,
   config service, database, family name cleaning, family name data, family name formatting, filename safety,
@@ -491,6 +494,19 @@ uv run python -m scripts.release checksum          # SHA256 checksum
 uv run python -m scripts.release draft             # create draft GitHub release
 uv run python -m scripts.release publish           # publish the draft
 ```
+
+### Appcast
+
+`appcast` generates a Sparkle-compatible `appcast.xml` from the signed DMG and pushes it to the `gh-pages` branch
+for auto-update hosting.
+
+```bash
+uv run python -m scripts.appcast generate          # sign DMG + generate appcast.xml
+uv run python -m scripts.appcast push              # push appcast.xml to gh-pages
+uv run python -m scripts.appcast --dry-run generate # print commands only
+```
+
+When releasing, use `./release-local.sh` instead of running this directly (the pipeline calls it automatically).
 
 ## IDE Setup (PyCharm)
 

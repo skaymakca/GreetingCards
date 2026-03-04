@@ -292,6 +292,25 @@ class TestCmdDraft:
         ):
             cmd_draft("1.0.0")
 
+    def test_missing_checksum_raises(self, tmp_path: pathlib.Path) -> None:
+        """cmd_draft raises FileNotFoundError when checksum file doesn't exist."""
+        notes_file = tmp_path / "dist" / "release-notes.md"
+        notes_file.parent.mkdir(parents=True)
+        notes_file.write_text("notes", encoding="utf-8")
+
+        dmg = tmp_path / "dist" / "Greeting-Cards-1.0.0.dmg"
+        dmg.write_bytes(b"content")
+        # No checksum file created
+
+        with (
+            patch("scripts.release.cli._preflight_tag_check"),
+            patch("scripts.release.cli.PROJECT_ROOT", tmp_path),
+            patch("scripts.release.cli._release_notes_path", return_value=notes_file),
+            patch("scripts.release.cli.dmg_path", side_effect=lambda v: tmp_path / "dist" / f"Greeting-Cards-{v}.dmg"),
+            pytest.raises(FileNotFoundError, match="Checksum not found"),
+        ):
+            cmd_draft("1.0.0")
+
 
 class TestDryRun:
     """Tests for --dry-run support on draft and publish subcommands."""
@@ -470,6 +489,15 @@ class TestPreflightTagCheck:
         mock_run.side_effect = self._make_run_side_effect(tag_sha="aaa", head_sha="bbb")
         with patch("builtins.input", return_value="y"):
             _preflight_tag_check("1.0.0")  # should not raise
+
+    @patch("scripts.release.cli.sys.stdin")
+    @patch("scripts.release.cli.subprocess.run")
+    def test_non_interactive_aborts(self, mock_run: MagicMock, mock_stdin: MagicMock) -> None:
+        """Non-interactive (non-tty) stdin aborts when tag != HEAD."""
+        mock_stdin.isatty.return_value = False
+        mock_run.side_effect = self._make_run_side_effect(tag_sha="aaa", head_sha="bbb")
+        with pytest.raises(ReleaseError, match="non-interactive"):
+            _preflight_tag_check("1.0.0")
 
     @patch("scripts.release.cli.subprocess.run")
     def test_dry_run_skips_prompt(self, mock_run: MagicMock) -> None:
