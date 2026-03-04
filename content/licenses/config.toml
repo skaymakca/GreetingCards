@@ -39,6 +39,14 @@ notes = "Bundled as transitive dependency of tesserocr"
 url = "https://github.com/DanBloomberg/leptonica"
 
 [[bundled]]
+slug = "sparkle"
+display = "Sparkle"
+version = "2.9.0"
+license_type = "MIT"
+notes = "macOS auto-update framework bundled in app bundle"
+url = "https://sparkle-project.org"
+
+[[bundled]]
 slug = "highlight-js"
 display = "Highlight.js"
 version = "11.11.1"
