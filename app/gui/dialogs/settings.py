@@ -4,6 +4,7 @@ from collections.abc import Callable
 
 import wx
 
+from app.core import sparkle
 from app.core.services.config_service import ConfigService
 from app.gui import styles
 
@@ -105,10 +106,29 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
         model_desc.SetFont(styles.Font.SMALL())
         sizer.Add(model_desc, 0, wx.LEFT | wx.RIGHT | wx.TOP, _PREFS_PAD)
 
+        # Updates section (only when running as app bundle with Sparkle)
+        if sparkle.is_available():
+            sizer.AddSpacer(_SECTION_GAP)
+
+            updates_heading = wx.StaticText(panel, label="Updates")
+            updates_heading.SetFont(styles.Font.HEADING())
+            sizer.Add(updates_heading, 0, wx.LEFT | wx.RIGHT, _PREFS_PAD)
+
+            sizer.AddSpacer(_HEADING_GAP)
+
+            self._auto_update_cb = wx.CheckBox(panel, label="Automatically check for updates")
+            self._auto_update_cb.SetValue(sparkle.get_auto_check_enabled())
+            self._auto_update_cb.Bind(wx.EVT_CHECKBOX, self._on_auto_update_changed)
+            sizer.Add(self._auto_update_cb, 0, wx.LEFT | wx.RIGHT, _PREFS_PAD)
+
         sizer.AddSpacer(_BOTTOM_PADDING)
 
         panel.SetSizer(sizer)
         return panel
+
+    def _on_auto_update_changed(self, event: wx.CommandEvent) -> None:
+        """Toggle automatic update checks via Sparkle."""
+        sparkle.set_auto_check_enabled(event.IsChecked())
 
     def _on_model_changed(self, event: wx.CommandEvent) -> None:
         """Save model selection immediately."""

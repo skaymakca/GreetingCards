@@ -1,6 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 # noinspection PyAll
 import os
+import time
 from PyInstaller.utils.hooks import collect_all
 import subprocess, tomllib
 
@@ -10,6 +11,7 @@ _root = os.path.join(SPECPATH, '..')
 with open(os.path.join(_root, 'pyproject.toml'), 'rb') as _f:
     __version__ = tomllib.load(_f)['project']['version']
 __commit__ = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode().strip()
+__build_number__ = str(int(time.time()))
 
 datas = [
     (os.path.join(_root, '_build', 'runtime_content'), '_runtime_content'),
@@ -78,9 +80,11 @@ app = BUNDLE(
     bundle_identifier='com.kaymakcalan.app.greetingcards',
     info_plist={
         'CFBundleShortVersionString': __version__,
-        'CFBundleVersion': __commit__,
+        'CFBundleVersion': __build_number__,
         'NSAppleScriptEnabled': True,
         'OSAScriptingDefinition': 'GreetingCards.sdef',
         'NSAppleEventsUsageDescription': 'Greeting Cards supports AppleScript automation for batch processing, AI analysis, and card management.',
+        'SUFeedURL': 'https://skaymakca.github.io/GreetingCards/appcast.xml',
+        'SUPublicEDKey': '',
     },
 )

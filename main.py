@@ -14,6 +14,8 @@ import wx
 
 from app.core.apple_events import register_apple_event_handlers, register_quit_handler
 from app.core.paths import is_bundled
+from app.core.sparkle import init as sparkle_init
+from app.core.sparkle import start as sparkle_start
 from app.gui.main_window import MainWindow
 
 logger = logging.getLogger(__name__)
@@ -34,6 +36,10 @@ def main():
     # Defer aevt/quit registration until after MainLoop starts so our handler
     # overwrites wxPython's own aevt/quit handler installed during MainLoop init.
     wx.CallAfter(register_quit_handler, _ae_handler)
+
+    # Sparkle auto-update: init framework, defer start until after MainLoop
+    sparkle_init()
+    wx.CallAfter(sparkle_start)
 
     window.run()
     app.MainLoop()

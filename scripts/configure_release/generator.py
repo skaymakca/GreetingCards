@@ -59,7 +59,8 @@ STEPS: tuple[Step, ...] = (
     ),
     Step(6, "checksum", "Generating checksum", "uv run python -m scripts.release checksum", Scope.LOCAL),
     Step(7, "changelog", "Extracting changelog", "uv run python -m scripts.release changelog", Scope.LOCAL),
-    Step(8, "draft", "Creating draft release", "uv run python -m scripts.release draft", Scope.GITHUB),
+    Step(8, "appcast", "Generating appcast", "uv run python -m scripts.appcast generate", Scope.LOCAL),
+    Step(9, "draft", "Creating draft release", "uv run python -m scripts.release draft", Scope.GITHUB),
 )
 
 UTILITIES: tuple[Utility, ...] = (
@@ -79,6 +80,12 @@ UTILITIES: tuple[Utility, ...] = (
         "publish",
         "Publish the draft release",
         "uv run python -m scripts.release publish",
+        Scope.GITHUB,
+    ),
+    Utility(
+        "appcastpush",
+        "Push appcast to Pages",
+        "uv run python -m scripts.appcast push",
         Scope.GITHUB,
     ),
 )
