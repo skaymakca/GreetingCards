@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev tessdata run test test-everything check pyright mypy lint lint-fix format format-check security pycharm-inspect content licenses-sync icon app app-run dmg release-publish configure-release shellcheck version bump-patch bump-minor bump-major tag tag-push visual-test visual-test-app show-scripts loc docker-build docker-test docker-shell clean
+.PHONY: help setup setup-dev tessdata run test test-everything check pyright mypy lint lint-fix format format-check security pycharm-inspect content licenses-sync icon app app-run dmg configure-release shellcheck version bump-patch bump-minor bump-major tag tag-push visual-test visual-test-app show-scripts loc docker-build docker-test docker-shell clean
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -178,10 +178,7 @@ bump-major: ## Bump major version (0.6.0 → 1.0.0)
 	t=open(p).read().replace('version = \"'+old+'\"','version = \"'+nv+'\"',1); \
 	open(p,'w').write(t); print(nv)"
 
-release-publish: ## Publish the latest draft release
-	uv run python -m scripts.release publish
-
-configure-release: ## Configure local signing identity & profile (generates release-local.sh)
+configure-release: ## Generate the release pipeline script (release-local.sh)
 	uv run python -m scripts.configure_release
 
 shellcheck: ## Run shellcheck on release-local.sh (if it exists)

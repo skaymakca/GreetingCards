@@ -75,6 +75,12 @@ UTILITIES: tuple[Utility, ...] = (
         'uv run python -m scripts.notarize --keychain-profile "$KEYCHAIN_PROFILE" log',
         Scope.APPLE,
     ),
+    Utility(
+        "publish",
+        "Publish the draft release",
+        "uv run python -m scripts.release publish",
+        Scope.GITHUB,
+    ),
 )
 
 # Module-level guards: word IDs must be unique across steps AND utilities, and lowercase-alpha
