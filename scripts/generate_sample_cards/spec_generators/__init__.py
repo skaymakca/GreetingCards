@@ -31,7 +31,7 @@ from scripts.generate_sample_cards.spec_generators.family_names import (
     generate_family_names_async as generate_family_names_async,
 )
 from scripts.generate_sample_cards.spec_generators.formatting import (
-    assign_deterministic_fields as assign_deterministic_fields,
+    assign_generated_fields as assign_generated_fields,
 )
 from scripts.generate_sample_cards.spec_generators.formatting import (
     build_family_members as build_family_members,

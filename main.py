@@ -30,7 +30,6 @@ def main():
     window = MainWindow()
 
     _ae_handler = register_apple_event_handlers(window, main_thread_dispatch=wx.CallAfter)
-    assert _ae_handler is not None  # prevent "not accessed" warning
 
     # Defer aevt/quit registration until after MainLoop starts so our handler
     # overwrites wxPython's own aevt/quit handler installed during MainLoop init.

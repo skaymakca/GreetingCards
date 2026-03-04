@@ -12,23 +12,24 @@ macOS-only testing would miss.
 
 ### Dockerfile
 
-`Dockerfile` builds a test image based on `python:3.14-slim-bookworm`:
+`docker/Dockerfile` builds a test image based on `python:3.14-slim-bookworm`:
 
-| Layer                      | What it does                                                                       |
-|----------------------------|------------------------------------------------------------------------------------|
+| Layer                      | What it does                                                                                                 |
+|----------------------------|--------------------------------------------------------------------------------------------------------------|
 | System deps                | Installs `build-essential`, `pkg-config`, `libtesseract-dev`, `libleptonica-dev`, `tesseract-ocr-eng`, `git` |
-| uv                         | Copies the `uv` binary from the official `ghcr.io/astral-sh/uv` image             |
-| Non-root user              | Creates a `tester` user (UID 1000) for realistic filesystem permission behavior    |
-| Layer-cached deps          | Copies `pyproject.toml` + `uv.lock` first, runs `uv sync --no-install-project`    |
-| Full source + project sync | Copies remaining source, runs `uv sync` to install the project itself              |
+| uv                         | Copies the `uv` binary from the official `ghcr.io/astral-sh/uv` image                                        |
+| Non-root user              | Creates a `tester` user (UID 1000) for realistic filesystem permission behavior                              |
+| Layer-cached deps          | Copies `pyproject.toml` + `uv.lock` first, runs `uv sync --no-install-project`                               |
+| Full source + project sync | Copies remaining source, runs `uv sync` to install the project itself                                        |
 
 The default `CMD` runs `pytest tests/core/ tests/scripts/ --ignore=tests/core/test_apple_events.py -x --tb=short`.
 
 ### docker-compose.yml
 
-`docker-compose.yml` defines a single `test-linux` service:
+`docker/docker-compose.yml` defines a single `test-linux` service:
 
-- **Volume mount:** `.:/app` — mounts the project directory so code changes are reflected without rebuilding
+- **Build context:** `..` (project root) with `dockerfile: docker/Dockerfile` — keeps the build context at the project root so `COPY` commands work unchanged
+- **Volume mount:** `..:/app` — mounts the project root so code changes are reflected without rebuilding
 - **Anonymous volume:** `/app/.venv` — prevents the macOS `.venv` from leaking into the container; the container uses
   its own virtual environment
 - **User:** `1000:1000` — matches the non-root `tester` user in the image
@@ -42,9 +43,9 @@ The default `CMD` runs `pytest tests/core/ tests/scripts/ --ignore=tests/core/te
 
 ### Make targets
 
-| Target         | Description                                           |
-|----------------|-------------------------------------------------------|
-| `docker-build` | Builds the `greeting-cards-test` image                |
+| Target         | Description                                            |
+|----------------|--------------------------------------------------------|
+| `docker-build` | Builds the `greeting-cards-test` image                 |
 | `docker-test`  | Runs the default test command via `docker compose run` |
 | `docker-shell` | Opens an interactive bash shell in the container       |
 
@@ -68,10 +69,10 @@ GitHub Actions CI is defined in `.github/workflows/ci.yml`. It uses a shared com
 
 ### Jobs
 
-| Job     | Trigger                             | Runner      | Steps                                                               |
-|---------|-------------------------------------|-------------|---------------------------------------------------------------------|
-| `check` | Pushes only (`if` guard skips PRs)  | `macos-26`  | Checkout, setup, `make check`, upload `static-checks.log`           |
-| `test`  | PRs to `main` only (`if` guard)     | `macos-26`  | Checkout, setup, `make check`, `make app`, `make test T="default --cov"`, upload logs + coverage |
+| Job     | Trigger                            | Runner     | Steps                                                                                            |
+|---------|------------------------------------|------------|--------------------------------------------------------------------------------------------------|
+| `check` | Pushes only (`if` guard skips PRs) | `macos-26` | Checkout, setup, `make check`, upload `static-checks.log`                                        |
+| `test`  | PRs to `main` only (`if` guard)    | `macos-26` | Checkout, setup, `make check`, `make app`, `make test T="default --cov"`, upload logs + coverage |
 
 ### Artifacts
 
@@ -105,10 +106,10 @@ This avoids duplicate work: on a PR, only one runner is used instead of two.
 
 ## Gotchas
 
-- **Anonymous `.venv` volume:** The `docker-compose.yml` anonymous volume for `/app/.venv` is essential. Without it,
+- **Anonymous `.venv` volume:** The `docker/docker-compose.yml` anonymous volume for `/app/.venv` is essential. Without it,
   the macOS `.venv` (with platform-specific wheels) would be mounted into the Linux container and break imports.
 - **Non-root user:** The Dockerfile creates a non-root `tester` user so that tests exercise realistic filesystem
-  permission behavior. The `user: "1000:1000"` in `docker-compose.yml` must match.
+  permission behavior. The `user: "1000:1000"` in `docker/docker-compose.yml` must match.
 - **`--ignore` for macOS-only tests:** The default `CMD` explicitly ignores `test_apple_events.py`. If new macOS-only
   test files are added, they need to be added to the ignore list or moved under a macOS-specific directory.
 - **Layer caching:** The Dockerfile copies `pyproject.toml` and `uv.lock` before the full source to maximize Docker

@@ -14,6 +14,20 @@
 
 ---
 
+## 🚫 CRITICAL: NO SENSITIVE DATA IN COMMITS 🚫
+
+**NEVER commit secrets, credentials, or user-specific identity information.**
+
+- ❌ Do NOT commit certificate files (`.cer`, `.p12`, `.p8`, `.pem`, `.key`)
+- ❌ Do NOT commit `.env` files or inline secrets in code
+- ❌ Do NOT hardcode signing identities, Apple IDs, team IDs, or keychain profile names
+- ❌ Do NOT include user-specific paths, names, or identifiers in committed code
+- ✅ Use environment variables (`$CODESIGN_IDENTITY`) or macOS Keychain for credentials
+- ✅ Use CLI flags (`--identity`, `--keychain-profile`) that read from env/keychain
+- ✅ Keep examples generic: `your@email.com`, `TEAMID`, `YOUR_IDENTITY`
+
+---
+
 ## 🚫 CRITICAL: DO NOT MODIFY GITHUB ISSUES 🚫
 
 **NEVER create, close, or edit GitHub issues without explicit user permission.**
@@ -166,7 +180,9 @@ app/
   core/         # Business logic (OCR, AI, rename, database, PDF, config)
   gui/          # wxPython UI (main window, panels, dialogs, styles, icons)
   models/       # Data models (CardResult, RenamePlanItem, etc.)
-content/        # Static assets (HTML templates, CSS, JS, help Markdown, licenses)
+content/        # Static assets (HTML templates, CSS, JS, help Markdown, licenses, sdef)
+docker/         # Docker infrastructure (Dockerfile, docker-compose.yml)
+packaging/      # PyInstaller specs + signing configs (entitlements.plist)
 scripts/        # Standalone scripts and benchmarks
   benchmark/    # OCR and concurrency benchmark suite
 tests/          # Pytest suite (mirrors app/ structure)
@@ -176,7 +192,7 @@ main.py         # Entry point
 Key entry points:
 - `main.py` → `app.gui.main_window.MainWindow` — the app
 - `scripts/visual_test.py` — visual test harness for all dialogs/panels
-- `Greeting Cards.spec` — PyInstaller bundle config
+- `packaging/Greeting Cards.spec` — PyInstaller bundle config
 
 ---
 
@@ -225,8 +241,11 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `# noinspection` comments in any `*.py` file                                                                                                                                        | `docs/architecture/pycharm-inspections.md`                            |
 | `scripts/dmg/**` (including `dmgbuild_settings.py`)                                                                                                                                 | `docs/architecture/dmg-creation.md`                                   |
 | `content/dmg/readme.md`, `content/dmg/Sample Cards/`                                                                                                                                | `docs/architecture/dmg-creation.md`                                   |
+| `scripts/sign/**`, `scripts/notarize/**`, `scripts/release/**`                                                                                                                      | `docs/architecture/release-pipeline.md`                               |
+| `scripts/configure_release/*.py`                                                                                                                                                    | `docs/architecture/release-pipeline.md`                               |
+| `packaging/entitlements.plist`, `packaging/Greeting Cards.spec` (upx/signing)                                                                                                       | `docs/architecture/release-pipeline.md`                               |
 | Markdown tables in any `*.md` file                                                                                                                                                  | `docs/pycharm-table-formatting.md`                                    |
-| `Dockerfile`, `docker-compose.yml`, `.github/workflows/ci.yml`, `.github/actions/setup-build-env/action.yml`                                                                        | `docs/architecture/docker-and-ci.md`                                  |
+| `docker/Dockerfile`, `docker/docker-compose.yml`, `.github/workflows/ci.yml`, `.github/actions/setup-build-env/action.yml`                                                          | `docs/architecture/docker-and-ci.md`                                  |
 
 ### Test Count
 When adding or removing tests, update the test count in `README.md` (search for "tests** covering") to match the actual number from `pytest` output.
@@ -252,15 +271,27 @@ When adding or removing tests, update the test count in `README.md` (search for 
 
 After adding or updating packages with `uv add`, run `make licenses-sync` to update the license registry and extract new license texts. Then run `make content` to regenerate the HTML.
 
+### Timestamp Conventions
+
+- **Core/app code** (`app/`): Use UTC-aware timestamps (`datetime.now(UTC)`)
+- **Scripts** (`scripts/`): Use naive local time (`datetime.now()`) — scripts run locally
+- **Filename timestamps**: `strftime("%Y%m%dT%H%M")` → `YYYYMMDDThhmm` (e.g., `20260303T1422`)
+- **Log format**: ISO 8601 with `T` separator (`%Y-%m-%dT%H:%M:%S`)
+- **Elapsed timers**: Use `time.monotonic()`, never `time.time()`
+
 ---
 
 ## Code Quality Audit
 
-When asked to audit the codebase, follow the checklist in [`docs/code-quality-audit.md`](docs/code-quality-audit.md).
+When asked to audit the codebase, follow the methodology in [`docs/code-quality-audit.md`](docs/code-quality-audit.md). Findings go into `.local/audits/YYYYMMDDThhmm-code-quality.md`.
+
+## Coverage Analysis
+
+When asked to analyze or improve test coverage, follow the methodology in [`docs/coverage-analysis.md`](docs/coverage-analysis.md). Analysis goes into `_build/coverage/YYYYMMDDThhmm/coverage-analysis.md`; remediation reports go into `_build/coverage/YYYYMMDDThhmm/remediation-report.md`.
 
 ## MVC Compliance Audit
 
-When asked to audit MVC compliance, follow the methodology in [`docs/mvc-compliance-audit.md`](docs/mvc-compliance-audit.md). Findings go into `.claude/mvc-audit-findings.md`.
+When asked to audit MVC compliance, follow the methodology in [`docs/mvc-compliance-audit.md`](docs/mvc-compliance-audit.md). Findings go into `.local/audits/YYYYMMDDThhmm-mvc-compliance.md`.
 
 ---
 

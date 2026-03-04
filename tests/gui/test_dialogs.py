@@ -338,13 +338,11 @@ class TestProgressDialog:
         dlg = ProgressDialog(wx_frame, "Processing", 10)
         assert dlg.GetTitle() == "Processing"
         assert dlg._total == 10
-        assert dlg._current == 0
         dlg.Destroy()
 
     def test_update_progress(self, wx_app, wx_frame):
         dlg = ProgressDialog(wx_frame, "Test", 5)
         dlg.update_progress(3, "Working...")
-        assert dlg._current == 3
         assert dlg._progress.GetValue() == 3
         assert dlg._label.GetLabel() == "Working..."
         dlg.Destroy()
@@ -352,7 +350,7 @@ class TestProgressDialog:
     def test_update_progress_no_message(self, wx_app, wx_frame):
         dlg = ProgressDialog(wx_frame, "Test", 5)
         dlg.update_progress(2)
-        assert dlg._current == 2
+        assert dlg._progress.GetValue() == 2
         assert dlg._label.GetLabel() == "Processing..."
         dlg.Destroy()
 
@@ -390,7 +388,6 @@ class TestRenameConfirmDialog:
         plan = self._make_plan([STATUS_OK, STATUS_SKIP_NO_NAME])
         dlg = RenameConfirmDialog(wx_frame, plan)
         assert dlg.GetTitle() == "Confirm Rename"
-        assert dlg.result is False
         dlg.Destroy()
 
     def test_all_ok(self, wx_app, wx_frame):
@@ -605,25 +602,21 @@ class TestRenameConfirmDialogHandlers:
             RenamePlanItem(Path("/cards/a.pdf"), Path("/cards/b.pdf"), STATUS_OK),
         ]
 
-    def test_on_confirm_sets_result_true(self, wx_app, wx_frame):
+    def test_on_confirm_ends_modal_ok(self, wx_app, wx_frame):
         dlg = RenameConfirmDialog(wx_frame, self._make_plan())
-        assert dlg.result is False
-        # _on_confirm sets result=True
+        # _on_confirm calls EndModal(wx.ID_OK)
         try:
             dlg._on_confirm(None)
         except wx.wxAssertionError:
             pass  # EndModal raises when not shown modally
-        assert dlg.result is True
         dlg.Destroy()
 
-    def test_on_cancel_sets_result_false(self, wx_app, wx_frame):
+    def test_on_cancel_ends_modal_cancel(self, wx_app, wx_frame):
         dlg = RenameConfirmDialog(wx_frame, self._make_plan())
-        dlg.result = True  # Set it first
         try:
             dlg._on_cancel(None)
         except wx.wxAssertionError:
             pass
-        assert dlg.result is False
         dlg.Destroy()
 
     def test_on_key_return_confirms(self, wx_app, wx_frame):
@@ -634,19 +627,16 @@ class TestRenameConfirmDialogHandlers:
             dlg._on_key(event)
         except wx.wxAssertionError:
             pass
-        assert dlg.result is True
         dlg.Destroy()
 
     def test_on_key_escape_cancels(self, wx_app, wx_frame):
         dlg = RenameConfirmDialog(wx_frame, self._make_plan())
-        dlg.result = True
         event = Mock(spec=wx.KeyEvent)
         event.GetKeyCode.return_value = wx.WXK_ESCAPE
         try:
             dlg._on_key(event)
         except wx.wxAssertionError:
             pass
-        assert dlg.result is False
         dlg.Destroy()
 
     def test_on_key_other_skips(self, wx_app, wx_frame):

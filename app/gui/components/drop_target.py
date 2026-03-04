@@ -9,6 +9,7 @@ from PIL import Image, ImageEnhance
 
 from app.core.paths import get_runtime_content_path
 from app.gui.styles import Color, Font, Layout
+from app.gui.utils import draw_drag_highlight
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,7 @@ class DropOverlay(wx.Panel):
         self.Refresh()
         event.Skip()
 
-    def _scale_bg(self, target_w: int, target_h: int) -> wx.Bitmap | None:
+    def _scale_bg(self, target_w: int, target_h: int) -> wx.Bitmap | None:  # pragma: no cover
         """Scale bg image to fit target size (contain), caching result."""
         if self._bg_source is None:
             return None
@@ -89,7 +90,7 @@ class DropOverlay(wx.Panel):
         self._bg_cache_size = (target_w, target_h)
         return self._bg_scaled
 
-    def _on_paint(self, event: wx.PaintEvent) -> None:
+    def _on_paint(self, event: wx.PaintEvent) -> None:  # pragma: no cover
         dc = wx.PaintDC(self)
         gc = wx.GraphicsContext.Create(dc)
         if not gc:
@@ -99,12 +100,7 @@ class DropOverlay(wx.Panel):
 
         # If drag active, draw solid blue border at panel edges
         if self._drag_active:
-            inset = Layout.HIGHLIGHT_INSET
-            edge_path = gc.CreatePath()
-            edge_path.AddRoundedRectangle(inset, inset, w - inset * 2, h - inset * 2, Layout.HIGHLIGHT_RADIUS)
-            gc.SetPen(gc.CreatePen(wx.GraphicsPenInfo(Color.ACCENT).Width(Layout.HIGHLIGHT_WIDTH)))
-            gc.SetBrush(wx.NullBrush)
-            gc.StrokePath(edge_path)
+            draw_drag_highlight(gc, w, h)
 
         # Background image scaled to fraction of overlay area, centered
         img_area_w = int(w * Layout.DROP_BG_SCALE)

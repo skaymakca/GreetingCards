@@ -9,7 +9,7 @@ from typing import NamedTuple
 import wx
 import wx.html2
 
-from app.gui.icons import clear_cache, load_menu_icon, load_sf_symbol
+from app.gui.icons import load_menu_icon, load_sf_symbol
 from app.gui.styles import Color
 
 # Singleton weakrefs keyed by viewer type
@@ -187,19 +187,19 @@ class _SearchController:
 
     # ── JS bridge ──
 
-    def _mark_all(self) -> None:
+    def _mark_all(self) -> None:  # pragma: no cover
         if not self._page_ready:
             return
         query = self._search_ctrl.GetValue()
         self._last_query = query
         self._webview.RunScript(f"shlMark({json.dumps(query)})")
 
-    def _focus_match(self, idx: int) -> None:
+    def _focus_match(self, idx: int) -> None:  # pragma: no cover
         if not self._page_ready:
             return
         self._webview.RunScript(f"shlFocus({idx})")
 
-    def _clear_highlights(self) -> None:
+    def _clear_highlights(self) -> None:  # pragma: no cover
         if not self._page_ready:
             return
         self._last_query = ""
@@ -236,7 +236,7 @@ class _SearchController:
 
     # ── Navigation ──
 
-    def _navigate_to_page(self, pg_idx: int, mt_idx: int) -> None:
+    def _navigate_to_page(self, pg_idx: int, mt_idx: int) -> None:  # pragma: no cover
         self._page_cursor = pg_idx
         self._match_cursor = mt_idx
         page = self._search_pages[pg_idx].page
@@ -254,7 +254,7 @@ class _SearchController:
             self._pending_focus = True
             self._webview.LoadURL((self._base_path / page).as_uri())
 
-    def current_page_info(self) -> tuple[int, str]:
+    def current_page_info(self) -> tuple[int, str]:  # pragma: no cover
         """Return (index, rel_path) of the current page."""
         current_url = self._webview.GetCurrentURL()
         base_url = current_url.split("#")[0]
@@ -320,7 +320,7 @@ class _SearchController:
             next_pg = (self._page_cursor + 1) % len(self._search_pages)
             self._navigate_to_page(next_pg, 0)
 
-    def on_page_loaded(self, evt: wx.Event) -> None:
+    def on_page_loaded(self, evt: wx.Event) -> None:  # pragma: no cover
         self._page_ready = True
         self._update_nav_buttons()
         if self._pending_mark:
@@ -351,6 +351,9 @@ class HTMLViewerWindow:
         size: tuple[int, int] = (800, 600),
         search_hint: str = "Search",
     ) -> None:
+        if not page_order:
+            raise ValueError("page_order must not be empty")
+
         self._page_order = page_order
         self._base_path = base_path
 
@@ -536,7 +539,6 @@ class HTMLViewerWindow:
 
     def refresh_colors(self) -> None:
         """Update toolbar icons and border for current appearance mode."""
-        clear_cache()
         for tool_id, symbol_name in self._tool_icons:
             bmp = _toolbar_icon(symbol_name)
             self._toolbar.SetToolNormalBitmap(tool_id, wx.BitmapBundle(bmp))

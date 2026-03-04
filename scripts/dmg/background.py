@@ -24,7 +24,7 @@ WIDTH, HEIGHT = 660, 480
 APP_X, APP_Y = 152, 105  # Greeting Cards.app
 APPS_X, APPS_Y = 482, 105  # Applications
 
-# Chevron colour — matches the steel-blue palette of the gradient
+# Chevron color — matches the steel-blue palette of the gradient
 _CHEVRON_COLOR = (155, 170, 190)
 
 # SF Symbol point size (logical pixels) — tuned for visual balance between icons
@@ -43,6 +43,7 @@ def _gradient(draw: ImageDraw.ImageDraw, w: int, h: int) -> None:
         draw.line([(x, 0), (x, h)], fill=(r, g, b))
 
 
+# noinspection PyUnresolvedReferences
 def _sf_chevron(scale: int) -> Image.Image:
     """Render SF Symbol `chevron.right` at Black weight via PyObjC.
 
@@ -80,7 +81,7 @@ def _sf_chevron(scale: int) -> Image.Image:
     ctx = AppKit.NSGraphicsContext.graphicsContextWithBitmapImageRep_(rep)
     AppKit.NSGraphicsContext.setCurrentContext_(ctx)
 
-    # Tint with the chevron colour
+    # Tint with the chevron color
     r, g, b = _CHEVRON_COLOR
     color = AppKit.NSColor.colorWithDeviceRed_green_blue_alpha_(r / 255.0, g / 255.0, b / 255.0, 1.0)
     color.set()

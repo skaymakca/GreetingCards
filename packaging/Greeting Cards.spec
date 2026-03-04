@@ -1,12 +1,20 @@
 # -*- mode: python ; coding: utf-8 -*-
 # noinspection PyAll
+import os
 from PyInstaller.utils.hooks import collect_all
 import subprocess, tomllib
-with open('pyproject.toml', 'rb') as _f:
+
+# Paths are relative to spec file location (packaging/), so go up one level
+_root = os.path.join(SPECPATH, '..')
+
+with open(os.path.join(_root, 'pyproject.toml'), 'rb') as _f:
     __version__ = tomllib.load(_f)['project']['version']
 __commit__ = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode().strip()
 
-datas = [('_build/runtime_content', '_runtime_content'), ('content/sdef/GreetingCards.sdef', '.')]
+datas = [
+    (os.path.join(_root, '_build', 'runtime_content'), '_runtime_content'),
+    (os.path.join(_root, 'content', 'sdef', 'GreetingCards.sdef'), '.'),
+]
 binaries = []
 hiddenimports = ['AppKit', 'Foundation', 'objc']
 
@@ -23,8 +31,8 @@ datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
 a = Analysis(
-    ['main.py'],
-    pathex=[],
+    [os.path.join(_root, 'main.py')],
+    pathex=[_root],
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
@@ -46,7 +54,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -59,14 +67,14 @@ coll = COLLECT(
     a.binaries,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     name='Greeting Cards',
 )
 app = BUNDLE(
     coll,
     name='Greeting Cards.app',
-    icon='_build/runtime_content/icon.icns',
+    icon=os.path.join(_root, '_build', 'runtime_content', 'icon.icns'),
     bundle_identifier='com.kaymakcalan.app.greetingcards',
     info_plist={
         'CFBundleShortVersionString': __version__,

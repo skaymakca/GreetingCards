@@ -116,3 +116,38 @@ class TestFileDropTargetOnDropFiles:
 
         assert result is True
         mock_call_after.assert_called_once_with(callback, [Path("/tmp/a.pdf"), Path("/tmp/b.pdf")])
+
+
+class TestFileDropTargetDragOver:
+    """Tests for FileDropTarget.OnDragOver()."""
+
+    def test_on_drag_over_calls_callback(self):
+        """Calls on_drag_over callback when provided."""
+        drag_over_cb = MagicMock()
+        target = FileDropTarget(on_drop=MagicMock(), on_drag_over=drag_over_cb)
+
+        result = target.OnDragOver(0, 0, wx.DragCopy)
+
+        drag_over_cb.assert_called_once()
+        assert result == wx.DragCopy
+
+    def test_on_drag_over_no_callback(self):
+        """Returns defResult without error when on_drag_over is None."""
+        target = FileDropTarget(on_drop=MagicMock(), on_drag_over=None)
+
+        result = target.OnDragOver(0, 0, wx.DragCopy)
+
+        assert result == wx.DragCopy
+
+
+class TestFileDropTargetLeave:
+    """Tests for FileDropTarget.OnLeave()."""
+
+    def test_on_leave_calls_callback(self):
+        """Calls on_drag_leave callback when provided."""
+        leave_cb = MagicMock()
+        target = FileDropTarget(on_drop=MagicMock(), on_drag_leave=leave_cb)
+
+        target.OnLeave()
+
+        leave_cb.assert_called_once()

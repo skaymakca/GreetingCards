@@ -1,9 +1,19 @@
 """Tests for wxPython SF Symbol icon loader."""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 import wx
 
-from app.gui.icons import _cache, _hex_to_rgb, clear_cache, load_menu_icon, load_sf_symbol
+from app.gui.icons import (
+    _cache,
+    _hex_to_rgb,
+    _render_sf_symbol_to_png,
+    clear_cache,
+    load_cursor_from_symbol,
+    load_menu_icon,
+    load_sf_symbol,
+)
 
 
 class TestSFSymbolLoading:
@@ -424,3 +434,93 @@ class TestLoadMenuIcon:
         if bitmap_black and bitmap_red:
             # Different colors = different cached objects
             assert bitmap_black is not bitmap_red
+
+
+class TestRenderSfSymbolEdgeCases:
+    """Tests for edge cases in _render_sf_symbol_to_png and dependents."""
+
+    @patch("app.gui.icons._render_sf_symbol_to_png")
+    def test_render_sf_symbol_none_config(self, mock_render: MagicMock, wx_app: wx.App) -> None:
+        """load_sf_symbol returns None when _render_sf_symbol_to_png returns None."""
+        mock_render.return_value = None
+        clear_cache()
+
+        result = load_sf_symbol("test.symbol", 14, "#000000")
+
+        assert result is None
+        mock_render.assert_called_once()
+
+    @patch("app.gui.icons._render_sf_symbol_to_png")
+    def test_render_sf_symbol_zero_size(self, mock_render: MagicMock, wx_app: wx.App) -> None:
+        """load_sf_symbol returns None when rendered PNG produces an invalid wx.Image."""
+        # Return PNG bytes that will produce an invalid image (empty bytes)
+        mock_render.return_value = (b"", 2)
+        clear_cache()
+
+        _no_log = wx.LogNull()  # suppress native "Not a PNG" dialog
+        result = load_sf_symbol("test.symbol.zero", 14, "#000000")
+        del _no_log
+
+        assert result is None
+
+    @patch("app.gui.icons._render_sf_symbol_to_png")
+    def test_load_cursor_from_symbol_bad_image(self, mock_render: MagicMock, wx_app: wx.App) -> None:
+        """load_cursor_from_symbol returns None when wx.Image.IsOk() is False."""
+        # Return bytes that will produce an invalid wx.Image
+        mock_render.return_value = (b"not-valid-png-data", 2)
+
+        _no_log = wx.LogNull()  # suppress native "Not a PNG" dialog
+        result = load_cursor_from_symbol("test.bad.image", 20, "#1D1D1F")
+        del _no_log
+
+        assert result is None
+
+    def test_styled_none_fallback(self) -> None:
+        """imageWithSymbolConfiguration_ returns None → falls back to unstyled image."""
+        mock_image = MagicMock()
+        mock_size = MagicMock()
+        mock_size.width = 16
+        mock_size.height = 16
+        mock_image.size.return_value = mock_size
+        mock_image.imageWithSymbolConfiguration_.return_value = None  # styled is None
+        mock_image.drawInRect_fromRect_operation_fraction_ = MagicMock()
+
+        mock_rep = MagicMock()
+        mock_rep.representationUsingType_properties_.return_value = b"\x89PNG"
+
+        mock_screen = MagicMock()
+        mock_screen.backingScaleFactor.return_value = 2
+
+        mock_appkit = MagicMock()
+        mock_appkit.NSImage.imageWithSystemSymbolName_accessibilityDescription_.return_value = mock_image
+        mock_appkit.NSScreen.mainScreen.return_value = mock_screen
+        mock_appkit.NSBitmapImageRep.alloc.return_value.initWithBitmapDataPlanes_pixelsWide_pixelsHigh_bitsPerSample_samplesPerPixel_hasAlpha_isPlanar_colorSpaceName_bytesPerRow_bitsPerPixel_.return_value = mock_rep
+
+        mock_foundation = MagicMock()
+
+        with patch.dict("sys.modules", {"AppKit": mock_appkit, "Foundation": mock_foundation}):
+            result = _render_sf_symbol_to_png("test.symbol", 14, "#000000", 2)
+
+        # Should succeed using unstyled image as fallback
+        assert result is not None
+        assert result[0] == b"\x89PNG"
+
+    def test_zero_dimension_returns_none(self) -> None:
+        """styled.size() returns width=0 → returns None."""
+        mock_image = MagicMock()
+        mock_styled = MagicMock()
+        mock_size = MagicMock()
+        mock_size.width = 0
+        mock_size.height = 16
+        mock_styled.size.return_value = mock_size
+        mock_image.imageWithSymbolConfiguration_.return_value = mock_styled
+
+        mock_appkit = MagicMock()
+        mock_appkit.NSImage.imageWithSystemSymbolName_accessibilityDescription_.return_value = mock_image
+
+        mock_foundation = MagicMock()
+
+        with patch.dict("sys.modules", {"AppKit": mock_appkit, "Foundation": mock_foundation}):
+            result = _render_sf_symbol_to_png("test.symbol", 14, "#000000", 2)
+
+        assert result is None

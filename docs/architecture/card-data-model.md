@@ -260,5 +260,6 @@ After the completion dialog, `_remove_completed_results()` selectively cleans up
 
 - **CardResult.id is session-scoped:** IDs are monotonically increasing starting from 0 each session. They are NOT database IDs.
 - **file_hash is the canonical key:** All DB operations use `file_hash`, not `id` or path. Cards survive renames because the hash doesn't change.
+- **Savepoint in `_insert_candidates`:** Candidate insertion uses `session.begin_nested()` (a SAVEPOINT) around the add+flush. If a `UniqueConstraint` violation occurs, only the savepoint is rolled back — the outer session remains valid for subsequent queries. This avoids a full `session.rollback()` that would invalidate the session state.
 - **display_name vs family_name:** `display_name` (property) returns `manual_override` if set, else `family_name`. Always use `display_name` for UI display.
 - **original_confidence:** Saved when manual edit starts; restored when candidate re-selected. Prevents losing the OCR/AI confidence level. Not persisted to the database.

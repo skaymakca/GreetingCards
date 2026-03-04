@@ -104,7 +104,10 @@ def save_api_key(key: str) -> None:
     prefs = _read_plist()
     prefs[_KEY_NAME] = key
     _write_plist(prefs)
-    # Also set in current process so get_api_key() returns it immediately
+    # Also set in current process so get_api_key() returns it immediately.
+    # In bundle mode this env var is never read (get_api_key uses plist only),
+    # so this assignment is effectively a no-op — but it's harmless and keeps
+    # the in-process state consistent for source-mode development.
     os.environ[_KEY_NAME] = key
 
 

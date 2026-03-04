@@ -1,4 +1,4 @@
-"""Deterministic field assignment and filename formatting helpers."""
+"""Generated field assignment and filename formatting helpers."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from scripts.generate_sample_cards.spec_generators.constants import (
 )
 
 
-def assign_deterministic_fields(count: int) -> list[dict[str, Any]]:
+def assign_generated_fields(count: int) -> list[dict[str, Any]]:
     """Build a list of dicts with all Python-determined fields."""
     rng = random.Random()
 

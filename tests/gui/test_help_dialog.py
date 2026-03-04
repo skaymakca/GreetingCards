@@ -9,8 +9,8 @@ from app.core.content.help_builder import (
     _parse_frontmatter,
     _read_help_pages,
     _validate_numbering,
-    get_page_order,
 )
+from app.core.content.template_env import get_page_order
 from app.core.paths import get_runtime_content_path
 from app.gui.components.html_viewer import (
     _build_page_index,

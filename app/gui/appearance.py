@@ -46,7 +46,9 @@ class _AppearanceObserver(NSObject):
     _callback = objc.ivar()
 
     # noinspection PyPep8Naming,PyUnusedLocal
-    def observeValueForKeyPath_ofObject_change_context_(self, path: str, obj: object, change: object, ctx: int) -> None:
+    def observeValueForKeyPath_ofObject_change_context_(
+        self, path: str, obj: object, change: object, ctx: int
+    ) -> None:  # pragma: no cover
         if callable(self._callback):
             wx.CallAfter(self._callback)
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Coverage: excluded (requires real PDFs and tesserocr) — see [tool.coverage.run] omit in pyproject.toml
 """OCR Configuration Quality Benchmark.
 
 Systematically tests Tesseract OCR configurations on a corpus of greeting card
@@ -113,7 +114,7 @@ AI scoring with Haiku for lower cost:
 
 Open the report:
 
-    open _build/script_output/YYYYMMDD_HHMM-benchmark_ocr_configuration_quality/index.html
+    open _build/script_output/YYYYMMDDThhmm-benchmark_ocr_configuration_quality/index.html
 
 Environment Variables
 ---------------------
@@ -159,7 +160,7 @@ from scripts.benchmark.common import (
     OCR_FNS,
     REPORT_JS,
     Config,
-    _detect_system_tessdata,
+    detect_system_tessdata,
     ensure_tessdata_best,
     find_pdfs,
     fmt_mean_std,
@@ -420,7 +421,7 @@ def run_benchmark(corpus_path: Path, configs: list[Config], output_dir: Path, nu
         sys.exit(1)
 
     # Set TESSDATA_PREFIX for worker processes
-    system_tessdata = _detect_system_tessdata()
+    system_tessdata = detect_system_tessdata()
     if system_tessdata:
         os.environ["TESSDATA_PREFIX"] = system_tessdata
 

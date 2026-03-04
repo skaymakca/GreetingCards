@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 HOLIDAYS: list[str] = [
     "Christmas",
     "Hanukkah",
@@ -58,17 +60,20 @@ FAMILY_SIZE_HINTS: list[tuple[str, float]] = [
     ("large family (2 adults, 3-4 children)", 0.204),
     ("family with pet (2 adults, 1-2 children, 1 pet)", 0.07),
 ]
+assert math.isclose(sum(w for _, w in FAMILY_SIZE_HINTS), 1.0)  # nosec B101
 
 # (back_page_type, weight)
 BACK_PAGE_TYPES: list[tuple[str, float]] = [
     ("blurb", 0.25),
     ("photo", 0.75),
 ]
+assert math.isclose(sum(w for _, w in BACK_PAGE_TYPES), 1.0)  # nosec B101
 
 # (back_photo_mode, weight) — only for photo-type back pages
 BACK_PHOTO_MODES: list[tuple[str, float]] = [
     ("single", 0.40),
     ("collage", 0.60),
 ]
+assert math.isclose(sum(w for _, w in BACK_PHOTO_MODES), 1.0)  # nosec B101
 
 MAX_RETRIES = 3

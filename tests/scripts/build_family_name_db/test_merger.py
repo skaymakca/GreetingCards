@@ -6,12 +6,13 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from scripts.build_family_name_db._unicode import normalize
 from scripts.build_family_name_db.merger import (
+    _heuristic_display,
     _sanity_check,
     apply_overrides,
     ascii_fold,
     merge_sources,
-    normalize,
     write_tsv,
 )
 from scripts.build_family_name_db.sources.census import CensusEntry
@@ -41,6 +42,23 @@ class TestNormalize:
     )
     def test_normalize(self, input_name: str, expected: str) -> None:
         assert normalize(input_name) == expected
+
+
+# ---------------------------------------------------------------------------
+# _heuristic_display()
+# ---------------------------------------------------------------------------
+
+
+class TestHeuristicDisplay:
+    def test_particle_first_word(self) -> None:
+        # "de" is a particle — when first word it should be capitalized
+        result = _heuristic_display("de souza")
+        assert result == "De Souza"
+
+    def test_non_particle_word(self) -> None:
+        # "smith" is not a particle — should be title-cased
+        result = _heuristic_display("smith")
+        assert result == "Smith"
 
 
 # ---------------------------------------------------------------------------
@@ -75,6 +93,19 @@ class TestAsciiFold:
     def test_folds_accented_e(self) -> None:
         result = ascii_fold("García")
         assert "a" in result.lower()
+
+    def test_uppercase_special_mapping(self) -> None:
+        # Uppercase chars with Unicode special mappings should preserve case
+        # Ö → lowercase ö is in UNICODE_SPECIAL (maps via NFKD), but the
+        # ascii_fold function lowercases first, then checks special map,
+        # then re-applies case. "Ö" should fold to "O".
+        result = ascii_fold("Ö")
+        assert result == "O"
+
+    def test_uppercase_unicode_special_folding(self) -> None:
+        # Æ → ae in UNICODE_SPECIAL; uppercase first char → "Ae"
+        result = ascii_fold("Æ")
+        assert result == "Ae"
 
 
 # ---------------------------------------------------------------------------
@@ -162,6 +193,33 @@ class TestMergeSources:
         # ASCII fold "Müller" → "Muller" should be in alternates
         assert "Muller" in muller_row[4]
 
+    def test_census_only_key_heuristic_wins(self) -> None:
+        console = self._make_mock_console()
+        census = {"garcia": CensusEntry(name="GARCIA", rank=8, count=1023000)}
+        faker: dict = {}
+        smashew: dict = {}
+
+        rows = merge_sources(console, census, faker, smashew)
+
+        garcia_row = next(r for r in rows if r[0] == "garcia")
+        # Census-only key uses _heuristic_display for display form
+        assert garcia_row[2] == 8
+        assert garcia_row[3] == 1023000
+
+    def test_faker_all_forms_adds_alternates(self) -> None:
+        console = self._make_mock_console()
+        census: dict = {}
+        faker = {"smith": "Smith"}
+        smashew: dict = {}
+        faker_all_forms = {"smith": ["Smith", "SMITH"]}
+
+        rows = merge_sources(console, census, faker, smashew, faker_all_forms=faker_all_forms)
+
+        smith_row = next(r for r in rows if r[0] == "smith")
+        # "Smith" is the display winner, so it shouldn't appear in alternates.
+        # "SMITH" is a different form, so it should be in alternates.
+        assert "SMITH" in smith_row[4]
+
 
 # ---------------------------------------------------------------------------
 # apply_overrides()
@@ -219,6 +277,20 @@ class TestApplyOverrides:
         result = apply_overrides(console, rows, override_file)
         jones_row = next(r for r in result if r[0] == "jones")
         assert jones_row[1] == "J"
+
+    def test_malformed_override_row_skipped(self, tmp_path: Path) -> None:
+        console = MagicMock(spec=["print"])
+        rows = self._base_rows()
+        override_file = tmp_path / "overrides.tsv"
+        # Row with < 4 columns should be skipped
+        override_file.write_text("bad\trow\nsmith\tSmythe\t0\t0\n", encoding="utf-8")
+
+        result = apply_overrides(console, rows, override_file)
+        # "bad" row is skipped; "smith" override is applied
+        smith_row = next(r for r in result if r[0] == "smith")
+        assert smith_row[1] == "Smythe"
+        # "bad" should not be added
+        assert all(r[0] != "bad" for r in result)
 
     def test_keeps_existing_rank_if_override_is_zero(self, tmp_path: Path) -> None:
         console = MagicMock(spec=["print"])
@@ -339,6 +411,14 @@ class TestSanityCheck:
             ("smith", "SMITH", 1, 100000, []),  # Wrong display
             ("williams", "Williams", 3, 4000, []),
         ]
+        with patch("sys.exit") as mock_exit:
+            _sanity_check(console, rows)
+            mock_exit.assert_called_once_with(1)
+
+    def test_fails_when_obrien_missing(self) -> None:
+        """Sanity check exits when a non-Smith expected name is missing."""
+        console = MagicMock(spec=["print"])
+        rows = [r for r in self._good_rows() if r[0] != "obrien"]
         with patch("sys.exit") as mock_exit:
             _sanity_check(console, rows)
             mock_exit.assert_called_once_with(1)

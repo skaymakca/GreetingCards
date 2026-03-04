@@ -5,7 +5,7 @@
 ```
 scripts/
   __init__.py              # Empty (makes scripts/ a Python package)
-  helpers.py               # Shared utilities: output dirs
+  helpers.py               # Shared utilities: PROJECT_ROOT, version, paths, output dirs
   dark_mode_cycler.py      # Standalone: toggles macOS dark/light mode every 5s
   reformat_md_tables.py    # Standalone: reformat Markdown tables for PyCharm
   run_tests.py             # Test runner: scopes, coverage, pytest arg builder
@@ -64,6 +64,29 @@ scripts/profiling/
   __init__.py
   __main__.py              # Entry point
   cli.py                   # Profiles PDF processing pipeline with pyinstrument
+
+scripts/configure_release/
+  __init__.py
+  __main__.py              # Entry point
+  cli.py                   # Orchestrator: keychain + UI + generator, writes release-local.sh
+  keychain.py              # Keychain scanning: security find-identity → SigningIdentity list
+  ui.py                    # UserInput protocol + InteractiveInput (stdin-based)
+  generator.py             # Pure function: ReleaseConfig → shell script string
+
+scripts/sign/
+  __init__.py
+  __main__.py              # Entry point
+  cli.py                   # Inside-out code signing for .app bundle
+
+scripts/notarize/
+  __init__.py
+  __main__.py              # Entry point
+  cli.py                   # Apple notarization: submit, staple, verify
+
+scripts/release/
+  __init__.py
+  __main__.py              # Entry point
+  cli.py                   # Changelog extraction, checksum, GitHub release draft/publish
 ```
 
 ## Package Structure
@@ -90,12 +113,12 @@ All script output goes to `_build/script_output/` with timestamped subdirectorie
 
 ```
 _build/script_output/
-  20260225_1425-generate_sample_cards/
-  20260225_1510-ocr_configuration_quality/
-  20260225_1515-ocr_concurrency/
+  20260225T1425-generate_sample_cards/
+  20260225T1510-ocr_configuration_quality/
+  20260225T1515-ocr_concurrency/
 ```
 
-**Format:** `YYYYMMDD_HHMM-<script_name>/`
+**Format:** `YYYYMMDDThhmm-<script_name>/`
 
 ### `script_output_dir()` Context Manager
 
@@ -103,7 +126,7 @@ Defined in `scripts/helpers.py`. Manages the lifecycle of output directories:
 
 ```python
 with script_output_dir("generate_sample_cards") as output_dir:
-    # output_dir is a Path like _build/script_output/20260225_1425-generate_sample_cards/
+    # output_dir is a Path like _build/script_output/20260225T1425-generate_sample_cards/
     # Generate files into output_dir...
 ```
 
@@ -112,6 +135,19 @@ with script_output_dir("generate_sample_cards") as output_dir:
 - Yields the `Path` for use inside the block
 - **On exception:** removes the directory if it's empty (no partial output left behind)
 - **On success:** keeps the directory as-is
+
+### Shared Constants and Path Helpers
+
+Also defined in `scripts/helpers.py`:
+
+| Export           | Type / Signature                        | Description                                                                                    |
+|------------------|-----------------------------------------|------------------------------------------------------------------------------------------------|
+| `PROJECT_ROOT`   | `Path`                                  | Absolute path to the project root (parent of `scripts/`)                                       |
+| `read_version()` | `() -> str`                             | Reads the `[project].version` field from `pyproject.toml`                                      |
+| `app_path()`     | `() -> Path`                            | Returns `PROJECT_ROOT / "dist" / "Greeting Cards.app"`                                         |
+| `dmg_path()`     | `(version: str \| None = None) -> Path` | Returns `PROJECT_ROOT / "dist" / "Greeting-Cards-{version}.dmg"`; auto-reads version if `None` |
+
+These are used by `scripts/dmg/`, `scripts/sign/`, `scripts/notarize/`, and `scripts/release/` to avoid duplicating project-root resolution and version reading.
 
 ## CLI Conventions
 

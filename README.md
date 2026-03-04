@@ -73,43 +73,45 @@ make test T=default
 
 Run `make help` to see all available commands.
 
-| Command                | Description                                                                      |
-|------------------------|----------------------------------------------------------------------------------|
-| `make help`            | Show all available make commands                                                 |
-| `make setup`           | Install production dependencies (creates venv automatically)                     |
-| `make setup-dev`       | Install all dependencies including dev/testing tools                             |
-| `make run`             | Run the app from source                                                          |
-| `make test`            | Run tests (no args shows help; `make test T="core --cov -x"`)                    |
-| `make tessdata`        | Download tessdata (eng.traineddata) for OCR                                      |
-| `make content`         | Generate runtime content (HTML, data files, images)                              |
-| `make licenses-sync`   | Sync license registry from uv.lock + .dist-info                                  |
-| `make visual-test`     | Run visual test harness from source                                              |
-| `make visual-test-app` | Build and run visual test harness as `.app` bundle (logs visible)                |
-| `make dmg`             | Build the distributable DMG installer (→ `dist/Greeting Cards - X.Y.Z.dmg`)      |
-| `make app`             | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`)                |
-| `make app-run`         | Build and run the `.app` bundle with logs visible in terminal                    |
-| `make icon`            | Generate `icon.icns` from `icon.png` (auto-run by build)                         |
-| `make version`         | Print the current version                                                        |
-| `make bump-patch`      | Bump patch version (e.g. 0.5.0 → 0.5.1)                                          |
-| `make bump-minor`      | Bump minor version (e.g. 0.5.1 → 0.6.0)                                          |
-| `make bump-major`      | Bump major version (e.g. 0.6.0 → 1.0.0)                                          |
-| `make tag`             | Create git tag `vX.Y.Z` from current version                                     |
-| `make tag-push`        | Push all tags to remote                                                          |
-| `make check`           | Run all static checks (pyright + mypy + ruff lint + format + bandit)             |
-| `make pyright`         | Run pyright type checking on app/ and scripts/                                   |
-| `make mypy`            | Run mypy type checking on app/ and scripts/                                      |
-| `make lint`            | Run ruff linter                                                                  |
-| `make lint-fix`        | Run ruff linter with auto-fix                                                    |
-| `make format`          | Format code with ruff                                                            |
-| `make format-check`    | Check formatting without making changes                                          |
-| `make security`        | Run bandit security scan on app/ and scripts/                                    |
-| `make pycharm-inspect` | Run PyCharm CLI inspections (skipped if PyCharm is not installed)                |
-| `make loc`             | Count lines of code in project files (excludes dependencies and build artifacts) |
-| `make show-scripts`    | Show available script invocations without running them                           |
-| `make docker-build`    | Build the Linux test image                                                       |
-| `make docker-test`     | Run core + scripts tests in Linux container                                      |
-| `make docker-shell`    | Interactive shell in Linux container                                             |
-| `make clean`           | Remove `_build/` and `dist/` directories                                         |
+| Command                  | Description                                                                      |
+|--------------------------|----------------------------------------------------------------------------------|
+| `make help`              | Show all available make commands                                                 |
+| `make setup`             | Install production dependencies (creates venv automatically)                     |
+| `make setup-dev`         | Install all dependencies including dev/testing tools                             |
+| `make run`               | Run the app from source                                                          |
+| `make test`              | Run tests (no args shows help; `make test T="core --cov -x"`)                    |
+| `make tessdata`          | Download tessdata (eng.traineddata) for OCR                                      |
+| `make content`           | Generate runtime content (HTML, data files, images)                              |
+| `make licenses-sync`     | Sync license registry from uv.lock + .dist-info                                  |
+| `make visual-test`       | Run visual test harness from source                                              |
+| `make visual-test-app`   | Build and run visual test harness as `.app` bundle (logs visible)                |
+| `make app`               | Build the macOS `.app` bundle (output: `dist/Greeting Cards.app`)                |
+| `make app-run`           | Build and run the `.app` bundle with logs visible in terminal                    |
+| `make icon`              | Generate `icon.icns` from `icon.png` (auto-run by build)                         |
+| `make release-publish`   | Publish the latest draft release                                                 |
+| `make configure-release` | Configure local signing identity & profile (generates `release-local.sh`)        |
+| `make shellcheck`        | Run shellcheck on `release-local.sh` (if it exists)                              |
+| `make version`           | Print the current version                                                        |
+| `make bump-patch`        | Bump patch version (e.g. 0.5.0 → 0.5.1)                                          |
+| `make bump-minor`        | Bump minor version (e.g. 0.5.1 → 0.6.0)                                          |
+| `make bump-major`        | Bump major version (e.g. 0.6.0 → 1.0.0)                                          |
+| `make tag`               | Create git tag `vX.Y.Z` from current version                                     |
+| `make tag-push`          | Push all tags to remote                                                          |
+| `make check`             | Run all static checks (pyright + mypy + ruff lint + format + bandit)             |
+| `make pyright`           | Run pyright type checking on app/ and scripts/                                   |
+| `make mypy`              | Run mypy type checking on app/ and scripts/                                      |
+| `make lint`              | Run ruff linter                                                                  |
+| `make lint-fix`          | Run ruff linter with auto-fix                                                    |
+| `make format`            | Format code with ruff                                                            |
+| `make format-check`      | Check formatting without making changes                                          |
+| `make security`          | Run bandit security scan on app/ and scripts/                                    |
+| `make pycharm-inspect`   | Run PyCharm CLI inspections (skipped if PyCharm is not installed)                |
+| `make loc`               | Count lines of code in project files (excludes dependencies and build artifacts) |
+| `make show-scripts`      | Show available script invocations without running them                           |
+| `make docker-build`      | Build the Linux test image                                                       |
+| `make docker-test`       | Run core + scripts tests in Linux container                                      |
+| `make docker-shell`      | Interactive shell in Linux container                                             |
+| `make clean`             | Remove `_build/` and `dist/` directories                                         |
 
 ## Manual setup and commands
 
@@ -147,7 +149,7 @@ uv run python main.py
 Build the `.app` bundle:
 
 ```bash
-uv run pyinstaller -y "Greeting Cards.spec"
+uv run pyinstaller -y "packaging/Greeting Cards.spec"
 ```
 
 ## Testing
@@ -224,8 +226,11 @@ tests/
     ├── build_family_name_db/        # merger, unicode, Census/Faker/Smashew sources
     ├── dmg/                         # readme RTF, background PNG, dmgbuild orchestration
     ├── generate_diagnostic_cards/   # CLI argument parsing, PDF creation
-    └── generate_sample_cards/       # models, display, pdf_composer, image_generator,
-                                     #   spec_generator, cli; spec_generators/ sub-package
+    ├── generate_sample_cards/       # models, display, pdf_composer, image_generator,
+    │                                #   spec_generator, cli; spec_generators/ sub-package
+    ├── notarize/                    # notarization CLI, submission, stapling
+    ├── release/                     # changelog extraction, checksum, GitHub release
+    └── sign/                        # Mach-O detection, tier classification, codesign
 ```
 
 ### Running Tests
@@ -245,7 +250,7 @@ tests/
 
 ### Current Coverage
 
-- **2376 tests** covering core logic, GUI components, and scripts
+- **2577 tests** covering core logic, GUI components, and scripts
 - **Core** (services/, pipeline/, naming/, content/ sub-packages + top-level): AI analysis, AI batch, AI service,
   Apple Events, card model, card processor, card service, card store, changelog, changelog models, config,
   config service, database, family name cleaning, family name data, family name formatting, filename safety,
@@ -258,7 +263,10 @@ tests/
 - **Integration**: AppleScript end-to-end tests (requires `--run-integration`)
 - **Scripts** (tests/scripts/): helpers, build_family_name_db (merger, Unicode, Census/Faker/Smashew sources), dmg
   (readme RTF, background PNG, dmgbuild orchestration), generate_diagnostic_cards (CLI), generate_sample_cards
-  (models, display, pdf_composer, image_generator, spec_generator, cli, spec_generators/ sub-package)
+  (models, display, pdf_composer, image_generator, spec_generator, cli, spec_generators/ sub-package),
+  configure_release (keychain scanning, interactive UI, script generation, shellcheck validation, CLI orchestration),
+  sign (Mach-O detection, tier classification, codesign orchestration), notarize (submission, stapling, verification),
+  release (changelog extraction, checksum, GitHub release commands)
 
 ### Adding Tests
 
@@ -292,7 +300,7 @@ only contains derived/cached data, never source data.
 Utility and benchmark scripts live in `scripts/` (a Python package). Run them with `uv run python -m scripts.<name>`. All
 script dependencies are included in the dev group — run `make setup-dev` first.
 
-Output goes to `_build/script_output/` with timestamped directories (e.g., `20260223_2011-generate_sample_cards/`) so
+Output goes to `_build/script_output/` with timestamped directories (e.g., `20260223T2011-generate_sample_cards/`) so
 runs don't overwrite each other. Empty output directories are automatically cleaned up if a script errors out before
 writing any files.
 
@@ -400,7 +408,56 @@ uv run python -m scripts.reformat_md_tables docs/**/*.md README.md CLAUDE.md
 uv run python -m scripts.dmg
 ```
 
-This is also available as `make dmg`, which builds the `.app` bundle first if needed.
+When releasing, use `./release-local.sh 3` instead of running this directly (see [Release Configuration](#release-configuration)).
+
+### Code Signing
+
+`sign` signs all Mach-O binaries in the app bundle using inside-out signing order.
+
+```bash
+uv run python -m scripts.sign                     # uses $CODESIGN_IDENTITY
+uv run python -m scripts.sign --identity "-"       # ad-hoc signing (testing)
+uv run python -m scripts.sign --dry-run            # print commands only
+```
+
+### Notarization
+
+`notarize` submits the signed DMG to Apple's notary service and staples the ticket.
+
+```bash
+uv run python -m scripts.notarize
+uv run python -m scripts.notarize --dry-run
+```
+
+### Release Configuration
+
+`configure_release` scans the macOS Keychain for signing identities, asks for a notarization profile name, and
+generates a `release-local.sh` script (gitignored) with the full pipeline pre-configured for your machine.
+
+```bash
+uv run python -m scripts.configure_release
+```
+
+The generated script supports selective step execution:
+
+```bash
+./release-local.sh           # show help listing all 7 steps
+./release-local.sh 3         # run step 3 only
+./release-local.sh 1-5       # run steps 1 through 5
+```
+
+This is also available as `make configure-release`.
+
+### Release Automation
+
+`release` provides subcommands for changelog extraction, checksum generation, and GitHub Release management.
+
+```bash
+uv run python -m scripts.release changelog         # extract release notes
+uv run python -m scripts.release checksum          # SHA256 checksum
+uv run python -m scripts.release draft             # create draft GitHub release
+uv run python -m scripts.release publish           # publish the draft
+```
 
 ## IDE Setup (PyCharm)
 

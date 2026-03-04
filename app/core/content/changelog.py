@@ -189,11 +189,6 @@ def _generate_changelog_html(versions: list[ChangelogVersion], output_dir: Path)
     return page_order
 
 
-# noinspection PyUnusedImports
-# Re-export for consumers that import from here
-from app.core.content.template_env import get_page_order  # noqa: E402
-
-
 def generate_changelog_html() -> None:
     """Entry point for Makefile — generate changelog HTML from CHANGELOG.md."""
     project_root = _get_project_root()

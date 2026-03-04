@@ -33,6 +33,7 @@ dev = [
     "pyinstrument>=5.1.2",
     "types-markdown>=3.10.2.20260211",
     "dmgbuild>=1.6.1",
+    "shellcheck-py>=0.11.0.1",
 ]
 
 [tool.pytest.ini_options]
@@ -119,7 +120,7 @@ ignore = [
 "scripts/**/*.py" = ["T20"]
 "app/gui/**/*.py" = ["B009"]
 "app/gui/main_window.py" = ["E402"]
-"app/gui/review_panel.py" = ["E402"]
+"app/gui/components/review_panel.py" = ["E402"]
 "scripts/benchmark/*.py" = ["E402"]
 "tests/gui/test_help_dialog.py" = ["E402"]
 "scripts/dmg/dmgbuild_settings.py" = ["F821"]
@@ -144,4 +145,23 @@ skips = [
     "B607",   # partial path in subprocess — "open" is a system binary
     "B608",   # SQL injection — false positive on f-string UI placeholders
     "B704",   # markupsafe Markup — content comes from controlled Markdown files
+]
+
+[tool.coverage.run]
+omit = [
+    # Entry-point trampolines — 2-3 line files that just call cli.main()
+    "scripts/*/__main__.py",
+    # Benchmark suite — requires real PDFs and tesserocr
+    "scripts/benchmark/*",
+    # Runtime profiler — instruments live app with cProfile, no testable logic
+    "scripts/profiling/*",
+    # Interactive wxPython GUI test harness — manual visual inspection only
+    "scripts/visual_test.py",
+    # AppleScript dark mode toggle — macOS-interactive, no testable logic
+    "scripts/dark_mode_cycler.py",
+    # dmgbuild settings file — executed by dmgbuild with injected `defines` dict,
+    # not importable as normal Python (already excluded from pyright/mypy)
+    "scripts/dmg/dmgbuild_settings.py",
+    # Compression format benchmark — requires real TSV data, tests are meaningless
+    "scripts/build_family_name_db/benchmark_compression.py",
 ]

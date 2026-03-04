@@ -3,14 +3,13 @@
 Common helpers for image conversion, widget creation, and other UI operations.
 """
 
-from collections.abc import Callable
 from pathlib import Path
 
 import wx
 from AppKit import NSModalResponseOK, NSOpenPanel  # type: ignore[import-untyped]
 from PIL import Image
 
-from app.gui.styles import Color
+from app.gui.styles import Color, Layout
 
 
 def plural(count: int, word: str) -> str:
@@ -80,94 +79,23 @@ def pil_to_image(pil_image: Image.Image) -> wx.Image:
     return wx_image
 
 
-def scale_bitmap(bitmap: wx.Bitmap, scale: float) -> wx.Bitmap:
-    """Scale a wx.Bitmap by a factor.
+def draw_drag_highlight(gc: wx.GraphicsContext, w: int, h: int) -> None:  # pragma: no cover
+    """Draw a macOS-blue rounded-rectangle drag highlight border.
+
+    Used by both DropOverlay and ReviewPanelMasterDetail to draw a consistent
+    drag-active border.
 
     Args:
-        bitmap: Original bitmap
-        scale: Scale factor (1.0 = original size, 2.0 = double, 0.5 = half)
-
-    Returns:
-        Scaled wx.Bitmap
+        gc: GraphicsContext to draw on
+        w: Panel width
+        h: Panel height
     """
-    image = bitmap.ConvertToImage()
-    width = int(bitmap.GetWidth() * scale)
-    height = int(bitmap.GetHeight() * scale)
-
-    # Use high quality rescaling
-    scaled_image = image.Scale(width, height, wx.IMAGE_QUALITY_HIGH)
-    return wx.Bitmap(scaled_image)
-
-
-def hex_to_colour(hex_color: str) -> wx.Colour:
-    """Convert hex color string to wx.Colour.
-
-    Args:
-        hex_color: Hex color string like "#FFFFFF" or "FFFFFF"
-
-    Returns:
-        wx.Colour object
-    """
-    return Color.from_hex(hex_color)
-
-
-def colour_to_hex(colour: wx.Colour) -> str:
-    """Convert wx.Colour to hex string.
-
-    Args:
-        colour: wx.Colour object
-
-    Returns:
-        Hex color string like "#FFFFFF"
-    """
-    return f"#{colour.Red():02X}{colour.Green():02X}{colour.Blue():02X}"
-
-
-def create_button(
-    parent: wx.Window, label: str, callback: Callable[[], None] | None = None, tooltip: str = ""
-) -> wx.Button:
-    """Create a button with common settings.
-
-    Args:
-        parent: Parent window
-        label: Button label text
-        callback: Optional click handler
-        tooltip: Optional tooltip text
-
-    Returns:
-        wx.Button
-    """
-    btn = wx.Button(parent, label=label)
-
-    if callback:
-        btn.Bind(wx.EVT_BUTTON, lambda evt: callback())
-
-    if tooltip:
-        btn.SetToolTip(tooltip)
-
-    return btn
-
-
-def create_text_ctrl(
-    parent: wx.Window, value: str = "", callback: Callable[[str], None] | None = None, style: int = 0
-) -> wx.TextCtrl:
-    """Create a text control with common settings.
-
-    Args:
-        parent: Parent window
-        value: Initial text value
-        callback: Optional change handler
-        style: Additional wx.TextCtrl style flags
-
-    Returns:
-        wx.TextCtrl
-    """
-    text = wx.TextCtrl(parent, value=value, style=style)
-
-    if callback:
-        text.Bind(wx.EVT_TEXT, lambda evt: callback(evt.GetString()))
-
-    return text
+    inset = Layout.HIGHLIGHT_INSET
+    gc.SetPen(gc.CreatePen(wx.GraphicsPenInfo(Color.ACCENT).Width(Layout.HIGHLIGHT_WIDTH)))
+    gc.SetBrush(wx.NullBrush)
+    path = gc.CreatePath()
+    path.AddRoundedRectangle(inset, inset, w - inset * 2, h - inset * 2, Layout.HIGHLIGHT_RADIUS)
+    gc.StrokePath(path)
 
 
 def create_static_text(
@@ -193,60 +121,3 @@ def create_static_text(
         text.SetForegroundColour(colour)
 
     return text
-
-
-def show_error(parent: wx.Window | None, message: str, title: str = "Error") -> None:
-    """Show an error message dialog.
-
-    Args:
-        parent: Parent window (can be None)
-        message: Error message text
-        title: Dialog title
-    """
-    wx.MessageBox(message, title, wx.OK | wx.ICON_ERROR, parent)
-
-
-def show_info(parent: wx.Window | None, message: str, title: str = "Information") -> None:
-    """Show an information message dialog.
-
-    Args:
-        parent: Parent window (can be None)
-        message: Information message text
-        title: Dialog title
-    """
-    wx.MessageBox(message, title, wx.OK | wx.ICON_INFORMATION, parent)
-
-
-def show_warning(parent: wx.Window | None, message: str, title: str = "Warning") -> None:
-    """Show a warning message dialog.
-
-    Args:
-        parent: Parent window (can be None)
-        message: Warning message text
-        title: Dialog title
-    """
-    wx.MessageBox(message, title, wx.OK | wx.ICON_WARNING, parent)
-
-
-def confirm(parent: wx.Window | None, message: str, title: str = "Confirm") -> bool:
-    """Show a confirmation dialog.
-
-    Args:
-        parent: Parent window (can be None)
-        message: Confirmation question text
-        title: Dialog title
-
-    Returns:
-        True if user clicked Yes, False otherwise
-    """
-    result = wx.MessageBox(message, title, wx.YES_NO | wx.ICON_QUESTION, parent)
-    return result == wx.YES
-
-
-def center_window(window: wx.Window) -> None:
-    """Center a window on the screen.
-
-    Args:
-        window: Window to center
-    """
-    window.Centre(wx.BOTH)

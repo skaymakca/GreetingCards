@@ -449,6 +449,48 @@ class TestRunAiBatchAsync:
         assert aborted is True
 
     @pytest.mark.asyncio
+    async def test_auth_fail_after_semaphore_no_images_processed(self):
+        """Auth failure after semaphore acquire on the very first card with no prior success.
+
+        Tests the boundary where auth_failed is set inside the semaphore block
+        before any images have been successfully processed, and verifies the
+        error is correctly propagated through on_complete.
+        """
+        import anthropic
+
+        from app.core.pipeline.ai_batch import run_ai_batch_async
+
+        card = _make_card(0, file_hash="h0")
+        on_progress = MagicMock()
+        on_complete = MagicMock()
+
+        auth_err = anthropic.AuthenticationError(
+            message="invalid api key",
+            response=MagicMock(status_code=401),
+            body=None,
+        )
+
+        with (
+            patch("app.core.pipeline.ai_batch.get_card_state", return_value=None),
+            patch("app.core.pipeline.ai_batch.analyze_card_with_ai_async", AsyncMock(side_effect=auth_err)),
+            patch("app.core.pipeline.ai_batch.save_raw_ai") as mock_save,
+            patch("app.core.pipeline.ai_batch.load_card_state_from_db") as mock_load,
+        ):
+            await run_ai_batch_async([card], on_progress, on_complete)
+
+        # AI save/load should NOT have been called (auth failed before success)
+        mock_save.assert_not_called()
+        mock_load.assert_not_called()
+        # Progress reported for the card
+        on_progress.assert_called_once_with(1, 1, card.filename, card.id, card)
+        # on_complete reports auth abort with exactly one error
+        errors, auth_aborted = on_complete.call_args[0]
+        assert auth_aborted is True
+        assert len(errors) == 1
+        assert errors[0].is_auth
+        assert errors[0].detail == "Invalid API key"
+
+    @pytest.mark.asyncio
     async def test_no_images_after_filtering_skips_card(self):
         """Card with empty images after None-filtering skips analysis (lines 82-84)."""
         from app.core.pipeline.ai_batch import run_ai_batch_async
@@ -464,6 +506,66 @@ class TestRunAiBatchAsync:
 
         on_progress.assert_called_once()
         on_complete.assert_called_once_with([], False)
+
+    @pytest.mark.asyncio
+    async def test_no_images_after_none_filtering(self):
+        """Card with page_images=[None, None] passes initial check but filtered list is empty."""
+        from app.core.pipeline.ai_batch import run_ai_batch_async
+
+        card = _make_card(with_image=False)
+        card.page_images = [None, None]  # truthy list, but all None
+        card.preview_image = None
+        on_progress = MagicMock()
+        on_complete = MagicMock()
+
+        with (
+            patch("app.core.pipeline.ai_batch.get_card_state", return_value=None),
+            patch("app.core.pipeline.ai_batch.analyze_card_with_ai_async") as mock_ai,
+        ):
+            await run_ai_batch_async([card], on_progress, on_complete)
+
+        mock_ai.assert_not_called()
+        on_progress.assert_called_once_with(1, 1, card.filename, card.id, None)
+        on_complete.assert_called_once_with([], False)
+
+    @pytest.mark.asyncio
+    async def test_auth_recheck_inside_semaphore(self):
+        """Card 2 acquires semaphore after card 1 sets auth_failed inside semaphore."""
+        import anthropic
+
+        from app.core.pipeline.ai_batch import run_ai_batch_async
+
+        cards = [_make_card(i, file_hash=f"h{i}") for i in range(2)]
+        on_progress = MagicMock()
+        on_complete = MagicMock()
+
+        auth_err = anthropic.AuthenticationError(
+            message="invalid key",
+            response=MagicMock(status_code=401),
+            body=None,
+        )
+        call_count = 0
+
+        async def delayed_auth_error(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            # Yield control so card 2 can start and block on semaphore
+            await asyncio.sleep(0)
+            raise auth_err
+
+        with (
+            patch("app.core.pipeline.ai_batch.get_card_state", return_value=None),
+            patch("app.core.pipeline.ai_batch.analyze_card_with_ai_async", side_effect=delayed_auth_error),
+            patch("app.core.pipeline.ai_batch.AI_CONCURRENCY", 1),
+        ):
+            await run_ai_batch_async(cards, on_progress, on_complete)
+
+        # Card 1 fails with auth error; card 2 should be skipped at re-check
+        assert on_progress.call_count == 2
+        errors, aborted = on_complete.call_args[0]
+        assert aborted is True
+        # Only 1 auth error from card 1
+        assert len(errors) == 1
 
 
 class TestRunAiBatchWithDB:

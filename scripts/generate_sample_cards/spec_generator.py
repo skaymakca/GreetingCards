@@ -19,7 +19,7 @@ from rich.console import Console
 from scripts.generate_sample_cards.image_generator import RateLimitGate
 from scripts.generate_sample_cards.models import CardSpec
 from scripts.generate_sample_cards.spec_generators import (
-    assign_deterministic_fields,
+    assign_generated_fields,
     build_family_members,
     fill_filename,
     generate_card_content_async,
@@ -47,8 +47,8 @@ async def generate_card_specs_async(
         if fixed_names:
             count = len(fixed_names)
 
-        # Step 1: Deterministic field assignment
-        cards = assign_deterministic_fields(count)
+        # Step 1: Generated field assignment
+        cards = assign_generated_fields(count)
 
         # Phase 1a: Family names
         if fixed_names:

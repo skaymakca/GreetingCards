@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Coverage: excluded (interactive GUI harness for manual inspection) — see [tool.coverage.run] omit in pyproject.toml
 """Visual test harness — opens all app dialogs and panels with mock data.
 
 Usage (from source):

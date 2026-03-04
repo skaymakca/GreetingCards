@@ -30,7 +30,7 @@ CLI (argparse)
   │
   ├─ Spec Generation Pipeline ──────────────────────────────────────────────┐
   │                                                                         │
-  │  assign_deterministic_fields(count)                                     │
+  │  assign_generated_fields(count)                                     │
   │    → holidays, visual_styles, page_counts, back_page_types,             │
   │      back_photo_modes (Python)                                          │
   │                                                                         │
@@ -252,7 +252,7 @@ prompt variants give the model different constraints:
   like variations of the same shot.
 
 `back_photo_mode` ("single" or "collage") is assigned deterministically by Python during
-`assign_deterministic_fields()`. Image quality is always "high".
+`assign_generated_fields()`. Image quality is always "high".
 
 Images are saved as temporary PNGs in a temp directory. The caller cleans them up after PDF composition.
 
@@ -273,7 +273,7 @@ Images are saved as temporary PNGs in a temp directory. The caller cleans them u
 **Entry point:** `python -m scripts.generate_sample_cards` → `__main__.py` → `cli.main()` → `asyncio.run(async_main())`
 
 **Output directory:** Auto-generated timestamped directory via `script_output_dir("generate_sample_cards")` (e.g.,
-`_build/script_output/20260225_1425-generate_sample_cards/`).
+`_build/script_output/20260225T1425-generate_sample_cards/`).
 
 **Rich live table** (`display.py`): Updates at 10 Hz while images generate. Columns: #, Family, Holiday, Style, Back (
 none/blurb/single/collage), Status. Column widths for Family, Holiday, and Style are computed dynamically from the

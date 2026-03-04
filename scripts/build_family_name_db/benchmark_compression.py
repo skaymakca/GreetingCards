@@ -44,9 +44,9 @@ def _benchmark(path: Path, loader: Callable[[Path], int]) -> tuple[float, int, i
     count = 0
 
     for _i in range(ITERATIONS):
-        start = time.perf_counter()
+        start = time.monotonic()
         count = loader(path)
-        elapsed = (time.perf_counter() - start) * 1000
+        elapsed = (time.monotonic() - start) * 1000
         times.append(elapsed)
 
     times.sort()

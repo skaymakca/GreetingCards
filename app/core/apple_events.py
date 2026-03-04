@@ -202,6 +202,10 @@ def _status_to_json(window: ScriptingTarget) -> str:
 _main_thread_dispatch: Callable | None = None
 
 
+_MAIN_THREAD_TIMEOUT_S = 30
+_TIMEOUT = object()  # Sentinel distinguishing timeout from legitimate None return
+
+
 def _call_on_main_thread[T](func: Callable[[], T]) -> T | None:
     """Call func on the main thread. If already on main thread, call directly."""
     if threading.current_thread() is threading.main_thread():
@@ -210,19 +214,30 @@ def _call_on_main_thread[T](func: Callable[[], T]) -> T | None:
     if _main_thread_dispatch is None:
         raise RuntimeError("No main-thread dispatcher registered — call register_apple_event_handlers() first")
 
-    result_holder: list[T] = []
+    result_holder: list[T | object] = [_TIMEOUT]
+    exc_holder: list[BaseException] = []
     done = threading.Event()
 
     def _wrapper():
-        result_holder.append(func())
-        done.set()
+        try:
+            result_holder[0] = func()
+        except BaseException as e:
+            exc_holder.append(e)
+        finally:
+            done.set()
 
     # noinspection PyCallingNonCallable
     _main_thread_dispatch(_wrapper)
-    if not done.wait(timeout=30):
-        logger.error("_call_on_main_thread timed out after 30s")
+    if not done.wait(timeout=_MAIN_THREAD_TIMEOUT_S):
+        logger.error("_call_on_main_thread timed out after %ds", _MAIN_THREAD_TIMEOUT_S)
         return None
-    return result_holder[0] if result_holder else None
+
+    # Re-raise exception from the main thread on the calling thread
+    if exc_holder:
+        raise exc_holder[0]
+
+    result = result_holder[0]
+    return None if result is _TIMEOUT else result  # type: ignore[return-value]
 
 
 # ---------------------------------------------------------------------------
@@ -239,13 +254,14 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
     # noinspection PyMethodFirstArgAssignment,PyUnresolvedReferences
     def initWithWindow_(self, window: ScriptingTarget):
         self = objc.super(AppleEventHandler, self).init()
-        if self is None:
+        if self is None:  # pragma: no cover
             return None
         self._window = window
         return self
 
     def _ensure_window(self) -> ScriptingTarget:
-        assert self._window is not None, "AppleEventHandler not initialized"  # nosec B101
+        if self._window is None:  # pragma: no cover
+            raise RuntimeError("AppleEventHandler not initialized")
         return self._window
 
     # Note: JSON error strings in handler responses are part of the scripting API

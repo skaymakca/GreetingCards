@@ -7,41 +7,41 @@ import random
 import pytest
 from scripts.generate_sample_cards.spec_generators.constants import HOLIDAYS, VISUAL_STYLES
 from scripts.generate_sample_cards.spec_generators.formatting import (
-    assign_deterministic_fields,
+    assign_generated_fields,
     build_family_members,
     fill_filename,
 )
 
 
-class TestAssignDeterministicFields:
+class TestAssignGeneratedFields:
     def test_returns_correct_count(self) -> None:
-        cards = assign_deterministic_fields(10)
+        cards = assign_generated_fields(10)
         assert len(cards) == 10
 
     def test_single_card(self) -> None:
-        cards = assign_deterministic_fields(1)
+        cards = assign_generated_fields(1)
         assert len(cards) == 1
 
     def test_all_holidays_present_across_cards(self) -> None:
         count = len(HOLIDAYS) * 3
-        cards = assign_deterministic_fields(count)
+        cards = assign_generated_fields(count)
         found_holidays = {c["holiday"] for c in cards}
         # All holidays should be present (round-robin)
         assert found_holidays == set(HOLIDAYS)
 
     def test_all_styles_present_across_cards(self) -> None:
         count = len(VISUAL_STYLES) * 3
-        cards = assign_deterministic_fields(count)
+        cards = assign_generated_fields(count)
         found_styles = {c["visual_style"] for c in cards}
         assert found_styles == set(VISUAL_STYLES)
 
     def test_page_count_is_1_or_2(self) -> None:
-        cards = assign_deterministic_fields(50)
+        cards = assign_generated_fields(50)
         for card in cards:
             assert card["page_count"] in (1, 2)
 
     def test_back_page_type_logic(self) -> None:
-        cards = assign_deterministic_fields(100)
+        cards = assign_generated_fields(100)
         for card in cards:
             if card["page_count"] == 1:
                 assert card["back_page_type"] is None
@@ -50,7 +50,7 @@ class TestAssignDeterministicFields:
                 assert card["back_page_type"] in ("blurb", "photo", None)
 
     def test_back_photo_mode_only_for_photo_type(self) -> None:
-        cards = assign_deterministic_fields(100)
+        cards = assign_generated_fields(100)
         for card in cards:
             if card.get("back_page_type") != "photo":
                 assert card["back_photo_mode"] is None
@@ -58,7 +58,7 @@ class TestAssignDeterministicFields:
                 assert card["back_photo_mode"] in ("single", "collage")
 
     def test_required_keys_present(self) -> None:
-        cards = assign_deterministic_fields(5)
+        cards = assign_generated_fields(5)
         expected_keys = {
             "holiday",
             "visual_style",

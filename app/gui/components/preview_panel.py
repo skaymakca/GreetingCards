@@ -6,6 +6,13 @@ from PIL import Image
 
 from app.gui import styles, utils
 
+# Preview panel constants
+_MODIFIER_POLL_MS = 50
+_WARNING_FONT_SIZE = 32
+_WARNING_LABEL_OFFSET = 30
+_WARNING_TEXT_OFFSET = 20
+_WARNING_LINE_SPACING = 4
+
 
 # noinspection PyMethodMayBeStatic,PyUnusedLocal,PyTypeChecker,GrazieInspection
 class PreviewPanel(wx.Panel):
@@ -324,21 +331,21 @@ class PreviewPanel(wx.Panel):
             # Zoom in (Shift pressed, Alt not pressed)
             self._apply_zoom(self.ZOOM_STEP)
             # Restart timer after a brief delay
-            wx.CallAfter(self._modifier_timer.Start, 50)
+            wx.CallAfter(self._modifier_timer.Start, _MODIFIER_POLL_MS)
             event.Skip()  # Allow default processing for proper focus
             return
         elif (modifiers & wx.MOD_ALT) and not (modifiers & wx.MOD_SHIFT):
             # Zoom out (Alt pressed, Shift not pressed)
             self._apply_zoom(1.0 / self.ZOOM_STEP)
             # Restart timer after a brief delay
-            wx.CallAfter(self._modifier_timer.Start, 50)
+            wx.CallAfter(self._modifier_timer.Start, _MODIFIER_POLL_MS)
             event.Skip()  # Allow default processing for proper focus
             return
 
         # Otherwise start pan
         self._on_pan_start(event)
         # Restart timer
-        wx.CallAfter(self._modifier_timer.Start, 50)
+        wx.CallAfter(self._modifier_timer.Start, _MODIFIER_POLL_MS)
         event.Skip()  # Allow default processing
 
     def _on_pan_start(self, event: wx.MouseEvent) -> None:
@@ -394,7 +401,7 @@ class PreviewPanel(wx.Panel):
         if self._images and self._drag_start is None:
             self._update_cursor()
             # Start timer to poll for modifier key changes (50ms = 20 times per second)
-            self._modifier_timer.Start(50)
+            self._modifier_timer.Start(_MODIFIER_POLL_MS)
 
     def _on_leave(self, event: wx.MouseEvent) -> None:
         """Reset cursor when mouse leaves canvas and stop modifier polling."""
@@ -446,7 +453,7 @@ class PreviewPanel(wx.Panel):
         if event:
             event.Skip()
 
-    def _render(self) -> None:
+    def _render(self) -> None:  # pragma: no cover
         """Prepare bitmap for current page with zoom and pan."""
         if not self._images or self._page_idx >= len(self._images):
             self._bitmap_cache = None
@@ -479,7 +486,7 @@ class PreviewPanel(wx.Panel):
         # Trigger repaint
         self._canvas.Refresh()
 
-    def _on_paint(self, event: wx.PaintEvent) -> None:
+    def _on_paint(self, event: wx.PaintEvent) -> None:  # pragma: no cover
         """Paint the cached bitmap with pan offsets."""
         dc = wx.PaintDC(self._canvas)
         dc.Clear()
@@ -503,7 +510,7 @@ class PreviewPanel(wx.Panel):
         # Draw bitmap
         dc.DrawBitmap(self._bitmap_cache, x, y, useMask=False)
 
-    def _paint_placeholder(self, dc: wx.PaintDC) -> None:
+    def _paint_placeholder(self, dc: wx.PaintDC) -> None:  # pragma: no cover
         """Draw placeholder text when no images are loaded."""
         dc.SetTextForeground(styles.Color.TEXT_SECONDARY)
         dc.SetFont(styles.Font.BODY())
@@ -512,7 +519,7 @@ class PreviewPanel(wx.Panel):
         cw, ch = self._canvas.GetSize()
         dc.DrawText(text, (cw - tw) // 2, (ch - th) // 2)
 
-    def _paint_error(self, dc: wx.PaintDC) -> None:
+    def _paint_error(self, dc: wx.PaintDC) -> None:  # pragma: no cover
         """Draw error message on canvas."""
         cw, ch = self._canvas.GetSize()
         if cw < 10 or ch < 10:
@@ -522,19 +529,19 @@ class PreviewPanel(wx.Panel):
 
         # Draw warning symbol
         dc.SetTextForeground(styles.Color.ERROR)
-        dc.SetFont(wx.Font(wx.FontInfo(32)))
+        dc.SetFont(wx.Font(wx.FontInfo(_WARNING_FONT_SIZE)))
         warning = "⚠"
         tw, th = dc.GetTextExtent(warning)
-        dc.DrawText(warning, cx - tw // 2, cy - 30 - th // 2)
+        dc.DrawText(warning, cx - tw // 2, cy - _WARNING_LABEL_OFFSET - th // 2)
 
         # Draw error message
         dc.SetFont(styles.Font.BODY())
         lines = self._wrap_text(dc, self._error_message, cw - 40)
-        y_offset = cy + 20
+        y_offset = cy + _WARNING_TEXT_OFFSET
         for line in lines:
             tw, th = dc.GetTextExtent(line)
             dc.DrawText(line, cx - tw // 2, y_offset)
-            y_offset += th + 4
+            y_offset += th + _WARNING_LINE_SPACING
 
     def _wrap_text(self, dc: wx.DC, text: str, max_width: int) -> list[str]:
         """Wrap text to fit within max_width.

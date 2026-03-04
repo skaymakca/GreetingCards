@@ -1,3 +1,4 @@
+# Coverage: excluded (executed by dmgbuild with injected defines, not importable) — see [tool.coverage.run] omit in pyproject.toml
 # dmgbuild settings for Greeting Cards installer.
 #
 # `defines` is a dict injected by dmgbuild at runtime from -D CLI flags.

@@ -76,3 +76,34 @@ class TestMain:
             main()
 
         assert mock_create.call_count == 2
+
+    def test_opens_finder_on_completion(self, tmp_path: Path) -> None:
+        """Without --no-open, subprocess.run is called with 'open'."""
+        with (
+            patch("sys.argv", ["prog", "--names", "Smith"]),
+            patch("scripts.generate_diagnostic_cards.cli._create_diagnostic_pdf"),
+            patch("scripts.generate_diagnostic_cards.cli.script_output_dir") as mock_ctx,
+            patch("scripts.generate_diagnostic_cards.cli.subprocess.run") as mock_run,
+        ):
+            mock_ctx.return_value.__enter__ = lambda s: tmp_path
+            mock_ctx.return_value.__exit__ = MagicMock(return_value=False)
+            (tmp_path / "The Smith Family.pdf").write_bytes(b"fake")
+
+            main()
+
+        mock_run.assert_called_once_with(["open", str(tmp_path)], check=False)
+
+    def test_open_finder_not_found_no_crash(self, tmp_path: Path) -> None:
+        """FileNotFoundError from 'open' is silently caught."""
+        with (
+            patch("sys.argv", ["prog", "--names", "Smith"]),
+            patch("scripts.generate_diagnostic_cards.cli._create_diagnostic_pdf"),
+            patch("scripts.generate_diagnostic_cards.cli.script_output_dir") as mock_ctx,
+            patch("scripts.generate_diagnostic_cards.cli.subprocess.run", side_effect=FileNotFoundError),
+        ):
+            mock_ctx.return_value.__enter__ = lambda s: tmp_path
+            mock_ctx.return_value.__exit__ = MagicMock(return_value=False)
+            (tmp_path / "The Smith Family.pdf").write_bytes(b"fake")
+
+            # Should not raise
+            main()
