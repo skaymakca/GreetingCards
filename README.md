@@ -1,6 +1,23 @@
 # Greeting Cards
 
-Scans holiday/greeting card PDFs, extracts family names via OCR and AI, and batch-renames the files.
+A macOS desktop app for organizing holiday and greeting card PDFs. Drop a folder of scanned cards, and Greeting Cards extracts family names using offline OCR and Claude AI vision, then batch-renames every file into a clean, consistent format — no manual typing required.
+
+<details>
+<summary>Table of Contents</summary>
+
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Make commands](#make-commands)
+- [Manual setup and commands](#manual-setup-and-commands)
+- [Testing](#testing)
+- [Database](#database)
+- [Scripts](#scripts)
+- [IDE Setup (PyCharm)](#ide-setup-pycharm)
+- [Docker (Cross-Platform Testing)](#docker-cross-platform-testing)
+- [Continuous Integration](#continuous-integration)
+
+</details>
 
 ## Features
 
@@ -80,6 +97,7 @@ Run `make help` to see all available commands.
 | `make setup-dev`         | Install all dependencies including dev/testing tools                             |
 | `make run`               | Run the app from source                                                          |
 | `make test`              | Run tests (no args shows help; `make test T="core --cov -x"`)                    |
+| `make test-everything`   | Run all tests (including integration) with coverage and open reports              |
 | `make tessdata`          | Download tessdata (eng.traineddata) for OCR                                      |
 | `make content`           | Generate runtime content (HTML, data files, images)                              |
 | `make licenses-sync`     | Sync license registry from uv.lock + .dist-info                                  |
@@ -399,6 +417,21 @@ uv run python -m scripts.build_family_name_db
 uv run python -m scripts.reformat_md_tables docs/**/*.md README.md CLAUDE.md
 ```
 
+### Building & Releasing
+
+The release pipeline builds, signs, notarizes, and packages the app for distribution. The one-time setup
+generates a machine-specific `release-local.sh` script (gitignored) that orchestrates the full pipeline:
+
+```bash
+make configure-release          # one-time: generate release-local.sh
+./release-local.sh build-draft  # build + sign + DMG + notarize + draft release
+./release-local.sh staple       # staple notarization ticket after approval
+./release-local.sh publish      # publish the GitHub release
+```
+
+See [`README-Release-Checklist.md`](README-Release-Checklist.md) for the full pre-release checklist,
+and [`docs/architecture/release-pipeline.md`](docs/architecture/release-pipeline.md) for pipeline internals.
+
 ### DMG Installer
 
 `dmg` builds the distributable macOS DMG installer from the current `.app` bundle.
@@ -444,7 +477,7 @@ uv run python -m scripts.configure_release
 The generated script supports selective step execution:
 
 ```bash
-./release-local.sh           # show help listing all 7 steps
+./release-local.sh           # show help listing all 8 steps
 ./release-local.sh 3         # run step 3 only
 ./release-local.sh 1-5       # run steps 1 through 5
 ```

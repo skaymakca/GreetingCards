@@ -164,7 +164,7 @@ class ToolbarManager:
             wx.ID_ANY,
             "Add Files",
             browse_bmp,
-            shortHelp="Add PDF files or folders to analyze (can add from multiple sources)",
+            shortHelp="Add PDF files or folders to analyze (can add from multiple sources) (\u2318O)",
         ).GetId()
 
         # Reload tool
@@ -186,7 +186,7 @@ class ToolbarManager:
         # Rename tool
         rename_bmp = load_sf_symbol("pencil", point_size=Layout.TOOLBAR_ICON_POINTS) or wx.NullBitmap
         w._rename_id = toolbar.AddTool(
-            wx.ID_ANY, "Rename", rename_bmp, shortHelp="Rename all files based on detected family names"
+            wx.ID_ANY, "Rename", rename_bmp, shortHelp="Rename all files based on detected family names (\u2318R)"
         ).GetId()
         toolbar.EnableTool(w._rename_id, False)
 
