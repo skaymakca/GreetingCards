@@ -2,9 +2,6 @@
 
 A macOS desktop app for organizing holiday and greeting card PDFs. Drop a folder of scanned cards, and Greeting Cards extracts family names using offline OCR and Claude AI vision, then batch-renames every file into a clean, consistent format — no manual typing required.
 
-<details>
-<summary>Table of Contents</summary>
-
 - [Features](#features)
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
@@ -16,8 +13,6 @@ A macOS desktop app for organizing holiday and greeting card PDFs. Drop a folder
 - [IDE Setup (PyCharm)](#ide-setup-pycharm)
 - [Docker (Cross-Platform Testing)](#docker-cross-platform-testing)
 - [Continuous Integration](#continuous-integration)
-
-</details>
 
 ## Features
 
