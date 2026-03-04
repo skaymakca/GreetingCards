@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev tessdata run test test-everything check pyright mypy lint lint-fix format format-check security pycharm-inspect content licenses-sync icon app app-run release-publish configure-release shellcheck version bump-patch bump-minor bump-major tag tag-push visual-test visual-test-app show-scripts loc docker-build docker-test docker-shell clean
+.PHONY: help setup setup-dev tessdata run test test-everything check pyright mypy lint lint-fix format format-check security pycharm-inspect content licenses-sync icon app app-run dmg release-publish configure-release shellcheck version bump-patch bump-minor bump-major tag tag-push visual-test visual-test-app show-scripts loc docker-build docker-test docker-shell clean
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -145,6 +145,9 @@ app: icon content tessdata ## Build the macOS .app bundle
 
 app-run: app ## Build and run the .app bundle (logs visible in terminal)
 	"dist/Greeting Cards.app/Contents/MacOS/Greeting Cards"
+
+dmg: app ## Build the distributable DMG installer
+	uv run python -m scripts.dmg
 
 ##@ Version & Release
 

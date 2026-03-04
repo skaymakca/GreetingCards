@@ -22,7 +22,7 @@ dmg       → scripts.dmg              (dmgbuild → dist/Greeting-Cards-X.Y.Z.d
 submit    → scripts.notarize submit  (fire-and-forget notarytool submit)
 staple    → scripts.notarize staple  (staple ticket after acceptance)
 checksum  → scripts.release checksum (SHA256 → dist/Greeting-Cards-X.Y.Z.sha256)
-changelog → scripts.release changelog(extract → _build/release/release-notes.md)
+changelog → scripts.release changelog(extract → dist/release-notes.md)
 draft     → scripts.release draft    (gh release create --draft)
 
 Utilities (not part of the pipeline, run standalone):
@@ -133,9 +133,21 @@ uv run python -m scripts.notarize staple --submission-id X  # explicit ID overri
 
 Four subcommands for changelog extraction, checksums, and GitHub Release management.
 
+### Pre-flight Checks
+
+`cmd_draft()` runs three git tag validations before creating the release, preventing the `gh release create v0.12.1` foot-gun where GitHub creates a release under `untagged-HASH` if the tag doesn't exist.
+
+| Check              | Command                                  | Failure                                                                 |
+|--------------------|------------------------------------------|-------------------------------------------------------------------------|
+| Local tag exists   | `git tag --list v{version}`              | `ReleaseError` with hint to run `make tag`                              |
+| Remote tag exists  | `git ls-remote --tags origin v{version}` | `ReleaseError` with hint to run `make tag-push`                         |
+| Tag matches HEAD   | `git rev-parse v{version}^{commit}` vs `git rev-parse HEAD` | Interactive prompt (`Continue anyway? [y/N]`); aborts on "N"/empty |
+
+In dry-run mode, all three checks run and display results, but the tag-on-HEAD mismatch is a non-blocking warning (no prompt).
+
 ### Changelog Extraction
 
-Parses `CHANGELOG.md` for the heading `## X.Y.Z` and extracts the body until the next `## ` heading. The version heading itself is omitted (GitHub Release title already has it). Output: `_build/release/release-notes.md`.
+Parses `CHANGELOG.md` for the heading `## X.Y.Z` and extracts the body until the next `## ` heading. The version heading itself is omitted (GitHub Release title already has it). Output: `dist/release-notes.md`.
 
 ### Checksum
 
@@ -145,14 +157,28 @@ Generates `dist/Greeting-Cards-X.Y.Z.sha256` containing `sha256hash  filename` (
 
 Uses `gh release create` with `--draft` to create a draft release containing the DMG and checksum file. `gh release edit --draft=false` publishes it.
 
+### Error Handling
+
+All three CLIs (`scripts.release`, `scripts.notarize`, `scripts.sign`) have top-level exception handlers in their `__main__.py` that catch known exceptions and print clean `Error: ...` messages to stderr instead of raw tracebacks:
+
+- **`scripts.release`:** Catches `FileNotFoundError` (missing DMG/checksum), `ReleaseError` (validation: version not found, empty notes), and `CalledProcessError` (subprocess failures). `draft` and `publish` also have inner `CalledProcessError` handlers with "Check that 'gh' is installed and authenticated" hints.
+- **`scripts.notarize`:** Catches `CalledProcessError` from `xcrun notarytool` failures.
+- **`scripts.sign`:** Catches `CalledProcessError` from `codesign` failures.
+
+`ReleaseError` (subclass of `ValueError`) is used for release-specific validation errors so that unexpected `ValueError`s from other sources still produce tracebacks for debugging. The `main()` functions still raise raw exceptions, keeping them directly testable.
+
 ### CLI
 
 ```bash
-uv run python -m scripts.release changelog   # extract release notes
-uv run python -m scripts.release checksum    # SHA256 checksum
-uv run python -m scripts.release draft       # draft GitHub release
-uv run python -m scripts.release publish     # publish the draft
+uv run python -m scripts.release changelog        # extract release notes
+uv run python -m scripts.release checksum         # SHA256 checksum
+uv run python -m scripts.release draft            # draft GitHub release
+uv run python -m scripts.release publish          # publish the draft
+uv run python -m scripts.release --dry-run draft  # print commands only
+uv run python -m scripts.release --dry-run publish # print commands only
 ```
+
+The `--dry-run` flag (placed before the subcommand) prints `gh` commands without executing them. It applies to `draft` and `publish`; `changelog` and `checksum` are local file operations that don't need it.
 
 ---
 
@@ -240,6 +266,7 @@ Everything can be developed and tested without a certificate:
 
 - Signing supports `--identity "-"` for ad-hoc signing and `--dry-run` for command preview
 - Notarization supports `--dry-run` on all subcommands
+- Release supports `--dry-run` on `draft` and `publish` (skips `gh` calls)
 - Release subcommands (changelog, checksum) work without any credentials
 - All scripts have comprehensive tests with mocked `subprocess.run` calls
 
