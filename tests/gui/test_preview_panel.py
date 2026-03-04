@@ -400,19 +400,43 @@ def test_zoom_transition_from_fit_to_explicit(preview_panel, sample_image):
     assert preview_panel._zoom == pytest.approx(fit_zoom * 1.25)
 
 
-def test_wrap_text(preview_panel):
-    """Test text wrapping for error messages."""
-    import wx
+class TestWrapText:
+    """Tests for PreviewPanel._wrap_text()."""
 
-    dc = wx.MemoryDC()
-    dc.SetFont(preview_panel._title_label.GetFont())
+    def test_wrap_text(self, preview_panel):
+        """Test text wrapping for error messages."""
+        dc = wx.MemoryDC()
+        dc.SetFont(preview_panel._title_label.GetFont())
 
-    text = "This is a long error message that should wrap"
-    lines = preview_panel._wrap_text(dc, text, 100)
+        text = "This is a long error message that should wrap"
+        lines = preview_panel._wrap_text(dc, text, 100)
 
-    # Should wrap into multiple lines
-    assert len(lines) > 1
-    assert all(isinstance(line, str) for line in lines)
+        # Should wrap into multiple lines
+        assert len(lines) > 1
+        assert all(isinstance(line, str) for line in lines)
+
+    def test_empty_string(self, preview_panel):
+        """Wrapping an empty string returns a list containing the empty string."""
+        dc = wx.MemoryDC()
+        dc.SetFont(preview_panel._title_label.GetFont())
+
+        lines = preview_panel._wrap_text(dc, "", 200)
+
+        # words = "".split() gives [], so current_line stays empty,
+        # lines stays empty, and the fallback returns [text] = [""]
+        assert lines == [""]
+
+    def test_very_long_word(self, preview_panel):
+        """A single word longer than max_width is kept intact, not infinitely split."""
+        dc = wx.MemoryDC()
+        dc.SetFont(preview_panel._title_label.GetFont())
+
+        long_word = "A" * 500  # Very long single word
+        lines = preview_panel._wrap_text(dc, long_word, 50)
+
+        # Should produce exactly one line containing the long word (not split)
+        assert len(lines) == 1
+        assert lines[0] == long_word
 
 
 # --- Level 4: Mouse events and modifier keys ---

@@ -162,4 +162,6 @@ omit = [
     # dmgbuild settings file — executed by dmgbuild with injected `defines` dict,
     # not importable as normal Python (already excluded from pyright/mypy)
     "scripts/dmg/dmgbuild_settings.py",
+    # Compression format benchmark — requires real TSV data, tests are meaningless
+    "scripts/build_family_name_db/benchmark_compression.py",
 ]

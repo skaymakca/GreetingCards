@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from scripts.build_family_name_db.merger import (
+    _heuristic_display,
     _sanity_check,
     apply_overrides,
     ascii_fold,
@@ -44,6 +45,23 @@ class TestNormalize:
 
 
 # ---------------------------------------------------------------------------
+# _heuristic_display()
+# ---------------------------------------------------------------------------
+
+
+class TestHeuristicDisplay:
+    def test_particle_first_word(self) -> None:
+        # "de" is a particle — when first word it should be capitalized
+        result = _heuristic_display("de souza")
+        assert result == "De Souza"
+
+    def test_non_particle_word(self) -> None:
+        # "smith" is not a particle — should be title-cased
+        result = _heuristic_display("smith")
+        assert result == "Smith"
+
+
+# ---------------------------------------------------------------------------
 # ascii_fold()
 # ---------------------------------------------------------------------------
 
@@ -75,6 +93,14 @@ class TestAsciiFold:
     def test_folds_accented_e(self) -> None:
         result = ascii_fold("García")
         assert "a" in result.lower()
+
+    def test_uppercase_special_mapping(self) -> None:
+        # Uppercase chars with Unicode special mappings should preserve case
+        # Ö → lowercase ö is in UNICODE_SPECIAL (maps via NFKD), but the
+        # ascii_fold function lowercases first, then checks special map,
+        # then re-applies case. "Ö" should fold to "O".
+        result = ascii_fold("Ö")
+        assert result == "O"
 
 
 # ---------------------------------------------------------------------------
@@ -161,6 +187,20 @@ class TestMergeSources:
         assert muller_row is not None
         # ASCII fold "Müller" → "Muller" should be in alternates
         assert "Muller" in muller_row[4]
+
+    def test_faker_all_forms_adds_alternates(self) -> None:
+        console = self._make_mock_console()
+        census: dict = {}
+        faker = {"smith": "Smith"}
+        smashew: dict = {}
+        faker_all_forms = {"smith": ["Smith", "SMITH"]}
+
+        rows = merge_sources(console, census, faker, smashew, faker_all_forms=faker_all_forms)
+
+        smith_row = next(r for r in rows if r[0] == "smith")
+        # "Smith" is the display winner, so it shouldn't appear in alternates.
+        # "SMITH" is a different form, so it should be in alternates.
+        assert "SMITH" in smith_row[4]
 
 
 # ---------------------------------------------------------------------------

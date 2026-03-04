@@ -9,7 +9,9 @@ from scripts.run_tests import (
     _create_cov_dir,
     _generate_grouped_html,
     _generate_lcov,
+    _open_coverage,
     _parse_args,
+    _print_help,
     _update_latest_symlink,
     build_pytest_args,
     main,
@@ -230,6 +232,88 @@ class TestGenerateGroupedHtml:
             _generate_grouped_html(tmp_path)
 
         mock_run.assert_not_called()
+
+    def test_genhtml_available_runs_command(self, tmp_path: Path) -> None:
+        mock_result = MagicMock(returncode=0)
+        with (
+            patch("scripts.run_tests.shutil.which", return_value="/usr/local/bin/genhtml"),
+            patch("scripts.run_tests.subprocess.run", return_value=mock_result) as mock_run,
+        ):
+            _generate_grouped_html(tmp_path)
+
+        mock_run.assert_called_once()
+        cmd = mock_run.call_args[0][0]
+        assert cmd[0] == "/usr/local/bin/genhtml"
+        assert str(tmp_path / "coverage.lcov") in cmd
+        assert "-o" in cmd
+        assert str(tmp_path / "htmlcov-grouped") in cmd
+        assert "--hierarchical" in cmd
+
+    def test_genhtml_failure_prints_error(self, tmp_path: Path, capsys: object) -> None:
+        mock_result = MagicMock(returncode=1)
+        mock_result.stderr = b"some genhtml error"
+        with (
+            patch("scripts.run_tests.shutil.which", return_value="/usr/local/bin/genhtml"),
+            patch("scripts.run_tests.subprocess.run", return_value=mock_result),
+        ):
+            _generate_grouped_html(tmp_path)  # should not raise
+
+        import _pytest.capture
+
+        assert isinstance(capsys, _pytest.capture.CaptureFixture)
+        captured = capsys.readouterr()
+        assert "genhtml failed" in captured.out
+        assert "some genhtml error" in captured.out
+
+
+# --- _open_coverage ---
+
+
+class TestOpenCoverage:
+    def test_opens_flat_html(self, tmp_path: Path) -> None:
+        flat = tmp_path / "htmlcov" / "index.html"
+        flat.parent.mkdir()
+        flat.write_text("<html></html>")
+
+        with patch("scripts.run_tests.webbrowser.open") as mock_open:
+            _open_coverage(tmp_path)
+
+        mock_open.assert_called_once_with(f"file://{flat}")
+
+    def test_opens_grouped_html(self, tmp_path: Path) -> None:
+        flat = tmp_path / "htmlcov" / "index.html"
+        flat.parent.mkdir()
+        flat.write_text("<html></html>")
+
+        grouped = tmp_path / "htmlcov-grouped" / "index.html"
+        grouped.parent.mkdir()
+        grouped.write_text("<html></html>")
+
+        with patch("scripts.run_tests.webbrowser.open") as mock_open:
+            _open_coverage(tmp_path)
+
+        assert mock_open.call_count == 2
+        calls = [c[0][0] for c in mock_open.call_args_list]
+        assert f"file://{flat}" in calls
+        assert f"file://{grouped}" in calls
+
+
+# --- _print_help ---
+
+
+class TestPrintHelp:
+    def test_prints_usage(self, capsys: object) -> None:
+        _print_help()
+
+        import _pytest.capture
+
+        assert isinstance(capsys, _pytest.capture.CaptureFixture)
+        captured = capsys.readouterr()
+        assert "Scopes:" in captured.out
+        assert "Examples:" in captured.out
+        assert "Options:" in captured.out
+        assert "--cov" in captured.out
+        assert "default" in captured.out
 
 
 # --- main ---

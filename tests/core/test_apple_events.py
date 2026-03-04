@@ -638,3 +638,125 @@ class TestHandlerClearAiResults:
         ):
             handler.handleClearAiResults_reply_(_make_event(), MagicMock())
         handler._window.clear_ai_for_script.assert_called_once_with(None)
+
+
+# ── Handler: get status ──────────────────────────────────────────────────
+
+
+class TestHandlerGetStatus:
+    """Tests for handleGetStatus_reply_."""
+
+    @pytest.fixture
+    def handler(self):
+        return AppleEventHandler.alloc().initWithWindow_(MagicMock())
+
+    def test_delegates_to_window(self, handler):
+        status_json = json.dumps({"is_processing": False, "loaded_count": 3})
+        with (
+            patch("app.core.apple_events._call_on_main_thread", return_value=status_json),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleGetStatus_reply_(MagicMock(), MagicMock())
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["is_processing"] is False
+        assert result["loaded_count"] == 3
+
+    def test_timeout_returns_empty(self, handler):
+        with (
+            patch("app.core.apple_events._call_on_main_thread", return_value=None),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleGetStatus_reply_(MagicMock(), MagicMock())
+        assert mock_reply.call_args[0][1] == "{}"
+
+
+# ── Handler: get card info ───────────────────────────────────────────────
+
+
+class TestHandlerGetCardInfo:
+    """Tests for handleGetCardInfo_reply_."""
+
+    @pytest.fixture
+    def handler(self):
+        return AppleEventHandler.alloc().initWithWindow_(MagicMock())
+
+    def test_no_filename_returns_error(self, handler):
+        event = _make_event()  # no direct param
+        with patch("app.core.apple_events._set_text_reply") as mock_reply:
+            handler.handleGetCardInfo_reply_(event, MagicMock())
+        result = json.loads(mock_reply.call_args[0][1])
+        assert "error" in result
+        assert "no filename" in result["error"].lower()
+
+    def test_card_not_found(self, handler):
+        not_found_json = json.dumps({"error": "Card not found: missing.pdf"})
+        event = _make_event(direct="missing.pdf")
+        with (
+            patch("app.core.apple_events._call_on_main_thread", return_value=not_found_json),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleGetCardInfo_reply_(event, MagicMock())
+        result = json.loads(mock_reply.call_args[0][1])
+        assert "error" in result
+        assert "Card not found" in result["error"]
+
+    def test_delegates_to_window(self, handler):
+        card_json = json.dumps({"filename": "test.pdf", "family_name": "Smith"})
+        event = _make_event(direct="test.pdf")
+        with (
+            patch("app.core.apple_events._call_on_main_thread", return_value=card_json),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleGetCardInfo_reply_(event, MagicMock())
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["filename"] == "test.pdf"
+        assert result["family_name"] == "Smith"
+
+
+# ── Handler: get loaded cards ────────────────────────────────────────────
+
+
+class TestHandlerGetLoadedCards:
+    """Tests for handleGetLoadedCards_reply_."""
+
+    @pytest.fixture
+    def handler(self):
+        return AppleEventHandler.alloc().initWithWindow_(MagicMock())
+
+    def test_delegates_to_window(self, handler):
+        cards_json = json.dumps(
+            [
+                {"filename": "a.pdf", "family_name": "Smith"},
+                {"filename": "b.pdf", "family_name": "Jones"},
+            ]
+        )
+        with (
+            patch("app.core.apple_events._call_on_main_thread", return_value=cards_json),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleGetLoadedCards_reply_(MagicMock(), MagicMock())
+        result = json.loads(mock_reply.call_args[0][1])
+        assert isinstance(result, list)
+        assert len(result) == 2
+        assert result[0]["filename"] == "a.pdf"
+        assert result[1]["family_name"] == "Jones"
+
+
+# ── Handler: quit ────────────────────────────────────────────────────────
+
+
+class TestHandlerQuit:
+    """Tests for handleQuit_reply_."""
+
+    @pytest.fixture
+    def handler(self):
+        return AppleEventHandler.alloc().initWithWindow_(MagicMock())
+
+    def test_delegates_to_window(self, handler):
+        with patch("app.core.apple_events._call_on_main_thread") as mock_call:
+            handler.handleQuit_reply_(MagicMock(), MagicMock())
+        mock_call.assert_called_once()
+        # Execute the lambda passed to _call_on_main_thread and verify it calls quit_for_script
+        fn = mock_call.call_args[0][0]
+        fn()
+        handler._window.quit_for_script.assert_called_once()

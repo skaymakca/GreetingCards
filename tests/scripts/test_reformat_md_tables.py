@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
+from unittest.mock import patch
 
-from scripts.reformat_md_tables import _reformat_table, _split_table_row, process_file
+import pytest
+from scripts.reformat_md_tables import _reformat_table, _split_table_row, main, process_file
 
 
 class TestSplitTableRow:
@@ -64,6 +67,17 @@ class TestProcessFile:
         assert "| xx | y  |" in result
         assert "| z  | ww |" in result
 
+    def test_table_interrupted_by_code_block(self, tmp_path: Path) -> None:
+        md = "| a | bb |\n|---|---|\n| ccc | d |\n```\ncode here\n```\n"
+        f = tmp_path / "test.md"
+        f.write_text(md)
+        result = process_file(f)
+        # The partial table before the code block should be reformatted
+        assert "| a   | bb |" in result
+        assert "| ccc | d  |" in result
+        # Code block content should remain intact
+        assert "code here" in result
+
     def test_table_at_end(self, tmp_path: Path) -> None:
         md = "Text\n\n| a | bb |\n|---|---|\n| ccc | d |"
         f = tmp_path / "test.md"
@@ -71,3 +85,21 @@ class TestProcessFile:
         result = process_file(f)
         assert "| a   | bb |" in result
         assert "| ccc | d  |" in result
+
+
+class TestMain:
+    def test_no_args_exits(self) -> None:
+        with patch.object(sys, "argv", ["reformat_md_tables"]):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+            assert exc_info.value.code == 1
+
+    def test_reformats_files(self, tmp_path: Path) -> None:
+        md = "| a | bb |\n|---|---|\n| ccc | d |\n"
+        f = tmp_path / "test.md"
+        f.write_text(md)
+        with patch.object(sys, "argv", ["reformat_md_tables", str(f)]):
+            main()
+        content = f.read_text()
+        assert "| a   | bb |" in content
+        assert "| ccc | d  |" in content
