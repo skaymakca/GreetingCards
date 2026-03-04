@@ -50,6 +50,11 @@ class TestExtractJson:
         result = extract_json(text)
         assert result == [["#ff0000", "#00ff00"], ["#0000ff"]]
 
+    def test_no_brackets_raises_value_error(self) -> None:
+        """Text with no { or [ characters raises ValueError (no JSON fallback)."""
+        with pytest.raises(ValueError, match="No valid JSON found"):
+            extract_json("Just some plain text without any brackets or braces")
+
     def test_invalid_json_raises_value_error(self) -> None:
         with pytest.raises(ValueError):
             extract_json("this is not json at all")

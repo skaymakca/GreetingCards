@@ -113,6 +113,14 @@ class TestParseRetryAfter:
         exc = self._make_exc({"retry-after-ms": "1000", "retry-after": "30"})
         assert _parse_retry_after(exc) == 1.0
 
+    def test_non_numeric_retry_after_ms(self) -> None:
+        exc = self._make_exc({"retry-after-ms": "invalid"})
+        assert _parse_retry_after(exc) == 10.0
+
+    def test_non_numeric_retry_after(self) -> None:
+        exc = self._make_exc({"retry-after": "invalid"})
+        assert _parse_retry_after(exc) == 10.0
+
 
 class TestSpellOut:
     def test_single_word(self) -> None:
@@ -250,6 +258,106 @@ class TestGenerateImageOpenaiAsync:
 
         client.images.edit.assert_called_once()
         client.images.generate.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_reference_image_edit_flow(self, tmp_path: Path) -> None:
+        """Edit endpoint is called with reference image path and prompt; file is saved."""
+        fake_png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 50
+        mock_image = MagicMock()
+        mock_image.b64_json = base64.b64encode(fake_png).decode()
+        mock_image.url = None
+        mock_result = MagicMock()
+        mock_result.data = [mock_image]
+
+        client = MagicMock()
+        client.images.edit = AsyncMock(return_value=mock_result)
+        client.images.generate = AsyncMock()
+
+        ref_image = tmp_path / "reference.png"
+        ref_image.write_bytes(b"\x89PNG ref")
+        output = tmp_path / "out.png"
+        job = _make_job()
+        semaphore = asyncio.Semaphore(1)
+        gate = RateLimitGate()
+
+        result = await generate_image_openai_async(
+            client,
+            semaphore,
+            gate,
+            job,
+            "test prompt",
+            output,
+            reference_image=ref_image,
+        )
+
+        assert result is True
+        assert output.exists()
+        assert output.read_bytes() == fake_png
+        # Edit endpoint should have been called with the reference image path
+        call_kwargs = client.images.edit.call_args
+        assert ref_image in call_kwargs.kwargs.get("image", call_kwargs[1].get("image", []))
+        client.images.generate.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_url_response_variant(self, tmp_path: Path) -> None:
+        """API returning a URL instead of b64_json downloads the image."""
+        mock_image = MagicMock()
+        mock_image.b64_json = None
+        mock_image.url = "https://example.com/image.png"
+        mock_result = MagicMock()
+        mock_result.data = [mock_image]
+
+        client = MagicMock()
+        client.images.generate = AsyncMock(return_value=mock_result)
+
+        output = tmp_path / "out.png"
+        job = _make_job()
+        semaphore = asyncio.Semaphore(1)
+        gate = RateLimitGate()
+
+        with patch("scripts.generate_sample_cards.image_generator.urllib.request.urlretrieve") as mock_retrieve:
+            result = await generate_image_openai_async(client, semaphore, gate, job, "test prompt", output)
+
+        assert result is True
+        mock_retrieve.assert_called_once_with("https://example.com/image.png", output)
+
+    @pytest.mark.asyncio
+    async def test_empty_result_data(self, tmp_path: Path) -> None:
+        """API returns result.data = [] → returns False."""
+        mock_result = MagicMock()
+        mock_result.data = []
+        client = MagicMock()
+        client.images.generate = AsyncMock(return_value=mock_result)
+
+        output = tmp_path / "out.png"
+        job = _make_job()
+        semaphore = asyncio.Semaphore(1)
+        gate = RateLimitGate()
+
+        result = await generate_image_openai_async(client, semaphore, gate, job, "test prompt", output)
+
+        assert result is False
+        assert not output.exists()
+
+    @pytest.mark.asyncio
+    async def test_no_b64_or_url(self, tmp_path: Path) -> None:
+        """Image has b64_json=None and url=None → returns False."""
+        mock_image = MagicMock()
+        mock_image.b64_json = None
+        mock_image.url = None
+        mock_result = MagicMock()
+        mock_result.data = [mock_image]
+        client = MagicMock()
+        client.images.generate = AsyncMock(return_value=mock_result)
+
+        output = tmp_path / "out.png"
+        job = _make_job()
+        semaphore = asyncio.Semaphore(1)
+        gate = RateLimitGate()
+
+        result = await generate_image_openai_async(client, semaphore, gate, job, "test prompt", output)
+
+        assert result is False
 
     @pytest.mark.asyncio
     async def test_no_reference_uses_generate_endpoint(self, tmp_path: Path) -> None:

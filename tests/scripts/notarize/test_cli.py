@@ -127,3 +127,39 @@ class TestMain:
             main()
 
         assert mock_submit.call_args[0][1] == "CustomProfile"
+
+    def test_missing_dmg_errors(self, tmp_path: pathlib.Path) -> None:
+        """main() calls parser.error when DMG file doesn't exist."""
+        fake_dmg = tmp_path / "dist" / "Greeting-Cards-1.0.0.dmg"
+
+        with (
+            patch("sys.argv", ["notarize"]),
+            patch("scripts.notarize.cli.read_version", return_value="1.0.0"),
+            patch("scripts.notarize.cli.dmg_path", return_value=fake_dmg),
+            patch("scripts.notarize.cli.app_path", return_value=tmp_path / "Test.app"),
+            pytest.raises(SystemExit, match="2"),
+        ):
+            from scripts.notarize.cli import main
+
+            main()
+
+    def test_missing_app_bundle_errors(self, tmp_path: pathlib.Path) -> None:
+        """main() calls parser.error when app bundle doesn't exist."""
+        # Create the DMG so it passes that check
+        fake_dmg = tmp_path / "dist" / "Greeting-Cards-1.0.0.dmg"
+        fake_dmg.parent.mkdir(parents=True)
+        fake_dmg.write_bytes(b"dmg")
+
+        fake_app = tmp_path / "dist" / "Greeting Cards.app"
+        # Don't create the app bundle — it should fail
+
+        with (
+            patch("sys.argv", ["notarize"]),
+            patch("scripts.notarize.cli.read_version", return_value="1.0.0"),
+            patch("scripts.notarize.cli.dmg_path", return_value=fake_dmg),
+            patch("scripts.notarize.cli.app_path", return_value=fake_app),
+            pytest.raises(SystemExit, match="2"),
+        ):
+            from scripts.notarize.cli import main
+
+            main()

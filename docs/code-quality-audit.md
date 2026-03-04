@@ -8,21 +8,21 @@ Check for these categories across all files in `app/`, `tests/`, and `scripts/`.
 
 ### Categories
 
-| Code | Category                      | Description                                                                                                                                                                                           |
-|------|-------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| MT   | Missing tests                 | Public methods/functions without tests, untested error paths, shallow happy-path-only coverage                                                                                                        |
-| UC   | Unused code                   | Dead imports, unreachable code paths, unused functions/variables                                                                                                                                      |
-| TA   | Type annotations              | Functions missing `-> None` or return types, untyped parameters                                                                                                                                       |
-| RC   | Repeated code                 | Duplicate logic across files that should be extracted to shared helpers                                                                                                                               |
-| UP   | Unpythonic patterns           | `dict.__init__(self)` instead of `super().__init__()`, `lambda: Path()` instead of `Path`, `count == 0` instead of `not count`, etc.                                                                 |
-| MC   | Magic constants               | Hardcoded strings, pixel values, colors, or numbers that should be named constants                                                                                                                    |
-| HC   | Hardcoded colors              | `wx.Colour(...)` literals that duplicate values in `app/gui/styles.py`                                                                                                                                |
-| PL   | Print instead of logging      | `print()` calls that should use `logging.getLogger(__name__)`                                                                                                                                         |
-| IL   | Incomplete logic              | Missing else branches, unhandled empty/None cases, no input validation                                                                                                                                |
-| BL   | Bugs and logic errors         | Race conditions, off-by-one errors, unbounded loops, case-sensitivity mismatches, stale state after mutations, silent exception swallowing that hides real failures                                    |
-| SM   | Stale Makefile                | Targets referencing outdated paths, wrong Python versions, missing new entry points, or commands that no longer match the project structure                                                            |
-| LR   | License registry gaps         | Run `make licenses-sync`, then check `content/licenses/registry.toml` for: missing license text files, empty homepage URLs, "Unknown" license types, platform-specific packages for the exclude list  |
-| RL   | Redundant license config      | `content/licenses/config.toml` `[[package]]` entries that only exist when they override auto-discovered values. Remove entries where `display` matches `name` and no other fields are set             |
+| Code | Category                 | Description                                                                                                                                                                                          |
+|------|--------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| MT   | Missing tests            | Public methods/functions without tests, untested error paths, shallow happy-path-only coverage                                                                                                       |
+| UC   | Unused code              | Dead imports, unreachable code paths, unused functions/variables                                                                                                                                     |
+| TA   | Type annotations         | Functions missing `-> None` or return types, untyped parameters                                                                                                                                      |
+| RC   | Repeated code            | Duplicate logic across files that should be extracted to shared helpers                                                                                                                              |
+| UP   | Unpythonic patterns      | `dict.__init__(self)` instead of `super().__init__()`, `lambda: Path()` instead of `Path`, `count == 0` instead of `not count`, etc.                                                                 |
+| MC   | Magic constants          | Hardcoded strings, pixel values, colors, or numbers that should be named constants                                                                                                                   |
+| HC   | Hardcoded colors         | `wx.Colour(...)` literals that duplicate values in `app/gui/styles.py`                                                                                                                               |
+| PL   | Print instead of logging | `print()` calls that should use `logging.getLogger(__name__)`                                                                                                                                        |
+| IL   | Incomplete logic         | Missing else branches, unhandled empty/None cases, no input validation                                                                                                                               |
+| BL   | Bugs and logic errors    | Race conditions, off-by-one errors, unbounded loops, case-sensitivity mismatches, stale state after mutations, silent exception swallowing that hides real failures                                  |
+| SM   | Stale Makefile           | Targets referencing outdated paths, wrong Python versions, missing new entry points, or commands that no longer match the project structure                                                          |
+| LR   | License registry gaps    | Run `make licenses-sync`, then check `content/licenses/registry.toml` for: missing license text files, empty homepage URLs, "Unknown" license types, platform-specific packages for the exclude list |
+| RL   | Redundant license config | `content/licenses/config.toml` `[[package]]` entries that only exist when they override auto-discovered values. Remove entries where `display` matches `name` and no other fields are set            |
 
 ### Severity Key
 
@@ -86,7 +86,7 @@ Tool-reported issues become pre-pass findings (category TA, UC, etc.) in the fin
 | A     | `app/core/**/*.py`                           | All 13 categories within core modules                         |
 | B     | `app/gui/**/*.py`                            | All 13 categories within GUI modules                          |
 | C     | `app/models/*.py`, `scripts/*.py`, `main.py` | All 13 categories within models, scripts, entry point         |
-| D     | `tests/**/*.py`                              | Coverage gaps (compare test files against source modules), MT  |
+| D     | `tests/**/*.py`                              | Coverage gaps (compare test files against source modules), MT |
 
 Each agent reads every file in its scope, checking:
 1. **Import statements** — unused imports, circular dependencies
@@ -110,11 +110,11 @@ After each pass:
 
 ### Pass 2 — Deep Dive + Validation (2–3 parallel agents)
 
-| Agent | Focus                                                                                                                          |
-|-------|--------------------------------------------------------------------------------------------------------------------------------|
-| E     | **Cross-cutting**: repeated code across areas, inter-module coupling, shared pattern violations. Validates/rejects A, B, C.    |
-| F     | **Bugs + logic**: trace error flows, race conditions, edge cases adjacent to Pass 1 hits. Validates/rejects BL/IL findings.    |
-| G     | **Test coverage** (if D found gaps): map untested paths discovered by E and F. Validates/rejects D's findings. Optional.       |
+| Agent | Focus                                                                                                                       |
+|-------|-----------------------------------------------------------------------------------------------------------------------------|
+| E     | **Cross-cutting**: repeated code across areas, inter-module coupling, shared pattern violations. Validates/rejects A, B, C. |
+| F     | **Bugs + logic**: trace error flows, race conditions, edge cases adjacent to Pass 1 hits. Validates/rejects BL/IL findings. |
+| G     | **Test coverage** (if D found gaps): map untested paths discovered by E and F. Validates/rejects D's findings. Optional.    |
 
 Pass 2 agents receive the Pass 1 findings list. For each, they state **CONFIRMED** or **REJECTED** with reasoning. They also look for new findings in areas adjacent to Pass 1 hits.
 

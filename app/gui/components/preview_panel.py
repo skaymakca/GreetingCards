@@ -453,7 +453,7 @@ class PreviewPanel(wx.Panel):
         if event:
             event.Skip()
 
-    def _render(self) -> None:
+    def _render(self) -> None:  # pragma: no cover
         """Prepare bitmap for current page with zoom and pan."""
         if not self._images or self._page_idx >= len(self._images):
             self._bitmap_cache = None
@@ -486,7 +486,7 @@ class PreviewPanel(wx.Panel):
         # Trigger repaint
         self._canvas.Refresh()
 
-    def _on_paint(self, event: wx.PaintEvent) -> None:
+    def _on_paint(self, event: wx.PaintEvent) -> None:  # pragma: no cover
         """Paint the cached bitmap with pan offsets."""
         dc = wx.PaintDC(self._canvas)
         dc.Clear()
@@ -510,7 +510,7 @@ class PreviewPanel(wx.Panel):
         # Draw bitmap
         dc.DrawBitmap(self._bitmap_cache, x, y, useMask=False)
 
-    def _paint_placeholder(self, dc: wx.PaintDC) -> None:
+    def _paint_placeholder(self, dc: wx.PaintDC) -> None:  # pragma: no cover
         """Draw placeholder text when no images are loaded."""
         dc.SetTextForeground(styles.Color.TEXT_SECONDARY)
         dc.SetFont(styles.Font.BODY())
@@ -519,7 +519,7 @@ class PreviewPanel(wx.Panel):
         cw, ch = self._canvas.GetSize()
         dc.DrawText(text, (cw - tw) // 2, (ch - th) // 2)
 
-    def _paint_error(self, dc: wx.PaintDC) -> None:
+    def _paint_error(self, dc: wx.PaintDC) -> None:  # pragma: no cover
         """Draw error message on canvas."""
         cw, ch = self._canvas.GetSize()
         if cw < 10 or ch < 10:

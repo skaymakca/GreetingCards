@@ -9,6 +9,13 @@ from unittest.mock import patch
 import pytest
 from scripts.reformat_md_tables import _reformat_table, _split_table_row, main, process_file
 
+from tests.scripts._reformat_table_data import (
+    COVERAGE_ANALYSIS_AFTER,
+    COVERAGE_ANALYSIS_BEFORE,
+    QUALITY_AUDIT_AFTER,
+    QUALITY_AUDIT_BEFORE,
+)
+
 
 class TestSplitTableRow:
     def test_basic(self) -> None:
@@ -78,6 +85,43 @@ class TestProcessFile:
         # Code block content should remain intact
         assert "code here" in result
 
+    def test_table_inside_code_block_with_surrounding_content(self, tmp_path: Path) -> None:
+        """Table-like lines inside a fenced code block with surrounding prose are unchanged."""
+        md = (
+            "# Doc\n"
+            "\n"
+            "Real table:\n"
+            "\n"
+            "| short | verylongcolumn |\n"
+            "|---|---|\n"
+            "| a | b |\n"
+            "\n"
+            "Code example:\n"
+            "\n"
+            "````\n"
+            "some code\n"
+            "| short | verylongcolumn |\n"
+            "|---|---|\n"
+            "| a | b |\n"
+            "more code\n"
+            "````\n"
+            "\n"
+            "End.\n"
+        )
+        f = tmp_path / "test.md"
+        f.write_text(md)
+        result = process_file(f)
+        lines = result.splitlines()
+        # Real table outside code block should be reformatted (padded)
+        assert "| short | verylongcolumn |" in lines
+        assert "| a     | b              |" in lines
+        # Table inside ```` code block should remain exactly as-is (not padded)
+        code_block_start = lines.index("````")
+        code_block_end = lines.index("````", code_block_start + 1)
+        code_lines = lines[code_block_start + 1 : code_block_end]
+        assert "| short | verylongcolumn |" in code_lines
+        assert "| a | b |" in code_lines
+
     def test_table_at_end(self, tmp_path: Path) -> None:
         md = "Text\n\n| a | bb |\n|---|---|\n| ccc | d |"
         f = tmp_path / "test.md"
@@ -103,3 +147,106 @@ class TestMain:
         content = f.read_text()
         assert "| a   | bb |" in content
         assert "| ccc | d  |" in content
+
+
+class TestEndToEnd:
+    """End-to-end tests using real-world files reformatted by PyCharm."""
+
+    @pytest.mark.parametrize(
+        ("before", "after", "name"),
+        [
+            pytest.param(
+                QUALITY_AUDIT_BEFORE,
+                QUALITY_AUDIT_AFTER,
+                "code-quality-audit.md",
+                id="quality-audit",
+            ),
+            pytest.param(
+                COVERAGE_ANALYSIS_BEFORE,
+                COVERAGE_ANALYSIS_AFTER,
+                "coverage-analysis.md",
+                id="coverage-analysis",
+            ),
+        ],
+    )
+    def test_real_world_files(self, tmp_path: Path, before: str, after: str, name: str) -> None:
+        """Script output matches PyCharm's reformat for real documents."""
+        f = tmp_path / name
+        f.write_text(before)
+        assert process_file(f) == after
+
+    def test_composite_with_edge_cases(self, tmp_path: Path) -> None:
+        """Full document combining real tables with edge cases."""
+        before = (
+            "# Mixed Document\n"
+            "\n"
+            "## Real table (from coverage analysis)\n"
+            "\n"
+            "| Part | Tests Added | Coverage Impact |\n"
+            "|---|---|---|\n"
+            "| Exclusion config | 0 | Removes ~77 untestable lines from denominator |\n"
+            "| `app/core/apple_events.py` | 7 | 69% -> ~78% |\n"
+            "| **Total** | **~26 tests** | Project coverage: 94.6% -> **~96.5%** |\n"
+            "\n"
+            "Some prose between tables.\n"
+            "\n"
+            "## Code block table (must NOT be reformatted)\n"
+            "\n"
+            "```\n"
+            "| a | bb |\n"
+            "|---|---|\n"
+            "| ccc | d |\n"
+            "```\n"
+            "\n"
+            "## Table with escaped pipes\n"
+            "\n"
+            "| Pattern | Example |\n"
+            "|---|---|\n"
+            r"| pipe \| in cell | `echo foo \| bar` |"
+            "\n"
+            "\n"
+            "## Another real table (from quality audit)\n"
+            "\n"
+            "| Tool | Command | Expected |\n"
+            "|---|---|---|\n"
+            "| pyright | `pyright app/ scripts/ main.py` | 0 errors, 0 warnings |\n"
+            "| bandit | `uv run bandit -r app/ scripts/ -c pyproject.toml` | 0 issues |\n"
+        )
+        expected = (
+            "# Mixed Document\n"
+            "\n"
+            "## Real table (from coverage analysis)\n"
+            "\n"
+            "| Part                       | Tests Added   | Coverage Impact                               |\n"
+            "|----------------------------|---------------|-----------------------------------------------|\n"
+            "| Exclusion config           | 0             | Removes ~77 untestable lines from denominator |\n"
+            "| `app/core/apple_events.py` | 7             | 69% -> ~78%                                   |\n"
+            "| **Total**                  | **~26 tests** | Project coverage: 94.6% -> **~96.5%**         |\n"
+            "\n"
+            "Some prose between tables.\n"
+            "\n"
+            "## Code block table (must NOT be reformatted)\n"
+            "\n"
+            "```\n"
+            "| a | bb |\n"
+            "|---|---|\n"
+            "| ccc | d |\n"
+            "```\n"
+            "\n"
+            "## Table with escaped pipes\n"
+            "\n"
+            "| Pattern         | Example           |\n"
+            "|-----------------|-------------------|\n"
+            r"| pipe \| in cell | `echo foo \| bar` |"
+            "\n"
+            "\n"
+            "## Another real table (from quality audit)\n"
+            "\n"
+            "| Tool    | Command                                            | Expected             |\n"
+            "|---------|----------------------------------------------------|----------------------|\n"
+            "| pyright | `pyright app/ scripts/ main.py`                    | 0 errors, 0 warnings |\n"
+            "| bandit  | `uv run bandit -r app/ scripts/ -c pyproject.toml` | 0 issues             |\n"
+        )
+        f = tmp_path / "composite.md"
+        f.write_text(before)
+        assert process_file(f) == expected

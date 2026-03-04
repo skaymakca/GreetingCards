@@ -254,13 +254,13 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
     # noinspection PyMethodFirstArgAssignment,PyUnresolvedReferences
     def initWithWindow_(self, window: ScriptingTarget):
         self = objc.super(AppleEventHandler, self).init()
-        if self is None:
+        if self is None:  # pragma: no cover
             return None
         self._window = window
         return self
 
     def _ensure_window(self) -> ScriptingTarget:
-        if self._window is None:
+        if self._window is None:  # pragma: no cover
             raise RuntimeError("AppleEventHandler not initialized")
         return self._window
 

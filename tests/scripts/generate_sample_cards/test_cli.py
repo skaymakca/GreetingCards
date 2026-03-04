@@ -189,6 +189,47 @@ class TestAsyncMain:
             await async_main()
 
     @pytest.mark.asyncio
+    async def test_names_empty_after_strip_exits(self) -> None:
+        """--names with only empty strings after stripping exits with code 1."""
+        with (
+            patch("sys.argv", ["prog", "--names", ",,,", "--no-open"]),
+            pytest.raises(SystemExit, match="1"),
+        ):
+            await async_main()
+
+    @pytest.mark.asyncio
+    async def test_open_folder_file_not_found_handled(self, tmp_path: Path) -> None:
+        """FileNotFoundError when opening output folder is silently caught."""
+        specs = [_make_spec(page_count=1, back_page_type=None)]
+
+        with (
+            patch("sys.argv", ["prog", "--count", "1"]),
+            patch("scripts.generate_sample_cards.cli.validate_api_keys", return_value=True),
+            patch(
+                "scripts.generate_sample_cards.cli.generate_card_specs_async",
+                new_callable=AsyncMock,
+                return_value=specs,
+            ),
+            patch("scripts.generate_sample_cards.cli.openai.AsyncOpenAI") as mock_openai_cls,
+            patch(
+                "scripts.generate_sample_cards.cli.generate_full_card_images_async",
+                new_callable=AsyncMock,
+                return_value=[tmp_path / "img.png"],
+            ),
+            patch("scripts.generate_sample_cards.cli.compose_pdf_from_images"),
+            patch("scripts.generate_sample_cards.cli.script_output_dir") as mock_ctx,
+            patch("scripts.generate_sample_cards.cli.subprocess.run", side_effect=FileNotFoundError("no open")),
+        ):
+            mock_client = MagicMock()
+            mock_client.close = AsyncMock()
+            mock_openai_cls.return_value = mock_client
+            mock_ctx.return_value.__enter__ = lambda s: tmp_path
+            mock_ctx.return_value.__exit__ = MagicMock(return_value=False)
+
+            # Should not raise — FileNotFoundError is caught gracefully
+            await async_main()
+
+    @pytest.mark.asyncio
     async def test_api_key_validation_failure_exits(self) -> None:
         """Invalid API keys cause SystemExit(1)."""
         with (

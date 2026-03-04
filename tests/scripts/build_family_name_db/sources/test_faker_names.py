@@ -63,6 +63,12 @@ class TestExtractLocaleNames:
             result = _extract_locale_names("xx_ZZ")
         assert result == []
 
+    def test_returns_empty_list_on_attribute_error(self) -> None:
+        """AttributeError (e.g., missing Provider class) returns empty list."""
+        with patch("importlib.import_module", side_effect=AttributeError("no Provider")):
+            result = _extract_locale_names("xx_ZZ")
+        assert result == []
+
     def test_returns_empty_list_when_no_last_names(self) -> None:
         mock_provider = MagicMock(spec=[])  # no last_names attribute
 
@@ -83,6 +89,44 @@ class TestExtractLocaleNames:
         result = _extract_locale_names("en_US")
         # This may or may not return names depending on real faker — just verify type
         assert isinstance(result, list)
+
+    def test_base_provider_fallback(self) -> None:
+        """Provider has no last_names attr; BaseProvider fallback is used."""
+        import faker.providers.person as person_mod
+
+        mock_provider_cls = MagicMock(spec=[])  # no last_names attribute
+
+        mock_base = MagicMock()
+        mock_base.last_names = ("BaseName",)
+
+        mock_locale_module = MagicMock()
+        mock_locale_module.Provider = mock_provider_cls
+
+        with (
+            patch("importlib.import_module", return_value=mock_locale_module),
+            patch.object(person_mod, "Provider", mock_base),
+        ):
+            result = _extract_locale_names("xx_XX")
+
+        assert "BaseName" in result
+
+    def test_base_provider_fallback_both_none(self) -> None:
+        """Provider and BaseProvider both lack last_names → returns []."""
+        import faker.providers.person as person_mod
+
+        mock_provider_cls = MagicMock(spec=[])  # no last_names attribute
+        mock_base = MagicMock(spec=[])  # no last_names attribute either
+
+        mock_locale_module = MagicMock()
+        mock_locale_module.Provider = mock_provider_cls
+
+        with (
+            patch("importlib.import_module", return_value=mock_locale_module),
+            patch.object(person_mod, "Provider", mock_base),
+        ):
+            result = _extract_locale_names("xx_XX")
+
+        assert result == []
 
 
 class TestExtractFakerNames:
@@ -151,6 +195,29 @@ class TestExtractFakerNames:
         assert len(result) == 2
         assert isinstance(result[0], dict)
         assert isinstance(result[1], dict)
+
+    def test_normalize_returns_empty_skips_name(self) -> None:
+        console = self._make_mock_console()
+
+        def fake_extract(locale: str) -> list[str]:
+            if locale == "en_US":
+                return ["ValidName"]
+            return []
+
+        with (
+            patch(
+                "scripts.build_family_name_db.sources.faker_names._extract_locale_names",
+                side_effect=fake_extract,
+            ),
+            patch(
+                "scripts.build_family_name_db.sources.faker_names.normalize",
+                return_value="",
+            ),
+        ):
+            primary, _ = extract_faker_names(console)
+
+        # Name passes strip but normalize returns "" → should be skipped
+        assert len(primary) == 0
 
     def test_empty_names_skipped(self) -> None:
         console = self._make_mock_console()

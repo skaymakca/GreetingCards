@@ -79,7 +79,7 @@ def pil_to_image(pil_image: Image.Image) -> wx.Image:
     return wx_image
 
 
-def draw_drag_highlight(gc: wx.GraphicsContext, w: int, h: int) -> None:
+def draw_drag_highlight(gc: wx.GraphicsContext, w: int, h: int) -> None:  # pragma: no cover
     """Draw a macOS-blue rounded-rectangle drag highlight border.
 
     Used by both DropOverlay and ReviewPanelMasterDetail to draw a consistent

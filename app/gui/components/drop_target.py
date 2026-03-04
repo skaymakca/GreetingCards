@@ -66,7 +66,7 @@ class DropOverlay(wx.Panel):
         self.Refresh()
         event.Skip()
 
-    def _scale_bg(self, target_w: int, target_h: int) -> wx.Bitmap | None:
+    def _scale_bg(self, target_w: int, target_h: int) -> wx.Bitmap | None:  # pragma: no cover
         """Scale bg image to fit target size (contain), caching result."""
         if self._bg_source is None:
             return None
@@ -90,7 +90,7 @@ class DropOverlay(wx.Panel):
         self._bg_cache_size = (target_w, target_h)
         return self._bg_scaled
 
-    def _on_paint(self, event: wx.PaintEvent) -> None:
+    def _on_paint(self, event: wx.PaintEvent) -> None:  # pragma: no cover
         dc = wx.PaintDC(self)
         gc = wx.GraphicsContext.Create(dc)
         if not gc:

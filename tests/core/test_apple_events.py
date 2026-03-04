@@ -673,6 +673,42 @@ class TestHandlerGetStatus:
 # ── Handler: get card info ───────────────────────────────────────────────
 
 
+class TestHandlerLoadPaths:
+    """Tests for handleLoadPaths_reply_."""
+
+    @pytest.fixture
+    def handler(self):
+        return AppleEventHandler.alloc().initWithWindow_(MagicMock())
+
+    def test_empty_paths_returns_zero(self, handler):
+        event = MagicMock()
+        event.paramDescriptorForKeyword_.return_value = None  # no paths → []
+        reply = MagicMock()
+        with patch("app.core.apple_events._set_text_reply") as mock_reply:
+            handler.handleLoadPaths_reply_(event, reply)
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is True
+        assert result["count"] == 0
+
+    def test_timeout_returns_error(self, handler):
+        item = MagicMock()
+        item.stringValue.return_value = "/path/a.pdf"
+        desc = MagicMock()
+        desc.numberOfItems.return_value = 1
+        desc.descriptorAtIndex_.return_value = item
+        event = MagicMock()
+        event.paramDescriptorForKeyword_.return_value = desc
+
+        with (
+            patch("app.core.apple_events._call_on_main_thread", return_value=None),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleLoadPaths_reply_(event, MagicMock())
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is False
+        assert "timeout" in result["error"].lower()
+
+
 class TestHandlerGetCardInfo:
     """Tests for handleGetCardInfo_reply_."""
 
@@ -693,6 +729,23 @@ class TestHandlerGetCardInfo:
         event = _make_event(direct="missing.pdf")
         with (
             patch("app.core.apple_events._call_on_main_thread", return_value=not_found_json),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleGetCardInfo_reply_(event, MagicMock())
+        result = json.loads(mock_reply.call_args[0][1])
+        assert "error" in result
+        assert "Card not found" in result["error"]
+
+    def test_card_not_found_inner(self, handler):
+        """Exercise the inner _do() path where get_card_info_for_script returns None."""
+        handler._window.get_card_info_for_script.return_value = None
+
+        def _execute_inner(fn):
+            return fn()
+
+        event = _make_event(direct="missing.pdf")
+        with (
+            patch("app.core.apple_events._call_on_main_thread", side_effect=_execute_inner),
             patch("app.core.apple_events._set_text_reply") as mock_reply,
         ):
             handler.handleGetCardInfo_reply_(event, MagicMock())
@@ -741,6 +794,15 @@ class TestHandlerGetLoadedCards:
         assert result[0]["filename"] == "a.pdf"
         assert result[1]["family_name"] == "Jones"
 
+    def test_timeout_returns_empty_list(self, handler):
+        with (
+            patch("app.core.apple_events._call_on_main_thread", return_value=None),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleGetLoadedCards_reply_(MagicMock(), MagicMock())
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result == []
+
 
 # ── Handler: quit ────────────────────────────────────────────────────────
 
@@ -760,3 +822,351 @@ class TestHandlerQuit:
         fn = mock_call.call_args[0][0]
         fn()
         handler._window.quit_for_script.assert_called_once()
+
+
+# ── _call_on_main_thread (background thread paths) ──────────────────────
+
+
+class TestCallOnMainThreadBackground:
+    """Tests for _call_on_main_thread when called from a background thread."""
+
+    def test_call_on_main_thread_from_background(self):
+        """Success path: function dispatched to main thread returns a result."""
+        import app.core.apple_events as ae_mod
+
+        original_dispatch = ae_mod._main_thread_dispatch
+        try:
+            # Mock _main_thread_dispatch to execute the callback immediately
+            def fake_dispatch(fn):
+                fn()
+
+            ae_mod._main_thread_dispatch = fake_dispatch
+
+            result_holder: list = []
+            error_holder: list = []
+
+            def run_in_thread():
+                try:
+                    r = _call_on_main_thread(lambda: 42)
+                    result_holder.append(r)
+                except Exception as exc:
+                    error_holder.append(exc)
+
+            t = threading.Thread(target=run_in_thread)
+            t.start()
+            t.join(timeout=5)
+
+            assert not error_holder, f"Unexpected error: {error_holder}"
+            assert result_holder == [42]
+        finally:
+            ae_mod._main_thread_dispatch = original_dispatch
+
+    def test_call_on_main_thread_timeout(self):
+        """Timeout path: dispatcher never signals done, returns None."""
+        import app.core.apple_events as ae_mod
+
+        original_dispatch = ae_mod._main_thread_dispatch
+        original_timeout = ae_mod._MAIN_THREAD_TIMEOUT_S
+        try:
+            # Dispatcher that never calls the function (simulates hang)
+            ae_mod._main_thread_dispatch = lambda fn: None
+            ae_mod._MAIN_THREAD_TIMEOUT_S = 0.05  # Very short timeout
+
+            result_holder: list = []
+
+            def run_in_thread():
+                r = _call_on_main_thread(lambda: "should not return")
+                result_holder.append(r)
+
+            t = threading.Thread(target=run_in_thread)
+            t.start()
+            t.join(timeout=5)
+
+            assert result_holder == [None]
+        finally:
+            ae_mod._main_thread_dispatch = original_dispatch
+            ae_mod._MAIN_THREAD_TIMEOUT_S = original_timeout
+
+    def test_call_on_main_thread_exception(self):
+        """Exception path: exception from dispatched function is re-raised."""
+        import app.core.apple_events as ae_mod
+
+        original_dispatch = ae_mod._main_thread_dispatch
+        try:
+            ae_mod._main_thread_dispatch = lambda fn: fn()
+
+            error_holder: list = []
+
+            def run_in_thread():
+                try:
+                    _call_on_main_thread(_raise_value_error)
+                except ValueError as exc:
+                    error_holder.append(exc)
+
+            t = threading.Thread(target=run_in_thread)
+            t.start()
+            t.join(timeout=5)
+
+            assert len(error_holder) == 1
+            assert str(error_holder[0]) == "test error from main thread"
+        finally:
+            ae_mod._main_thread_dispatch = original_dispatch
+
+    def test_call_on_main_thread_no_dispatch(self):
+        """No dispatcher registered: raises RuntimeError."""
+        import app.core.apple_events as ae_mod
+
+        original_dispatch = ae_mod._main_thread_dispatch
+        try:
+            ae_mod._main_thread_dispatch = None
+
+            error_holder: list = []
+
+            def run_in_thread():
+                try:
+                    _call_on_main_thread(lambda: 1)
+                except RuntimeError as exc:
+                    error_holder.append(exc)
+
+            t = threading.Thread(target=run_in_thread)
+            t.start()
+            t.join(timeout=5)
+
+            assert len(error_holder) == 1
+            assert "no main-thread dispatcher" in str(error_holder[0]).lower()
+        finally:
+            ae_mod._main_thread_dispatch = original_dispatch
+
+
+def _raise_value_error():
+    raise ValueError("test error from main thread")
+
+
+# ── Handler success paths (executing inner function) ─────────────────────
+
+
+class TestHandlerSuccessPaths:
+    """Tests that exercise the success path of handlers by executing the inner
+    function via a side_effect on _call_on_main_thread."""
+
+    @pytest.fixture
+    def handler(self):
+        window = MagicMock()
+        return AppleEventHandler.alloc().initWithWindow_(window)
+
+    @staticmethod
+    def _execute_inner(fn):
+        """Side effect for _call_on_main_thread that runs the inner function."""
+        return fn()
+
+    def test_handle_load_paths_success(self, handler):
+        """load paths handler returns success result from window."""
+        handler._window.load_paths_for_script.return_value = {"success": True, "count": 3}
+
+        # Build event with a list of paths
+        item1 = MagicMock()
+        item1.stringValue.return_value = "/path/a.pdf"
+        desc = MagicMock()
+        desc.numberOfItems.return_value = 1
+        desc.descriptorAtIndex_.return_value = item1
+        event = MagicMock()
+        event.paramDescriptorForKeyword_.return_value = desc
+
+        reply = MagicMock()
+        with (
+            patch("app.core.apple_events._call_on_main_thread", side_effect=self._execute_inner),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleLoadPaths_reply_(event, reply)
+
+        handler._window.load_paths_for_script.assert_called_once_with(["/path/a.pdf"])
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is True
+        assert result["count"] == 3
+
+    def test_handle_get_status_success(self, handler):
+        """get status handler returns JSON status from window."""
+        handler._window.get_status_for_script.return_value = {
+            "is_processing": False,
+            "loaded_count": 5,
+        }
+        reply = MagicMock()
+        with (
+            patch("app.core.apple_events._call_on_main_thread", side_effect=self._execute_inner),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleGetStatus_reply_(MagicMock(), reply)
+
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["is_processing"] is False
+        assert result["loaded_count"] == 5
+
+    def test_handle_reload_success(self, handler):
+        """reload handler returns success result from window."""
+        handler._window.reload_for_script.return_value = {"success": True, "changed": False}
+        reply = MagicMock()
+        with (
+            patch("app.core.apple_events._call_on_main_thread", side_effect=self._execute_inner),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleReload_reply_(MagicMock(), reply)
+
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is True
+
+    def test_handle_clear_all_success(self, handler):
+        """clear all handler returns success result from window."""
+        handler._window.clear_all_for_script.return_value = {"success": True}
+        reply = MagicMock()
+        with (
+            patch("app.core.apple_events._call_on_main_thread", side_effect=self._execute_inner),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleClearAll_reply_(MagicMock(), reply)
+
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is True
+
+    def test_handle_get_card_info_success(self, handler):
+        """get card info handler returns card JSON from window."""
+        card = _make_card(
+            candidates=[
+                CandidateInfo(id=10, family_name="Smith", method="ai", confidence="high"),
+            ],
+        )
+        handler._window.get_card_info_for_script.return_value = card
+        event = _make_event(direct="test.pdf")
+        reply = MagicMock()
+        with (
+            patch("app.core.apple_events._call_on_main_thread", side_effect=self._execute_inner),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleGetCardInfo_reply_(event, reply)
+
+        handler._window.get_card_info_for_script.assert_called_once_with("test.pdf")
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["filename"] == "test.pdf"
+        assert result["family_name"] == "Smith"
+        assert len(result["candidates"]) == 1
+
+    def test_handle_set_card_name_success(self, handler):
+        """set card name handler returns success result from window."""
+        handler._window.set_card_name_for_script.return_value = {"success": True}
+        event = _make_event(direct="test.pdf", new_name="Johnson")
+        reply = MagicMock()
+        with (
+            patch("app.core.apple_events._call_on_main_thread", side_effect=self._execute_inner),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleSetCardName_reply_(event, reply)
+
+        handler._window.set_card_name_for_script.assert_called_once_with("test.pdf", "Johnson")
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is True
+
+    def test_handle_select_candidate_success(self, handler):
+        """select candidate handler returns success result from window."""
+        handler._window.select_candidate_for_script.return_value = {"success": True}
+        event = _make_event(direct="test.pdf", rank=2)
+        reply = MagicMock()
+        with (
+            patch("app.core.apple_events._call_on_main_thread", side_effect=self._execute_inner),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleSelectCandidate_reply_(event, reply)
+
+        handler._window.select_candidate_for_script.assert_called_once_with("test.pdf", 2)
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is True
+
+    def test_handle_set_remove_family_success(self, handler):
+        """set remove family handler returns success result from window."""
+        handler._window.set_remove_family_for_script.return_value = {"success": True}
+        event = _make_event(direct="test.pdf", new_value=True)
+        reply = MagicMock()
+        with (
+            patch("app.core.apple_events._call_on_main_thread", side_effect=self._execute_inner),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleSetRemoveFamily_reply_(event, reply)
+
+        handler._window.set_remove_family_for_script.assert_called_once_with("test.pdf", True)
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is True
+
+
+# ── Handler timeout tests ────────────────────────────────────────────────
+
+
+class TestHandlerTimeouts:
+    """Timeout tests for handlers that call _call_on_main_thread."""
+
+    @pytest.fixture
+    def handler(self):
+        return AppleEventHandler.alloc().initWithWindow_(MagicMock())
+
+    def test_set_card_name_timeout(self, handler):
+        event = _make_event(direct="test.pdf", new_name="Smith")
+        with (
+            patch("app.core.apple_events._call_on_main_thread", return_value=None),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleSetCardName_reply_(event, MagicMock())
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is False
+        assert "timeout" in result["error"].lower()
+
+    def test_select_candidate_timeout(self, handler):
+        event = _make_event(direct="test.pdf", rank=1)
+        with (
+            patch("app.core.apple_events._call_on_main_thread", return_value=None),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleSelectCandidate_reply_(event, MagicMock())
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is False
+        assert "timeout" in result["error"].lower()
+
+    def test_set_remove_family_timeout(self, handler):
+        event = _make_event(direct="test.pdf", new_value=True)
+        with (
+            patch("app.core.apple_events._call_on_main_thread", return_value=None),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleSetRemoveFamily_reply_(event, MagicMock())
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is False
+        assert "timeout" in result["error"].lower()
+
+    def test_analyze_cards_timeout(self, handler):
+        event = _make_event(direct="test.pdf")
+        with (
+            patch("app.core.apple_events._call_on_main_thread", return_value=None),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleAnalyzeCards_reply_(event, MagicMock())
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is False
+        assert "timeout" in result["error"].lower()
+
+    def test_clear_ai_results_timeout(self, handler):
+        event = _make_event(direct="test.pdf")
+        with (
+            patch("app.core.apple_events._call_on_main_thread", return_value=None),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleClearAiResults_reply_(event, MagicMock())
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is False
+        assert "timeout" in result["error"].lower()
+
+    def test_set_model_timeout(self, handler):
+        event = _make_event(direct="claude-haiku-4-5")
+        with (
+            patch("app.core.apple_events._call_on_main_thread", return_value=None),
+            patch("app.core.apple_events._set_text_reply") as mock_reply,
+        ):
+            handler.handleSetModel_reply_(event, MagicMock())
+        result = json.loads(mock_reply.call_args[0][1])
+        assert result["success"] is False
+        assert "timeout" in result["error"].lower()

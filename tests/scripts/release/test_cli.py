@@ -6,7 +6,13 @@ import pathlib
 from unittest.mock import MagicMock, patch
 
 import pytest
-from scripts.release.cli import build_draft_command, extract_changelog, generate_checksum
+from scripts.release.cli import (
+    _release_notes_path,
+    build_draft_command,
+    cmd_draft,
+    extract_changelog,
+    generate_checksum,
+)
 
 _SAMPLE_CHANGELOG = """\
 # Changelog
@@ -216,3 +222,65 @@ class TestMain:
         cmd = mock_run.call_args[0][0]
         assert "gh" in cmd
         assert "--draft=false" in cmd
+
+
+class TestReleaseNotesPath:
+    def test_creates_dir_if_missing(self, tmp_path: pathlib.Path) -> None:
+        """_release_notes_path creates the parent directory if it doesn't exist."""
+        fake_root = tmp_path / "project"
+        # Directory doesn't exist yet
+        assert not (fake_root / "_build" / "release").exists()
+
+        with patch("scripts.release.cli.PROJECT_ROOT", fake_root):
+            result = _release_notes_path()
+
+        assert (fake_root / "_build" / "release").is_dir()
+        assert result == fake_root / "_build" / "release" / "release-notes.md"
+
+
+class TestCmdDraft:
+    @patch("scripts.release.cli.subprocess.run")
+    def test_auto_extracts_notes_when_missing(self, mock_run: MagicMock, tmp_path: pathlib.Path) -> None:
+        """cmd_draft extracts release notes automatically when the file is missing."""
+        # Set up changelog, DMG, and checksum — but NOT the release notes file
+        changelog = tmp_path / "CHANGELOG.md"
+        changelog.write_text(_SAMPLE_CHANGELOG, encoding="utf-8")
+
+        dmg = tmp_path / "dist" / "Greeting-Cards-0.12.0.dmg"
+        dmg.parent.mkdir(parents=True)
+        dmg.write_bytes(b"dmg content")
+
+        checksum = tmp_path / "dist" / "Greeting-Cards-0.12.0.sha256"
+        checksum.write_text("abc  Greeting-Cards-0.12.0.dmg\n", encoding="utf-8")
+
+        notes_file = tmp_path / "_build" / "release" / "release-notes.md"
+        # notes_file does NOT exist yet — cmd_draft should auto-create it
+
+        with (
+            patch("scripts.release.cli.PROJECT_ROOT", tmp_path),
+            patch("scripts.release.cli._CHANGELOG", changelog),
+            patch("scripts.release.cli._release_notes_path", return_value=notes_file),
+            patch("scripts.release.cli.dmg_path", side_effect=lambda v: tmp_path / "dist" / f"Greeting-Cards-{v}.dmg"),
+        ):
+            notes_file.parent.mkdir(parents=True, exist_ok=True)
+            cmd_draft("0.12.0")
+
+        # The notes file should have been created with extracted content
+        assert notes_file.exists()
+        content = notes_file.read_text(encoding="utf-8")
+        assert "AppleScript" in content
+        mock_run.assert_called_once()
+
+    def test_missing_dmg_raises(self, tmp_path: pathlib.Path) -> None:
+        """cmd_draft raises FileNotFoundError when DMG doesn't exist."""
+        notes_file = tmp_path / "_build" / "release" / "release-notes.md"
+        notes_file.parent.mkdir(parents=True)
+        notes_file.write_text("notes", encoding="utf-8")
+
+        with (
+            patch("scripts.release.cli.PROJECT_ROOT", tmp_path),
+            patch("scripts.release.cli._release_notes_path", return_value=notes_file),
+            patch("scripts.release.cli.dmg_path", side_effect=lambda v: tmp_path / "dist" / f"Greeting-Cards-{v}.dmg"),
+            pytest.raises(FileNotFoundError, match="DMG not found"),
+        ):
+            cmd_draft("1.0.0")
