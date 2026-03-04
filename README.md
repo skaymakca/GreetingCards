@@ -48,7 +48,7 @@ A macOS desktop app for organizing holiday and greeting card PDFs. Drop a folder
 - **Keyboard navigation** — Up/Down to select cards, Shift+Up/Down to extend selection, Cmd+A to select all, Left/Right
   to page through previews, Cmd+Delete to remove selected cards, Cmd+F to search, Cmd+O to open files, Cmd+Shift+R to
   reload, Cmd+Shift+I to AI analyze, Cmd+R to rename, Cmd+, for Settings, Escape to defocus
-- **Help system** — built-in WebView help viewer with 9 pages, cross-page search with highlighted matches, and
+- **Help system** — built-in WebView help viewer with 10 pages, cross-page search with highlighted matches, and
   Previous/Next match navigation
 - **Native macOS UI** — native toolbar, preferences editor (Cmd+,), About dialog, and system colors throughout
 - **API key management** — prompts for the Anthropic API key on first AI use; key is saved to `preferences.plist`;
