@@ -29,6 +29,10 @@ def main():
         logger.info("ANTHROPIC_API_KEY not set in environment; set via export or enter it in Settings (Cmd+,)")
 
     app = wx.App()
+
+    # Sparkle auto-update: init framework before window (menu bar checks is_available)
+    sparkle_init()
+
     window = MainWindow()
 
     _ae_handler = register_apple_event_handlers(window, main_thread_dispatch=wx.CallAfter)
@@ -37,8 +41,7 @@ def main():
     # overwrites wxPython's own aevt/quit handler installed during MainLoop init.
     wx.CallAfter(register_quit_handler, _ae_handler)
 
-    # Sparkle auto-update: init framework, defer start until after MainLoop
-    sparkle_init()
+    # Sparkle auto-update: defer start until after MainLoop
     wx.CallAfter(sparkle_start)
 
     window.run()

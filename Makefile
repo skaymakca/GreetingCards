@@ -112,7 +112,7 @@ packaging/Sparkle.framework/Sparkle:
 	@echo "Downloading Sparkle $(SPARKLE_VERSION)..."
 	@mkdir -p /tmp/sparkle-download
 	@curl -sL -o /tmp/sparkle-download/Sparkle-$(SPARKLE_VERSION).tar.xz \
-		"https://github.com/nicklama/Sparkle/releases/download/$(SPARKLE_VERSION)/Sparkle-$(SPARKLE_VERSION).tar.xz"
+		"https://github.com/sparkle-project/Sparkle/releases/download/$(SPARKLE_VERSION)/Sparkle-$(SPARKLE_VERSION).tar.xz"
 	@mkdir -p /tmp/sparkle-download/extracted
 	@tar -xf /tmp/sparkle-download/Sparkle-$(SPARKLE_VERSION).tar.xz -C /tmp/sparkle-download/extracted
 	@mkdir -p packaging/sparkle-bin

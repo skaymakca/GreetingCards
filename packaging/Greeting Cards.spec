@@ -85,6 +85,6 @@ app = BUNDLE(
         'OSAScriptingDefinition': 'GreetingCards.sdef',
         'NSAppleEventsUsageDescription': 'Greeting Cards supports AppleScript automation for batch processing, AI analysis, and card management.',
         'SUFeedURL': 'https://skaymakca.github.io/GreetingCards/appcast.xml',
-        'SUPublicEDKey': '',
+        'SUPublicEDKey': 'mgaOyEji/2WZYZIT5nLHWj9NBVa1rvDqDL7WilPz+q8=',
     },
 )
