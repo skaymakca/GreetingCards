@@ -351,6 +351,86 @@ class TestMain:
 
             main()
 
+    def test_submit_success_saves_id_and_prints_hints(self, tmp_path: pathlib.Path) -> None:
+        """_cmd_submit saves submission ID and prints next steps on success."""
+        dmg = tmp_path / "test.dmg"
+        dmg.write_bytes(b"fake")
+
+        with (
+            patch("sys.argv", ["notarize", "submit"]),
+            patch("scripts.notarize.cli.read_version", return_value="1.0.0"),
+            patch("scripts.notarize.cli.dmg_path", return_value=dmg),
+            patch("scripts.notarize.cli.submit", return_value="new-sub-id-999") as mock_submit,
+            patch("scripts.notarize.cli.save_submission_id") as mock_save,
+        ):
+            from scripts.notarize.cli import main
+
+            main()
+
+        mock_submit.assert_called_once()
+        mock_save.assert_called_once_with("new-sub-id-999")
+
+    def test_status_accepted_prints_staple_hint(self, capsys) -> None:
+        """_cmd_status prints 'Ready to staple' hint when status is Accepted."""
+        with (
+            patch("sys.argv", ["notarize", "--dry-run", "status", "--submission-id", "abc-123"]),
+            patch("scripts.notarize.cli.check_status", return_value="Accepted"),
+        ):
+            from scripts.notarize.cli import main
+
+            main()
+
+        captured = capsys.readouterr()
+        assert "Ready to staple" in captured.out
+
+    def test_staple_missing_dmg_errors(self, tmp_path: pathlib.Path) -> None:
+        """_cmd_staple raises SystemExit when DMG does not exist."""
+        with (
+            patch("sys.argv", ["notarize", "staple", "--submission-id", "abc-123"]),
+            patch("scripts.notarize.cli.read_version", return_value="1.0.0"),
+            patch("scripts.notarize.cli.dmg_path", return_value=tmp_path / "missing.dmg"),
+            patch("scripts.notarize.cli.app_path", return_value=tmp_path / "Test.app"),
+            pytest.raises(SystemExit, match="1"),
+        ):
+            from scripts.notarize.cli import main
+
+            main()
+
+    def test_staple_missing_app_errors(self, tmp_path: pathlib.Path) -> None:
+        """_cmd_staple raises SystemExit when app bundle does not exist."""
+        dmg = tmp_path / "test.dmg"
+        dmg.write_bytes(b"fake")
+
+        with (
+            patch("sys.argv", ["notarize", "staple", "--submission-id", "abc-123"]),
+            patch("scripts.notarize.cli.read_version", return_value="1.0.0"),
+            patch("scripts.notarize.cli.dmg_path", return_value=dmg),
+            patch("scripts.notarize.cli.app_path", return_value=tmp_path / "Missing.app"),
+            pytest.raises(SystemExit, match="1"),
+        ):
+            from scripts.notarize.cli import main
+
+            main()
+
+    def test_staple_not_yet_accepted_errors(self, tmp_path: pathlib.Path) -> None:
+        """_cmd_staple raises SystemExit when notarization status is not Accepted."""
+        dmg = tmp_path / "test.dmg"
+        dmg.write_bytes(b"fake")
+        app = tmp_path / "Test.app"
+        app.mkdir()
+
+        with (
+            patch("sys.argv", ["notarize", "staple", "--submission-id", "abc-123"]),
+            patch("scripts.notarize.cli.read_version", return_value="1.0.0"),
+            patch("scripts.notarize.cli.dmg_path", return_value=dmg),
+            patch("scripts.notarize.cli.app_path", return_value=app),
+            patch("scripts.notarize.cli.check_status", return_value="In Progress"),
+            pytest.raises(SystemExit, match="1"),
+        ):
+            from scripts.notarize.cli import main
+
+            main()
+
     def test_no_subcommand_errors(self) -> None:
         with (
             patch("sys.argv", ["notarize"]),
