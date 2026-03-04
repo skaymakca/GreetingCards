@@ -1,3 +1,4 @@
+# Coverage: excluded (requires real PDFs and tesserocr) — see [tool.coverage.run] omit in pyproject.toml
 """Shared utilities for benchmark scripts.
 
 Provides PDF rendering, image preprocessing pipelines, image serialization,

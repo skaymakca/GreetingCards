@@ -1,3 +1,4 @@
+# Coverage: excluded (runtime profiler, instruments live app) — see [tool.coverage.run] omit in pyproject.toml
 """HTML report generation and data export for profiling results."""
 
 from __future__ import annotations

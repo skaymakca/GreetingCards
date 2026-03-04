@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Coverage: excluded (requires real PDFs and tesserocr) — see [tool.coverage.run] omit in pyproject.toml
 """OCR Configuration Quality Benchmark.
 
 Systematically tests Tesseract OCR configurations on a corpus of greeting card

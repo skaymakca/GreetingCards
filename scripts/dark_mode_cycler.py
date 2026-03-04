@@ -1,3 +1,4 @@
+# Coverage: excluded (macOS-interactive AppleScript toggle) — see [tool.coverage.run] omit in pyproject.toml
 """Toggle macOS dark/light mode every 5 seconds until Ctrl-C.
 
 Usage::

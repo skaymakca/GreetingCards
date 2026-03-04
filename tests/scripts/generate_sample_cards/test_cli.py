@@ -8,7 +8,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from scripts.generate_sample_cards.cli import _process_card, validate_api_keys
+from scripts.generate_sample_cards.cli import _process_card, async_main, validate_api_keys
 from scripts.generate_sample_cards.image_generator import RateLimitGate
 from scripts.generate_sample_cards.models import CardJob, CardSpec, FamilyMember
 
@@ -141,3 +141,59 @@ class TestProcessCard:
 
         assert result is False
         assert job.status == "error"
+
+
+class TestAsyncMain:
+    @pytest.mark.asyncio
+    async def test_names_flag_parsing(self, tmp_path: Path) -> None:
+        """--names Smith,Jones generates 2 specs with those family names."""
+        specs = [_make_spec(page_count=1, back_page_type=None), _make_spec(page_count=1, back_page_type=None)]
+
+        with (
+            patch("sys.argv", ["prog", "--names", "Smith,Jones", "--no-open"]),
+            patch("scripts.generate_sample_cards.cli.validate_api_keys", return_value=True),
+            patch(
+                "scripts.generate_sample_cards.cli.generate_card_specs_async",
+                new_callable=AsyncMock,
+                return_value=specs,
+            ) as m_gen_specs,
+            patch("scripts.generate_sample_cards.cli.openai.AsyncOpenAI") as mock_openai_cls,
+            patch(
+                "scripts.generate_sample_cards.cli.generate_full_card_images_async",
+                new_callable=AsyncMock,
+                return_value=[tmp_path / "img.png"],
+            ),
+            patch("scripts.generate_sample_cards.cli.compose_pdf_from_images"),
+            patch("scripts.generate_sample_cards.cli.script_output_dir") as mock_ctx,
+        ):
+            mock_client = MagicMock()
+            mock_client.close = AsyncMock()
+            mock_openai_cls.return_value = mock_client
+            mock_ctx.return_value.__enter__ = lambda s: tmp_path
+            mock_ctx.return_value.__exit__ = MagicMock(return_value=False)
+
+            await async_main()
+
+        # generate_card_specs_async called with count=2 and fixed_names=["Smith", "Jones"]
+        call_args = m_gen_specs.call_args
+        assert call_args[0][0] == 2  # count
+        assert call_args[1]["fixed_names"] == ["Smith", "Jones"]
+
+    @pytest.mark.asyncio
+    async def test_names_empty_exits(self) -> None:
+        """--names with only whitespace/commas exits with code 1."""
+        with (
+            patch("sys.argv", ["prog", "--names", "  ,  , ", "--no-open"]),
+            pytest.raises(SystemExit, match="1"),
+        ):
+            await async_main()
+
+    @pytest.mark.asyncio
+    async def test_api_key_validation_failure_exits(self) -> None:
+        """Invalid API keys cause SystemExit(1)."""
+        with (
+            patch("sys.argv", ["prog", "--no-open"]),
+            patch("scripts.generate_sample_cards.cli.validate_api_keys", return_value=False),
+            pytest.raises(SystemExit, match="1"),
+        ):
+            await async_main()

@@ -1,4 +1,4 @@
-"""Tests for scripts/dmg/__main__.py."""
+"""Tests for scripts/dmg/cli.py."""
 
 from __future__ import annotations
 
@@ -11,14 +11,14 @@ class TestMain:
         bg_path = tmp_path / "background.png"
 
         with (
-            patch("scripts.dmg.__main__.read_version", return_value="1.0.0"),
-            patch("scripts.dmg.__main__._generate_background", return_value=bg_path) as mock_bg,
-            patch("scripts.dmg.__main__._generate_readme", return_value=tmp_path / "readme.rtfd"),
-            patch("scripts.dmg.__main__.dmgbuild") as mock_dmg,
+            patch("scripts.dmg.cli.read_version", return_value="1.0.0"),
+            patch("scripts.dmg.cli._generate_background", return_value=bg_path) as mock_bg,
+            patch("scripts.dmg.cli._generate_readme", return_value=tmp_path / "readme.rtfd"),
+            patch("scripts.dmg.cli.dmgbuild") as mock_dmg,
             patch("sys.argv", ["dmg"]),
         ):
             mock_dmg.build_dmg = MagicMock()
-            from scripts.dmg.__main__ import main
+            from scripts.dmg.cli import main
 
             main()
 
@@ -29,14 +29,14 @@ class TestMain:
         readme_path = tmp_path / "Read Me.rtfd"
 
         with (
-            patch("scripts.dmg.__main__.read_version", return_value="2.0.0"),
-            patch("scripts.dmg.__main__._generate_background", return_value=bg_path),
-            patch("scripts.dmg.__main__._generate_readme", return_value=readme_path) as mock_readme,
-            patch("scripts.dmg.__main__.dmgbuild") as mock_dmg,
+            patch("scripts.dmg.cli.read_version", return_value="2.0.0"),
+            patch("scripts.dmg.cli._generate_background", return_value=bg_path),
+            patch("scripts.dmg.cli._generate_readme", return_value=readme_path) as mock_readme,
+            patch("scripts.dmg.cli.dmgbuild") as mock_dmg,
             patch("sys.argv", ["dmg"]),
         ):
             mock_dmg.build_dmg = MagicMock()
-            from scripts.dmg.__main__ import main
+            from scripts.dmg.cli import main
 
             main()
 
@@ -47,14 +47,14 @@ class TestMain:
         readme_path = tmp_path / "Read Me.rtfd"
 
         with (
-            patch("scripts.dmg.__main__.read_version", return_value="1.0.0"),
-            patch("scripts.dmg.__main__._generate_background", return_value=bg_path),
-            patch("scripts.dmg.__main__._generate_readme", return_value=readme_path),
-            patch("scripts.dmg.__main__.dmgbuild") as mock_dmg,
+            patch("scripts.dmg.cli.read_version", return_value="1.0.0"),
+            patch("scripts.dmg.cli._generate_background", return_value=bg_path),
+            patch("scripts.dmg.cli._generate_readme", return_value=readme_path),
+            patch("scripts.dmg.cli.dmgbuild") as mock_dmg,
             patch("sys.argv", ["dmg"]),
         ):
             mock_dmg.build_dmg = MagicMock()
-            from scripts.dmg.__main__ import main
+            from scripts.dmg.cli import main
 
             main()
 
@@ -65,14 +65,14 @@ class TestMain:
         readme_path = tmp_path / "Read Me.rtfd"
 
         with (
-            patch("scripts.dmg.__main__.read_version", return_value="1.2.3"),
-            patch("scripts.dmg.__main__._generate_background", return_value=bg_path),
-            patch("scripts.dmg.__main__._generate_readme", return_value=readme_path),
-            patch("scripts.dmg.__main__.dmgbuild") as mock_dmg,
+            patch("scripts.dmg.cli.read_version", return_value="1.2.3"),
+            patch("scripts.dmg.cli._generate_background", return_value=bg_path),
+            patch("scripts.dmg.cli._generate_readme", return_value=readme_path),
+            patch("scripts.dmg.cli.dmgbuild") as mock_dmg,
             patch("sys.argv", ["dmg"]),
         ):
             mock_dmg.build_dmg = MagicMock()
-            from scripts.dmg.__main__ import main
+            from scripts.dmg.cli import main
 
             main()
 
@@ -86,14 +86,14 @@ class TestMain:
         readme_path = tmp_path / "Read Me.rtfd"
 
         with (
-            patch("scripts.dmg.__main__.read_version", return_value="1.0.0"),
-            patch("scripts.dmg.__main__._generate_background", return_value=bg_path),
-            patch("scripts.dmg.__main__._generate_readme", return_value=readme_path),
-            patch("scripts.dmg.__main__.dmgbuild") as mock_dmg,
+            patch("scripts.dmg.cli.read_version", return_value="1.0.0"),
+            patch("scripts.dmg.cli._generate_background", return_value=bg_path),
+            patch("scripts.dmg.cli._generate_readme", return_value=readme_path),
+            patch("scripts.dmg.cli.dmgbuild") as mock_dmg,
             patch("sys.argv", ["dmg", "--editable"]),
         ):
             mock_dmg.build_dmg = MagicMock()
-            from scripts.dmg.__main__ import main
+            from scripts.dmg.cli import main
 
             main()
 
@@ -106,14 +106,14 @@ class TestMain:
         readme_path = tmp_path / "Read Me.rtfd"
 
         with (
-            patch("scripts.dmg.__main__.read_version", return_value="1.0.0"),
-            patch("scripts.dmg.__main__._generate_background", return_value=bg_path),
-            patch("scripts.dmg.__main__._generate_readme", return_value=readme_path),
-            patch("scripts.dmg.__main__.dmgbuild") as mock_dmg,
+            patch("scripts.dmg.cli.read_version", return_value="1.0.0"),
+            patch("scripts.dmg.cli._generate_background", return_value=bg_path),
+            patch("scripts.dmg.cli._generate_readme", return_value=readme_path),
+            patch("scripts.dmg.cli.dmgbuild") as mock_dmg,
             patch("sys.argv", ["dmg"]),
         ):
             mock_dmg.build_dmg = MagicMock()
-            from scripts.dmg.__main__ import main
+            from scripts.dmg.cli import main
 
             main()
 

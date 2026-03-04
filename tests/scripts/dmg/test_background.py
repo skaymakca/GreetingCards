@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+import pytest
 from PIL import Image, ImageDraw
-from scripts.dmg.background import _gradient, _render, generate
+from scripts.dmg.background import APP_X, APP_Y, APPS_X, _gradient, _render, _sf_chevron, generate
 
 # A small transparent RGBA image standing in for the SF Symbol chevron
 _FAKE_CHEVRON = Image.new("RGBA", (40, 60), (155, 170, 190, 255))
@@ -85,3 +86,36 @@ class TestGenerate:
             result = generate()
 
         assert result == output_1x
+
+
+class TestSfChevron:
+    def test_symbol_not_found_raises(self) -> None:
+        mock_appkit = MagicMock()
+        mock_foundation = MagicMock()
+        mock_appkit.NSImage.imageWithSystemSymbolName_accessibilityDescription_.return_value = None
+
+        with (
+            patch.dict("sys.modules", {"AppKit": mock_appkit, "Foundation": mock_foundation}),
+            pytest.raises(RuntimeError, match=r"SF Symbol.*not found"),
+        ):
+            _sf_chevron(1)
+
+    def test_render_chevron_paste_position(self) -> None:
+        """Verify the chevron is pasted at the midpoint between app and Applications icons."""
+        scale = 1
+        chevron = _FAKE_CHEVRON
+
+        with patch("scripts.dmg.background._sf_chevron", return_value=chevron):
+            img = _render(scale)
+
+        # Expected paste position (from background.py _render logic)
+        cx = (APP_X + APPS_X) // 2 * scale
+        cy = APP_Y * scale
+        expected_paste_x = cx - chevron.width // 2
+        expected_paste_y = cy - chevron.height // 2
+
+        # The chevron colour should appear at the paste position
+        pixel = img.getpixel((expected_paste_x + chevron.width // 2, expected_paste_y + chevron.height // 2))
+        assert isinstance(pixel, tuple)
+        # The center pixel of the fake chevron is (155, 170, 190)
+        assert pixel == (155, 170, 190)

@@ -1,3 +1,4 @@
+# Coverage: excluded (runtime profiler, instruments live app) — see [tool.coverage.run] omit in pyproject.toml
 """Per-stage profiling functions for the PDF processing pipeline."""
 
 from __future__ import annotations

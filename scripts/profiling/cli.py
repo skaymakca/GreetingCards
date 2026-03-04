@@ -1,3 +1,4 @@
+# Coverage: excluded (runtime profiler, instruments live app) — see [tool.coverage.run] omit in pyproject.toml
 """CLI and orchestration for the profiling script."""
 
 from __future__ import annotations

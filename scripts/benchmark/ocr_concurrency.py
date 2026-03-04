@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Coverage: excluded (requires real PDFs and tesserocr) — see [tool.coverage.run] omit in pyproject.toml
 """OCR Concurrency Benchmark.
 
 Measures how well different Python concurrency models scale for the OCR step

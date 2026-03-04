@@ -15,6 +15,7 @@ from scripts.generate_sample_cards.image_generator import (
     _parse_retry_after,
     _spell_out,
     build_full_card_prompt,
+    generate_full_card_images_async,
     generate_image_openai_async,
 )
 from scripts.generate_sample_cards.models import CardJob, CardSpec, FamilyMember
@@ -264,3 +265,79 @@ class TestGenerateImageOpenaiAsync:
 
         client.images.generate.assert_called_once()
         client.images.edit.assert_not_called()
+
+
+class TestGenerateFullCardImagesAsync:
+    @pytest.mark.asyncio
+    async def test_single_page_returns_one_image(self, tmp_path: Path) -> None:
+        """Spec with page_count=1 generates only a front image."""
+        spec = _make_spec(back_page_type=None)
+        spec.page_count = 1
+        job = _make_job()
+        client = MagicMock()
+        semaphore = asyncio.Semaphore(1)
+        gate = RateLimitGate()
+
+        front_path = tmp_path / "card_000_front.png"
+
+        async def fake_generate(cl, sem, gt, jb, prompt, output, **kwargs):
+            output.write_bytes(b"fake png")
+            return True
+
+        with patch(
+            "scripts.generate_sample_cards.image_generator.generate_image_openai_async",
+            side_effect=fake_generate,
+        ):
+            paths = await generate_full_card_images_async(client, semaphore, gate, job, spec, tmp_path, 0)
+
+        assert len(paths) == 1
+        assert paths[0] == front_path
+
+    @pytest.mark.asyncio
+    async def test_two_pages_photo_passes_front_as_reference(self, tmp_path: Path) -> None:
+        """Spec with page_count=2 and photo back passes front image as reference."""
+        spec = _make_spec(back_page_type="photo", back_photo_mode="single")
+        job = _make_job()
+        client = MagicMock()
+        semaphore = asyncio.Semaphore(1)
+        gate = RateLimitGate()
+
+        front_path = tmp_path / "card_000_front.png"
+        calls = []
+
+        async def fake_generate(cl, sem, gt, jb, prompt, output, **kwargs):
+            calls.append({"output": output, "reference_image": kwargs.get("reference_image")})
+            output.write_bytes(b"fake png")
+            return True
+
+        with patch(
+            "scripts.generate_sample_cards.image_generator.generate_image_openai_async",
+            side_effect=fake_generate,
+        ):
+            paths = await generate_full_card_images_async(client, semaphore, gate, job, spec, tmp_path, 0)
+
+        assert len(paths) == 2
+        # Front call should have no reference image
+        assert calls[0]["reference_image"] is None
+        # Back call should have front image as reference
+        assert calls[1]["reference_image"] == front_path
+
+    @pytest.mark.asyncio
+    async def test_front_fails_returns_empty(self, tmp_path: Path) -> None:
+        """If front generation fails, returns empty list (back is not attempted)."""
+        spec = _make_spec(back_page_type="blurb")
+        job = _make_job()
+        client = MagicMock()
+        semaphore = asyncio.Semaphore(1)
+        gate = RateLimitGate()
+
+        async def fake_generate(cl, sem, gt, jb, prompt, output, **kwargs):
+            return False
+
+        with patch(
+            "scripts.generate_sample_cards.image_generator.generate_image_openai_async",
+            side_effect=fake_generate,
+        ):
+            paths = await generate_full_card_images_async(client, semaphore, gate, job, spec, tmp_path, 0)
+
+        assert paths == []

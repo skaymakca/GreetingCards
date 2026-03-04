@@ -281,3 +281,7 @@ Findings that were raised in earlier passes but rejected during consolidation. K
 11. Update the pass log and final totals
 
 **No code changes during the audit** — the findings file is the deliverable.
+
+## Coverage Analysis
+
+When the audit identifies coverage gaps (MT/T findings) and remediation adds tests, follow the methodology in [`docs/coverage-analysis.md`](coverage-analysis.md) to document the work with a before/after comparison.
