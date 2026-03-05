@@ -2894,9 +2894,9 @@ def test_show_preferences_creates_editor_on_first_call(wx_app):
 
 
 def test_show_about_populates_info(wx_app):
-    """_show_about populates AboutDialogInfo correctly."""
+    """_show_about populates AboutDialogInfo correctly when bundled."""
     from datetime import datetime
-    from unittest.mock import MagicMock, patch
+    from unittest.mock import patch
 
     window = MainWindow()
 
@@ -2909,7 +2909,7 @@ def test_show_about_populates_info(wx_app):
 
     with (
         patch("app.gui.main_window.wx.adv.AboutBox", side_effect=fake_about_box),
-        patch("app.gui.main_window.get_commit_hash", return_value="abc1234"),
+        patch("app.gui.main_window.is_bundled", return_value=True),
     ):
         window._show_about()
 

@@ -154,10 +154,7 @@ class TestGetPageOrder:
             assert match, f"Unexpected filename: {md_file.name}"
             parsed.append((int(match.group(1)), match.group(2)))
         parsed.sort(key=lambda t: t[0])
-        expected = [
-            "index.html" if slug == "index" else f"pages/{slug}.html"
-            for _, slug in parsed
-        ]
+        expected = ["index.html" if slug == "index" else f"pages/{slug}.html" for _, slug in parsed]
         assert page_order == expected
 
 

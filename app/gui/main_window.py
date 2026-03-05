@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 from app.core import sparkle
 from app.core.card_store import CardStore
-from app.core.platform import get_commit_hash  # Stateless platform utility for About dialog
+from app.core.paths import is_bundled
 from app.core.services.card_service import CardService
 from app.core.services.config_service import ConfigService
 from app.core.services.filter_service import FilterCategory
@@ -131,17 +131,10 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
     def _show_about(self) -> None:
         """Show the native macOS About dialog."""
         info = wx.adv.AboutDialogInfo()
-        info.SetName("Greeting Cards")
-        info.SetCopyright(f"(c) {datetime.now().year}")
-        # Do not call SetIcon() — it forces the generic About box on macOS.
-        # The native About panel automatically uses the app bundle icon
-        # from Contents/Resources/icon.icns via CFBundleIconFile in Info.plist.
-        # Only set the commit hash as the version — the native About panel
-        # already shows CFBundleShortVersionString from Info.plist as the main version.
-        info.SetDescription("Open-source licenses: Help > Licenses")
-        commit = get_commit_hash()
-        if commit:
-            info.SetVersion(commit)
+        if is_bundled():
+            info.SetName("Greeting Cards")
+            info.SetCopyright(f"(c) {datetime.now().year}")
+            info.SetDescription("Open-source licenses: Help > Licenses")
         wx.adv.AboutBox(info)
 
     def _build_ui(self) -> None:
