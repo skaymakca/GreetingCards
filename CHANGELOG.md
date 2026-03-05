@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.13.1 (2026-03-05)
+
+Fixed a bug where the app would perpetually offer updates after updating.
+
 ## 0.13.0 — Auto-Update (2026-03-04)
 
 Greeting Cards now updates itself. The app uses the Sparkle framework — the
