@@ -173,6 +173,9 @@ Greeting Cards - macOS app for organizing and renaming greeting card PDFs using 
 - Python 3.14: exception variables cleared after except block
 - Always test both source version and app bundle when making UI changes
 
+### Release Pipeline
+Release steps (signing, notarization, DMG creation, GitHub release) require per-machine credentials. Run `uv run python -m scripts.configure_release` to interactively generate `release-local.sh` — a gitignored shell script with the developer's signing identity and keychain profile baked in. Use `./release-local.sh <step>` or `./release-local.sh <from>-<to>` to run pipeline steps. Never hardcode credentials in committed code.
+
 ### High-Level Layout
 
 ```
