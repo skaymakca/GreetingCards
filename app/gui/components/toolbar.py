@@ -129,7 +129,7 @@ class ToolbarManager:
 
         # Sparkle: insert "Check for Updates..." into the macOS application menu,
         # after Settings (which wxPython auto-places at index 2).
-        if sparkle.is_available():
+        if sparkle.is_available():  # pragma: no cover — Sparkle framework not available in tests
             apple_menu = menubar.OSXGetAppleMenu()
             w._check_updates_id = wx.NewIdRef()
             apple_menu.Insert(3, w._check_updates_id, "Check for Updates...")
@@ -137,7 +137,7 @@ class ToolbarManager:
         # Bind events
         w._frame.Bind(wx.EVT_MENU, lambda e: w._show_about(), id=wx.ID_ABOUT)
         w._frame.Bind(wx.EVT_MENU, lambda e: w._add_files_folders(), id=wx.ID_OPEN)
-        if sparkle.is_available():
+        if sparkle.is_available():  # pragma: no cover — Sparkle framework not available in tests
             w._frame.Bind(wx.EVT_MENU, lambda e: sparkle.check_for_updates(), id=w._check_updates_id)
         w._frame.Bind(wx.EVT_MENU, lambda e: w._show_preferences(), id=wx.ID_PREFERENCES)
         w._frame.Bind(wx.EVT_MENU, w._on_close_window, id=wx.ID_CLOSE)

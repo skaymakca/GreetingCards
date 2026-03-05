@@ -87,7 +87,7 @@ def init() -> bool:
 
         logger.info("Sparkle: framework loaded successfully")
         return True
-    except Exception:
+    except Exception:  # pragma: no cover — requires real ObjC runtime
         logger.warning("Sparkle: failed to initialize", exc_info=True)
         _controller = None
         _updater = None
@@ -105,7 +105,7 @@ def start() -> None:
     # noinspection PyBroadException
     try:
         _controller.startUpdater()
-        logger.debug("Sparkle: updater started")
+        logger.debug("Sparkle: updater started")  # pragma: no cover — requires real framework
     except Exception:
         logger.warning("Sparkle: failed to start updater", exc_info=True)
 
