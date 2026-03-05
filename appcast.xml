@@ -3,6 +3,15 @@
   <channel>
     <title>Greeting Cards</title>
     <item>
+      <title>Version 0.13.1</title>
+      <sparkle:version>1772672403</sparkle:version>
+      <sparkle:shortVersionString>0.13.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <pubDate>Thu, 05 Mar 2026 01:02:11 +0000</pubDate>
+      <description>Fixed a bug where the app would perpetually offer updates after updating.</description>
+      <enclosure url="https://github.com/skaymakca/GreetingCards/releases/download/v0.13.1/Greeting-Cards-0.13.1.dmg" sparkle:edSignature="dP0dqtKQ5LdhujxUHk8pHdxOxEwNVo4VDyVzwHa8C2mOK6v1fVst2Y6HDqNONnMCBSAIuP9tXZMXEOP8BKTtDA==" length="90526680" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.13.0</title>
       <sparkle:version>1772664525</sparkle:version>
       <sparkle:shortVersionString>0.13.0</sparkle:shortVersionString>
