@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import argparse
 import subprocess
-import xml.etree.ElementTree as ET  # nosec B405 — trusted XML from our own git repo
+import xml.etree.ElementTree as ET  # nosec B405
 from datetime import UTC, datetime
 from email.utils import format_datetime
 from pathlib import Path
@@ -71,9 +71,9 @@ def _load_existing_appcast() -> ET.Element | None:
             cwd=str(PROJECT_ROOT),
         )
         if result.returncode == 0 and result.stdout.strip():
-            return ET.fromstring(result.stdout)  # nosec B314 — trusted XML from our own git repo
+            return ET.fromstring(result.stdout)  # nosec B314
     except Exception:
-        pass  # nosec B110 — graceful fallback when gh-pages branch doesn't exist
+        pass  # nosec B110
     return None
 
 
@@ -152,7 +152,7 @@ def generate_appcast_xml(
 
     # Insert new item at the top of the channel (after title)
     title_elem = channel.find("title")
-    if title_elem is not None:
+    if title_elem is not None:  # noqa: SIM108
         idx = list(channel).index(title_elem) + 1
     else:
         idx = 0

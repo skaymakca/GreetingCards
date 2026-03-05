@@ -125,7 +125,7 @@ def ensure_tessdata_best() -> Path:
     if eng_path.exists():
         return TESSDATA_BEST_DIR
     print("Downloading tessdata_best eng.traineddata...")
-    urllib.request.urlretrieve(TESSDATA_BEST_URL, eng_path)
+    urllib.request.urlretrieve(TESSDATA_BEST_URL, eng_path)  # nosec B310
     size_mb = eng_path.stat().st_size / 1024 / 1024
     print(f"  Downloaded {size_mb:.1f} MB to {eng_path}")
     return TESSDATA_BEST_DIR

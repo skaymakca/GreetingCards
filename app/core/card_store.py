@@ -123,7 +123,7 @@ class CardStore:
             # Always update path → hash mapping
             if file_hash is not None:
                 self._hash_by_path[pdf_path] = file_hash
-                try:
+                try:  # noqa: SIM105
                     self._mtime_by_path[pdf_path] = pdf_path.stat().st_mtime
                 except OSError:
                     pass  # File vanished; reload will re-check

@@ -77,7 +77,7 @@ def init() -> bool:
             logger.warning("Sparkle: failed to load framework bundle")
             return False
 
-        SPUStandardUpdaterController = objc.lookUpClass("SPUStandardUpdaterController")
+        SPUStandardUpdaterController = objc.lookUpClass("SPUStandardUpdaterController")  # pyright: ignore[reportAttributeAccessIssue]
 
         # Init with deferred start (startingUpdater=False)
         _controller = SPUStandardUpdaterController.alloc().initWithStartingUpdater_updaterDelegate_userDriverDelegate_(

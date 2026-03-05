@@ -317,7 +317,7 @@ Before committing, run these checks and fix any issues:
 
 **pyright** (`[tool.pyright]` in `pyproject.toml`): Catches structural type errors, unused imports, unreachable code. Zero-warning baseline.
 
-**mypy** (`[tool.mypy]` in `pyproject.toml`): Catches nominal type mismatches, SQLAlchemy plugin issues. `import-untyped` errors are suppressed globally for stubless third-party libs (wx, AppKit, Foundation, tesserocr, fitz).
+**mypy** (`[tool.mypy]` in `pyproject.toml`): Catches nominal type mismatches, SQLAlchemy plugin issues. `import-untyped` errors are suppressed per-module for stubless third-party libs (wx, AppKit, Foundation, objc, tesserocr, fitz) via `[[tool.mypy.overrides]]`.
 
 **ruff** (`[tool.ruff]` in `pyproject.toml`): Linting (pyflakes, pycodestyle, isort, bugbear, simplify, etc.) and formatting. Use `make lint-fix` for auto-fixes, `make format` to reformat.
 

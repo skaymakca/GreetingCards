@@ -43,8 +43,8 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
     def __init__(self) -> None:
         # Create frame
-        self._frame = wx.Frame(None, title="Greeting Cards", size=(Layout.WINDOW_WIDTH, Layout.WINDOW_HEIGHT))
-        self._frame.SetMinSize(Layout.MIN_FRAME_SIZE)
+        self._frame = wx.Frame(None, title="Greeting Cards", size=(Layout.WINDOW_WIDTH, Layout.WINDOW_HEIGHT))  # pyright: ignore[reportArgumentType]
+        self._frame.SetMinSize(Layout.MIN_FRAME_SIZE)  # pyright: ignore[reportArgumentType]
 
         # Service initialization — wxPython's two-phase construction requires
         # these to be created here rather than injected via constructor.
@@ -178,7 +178,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
         row.AddStretchSpacer()
 
-        self._progress_gauge = wx.Gauge(strip, range=100, size=(200, -1))
+        self._progress_gauge = wx.Gauge(strip, range=100, size=(200, -1))  # pyright: ignore[reportArgumentType]
         row.Add(self._progress_gauge, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
 
         self._progress_count = wx.StaticText(strip, label="")
@@ -666,7 +666,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
         # Repaint all windows; call refresh_colors() on those that support it
         # noinspection PyArgumentList
-        for window in wx.GetTopLevelWindows():
+        for window in wx.GetTopLevelWindows():  # pyright: ignore[reportCallIssue]
             if hasattr(window, "refresh_colors"):
                 window.refresh_colors()
             window.Refresh()

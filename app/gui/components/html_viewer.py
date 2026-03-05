@@ -1,3 +1,4 @@
+# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
 """Shared HTML viewer — WebView window with toolbar, sidebar navigation, and search."""
 
 import json

@@ -1,3 +1,4 @@
+# pyright: reportAttributeAccessIssue=false, reportCallIssue=false, reportArgumentType=false
 """SF Symbol icon loader for wxPython using PyObjC with caching and graceful fallback."""
 
 from __future__ import annotations

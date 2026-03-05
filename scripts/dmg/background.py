@@ -1,3 +1,4 @@
+# pyright: reportAttributeAccessIssue=false
 """DMG background image generation.
 
 Outputs _build/dmg/background.png (1×) and background@2x.png (2×).

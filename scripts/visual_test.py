@@ -61,7 +61,7 @@ def _mock_cards() -> list[CardResult]:
         ("Davis", Confidence.HIGH, "ai", True, "archive"),
     ]
     for i, (name, conf, method, analyzed, folder) in enumerate(samples, start=1):
-        pdf_path = Path(f"/tmp/mock/{folder}/card_{i:03d}.pdf")
+        pdf_path = Path(f"/tmp/mock/{folder}/card_{i:03d}.pdf")  # nosec
         card = CardResult(
             id=i,
             file_paths=[pdf_path],
@@ -88,28 +88,28 @@ def _mock_rename_plan() -> list[RenamePlanItem]:
     """Create a mock rename plan for RenameConfirmDialog."""
     return [
         RenamePlanItem(
-            old_path=Path("/tmp/mock/cards/card_001.pdf"),
-            new_path=Path("/tmp/mock/cards/Johnson Family.pdf"),
+            old_path=Path("/tmp/mock/cards/card_001.pdf"),  # nosec B108
+            new_path=Path("/tmp/mock/cards/Johnson Family.pdf"),  # nosec B108
             status=STATUS_OK,
         ),
         RenamePlanItem(
-            old_path=Path("/tmp/mock/cards/card_002.pdf"),
-            new_path=Path("/tmp/mock/cards/Williams Family.pdf"),
+            old_path=Path("/tmp/mock/cards/card_002.pdf"),  # nosec B108
+            new_path=Path("/tmp/mock/cards/Williams Family.pdf"),  # nosec B108
             status=STATUS_OK,
         ),
         RenamePlanItem(
-            old_path=Path("/tmp/mock/cards/card_003.pdf"),
-            new_path=Path("/tmp/mock/cards/card_003.pdf"),
+            old_path=Path("/tmp/mock/cards/card_003.pdf"),  # nosec B108
+            new_path=Path("/tmp/mock/cards/card_003.pdf"),  # nosec B108
             status=STATUS_SKIP_SAME,
         ),
         RenamePlanItem(
-            old_path=Path("/tmp/mock/cards/card_005.pdf"),
-            new_path=Path("/tmp/mock/cards/card_005.pdf"),
+            old_path=Path("/tmp/mock/cards/card_005.pdf"),  # nosec B108
+            new_path=Path("/tmp/mock/cards/card_005.pdf"),  # nosec B108
             status=STATUS_SKIP_NO_NAME,
         ),
         RenamePlanItem(
-            old_path=Path("/tmp/mock/cards/card_006.pdf"),
-            new_path=Path("/tmp/mock/cards/O'Brien-Takahashi Family.pdf"),
+            old_path=Path("/tmp/mock/cards/card_006.pdf"),  # nosec B108
+            new_path=Path("/tmp/mock/cards/O'Brien-Takahashi Family.pdf"),  # nosec B108
             status=STATUS_DUPLICATE,
         ),
     ]
@@ -119,22 +119,22 @@ def _mock_rename_results() -> list[RenameResult]:
     """Create mock rename results for CompletionDialog."""
     return [
         RenameResult(
-            old_path=Path("/tmp/mock/card_001.pdf"),
-            new_path=Path("/tmp/mock/Johnson Family.pdf"),
+            old_path=Path("/tmp/mock/card_001.pdf"),  # nosec B108
+            new_path=Path("/tmp/mock/Johnson Family.pdf"),  # nosec B108
             success=True,
             message="",
             outcome=RenameOutcome.RENAMED,
         ),
         RenameResult(
-            old_path=Path("/tmp/mock/card_002.pdf"),
-            new_path=Path("/tmp/mock/Williams Family.pdf"),
+            old_path=Path("/tmp/mock/card_002.pdf"),  # nosec B108
+            new_path=Path("/tmp/mock/Williams Family.pdf"),  # nosec B108
             success=True,
             message="",
             outcome=RenameOutcome.RENAMED,
         ),
         RenameResult(
-            old_path=Path("/tmp/mock/card_003.pdf"),
-            new_path=Path("/tmp/mock/Garcia Family.pdf"),
+            old_path=Path("/tmp/mock/card_003.pdf"),  # nosec B108
+            new_path=Path("/tmp/mock/Garcia Family.pdf"),  # nosec B108
             success=False,
             message="Permission denied",
             outcome=RenameOutcome.ERROR_OS,
@@ -384,7 +384,7 @@ class VisualTestFrame(wx.Frame):
         self.SetTitle(f"Visual Test Harness — {mode} Mode")
         # Repaint all top-level windows and refresh colors on dialogs
         # noinspection PyArgumentList
-        for window in wx.GetTopLevelWindows():
+        for window in wx.GetTopLevelWindows():  # pyright: ignore[reportCallIssue]
             if hasattr(window, "refresh_colors"):
                 window.refresh_colors()
             window.Refresh()
@@ -588,7 +588,7 @@ class VisualTestFrame(wx.Frame):
             on_folder_filter=lambda keys: print(f"Folder filter: {keys}"),
         )
         # Populate with mock filter data
-        sidebar.update_folders([Path("/tmp/mock/cards"), Path("/tmp/mock/archive")])
+        sidebar.update_folders([Path("/tmp/mock/cards"), Path("/tmp/mock/archive")])  # nosec B108
         sidebar.update_category_counts(count_by_category(self._cards))
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(sidebar, 1, wx.EXPAND)

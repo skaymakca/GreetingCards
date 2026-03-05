@@ -1,3 +1,4 @@
+# pyright: reportArgumentType=false
 # noinspection GrazieInspection
 """wxPython preview panel for displaying multi-page, zoomable, pannable PDF previews."""
 
@@ -559,7 +560,7 @@ class PreviewPanel(wx.Panel):
         current_line: list[str] = []
 
         for word in words:
-            test_line = " ".join(current_line + [word])
+            test_line = " ".join(current_line + [word])  # noqa: RUF005
             tw, _ = dc.GetTextExtent(test_line)
 
             if tw <= max_width:

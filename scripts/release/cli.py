@@ -60,7 +60,7 @@ def extract_changelog(version: str, changelog_path: pathlib.Path | None = None) 
     # Extract body from after the heading to the next ## or end of file
     start = match.end()
     next_heading = re.search(r"^## ", text[start:], re.MULTILINE)
-    if next_heading:
+    if next_heading:  # noqa: SIM108
         body = text[start : start + next_heading.start()]
     else:
         body = text[start:]

@@ -1,3 +1,4 @@
+# pyright: reportArgumentType=false
 """Toolbar and menu bar construction for MainWindow.
 
 ToolbarManager takes a MainWindow instance and sets toolbar/menu IDs directly

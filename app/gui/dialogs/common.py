@@ -1,3 +1,4 @@
+# pyright: reportArgumentType=false
 """wxPython dialog classes for the application."""
 
 from pathlib import Path

@@ -36,7 +36,7 @@ def _download_file(url: str, cache_path: Path) -> str:
     """Download a file, using cache if available."""
     if cache_path.exists():
         return cache_path.read_text(encoding="utf-8")
-    with urlopen(url) as resp:
+    with urlopen(url) as resp:  # nosec B310
         content = resp.read().decode("utf-8")
     cache_path.write_text(content, encoding="utf-8")
     return content

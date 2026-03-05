@@ -66,7 +66,7 @@ class FamilyNameDatabase:
                     self._display_index[alt_lc] = (alt, norm_key)
 
     # Characters that NFKD decomposition doesn't handle.
-    _UNICODE_SPECIAL: dict[str, str] = {"ß": "ss", "ø": "o", "æ": "ae", "ð": "d", "þ": "th", "đ": "d", "ł": "l"}
+    _UNICODE_SPECIAL: dict[str, str] = {"ß": "ss", "ø": "o", "æ": "ae", "ð": "d", "þ": "th", "đ": "d", "ł": "l"}  # noqa: RUF012
 
     @staticmethod
     def normalize(name: str) -> str:
@@ -190,7 +190,7 @@ class FilteredNames:
     ``"FAMILY"`` and ``"family"`` both match.
     """
 
-    _ENTRIES = {
+    _ENTRIES = {  # noqa: RUF012
         # AI fallbacks
         "unknown",
         # Card printing services

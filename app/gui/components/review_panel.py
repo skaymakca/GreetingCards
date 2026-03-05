@@ -1,3 +1,4 @@
+# pyright: reportArgumentType=false
 """Master-Detail Review Panel - Prototype.
 
 Mac-native pattern with DataViewCtrl list and separate detail panel for editing.
@@ -427,7 +428,7 @@ class DetailPanel(wx.Panel):
         self._candidates_choice.Clear()
         self._candidate_map = {}
         if card.candidates:
-            placeholder = f"Select from {len(card.candidates)} candidate{'s' if len(card.candidates) != 1 else ''}"
+            placeholder = f"Select from {len(card.candidates)} candidate{'s' if len(card.candidates) != 1 else ''}"  # nosec
             self._candidates_choice.Append(placeholder)
             for i, cand in enumerate(card.candidates):
                 self._candidates_choice.Append(cand.display_label)

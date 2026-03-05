@@ -38,12 +38,12 @@ def add_entry_context_menu(text_ctrl: wx.TextCtrl) -> None:
         # Add our custom items with icons
         title_item = menu.Append(wx.ID_ANY, "Title Case")
         if icons.get("title_case"):
-            title_item.SetBitmap(icons["title_case"])
+            title_item.SetBitmap(icons["title_case"])  # pyright: ignore[reportArgumentType]
         menu.Bind(wx.EVT_MENU, lambda evt: _title_case(text_ctrl), title_item)
 
         clear_item = menu.Append(wx.ID_ANY, "Clear")
         if icons.get("clear"):
-            clear_item.SetBitmap(icons["clear"])
+            clear_item.SetBitmap(icons["clear"])  # pyright: ignore[reportArgumentType]
         menu.Bind(wx.EVT_MENU, lambda evt: _clear(text_ctrl), clear_item)
 
         # Show the menu
