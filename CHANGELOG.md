@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.13.2 (2026-03-05)
+
+Maintenance release with internal quality improvements.
+
 ## 0.13.1 (2026-03-05)
 
 Fixed a bug where the app would perpetually offer updates after updating.
