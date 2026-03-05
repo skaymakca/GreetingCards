@@ -99,14 +99,14 @@ class _ConfidenceLegendPopup(wx.PopupWindow):
             symbol_st = wx.StaticText(panel, label=symbol)
             symbol_st.SetForegroundColour(colour)
             symbol_st.SetFont(Font.SMALL())
-            row_sizer.Add(symbol_st, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6)
+            row_sizer.Add(symbol_st, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, Layout.LEGEND_ROW_SPACING)
 
             label_st = wx.StaticText(panel, label=label_text)
             label_st.SetForegroundColour(Color.TEXT_PRIMARY)
             label_st.SetFont(Font.SMALL())
             row_sizer.Add(label_st, 0, wx.ALIGN_CENTER_VERTICAL)
 
-            sizer.Add(row_sizer, 0, wx.ALL, 2)
+            sizer.Add(row_sizer, 0, wx.ALL, Layout.LEGEND_ICON_GAP)
 
         panel.SetSizer(sizer)
         outer = wx.BoxSizer(wx.VERTICAL)
@@ -180,7 +180,7 @@ class CardListModel(dv.PyDataViewModel):
     def GetChildren(self, parent, children) -> int:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Flat list - root has all cards, cards have no children."""
         if not parent.IsOk():  # Root
-            for i in range(len(self._cards)):
+            for i, _ in enumerate(self._cards):
                 children.append(self.ObjectToItem(i))
             return len(self._cards)
         return 0  # Cards have no children
@@ -255,7 +255,7 @@ class DetailPanel(wx.Panel):
 
     def __init__(
         self,
-        parent,
+        parent: wx.Window,
         on_name_change: Callable[[int, str], None] | None,
         on_checkbox_toggle: Callable[[int, bool], None] | None,
         on_candidate_select: Callable[[int, int], None] | None,
@@ -278,7 +278,7 @@ class DetailPanel(wx.Panel):
         self._build_ui()
         self.clear()
 
-    def _make_action_button(self, icon_name: str, label: str, handler: Callable) -> wx.Button:
+    def _make_action_button(self, icon_name: str, label: str, handler: Callable[[wx.CommandEvent], None]) -> wx.Button:
         """Create a compact action button with an SF Symbol icon."""
         icon = load_sf_symbol(icon_name, Layout.ACTION_ICON_SIZE)
         if icon:
@@ -370,7 +370,7 @@ class DetailPanel(wx.Panel):
             self._locations_panel, style=dv.DV_NO_HEADER | dv.DV_SINGLE | dv.DV_ROW_LINES
         )
         self._locations_list.AppendTextColumn("", width=Layout.FILE_PATHS_COL_WIDTH)
-        self._locations_list.SetMinSize((-1, 100))
+        self._locations_list.SetMinSize((-1, Layout.FILE_PATHS_MIN_HEIGHT))
         locations_sizer.Add(self._locations_list, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, Layout.PAD)
 
         # Info text (for multiple paths)
@@ -588,7 +588,7 @@ class ReviewPanelMasterDetail(wx.Panel):
 
     def __init__(
         self,
-        parent,
+        parent: wx.Window,
         on_select: Callable[[int | None], None],
         on_ai_request: Callable[[int], None],
         on_name_change: Callable[[int, str], None] | None = None,
@@ -693,7 +693,7 @@ class ReviewPanelMasterDetail(wx.Panel):
             return
         popup = _ConfidenceLegendPopup(self)
         label = self._count_label
-        pos = label.ClientToScreen(wx.Point(0, label.GetSize().height + 2))
+        pos = label.ClientToScreen(wx.Point(0, label.GetSize().height + Layout.LEGEND_POPUP_GAP))
         popup.SetPosition(pos)
         popup.Show()
         self._legend_popup = popup
@@ -958,89 +958,67 @@ class ReviewPanelMasterDetail(wx.Panel):
         if self._selected_card_ids == [card_id]:
             self._detail_panel.load_card(card)
 
-    # noinspection DuplicatedCode
+    def _navigate(self, direction: int) -> None:
+        """Move selection by *direction* (+1 = next, -1 = previous).
+
+        Collapses multi-selection to a single item.
+        """
+        selections = self._list_ctrl.GetSelections()
+        if not selections:
+            if self._model.card_count > 0:
+                item = self._model.ObjectToItem(0)
+                self._list_ctrl.UnselectAll()
+                self._list_ctrl.Select(item)
+                self._list_ctrl.EnsureVisible(item)
+            return
+
+        # Anchor: last item when moving forward, first when moving backward
+        anchor = selections[-1] if direction > 0 else selections[0]
+        current_row = self._model.ItemToObject(anchor)
+        target_row = current_row + direction
+        if 0 <= target_row < self._model.card_count:
+            target_item = self._model.ObjectToItem(target_row)
+            self._list_ctrl.UnselectAll()
+            self._list_ctrl.Select(target_item)
+            self._list_ctrl.EnsureVisible(target_item)
+        elif len(selections) > 1:
+            # At boundary but multi-selected: collapse to anchor
+            self._list_ctrl.UnselectAll()
+            self._list_ctrl.Select(anchor)
+            self._list_ctrl.EnsureVisible(anchor)
+
     def select_next_card(self) -> None:
         """Select next card in list (collapses multi-selection to single)."""
-        selections = self._list_ctrl.GetSelections()
-        if not selections:
-            # Select first
-            if self._model.card_count > 0:
-                item = self._model.ObjectToItem(0)
-                self._list_ctrl.UnselectAll()
-                self._list_ctrl.Select(item)
-                self._list_ctrl.EnsureVisible(item)
-            return
+        self._navigate(1)
 
-        # Use last selected item as anchor
-        last_item = selections[-1]
-        current_row = self._model.ItemToObject(last_item)
-        if current_row < self._model.card_count - 1:
-            next_item = self._model.ObjectToItem(current_row + 1)
-            self._list_ctrl.UnselectAll()
-            self._list_ctrl.Select(next_item)
-            self._list_ctrl.EnsureVisible(next_item)
-        elif len(selections) > 1:
-            # At end but multi-selected: collapse to last item
-            self._list_ctrl.UnselectAll()
-            self._list_ctrl.Select(last_item)
-            self._list_ctrl.EnsureVisible(last_item)
-
-    # noinspection DuplicatedCode
     def select_prev_card(self) -> None:
         """Select previous card in list (collapses multi-selection to single)."""
+        self._navigate(-1)
+
+    def _extend_selection(self, direction: int) -> None:
+        """Extend selection by *direction* (+1 = down, -1 = up) without clearing."""
         selections = self._list_ctrl.GetSelections()
         if not selections:
-            # Select first
             if self._model.card_count > 0:
                 item = self._model.ObjectToItem(0)
-                self._list_ctrl.UnselectAll()
                 self._list_ctrl.Select(item)
                 self._list_ctrl.EnsureVisible(item)
             return
-
-        # Use first selected item as anchor
-        first_item = selections[0]
-        current_row = self._model.ItemToObject(first_item)
-        if current_row > 0:
-            prev_item = self._model.ObjectToItem(current_row - 1)
-            self._list_ctrl.UnselectAll()
-            self._list_ctrl.Select(prev_item)
-            self._list_ctrl.EnsureVisible(prev_item)
-        elif len(selections) > 1:
-            # At start but multi-selected: collapse to first item
-            self._list_ctrl.UnselectAll()
-            self._list_ctrl.Select(first_item)
-            self._list_ctrl.EnsureVisible(first_item)
+        edge = selections[-1] if direction > 0 else selections[0]
+        edge_row = self._model.ItemToObject(edge)
+        target_row = edge_row + direction
+        if 0 <= target_row < self._model.card_count:
+            target_item = self._model.ObjectToItem(target_row)
+            self._list_ctrl.Select(target_item)
+            self._list_ctrl.EnsureVisible(target_item)
 
     def _extend_selection_down(self) -> None:
         """Extend selection downward (Shift+Down)."""
-        selections = self._list_ctrl.GetSelections()
-        if not selections:
-            if self._model.card_count > 0:
-                item = self._model.ObjectToItem(0)
-                self._list_ctrl.Select(item)
-                self._list_ctrl.EnsureVisible(item)
-            return
-        last_row = self._model.ItemToObject(selections[-1])
-        if last_row < self._model.card_count - 1:
-            next_item = self._model.ObjectToItem(last_row + 1)
-            self._list_ctrl.Select(next_item)
-            self._list_ctrl.EnsureVisible(next_item)
+        self._extend_selection(1)
 
     def _extend_selection_up(self) -> None:
         """Extend selection upward (Shift+Up)."""
-        selections = self._list_ctrl.GetSelections()
-        if not selections:
-            if self._model.card_count > 0:
-                item = self._model.ObjectToItem(0)
-                self._list_ctrl.Select(item)
-                self._list_ctrl.EnsureVisible(item)
-            return
-        first_row = self._model.ItemToObject(selections[0])
-        if first_row > 0:
-            prev_item = self._model.ObjectToItem(first_row - 1)
-            self._list_ctrl.Select(prev_item)
-            self._list_ctrl.EnsureVisible(prev_item)
+        self._extend_selection(-1)
 
     def set_drag_highlight(self, on: bool) -> None:
         """Show/hide a macOS-blue drag highlight border around the panel."""

@@ -440,6 +440,13 @@ class TestComputeFileHash:
         expected = hashlib.sha256(b"").hexdigest()
         assert result == expected
 
+    def test_nonexistent_file_raises(self, tmp_path):
+        """compute_file_hash raises FileNotFoundError for nonexistent paths."""
+        import pytest
+
+        with pytest.raises(FileNotFoundError):
+            compute_file_hash(tmp_path / "does_not_exist.pdf")
+
 
 class TestEnsureSchema:
     """Tests for _ensure_schema() — schema migration logic."""
@@ -1048,6 +1055,20 @@ class TestSessionScope:
             # Should be able to query
             result = session.query(Card).all()
             assert isinstance(result, list)
+
+    def test_logs_on_rollback(self, caplog):
+        """Exception triggers a log message about rolling back."""
+        import logging
+
+        with (
+            caplog.at_level(logging.ERROR, logger="app.core.database"),
+            pytest.raises(ValueError),
+            _session_scope() as session,
+        ):
+            session.add(Card(file_hash="log_rollback_test"))
+            session.flush()
+            raise ValueError("trigger rollback")
+        assert "rolling back" in caplog.text.lower()
 
 
 class TestDefensiveGuards:

@@ -16,6 +16,7 @@ from app.core.naming.family_name.data import family_name_db
 _MAC_EXCEPTIONS = frozenset({"macintosh", "machine", "mach", "macro", "mace"})
 _PARTICLES = frozenset({"van", "von", "de", "del", "der", "den", "la", "le", "da", "di", "st"})
 _SUFFIXES = frozenset({"ii", "iii", "iv", "v", "jr", "sr"})
+_PERIOD_SUFFIXES = frozenset({"jr", "sr"})
 
 
 # --- Helper Functions ---
@@ -59,11 +60,11 @@ def _format_suffix(word: str) -> str | None:
         "smith" → None (not a suffix)
     """
     lower = word.lower()
-    if lower in ["jr", "sr"]:
+    if lower not in _SUFFIXES:
+        return None
+    if lower in _PERIOD_SUFFIXES:
         return word.capitalize() + "."
-    elif lower in _SUFFIXES:
-        return word.upper()
-    return None
+    return word.upper()
 
 
 def _format_particle(word: str, is_first_word: bool) -> str | None:

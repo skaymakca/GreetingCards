@@ -21,18 +21,3 @@ def reveal_in_finder(path: str | Path) -> None:
         subprocess.Popen(["open", "-R", str(path)])
     except OSError as e:
         logger.warning("Failed to reveal %s: %s", path, e)
-
-
-def get_commit_hash() -> str:
-    """Get short git commit hash, or empty string if unavailable."""
-    try:
-        return (
-            subprocess.check_output(
-                ["git", "rev-parse", "--short", "HEAD"],
-                stderr=subprocess.DEVNULL,
-            )
-            .decode()
-            .strip()
-        )
-    except OSError, subprocess.SubprocessError:
-        return ""

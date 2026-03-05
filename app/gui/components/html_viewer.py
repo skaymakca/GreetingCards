@@ -15,22 +15,22 @@ from app.gui.styles import Color
 # Singleton weakrefs keyed by viewer type
 _viewer_refs: dict[str, weakref.ref] = {}
 
+# Viewer-specific toolbar sizing — intentionally not in Layout because these are
+# tightly coupled to the HTML viewer's toolbar structure and icon loading.
 _TOOL_BITMAP_SIZE = wx.Size(24, 24)
 _LABEL_WIDTH = 80
 _SEARCH_MIN_WIDTH = 150
-
-
-def _toolbar_icon(name: str) -> wx.Bitmap:
-    """Load an SF Symbol sized for the HTML viewer toolbar (regular weight)."""
-    return load_sf_symbol(name, point_size=16, weight=0.0) or wx.NullBitmap
-
-
 _TOOL_WIDTH_EST = 36
 _TOOLBAR_MARGIN = 24
 _NUM_TOOLS = 5
 
 _MIN_SEARCH_LEN = 3
 _DEBOUNCE_MS = 200
+
+
+def _toolbar_icon(name: str) -> wx.Bitmap:
+    """Load an SF Symbol sized for the HTML viewer toolbar (regular weight)."""
+    return load_sf_symbol(name, point_size=16, weight=0.0) or wx.NullBitmap
 
 
 class _PageMatch(NamedTuple):
@@ -619,8 +619,10 @@ def show_viewer(
             if frame is not None and not frame.IsBeingDeleted():
                 frame.Raise()
                 return None
-        except RuntimeError:
-            pass  # C++ object already deleted; create a new one
+        except RuntimeError as exc:
+            if "C++ object" not in str(exc):
+                raise
+            # C++ object already deleted; create a new one
 
     viewer = HTMLViewerWindow(
         parent, title=title, size=size, base_path=base_path, page_order=page_order, search_hint=search_hint

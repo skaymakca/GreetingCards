@@ -111,3 +111,4 @@ homepage = "https://github.com/pytest-dev/pluggy"
 [[package]]
 name = "tzdata"
 license_type = "Apache 2.0"
+homepage = "https://github.com/python/tzdata"

@@ -138,7 +138,7 @@ If this pass finds zero new findings, the audit is **converged**. Otherwise, rep
 
 ## Output
 
-All findings go into `.local/audits/YYYYMMDDThhmm-code-quality.md` (timestamp of when the audit started). After convergence, group related findings into **clusters** — sets of findings that share a root cause or would be fixed together.
+All findings go into `_build/audit/YYYYMMDDThhmm-code-quality.md` (timestamp of when the audit started). After convergence, group related findings into **clusters** — sets of findings that share a root cause or would be fixed together.
 
 ### Presentation Guidelines
 
@@ -275,8 +275,8 @@ Findings that were raised in earlier passes but rejected during consolidation. K
 
 ## How to Run
 
-1. Create the output directory if needed (`mkdir -p .local/audits`)
-2. Create a fresh findings file from the template above at `.local/audits/YYYYMMDDThhmm-code-quality.md`
+1. Create the output directory if needed (`mkdir -p _build/audit`)
+2. Create a fresh findings file from the template above at `_build/audit/YYYYMMDDThhmm-code-quality.md`
 3. Run the Pre-Pass: `make check`, PyCharm inspections, `pytest`, `make licenses-sync` — record results
 4. Launch Pass 1: four parallel general-purpose agents (A, B, C, D) with the scopes defined above
 5. Consolidate Pass 1 findings, cross-reference against pre-pass output
@@ -428,7 +428,7 @@ If this pass finds zero new findings, the audit is **converged**. Otherwise, rep
 
 ## Output
 
-All findings go into `.local/audits/YYYYMMDDThhmm-code-quality.md` (timestamp of when the audit started). After convergence, group related findings into **clusters** — sets of findings that share a root cause or would be fixed together.
+All findings go into `_build/audit/YYYYMMDDThhmm-code-quality.md` (timestamp of when the audit started). After convergence, group related findings into **clusters** — sets of findings that share a root cause or would be fixed together.
 
 ### Presentation Guidelines
 
@@ -565,8 +565,8 @@ Findings that were raised in earlier passes but rejected during consolidation. K
 
 ## How to Run
 
-1. Create the output directory if needed (`mkdir -p .local/audits`)
-2. Create a fresh findings file from the template above at `.local/audits/YYYYMMDDThhmm-code-quality.md`
+1. Create the output directory if needed (`mkdir -p _build/audit`)
+2. Create a fresh findings file from the template above at `_build/audit/YYYYMMDDThhmm-code-quality.md`
 3. Run the Pre-Pass: `make check`, PyCharm inspections, `pytest`, `make licenses-sync` — record results
 4. Launch Pass 1: four parallel general-purpose agents (A, B, C, D) with the scopes defined above
 5. Consolidate Pass 1 findings, cross-reference against pre-pass output

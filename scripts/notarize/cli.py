@@ -18,18 +18,10 @@ import pathlib
 import re
 import subprocess
 
-from scripts.helpers import PROJECT_ROOT, app_path, dmg_path, read_version
+from scripts.helpers import PROJECT_ROOT, app_path, dmg_path, read_version, run_command
 
 _SUBMISSION_ID_FILE = PROJECT_ROOT / "_build" / "release" / "submission-id.txt"
 _ID_PATTERN = re.compile(r"id:\s*([0-9a-f-]+)")
-
-
-def _run(cmd: list[str], *, dry_run: bool = False, capture: bool = False) -> subprocess.CompletedProcess[str]:
-    """Run a command, printing it first. In dry-run mode, skip execution."""
-    print(f"  {'[dry-run] ' if dry_run else ''}{' '.join(cmd)}")
-    if dry_run:
-        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
-    return subprocess.run(cmd, check=True, capture_output=capture, text=True)
 
 
 def save_submission_id(submission_id: str, path: pathlib.Path = _SUBMISSION_ID_FILE) -> None:
@@ -54,7 +46,7 @@ def submit(dmg: pathlib.Path, profile: str, *, dry_run: bool = False) -> str | N
     Returns the submission ID on success, or None in dry-run mode.
     """
     print("Submitting to Apple notary service …")
-    result = _run(
+    result = run_command(
         [
             "xcrun",
             "notarytool",
@@ -88,7 +80,7 @@ def check_status(submission_id: str, profile: str, *, dry_run: bool = False) -> 
     (e.g. ``"Accepted"``, ``"In Progress"``). Returns None in dry-run mode.
     """
     print(f"Checking status for {submission_id} …")
-    result = _run(
+    result = run_command(
         ["xcrun", "notarytool", "info", submission_id, "--keychain-profile", profile],
         dry_run=dry_run,
         capture=True,
@@ -110,7 +102,7 @@ def fetch_history(profile: str, *, dry_run: bool = False) -> str | None:
     output.  Returns ``None`` if no ID is found or in dry-run mode.
     """
     print("Fetching notarization history …")
-    result = _run(
+    result = run_command(
         ["xcrun", "notarytool", "history", "--keychain-profile", profile],
         dry_run=dry_run,
         capture=True,
@@ -133,7 +125,7 @@ def fetch_log(submission_id: str, profile: str, *, dry_run: bool = False) -> Non
     """
     print(f"Fetching log for {submission_id} …")
     try:
-        _run(
+        run_command(
             ["xcrun", "notarytool", "log", submission_id, "--keychain-profile", profile],
             dry_run=dry_run,
         )
@@ -146,14 +138,14 @@ def fetch_log(submission_id: str, profile: str, *, dry_run: bool = False) -> Non
 def staple(app: pathlib.Path, dmg: pathlib.Path, *, dry_run: bool = False) -> None:
     """Staple the notarization ticket to both the .app and the .dmg."""
     print("Stapling ticket …")
-    _run(["xcrun", "stapler", "staple", str(app)], dry_run=dry_run)
-    _run(["xcrun", "stapler", "staple", str(dmg)], dry_run=dry_run)
+    run_command(["xcrun", "stapler", "staple", str(app)], dry_run=dry_run)
+    run_command(["xcrun", "stapler", "staple", str(dmg)], dry_run=dry_run)
 
 
 def verify(app: pathlib.Path, *, dry_run: bool = False) -> None:
     """Verify the notarized app passes Gatekeeper assessment."""
     print("Verifying Gatekeeper assessment …")
-    _run(
+    run_command(
         ["spctl", "--assess", "--type", "execute", "--verbose", str(app)],
         dry_run=dry_run,
     )

@@ -10,7 +10,6 @@ from PIL import Image
 from app.core.pipeline.pdf_renderer import (
     _capped_zoom,
     autocrop_whitespace,
-    get_page_count,
     render_all_pages,
     render_pdf_page,
 )
@@ -201,21 +200,4 @@ class TestRenderAllPages:
         doc = _make_mock_doc(2)
         mock_fitz_open.return_value = doc
         render_all_pages(Path("/fake.pdf"))
-        doc.close.assert_called_once()
-
-
-class TestGetPageCount:
-    """Tests for get_page_count()."""
-
-    @patch("app.core.pipeline.pdf_renderer.fitz.open")
-    def test_returns_count(self, mock_fitz_open):
-        doc = _make_mock_doc(5)
-        mock_fitz_open.return_value = doc
-        assert get_page_count(Path("/fake.pdf")) == 5
-
-    @patch("app.core.pipeline.pdf_renderer.fitz.open")
-    def test_closes_document(self, mock_fitz_open):
-        doc = _make_mock_doc(1)
-        mock_fitz_open.return_value = doc
-        get_page_count(Path("/fake.pdf"))
         doc.close.assert_called_once()

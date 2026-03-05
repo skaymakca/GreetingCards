@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import plistlib
 import shutil
+import subprocess
 import tomllib
 from collections.abc import Generator
 from datetime import datetime
@@ -86,3 +87,11 @@ def script_output_dir(folder_name: str) -> Generator[Path]:
         if path.exists() and not any(path.iterdir()):
             shutil.rmtree(path)
         raise
+
+
+def run_command(cmd: list[str], *, dry_run: bool = False, capture: bool = False) -> subprocess.CompletedProcess[str]:
+    """Run a shell command, printing it first. In dry-run mode, skip execution."""
+    print(f"  {'[dry-run] ' if dry_run else ''}{' '.join(cmd)}")
+    if dry_run:
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+    return subprocess.run(cmd, check=True, text=True, capture_output=capture)

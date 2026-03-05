@@ -99,8 +99,13 @@ def extract_family_names(text: str) -> list[NameMatch]:
         m = re.search(r"[Tt]he\s+([A-Z][a-zA-Z]+s)\b", line)
         if m:
             name = m.group(1)
-            # Remove trailing 's' to get family name
-            base = name[:-1] if not name.endswith("ss") else name
+            # Remove trailing plural suffix to get family name
+            if name.endswith("es") and not name.endswith("ses"):
+                base = name[:-2]
+            elif not name.endswith("ss"):
+                base = name[:-1]
+            else:
+                base = name
             if _is_valid_name(base) and base.lower() not in GREETING_WORDS:
                 results.append(NameMatch(base, Confidence.HIGH))
 

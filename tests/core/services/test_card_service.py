@@ -185,8 +185,8 @@ class TestSelectCandidate:
         mock_select_candidate.assert_called_once_with("hash1", 10, True)  # type: ignore[union-attr]
 
     @patch("app.core.services.card_service.select_candidate")
-    def test_select_candidate_restores_original_confidence(self, mock_select_candidate: object) -> None:
-        """When switching from MANUAL, restores original_confidence."""
+    def test_select_candidate_always_uses_candidate_confidence(self, mock_select_candidate: object) -> None:
+        """Selecting a candidate always uses the candidate's own confidence, even from MANUAL."""
         card = _make_card(
             confidence=Confidence.MANUAL,
             original_confidence=Confidence.HIGH,
@@ -195,21 +195,37 @@ class TestSelectCandidate:
 
         service.select_candidate(card.id, 20)
 
-        assert card.confidence == Confidence.HIGH
+        # Candidate 20 has confidence "medium" — always wins over original_confidence
+        assert card.confidence == Confidence.MEDIUM
+        assert card.original_confidence is None
 
     @patch("app.core.services.card_service.select_candidate")
-    def test_select_candidate_no_original_uses_candidate_confidence(self, mock_select_candidate: object) -> None:
-        """When MANUAL but no original_confidence, uses candidate's confidence."""
+    def test_select_candidate_clears_original_confidence(self, mock_select_candidate: object) -> None:
+        """Selecting a candidate clears stale original_confidence."""
         card = _make_card(
             confidence=Confidence.MANUAL,
-            original_confidence=None,
+            original_confidence=Confidence.LOW,
         )
         _, service = _make_store_and_service(card)
 
-        service.select_candidate(card.id, 20)
+        service.select_candidate(card.id, 10)
 
-        # Candidate 20 has confidence "medium"
-        assert card.confidence == Confidence.MEDIUM
+        assert card.original_confidence is None
+
+    @patch("app.core.services.card_service.select_candidate")
+    def test_nonmatching_candidate_id_logs_warning(self, mock_select_candidate: object) -> None:
+        """Non-matching candidate ID logs warning, skips DB call, returns card unchanged."""
+        card = _make_card(confidence=Confidence.HIGH, family_name="Smith")
+        _, service = _make_store_and_service(card)
+
+        with patch("app.core.services.card_service.logger") as mock_logger:
+            result = service.select_candidate(card.id, 9999)
+
+        assert result is card
+        assert card.family_name == "Smith"
+        assert card.confidence == Confidence.HIGH
+        mock_select_candidate.assert_not_called()  # type: ignore[union-attr]
+        mock_logger.warning.assert_called_once()
 
     @patch("app.core.services.card_service.select_candidate")
     def test_select_candidate_unknown_card_returns_none(self, mock_select_candidate: object) -> None:

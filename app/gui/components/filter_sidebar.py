@@ -272,7 +272,7 @@ class FilterSidebar(wx.Panel):
 
         # Build filter list: "All Folders" + one per folder
         self._folder_filters = [("all_folders", "All Folders")]
-        for path, label in zip(folder_paths, labels, strict=False):
+        for path, label in zip(folder_paths, labels, strict=True):
             self._folder_filters.append((str(path), label))
         self._folder_keys = [f[0] for f in self._folder_filters]
 

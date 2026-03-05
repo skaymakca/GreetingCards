@@ -9,6 +9,7 @@ import pytest
 from app.core.services.filter_service import (
     apply_category_filters,
     apply_folder_filters,
+    compute_filtered_view,
     count_by_category,
     count_by_folder,
     search_filter,
@@ -372,3 +373,55 @@ class TestCountByFolder:
         cards = [_card(1, path="/folder/file.pdf")]
         counts = count_by_folder(cards, [])
         assert counts == {"all_folders": 1}
+
+
+# ---------------------------------------------------------------------------
+# compute_filtered_view
+# ---------------------------------------------------------------------------
+
+
+class TestComputeFilteredView:
+    """Tests for the full filtered view pipeline."""
+
+    def test_auto_reset_when_display_empty(self) -> None:
+        """Category filters auto-reset when they produce empty results but search has matches."""
+        cards = [
+            _card(1, path="/f/a.pdf", confidence=Confidence.HIGH, family_name="Smith"),
+            _card(2, path="/f/b.pdf", confidence=Confidence.LOW, family_name="Jones"),
+        ]
+        # Filter for "manual" which has 0 cards → should auto-reset
+        view = compute_filtered_view(cards, "", ["manual"], ["all_folders"], ["/f"])
+        assert view.filters_were_reset is True
+        assert len(view.display_cards) == 2  # all cards shown after reset
+
+    def test_cross_filter_counts(self) -> None:
+        """Category counts reflect folder-filtered cards, not all cards."""
+        cards = [
+            _card(1, path="/a/x.pdf", confidence=Confidence.HIGH),
+            _card(2, path="/b/y.pdf", confidence=Confidence.LOW),
+        ]
+        view = compute_filtered_view(cards, "", ["all"], ["/a"], ["/a", "/b"])
+        # Only card 1 is in folder /a, so display should have 1
+        assert len(view.display_cards) == 1
+        # Category counts should reflect folder-filtered (only /a cards)
+        assert view.category_counts["all"] == 1
+
+    def test_alphabetical_sort(self) -> None:
+        """Display cards are sorted alphabetically by filename."""
+        cards = [
+            _card(1, path="/f/Zebra.pdf", confidence=Confidence.HIGH),
+            _card(2, path="/f/Alpha.pdf", confidence=Confidence.HIGH),
+            _card(3, path="/f/Middle.pdf", confidence=Confidence.HIGH),
+        ]
+        view = compute_filtered_view(cards, "", ["all"], ["all_folders"], ["/f"])
+        filenames = [c.filename for c in view.display_cards]
+        assert filenames == ["Alpha.pdf", "Middle.pdf", "Zebra.pdf"]
+
+    def test_no_reset_when_display_has_results(self) -> None:
+        """No reset when category filters produce results."""
+        cards = [
+            _card(1, path="/f/a.pdf", confidence=Confidence.HIGH),
+        ]
+        view = compute_filtered_view(cards, "", ["high"], ["all_folders"], ["/f"])
+        assert view.filters_were_reset is False
+        assert len(view.display_cards) == 1

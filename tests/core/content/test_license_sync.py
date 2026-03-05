@@ -1,5 +1,8 @@
 """Tests for app.core.content.license_sync — registry discovery pipeline."""
 
+from pathlib import Path
+from unittest.mock import patch
+
 import pytest
 
 from app.core.content.license_models import (
@@ -24,6 +27,7 @@ from app.core.content.license_sync import (
     _slug,
     _write_registry_toml,
     load_config,
+    sync_registry,
 )
 
 
@@ -341,3 +345,99 @@ class TestGetSitePackagesFallback:
 
         assert ".venv" in str(result)
         assert "site-packages" in str(result)
+
+
+class TestSyncRegistry:
+    """Tests for sync_registry() orchestration."""
+
+    def test_manual_fallback_when_no_dist_info(self, tmp_path):
+        """When _find_dist_info returns None, falls back to manual license file."""
+        source_dir = tmp_path / "source"
+        source_dir.mkdir()
+        (source_dir / "config.toml").write_text("[package_overrides]\n", encoding="utf-8")
+        manual_dir = source_dir / "manual"
+        manual_dir.mkdir()
+        (manual_dir / "test-pkg.txt").write_text("Manual license text", encoding="utf-8")
+
+        build_dir = tmp_path / "build"
+        build_dir.mkdir()
+        (build_dir / "texts").mkdir()
+
+        lock_path = tmp_path / "uv.lock"
+        lock_path.write_text("", encoding="utf-8")
+
+        pyproject_path = tmp_path / "pyproject.toml"
+        pyproject_path.write_text('[project]\nname = "greeting-cards"\n', encoding="utf-8")
+
+        packages = [
+            {"name": "greeting-cards", "version": "1.0", "deps": ["test-pkg"]},
+            {"name": "test-pkg", "version": "0.1", "deps": []},
+        ]
+
+        with (
+            patch("app.core.content.license_sync._get_project_root", return_value=tmp_path),
+            patch("app.core.content.license_sync.get_licenses_source_dir", return_value=source_dir),
+            patch("app.core.content.license_sync.get_licenses_build_dir", return_value=build_dir),
+            patch("app.core.content.license_sync._parse_uv_lock", return_value=packages),
+            patch("app.core.content.license_sync._compute_lock_hash", return_value="testhash"),
+            patch("app.core.content.license_sync._get_site_packages", return_value=tmp_path / "sp"),
+            patch("app.core.content.license_sync._find_dist_info", return_value=None),
+        ):
+            registry = sync_registry()
+
+        assert len(registry.packages) == 1
+        assert registry.packages[0].name == "test-pkg"
+        assert registry.packages[0].text_file == "manual/test-pkg.txt"
+
+    def test_version_change_triggers_re_extraction(self, tmp_path):
+        """When package version changes, license text is re-extracted."""
+        source_dir = tmp_path / "source"
+        source_dir.mkdir()
+        (source_dir / "config.toml").write_text("[package_overrides]\n", encoding="utf-8")
+
+        build_dir = tmp_path / "build"
+        build_dir.mkdir()
+        texts_dir = build_dir / "texts"
+        texts_dir.mkdir()
+        # Old text file from previous version
+        (texts_dir / "test-pkg.txt").write_text("Old license", encoding="utf-8")
+
+        # Existing registry with old version
+        (build_dir / "registry.toml").write_text(
+            '[[package]]\nname = "test-pkg"\nversion = "0.1"\n',
+            encoding="utf-8",
+        )
+
+        lock_path = tmp_path / "uv.lock"
+        lock_path.write_text("", encoding="utf-8")
+
+        pyproject_path = tmp_path / "pyproject.toml"
+        pyproject_path.write_text('[project]\nname = "greeting-cards"\n', encoding="utf-8")
+
+        packages = [
+            {"name": "greeting-cards", "version": "1.0", "deps": ["test-pkg"]},
+            {"name": "test-pkg", "version": "0.2", "deps": []},
+        ]
+
+        mock_dist = tmp_path / "sp" / "test_pkg-0.2.dist-info"
+        mock_dist.mkdir(parents=True)
+        (mock_dist / "METADATA").write_text(
+            "Name: test-pkg\nVersion: 0.2\nLicense: MIT\n",
+            encoding="utf-8",
+        )
+
+        with (
+            patch("app.core.content.license_sync._get_project_root", return_value=tmp_path),
+            patch("app.core.content.license_sync.get_licenses_source_dir", return_value=source_dir),
+            patch("app.core.content.license_sync.get_licenses_build_dir", return_value=build_dir),
+            patch("app.core.content.license_sync._parse_uv_lock", return_value=packages),
+            patch("app.core.content.license_sync._compute_lock_hash", return_value="testhash"),
+            patch("app.core.content.license_sync._get_site_packages", return_value=tmp_path / "sp"),
+            patch("app.core.content.license_sync._find_dist_info", return_value=mock_dist),
+            patch("app.core.content.license_sync._find_license_file", return_value="New MIT License"),
+        ):
+            registry = sync_registry()
+
+        assert len(registry.packages) == 1
+        # Verify re-extracted text was written
+        assert (texts_dir / "test-pkg.txt").read_text(encoding="utf-8") == "New MIT License"

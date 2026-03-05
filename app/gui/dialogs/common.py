@@ -34,6 +34,21 @@ _ERROR_DIALOG_WIDTH = 650
 _COMPLETION_DIALOG_WIDTH = 650
 
 
+def _create_data_view(parent: wx.Window, model: TableModel, columns: list[tuple[str, int]]) -> dv.DataViewCtrl:
+    """Create a DataViewCtrl with the given model and columns.
+
+    Args:
+        parent: Parent window
+        model: TableModel instance (retained by the ctrl)
+        columns: List of (label, width) for each text column
+    """
+    ctrl = dv.DataViewCtrl(parent, style=dv.DV_ROW_LINES | dv.DV_VERT_RULES)
+    ctrl.AssociateModel(model)
+    for i, (label, width) in enumerate(columns):
+        ctrl.AppendTextColumn(label, i, width=width)
+    return ctrl
+
+
 def display_path(path: Path) -> str:
     """Format a path as ~/relative for display (or just filename if under home)."""
     try:
@@ -129,17 +144,17 @@ class ProgressDialog(wx.Dialog):
         self._label = wx.StaticText(panel, label="Processing...")
         self._label.SetFont(styles.Font.BODY())
         self._label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
-        sizer.Add(self._label, 0, wx.ALL, 20)
+        sizer.Add(self._label, 0, wx.ALL, styles.Layout.DIALOG_PADDING)
 
         # Progress bar
-        self._progress = wx.Gauge(panel, range=total, size=(350, -1))
-        sizer.Add(self._progress, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 20)
+        self._progress = wx.Gauge(panel, range=total, size=(styles.Layout.PROGRESS_GAUGE_WIDTH, -1))
+        sizer.Add(self._progress, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, styles.Layout.DIALOG_PADDING)
 
         # Count label
         self._count_label = wx.StaticText(panel, label=f"0 / {total}")
         self._count_label.SetFont(styles.Font.SMALL())
         self._count_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
-        sizer.Add(self._count_label, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        sizer.Add(self._count_label, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, styles.Layout.DIALOG_SECTION_GAP)
 
         # Set sizers
         panel.SetSizer(sizer)
@@ -242,17 +257,13 @@ class RenameConfirmDialog(wx.Dialog):
 
         # Create model and ctrl
         self.model = TableModel(data, colors)
-        self.list_ctrl = dv.DataViewCtrl(self, style=dv.DV_ROW_LINES | dv.DV_VERT_RULES)
-        self.list_ctrl.AssociateModel(self.model)
-
-        # Add columns — file name columns share remaining space equally
         col_label = "Original" if multi_dir else "Original File Name"
         new_label = "New" if multi_dir else "New File Name"
         file_col_width = (_RENAME_DIALOG_WIDTH - 2 * _DIALOG_PADDING - _SCROLLBAR_WIDTH - _STATUS_COL_WIDTH) // 2
-        self.list_ctrl.AppendTextColumn(col_label, 0, width=file_col_width)
-        self.list_ctrl.AppendTextColumn(new_label, 1, width=file_col_width)
-        status_col = self.list_ctrl.AppendTextColumn("Status", 2, width=_STATUS_COL_WIDTH)
-        status_col.SetMinWidth(_STATUS_COL_WIDTH)
+        self.list_ctrl = _create_data_view(
+            self, self.model, [(col_label, file_col_width), (new_label, file_col_width), ("Status", _STATUS_COL_WIDTH)]
+        )
+        self.list_ctrl.GetColumn(2).SetMinWidth(_STATUS_COL_WIDTH)
 
         sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
@@ -347,14 +358,9 @@ class ErrorListDialog(wx.Dialog):
 
         # Create model and ctrl
         self.model = TableModel(data, colors)
-        self.list_ctrl = dv.DataViewCtrl(self, style=dv.DV_ROW_LINES | dv.DV_VERT_RULES)
-        self.list_ctrl.AssociateModel(self.model)
-
-        # Add columns — type column is narrow, detail gets remaining space
         type_col_width = _STATUS_COL_WIDTH
         detail_col_width = _ERROR_DIALOG_WIDTH - 2 * _DIALOG_PADDING - _SCROLLBAR_WIDTH - type_col_width
-        self.list_ctrl.AppendTextColumn("Type", 0, width=type_col_width)
-        self.list_ctrl.AppendTextColumn("Details", 1, width=detail_col_width)
+        self.list_ctrl = _create_data_view(self, self.model, [("Type", type_col_width), ("Details", detail_col_width)])
 
         sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 
@@ -432,13 +438,10 @@ class CompletionDialog(wx.Dialog):
 
         # Create model and ctrl
         self.model = TableModel(data, colors)
-        self.list_ctrl = dv.DataViewCtrl(self, style=dv.DV_ROW_LINES | dv.DV_VERT_RULES)
-        self.list_ctrl.AssociateModel(self.model)
-
-        # Add columns
         file_col_width = _COMPLETION_DIALOG_WIDTH - 2 * _DIALOG_PADDING - _SCROLLBAR_WIDTH - _RESULT_COL_WIDTH
-        self.list_ctrl.AppendTextColumn("File Name", 0, width=file_col_width)
-        self.list_ctrl.AppendTextColumn("Result", 1, width=_RESULT_COL_WIDTH)
+        self.list_ctrl = _create_data_view(
+            self, self.model, [("File Name", file_col_width), ("Result", _RESULT_COL_WIDTH)]
+        )
 
         sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
 

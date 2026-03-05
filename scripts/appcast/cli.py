@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from email.utils import format_datetime
 from pathlib import Path
 
-from scripts.helpers import PROJECT_ROOT, dmg_path, read_build_number, read_version
+from scripts.helpers import PROJECT_ROOT, dmg_path, read_build_number, read_version, run_command
 
 _REPO = "skaymakca/GreetingCards"
 _SPARKLE_BIN = PROJECT_ROOT / "packaging" / "sparkle-bin"
@@ -30,14 +30,6 @@ class AppcastError(ValueError):
     """User-facing error in the appcast pipeline."""
 
 
-def _run(cmd: list[str], *, dry_run: bool = False, capture: bool = False) -> subprocess.CompletedProcess[str]:
-    """Run a command, printing it first. In dry-run mode, skip execution."""
-    print(f"  {'[dry-run] ' if dry_run else ''}{' '.join(cmd)}")
-    if dry_run:
-        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
-    return subprocess.run(cmd, check=True, text=True, capture_output=capture)
-
-
 def sign_dmg(dmg: Path, *, dry_run: bool = False) -> tuple[str, int]:
     """Sign the DMG with Sparkle's sign_update tool.
 
@@ -47,7 +39,7 @@ def sign_dmg(dmg: Path, *, dry_run: bool = False) -> tuple[str, int]:
     if not sign_tool.exists():
         raise FileNotFoundError(f"sign_update not found: {sign_tool}\n  Run 'make sparkle' first.")
 
-    result = _run([str(sign_tool), str(dmg)], dry_run=dry_run, capture=True)
+    result = run_command([str(sign_tool), str(dmg)], dry_run=dry_run, capture=True)
 
     if dry_run:
         return ("DRY_RUN_SIGNATURE", 0)
@@ -233,9 +225,9 @@ def cmd_push(*, dry_run: bool = False) -> None:
             shutil.rmtree(tmp_dir)
 
         if has_remote:
-            _run(["git", "worktree", "add", str(tmp_dir), "gh-pages"])
+            run_command(["git", "worktree", "add", str(tmp_dir), "gh-pages"])
         else:
-            _run(["git", "worktree", "add", "--orphan", "-b", "gh-pages", str(tmp_dir)])
+            run_command(["git", "worktree", "add", "--orphan", "-b", "gh-pages", str(tmp_dir)])
 
         # Write appcast.xml
         (tmp_dir / "appcast.xml").write_text(appcast_content, encoding="utf-8")
@@ -255,13 +247,13 @@ def cmd_push(*, dry_run: bool = False) -> None:
                 check=True,
                 text=True,
             )
-            _run(["git", "push", "origin", "gh-pages"], dry_run=dry_run)
+            run_command(["git", "push", "origin", "gh-pages"], dry_run=dry_run)
             print("Appcast pushed to gh-pages.")
         else:
             print("No changes to appcast.xml — nothing to push.")
 
         # Clean up worktree
-        _run(["git", "worktree", "remove", str(tmp_dir)])
+        run_command(["git", "worktree", "remove", str(tmp_dir)])
     else:
         print("[dry-run] Would push appcast.xml to gh-pages branch")
 

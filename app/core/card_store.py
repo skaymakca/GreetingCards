@@ -252,6 +252,8 @@ class CardStore:
                         current_mtime = path.stat().st_mtime
                     except OSError:
                         continue
+                    # Exact equality is safe: APFS/HFS+ mtime is deterministic
+                    # (same st_mtime on successive stat() calls for unmodified files).
                     if current_mtime == self.get_mtime_for_path(path):
                         continue
 

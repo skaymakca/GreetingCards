@@ -25,10 +25,10 @@ def _hex_to_rgb(color_hex: str) -> tuple[float, float, float]:
     Returns:
         Tuple of (red, green, blue) as floats from 0.0 to 1.0
     """
-    r = int(color_hex[1:3], 16) / 255.0
-    g = int(color_hex[3:5], 16) / 255.0
-    b = int(color_hex[5:7], 16) / 255.0
-    return r, g, b
+    from app.gui.styles import parse_hex_rgb
+
+    r, g, b = parse_hex_rgb(color_hex)
+    return r / 255.0, g / 255.0, b / 255.0
 
 
 def _render_sf_symbol_to_png(

@@ -7,6 +7,7 @@ from typing import Any
 
 from PIL import Image
 
+# Direct import: ConfigService not available in worker subprocess context
 from app.core.config import get_ai_model, get_api_key
 
 logger = logging.getLogger(__name__)
@@ -69,15 +70,6 @@ def classify_ai_error(error: Exception) -> AIError:
             return AIError(AIErrorKind.API_STATUS, f"API error (HTTP {code})", status_code=code)
         case _:
             return AIError(AIErrorKind.UNKNOWN, str(error))
-
-
-def format_ai_error(error: Exception) -> str:
-    """Format an AI API error into a clean user-facing message.
-
-    Thin wrapper around classify_ai_error() for backward compatibility.
-    New code should use classify_ai_error() and format in the presentation layer.
-    """
-    return classify_ai_error(error).detail
 
 
 def parse_retry_after(exc: Exception) -> float:
