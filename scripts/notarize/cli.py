@@ -16,7 +16,9 @@ from __future__ import annotations
 import argparse
 import pathlib
 import re
+import shutil
 import subprocess
+from datetime import datetime
 
 from scripts.helpers import PROJECT_ROOT, app_path, dmg_path, read_version, run_command
 
@@ -38,6 +40,21 @@ def load_submission_id(path: pathlib.Path = _SUBMISSION_ID_FILE) -> str:
     """
     text = path.read_text(encoding="utf-8").strip()
     return text
+
+
+def backup_dmg(dmg: pathlib.Path) -> pathlib.Path:
+    """Copy the DMG to _build/release/ with a datetime stamp.
+
+    Preserves the exact artifact submitted to Apple so it can be recovered
+    if the DMG is accidentally rebuilt before stapling.
+    """
+    timestamp = datetime.now().strftime("%Y%m%dT%H%M")
+    backup_name = f"{dmg.stem}-{timestamp}{dmg.suffix}"
+    backup_path = _SUBMISSION_ID_FILE.parent / backup_name
+    backup_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(dmg, backup_path)
+    print(f"DMG backed up to {backup_path}")
+    return backup_path
 
 
 def submit(dmg: pathlib.Path, profile: str, *, dry_run: bool = False) -> str | None:
@@ -185,8 +202,10 @@ def _cmd_submit(args: argparse.Namespace) -> None:
 
     if submission_id:
         save_submission_id(submission_id)
+        backup = backup_dmg(dmg)
         print()
         print(f"Submission ID: {submission_id}")
+        print(f"DMG backup:    {backup}")
         print("Next steps:")
         print("  uv run python -m scripts.notarize status   # check progress")
         print("  uv run python -m scripts.notarize staple   # after acceptance")

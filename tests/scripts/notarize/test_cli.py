@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from scripts.notarize.cli import (
+    backup_dmg,
     check_status,
     fetch_history,
     fetch_log,
@@ -99,6 +100,32 @@ class TestSaveLoadSubmissionId:
         path = tmp_path / "nonexistent.txt"
         with pytest.raises(FileNotFoundError):
             load_submission_id(path)
+
+
+class TestBackupDmg:
+    def test_copies_dmg_with_timestamp(self, tmp_path: pathlib.Path) -> None:
+        dmg = tmp_path / "Greeting-Cards-1.0.0.dmg"
+        dmg.write_bytes(b"fake dmg content")
+        dest_dir = tmp_path / "release"
+
+        with patch("scripts.notarize.cli._SUBMISSION_ID_FILE", dest_dir / "submission-id.txt"):
+            result = backup_dmg(dmg)
+
+        assert result.exists()
+        assert result.read_bytes() == b"fake dmg content"
+        assert result.parent == dest_dir
+        assert result.name.startswith("Greeting-Cards-1.0.0-")
+        assert result.suffix == ".dmg"
+
+    def test_creates_parent_dirs(self, tmp_path: pathlib.Path) -> None:
+        dmg = tmp_path / "test.dmg"
+        dmg.write_bytes(b"data")
+        dest_dir = tmp_path / "deep" / "nested"
+
+        with patch("scripts.notarize.cli._SUBMISSION_ID_FILE", dest_dir / "submission-id.txt"):
+            result = backup_dmg(dmg)
+
+        assert result.exists()
 
 
 class TestCheckStatus:
@@ -362,6 +389,7 @@ class TestMain:
             patch("scripts.notarize.cli.dmg_path", return_value=dmg),
             patch("scripts.notarize.cli.submit", return_value="new-sub-id-999") as mock_submit,
             patch("scripts.notarize.cli.save_submission_id") as mock_save,
+            patch("scripts.notarize.cli.backup_dmg"),
         ):
             from scripts.notarize.cli import main
 

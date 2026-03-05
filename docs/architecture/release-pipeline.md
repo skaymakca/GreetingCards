@@ -90,11 +90,11 @@ uv run python -m scripts.sign --verbose          # print each command as it runs
 
 Async workflow: submit the DMG, check status externally, then staple once accepted.
 
-Apple notarization can take 5–30+ minutes. The CLI uses a fire-and-forget submit so the terminal is not blocked. The submission ID is saved to `_build/release/submission-id.txt` for later retrieval by `status`, `log`, and `staple` subcommands.
+Apple notarization can take 5–30+ minutes. The CLI uses a fire-and-forget submit so the terminal is not blocked. The submission ID is saved to `_build/release/submission-id.txt` for later retrieval by `status`, `log`, and `staple` subcommands. The DMG is also backed up to `_build/release/<name>-YYYYMMDDThhmm.dmg` on successful submission, preserving the exact artifact sent to Apple in case the DMG is accidentally rebuilt before stapling.
 
 ### Workflow
 
-1. **Submit:** `xcrun notarytool submit <dmg> --keychain-profile <profile>` (no `--wait`)
+1. **Submit:** `xcrun notarytool submit <dmg> --keychain-profile <profile>` (no `--wait`); backs up DMG to `_build/release/`
 2. **Wait externally:** Check status periodically or come back later
 3. **Status:** `xcrun notarytool info <id>` — prints status, hints when accepted
 4. **Log:** `xcrun notarytool log <id>` — prints full notarization log (for debugging)

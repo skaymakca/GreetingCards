@@ -8,7 +8,7 @@ on:
 jobs:
   check:
     name: Static checks
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
@@ -28,7 +28,7 @@ jobs:
   test:
     name: Tests
     runs-on: macos-26
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-build-env

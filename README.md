@@ -267,7 +267,7 @@ tests/
 
 ### Current Coverage
 
-- **2713 tests** covering core logic, GUI components, and scripts
+- **2719 tests** covering core logic, GUI components, and scripts
 - **Core** (services/, pipeline/, naming/, content/ sub-packages + top-level): AI analysis, AI batch, AI service,
   Apple Events, card model, card processor, card service, card store, changelog, changelog models, config,
   config service, database, family name cleaning, family name data, family name formatting, filename safety,
