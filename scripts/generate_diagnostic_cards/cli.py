@@ -109,7 +109,7 @@ def main() -> None:
         console.print(f"\n[bold green]Done![/bold green] {len(names)} cards in {output_dir}")
 
         if not args.no_open:
-            try:
+            try:  # noqa: SIM105
                 subprocess.run(["open", str(output_dir)], check=False)
             except FileNotFoundError:
                 pass

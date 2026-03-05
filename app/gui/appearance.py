@@ -43,7 +43,7 @@ class _AppearanceObserver(NSObject):
     """KVO observer for NSApplication.effectiveAppearance changes."""
 
     # noinspection PyUnresolvedReferences
-    _callback = objc.ivar()
+    _callback = objc.ivar()  # pyright: ignore[reportAttributeAccessIssue]
 
     # noinspection PyPep8Naming,PyUnusedLocal
     def observeValueForKeyPath_ofObject_change_context_(
@@ -68,7 +68,7 @@ def start_observer(callback: Callable[[], None]) -> None:
         return
 
     _observer = _AppearanceObserver.alloc().init()
-    _observer._callback = callback
+    _observer._callback = callback  # pyright: ignore[reportOptionalMemberAccess]
 
     NSApplication.sharedApplication().addObserver_forKeyPath_options_context_(
         _observer, _KEY_PATH, NSKeyValueObservingOptionNew, 0

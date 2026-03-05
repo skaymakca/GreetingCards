@@ -1,3 +1,4 @@
+# pyright: reportArgumentType=false
 # noinspection GrazieInspection
 """wxPython preview panel for displaying multi-page, zoomable, pannable PDF previews."""
 
@@ -103,7 +104,7 @@ class PreviewPanel(wx.Panel):
         controls_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
         # Left group: Page navigation [◀] [page] [▶]
-        self._prev_btn = wx.Button(controls, label="◀", size=(28, 28))
+        self._prev_btn = wx.Button(controls, label="◀", size=styles.Layout.PREVIEW_BUTTON_SIZE)
         self._prev_btn.Bind(wx.EVT_BUTTON, lambda _: self.prev_page())
         self._prev_btn.Enable(False)
         controls_sizer.Add(self._prev_btn, 0, wx.ALIGN_CENTER_VERTICAL)
@@ -111,11 +112,11 @@ class PreviewPanel(wx.Panel):
         self._page_label = utils.create_static_text(
             controls, "", font=styles.Font.SMALL(), colour=styles.Color.TEXT_PRIMARY
         )
-        self._page_label.SetMinSize((50, -1))
+        self._page_label.SetMinSize((styles.Layout.PAGE_LABEL_MIN_WIDTH, -1))
         self._page_label.SetWindowStyleFlag(wx.ALIGN_CENTRE_HORIZONTAL | wx.ST_NO_AUTORESIZE)
         controls_sizer.Add(self._page_label, 0, wx.ALIGN_CENTER_VERTICAL)
 
-        self._next_btn = wx.Button(controls, label="▶", size=(28, 28))
+        self._next_btn = wx.Button(controls, label="▶", size=styles.Layout.PREVIEW_BUTTON_SIZE)
         self._next_btn.Bind(wx.EVT_BUTTON, lambda _: self.next_page())
         self._next_btn.Enable(False)
         controls_sizer.Add(self._next_btn, 0, wx.ALIGN_CENTER_VERTICAL)
@@ -123,12 +124,12 @@ class PreviewPanel(wx.Panel):
         controls_sizer.AddStretchSpacer()
 
         # Right group: [Fit] [−] [zoom%] [+]
-        self._fit_btn = wx.Button(controls, label="Fit", size=(42, 28))
+        self._fit_btn = wx.Button(controls, label="Fit", size=styles.Layout.PREVIEW_FIT_BUTTON_SIZE)
         self._fit_btn.Bind(wx.EVT_BUTTON, lambda _: self._zoom_fit())
         self._fit_btn.Enable(False)
         controls_sizer.Add(self._fit_btn, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 4)
 
-        self._zout_btn = wx.Button(controls, label="−", size=(28, 28))
+        self._zout_btn = wx.Button(controls, label="−", size=styles.Layout.PREVIEW_BUTTON_SIZE)
         self._zout_btn.Bind(wx.EVT_BUTTON, lambda _: self._zoom_out())
         self._zout_btn.Enable(False)
         controls_sizer.Add(self._zout_btn, 0, wx.ALIGN_CENTER_VERTICAL)
@@ -136,11 +137,11 @@ class PreviewPanel(wx.Panel):
         self._zoom_label = utils.create_static_text(
             controls, "", font=styles.Font.SMALL(), colour=styles.Color.TEXT_PRIMARY
         )
-        self._zoom_label.SetMinSize((40, -1))
+        self._zoom_label.SetMinSize((styles.Layout.ZOOM_LABEL_MIN_WIDTH, -1))
         self._zoom_label.SetWindowStyleFlag(wx.ALIGN_CENTRE_HORIZONTAL | wx.ST_NO_AUTORESIZE)
         controls_sizer.Add(self._zoom_label, 0, wx.ALIGN_CENTER_VERTICAL)
 
-        self._zin_btn = wx.Button(controls, label="+", size=(28, 28))
+        self._zin_btn = wx.Button(controls, label="+", size=styles.Layout.PREVIEW_BUTTON_SIZE)
         self._zin_btn.Bind(wx.EVT_BUTTON, lambda _: self._zoom_in())
         self._zin_btn.Enable(False)
         controls_sizer.Add(self._zin_btn, 0, wx.ALIGN_CENTER_VERTICAL)
@@ -462,7 +463,7 @@ class PreviewPanel(wx.Panel):
 
         # Get canvas size
         cw, ch = self._canvas.GetSize()
-        if cw < 10 or ch < 10:
+        if cw < styles.Layout.MIN_CANVAS_SIZE or ch < styles.Layout.MIN_CANVAS_SIZE:
             return
 
         # Get current page image
@@ -522,7 +523,7 @@ class PreviewPanel(wx.Panel):
     def _paint_error(self, dc: wx.PaintDC) -> None:  # pragma: no cover
         """Draw error message on canvas."""
         cw, ch = self._canvas.GetSize()
-        if cw < 10 or ch < 10:
+        if cw < styles.Layout.MIN_CANVAS_SIZE or ch < styles.Layout.MIN_CANVAS_SIZE:
             return
 
         cx, cy = cw // 2, ch // 2
@@ -536,7 +537,7 @@ class PreviewPanel(wx.Panel):
 
         # Draw error message
         dc.SetFont(styles.Font.BODY())
-        lines = self._wrap_text(dc, self._error_message, cw - 40)
+        lines = self._wrap_text(dc, self._error_message, cw - styles.Layout.ERROR_TEXT_MARGIN)
         y_offset = cy + _WARNING_TEXT_OFFSET
         for line in lines:
             tw, th = dc.GetTextExtent(line)
@@ -559,7 +560,7 @@ class PreviewPanel(wx.Panel):
         current_line: list[str] = []
 
         for word in words:
-            test_line = " ".join(current_line + [word])
+            test_line = " ".join(current_line + [word])  # noqa: RUF005
             tw, _ = dc.GetTextExtent(test_line)
 
             if tw <= max_width:

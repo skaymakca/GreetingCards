@@ -76,14 +76,15 @@ class ProcessingService:
         launching a background thread).  Calls ``on_progress(completed, total,
         filename)`` after each file and ``on_complete()`` when done.
         """
-        # Set spawn method for PyInstaller
-        try:
-            multiprocessing.set_start_method("spawn", force=True)
-        except RuntimeError as exc:
-            if "context has already been set" not in str(exc):
-                raise
+        # Set spawn method for PyInstaller (force=True never raises "already set")
+        multiprocessing.set_start_method("spawn", force=True)
 
         total = len(files)
+        if not files:
+            if on_complete:
+                on_complete()
+            return
+
         pdf_paths_str = [str(p) for p in files]
         completed = 0
 

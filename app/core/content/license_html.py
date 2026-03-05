@@ -43,7 +43,7 @@ def _linkify(text: str) -> Markup:
         _make_link,
         escaped,
     )
-    return Markup(result)
+    return Markup(result)  # nosec B704
 
 
 _jinja_env.filters["linkify"] = _linkify
@@ -241,7 +241,7 @@ def _write_html(
             if pkg.category not in cats:
                 continue
             # text_file is either "texts/slug.txt" (build_dir) or "manual/slug.txt" (source_dir)
-            if pkg.text_file.startswith("manual/"):
+            if pkg.text_file.startswith("manual/"):  # noqa: SIM108
                 text_path = source_dir / pkg.text_file
             else:
                 text_path = build_dir / pkg.text_file

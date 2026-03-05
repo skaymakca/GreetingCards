@@ -138,6 +138,14 @@ class TestGetApiKey:
                 get_api_key()
             assert "differs" not in caplog.text
 
+    def test_strips_whitespace_from_env_var(self):
+        """Whitespace is stripped from env var API key."""
+        with (
+            patch.dict(os.environ, {"ANTHROPIC_API_KEY": "  sk-test-key  "}),
+            patch("app.core.config._read_plist", return_value={}),
+        ):
+            assert get_api_key() == "sk-test-key"
+
 
 class TestSaveApiKey:
     """Tests for save_api_key()."""
@@ -154,6 +162,18 @@ class TestSaveApiKey:
             written = mock_write.call_args[0][0]
             assert written["ANTHROPIC_API_KEY"] == "sk-new-key"
             assert os.environ["ANTHROPIC_API_KEY"] == "sk-new-key"
+
+    def test_strips_whitespace_before_saving(self):
+        """Whitespace is stripped from API key before saving."""
+        with (
+            patch("app.core.config._read_plist", return_value={}),
+            patch("app.core.config._write_plist") as mock_write,
+            patch.dict(os.environ, {}, clear=True),
+        ):
+            save_api_key("  sk-padded  ")
+            written = mock_write.call_args[0][0]
+            assert written["ANTHROPIC_API_KEY"] == "sk-padded"
+            assert os.environ["ANTHROPIC_API_KEY"] == "sk-padded"
 
     def test_save_updates_existing_plist(self):
         """Existing plist data is preserved when saving."""

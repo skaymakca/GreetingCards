@@ -375,6 +375,14 @@ class TestReadDirectoryNames:
         result = _read_directory_names(tmp_path)
         assert result == {"file_a.pdf", "file_b.txt"}
 
+    def test_permission_error_returns_empty(self, tmp_path):
+        """OSError during directory read returns empty set and logs warning."""
+        from unittest.mock import patch
+
+        with patch("app.core.naming.renamer.Path.iterdir", side_effect=OSError("Permission denied")):
+            result = _read_directory_names(tmp_path)
+        assert result == set()
+
 
 class TestFindAvailableName:
     """Tests for _find_available_name()."""

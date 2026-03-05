@@ -11,7 +11,6 @@ from scripts.appcast.cli import (
     AppcastError,
     _get_release_notes,
     _load_existing_appcast,
-    _run,
     cmd_generate,
     cmd_push,
     generate_appcast_xml,
@@ -209,7 +208,7 @@ class TestSignDmg:
 
         with (
             patch("scripts.appcast.cli._SPARKLE_BIN", tmp_path),
-            patch("scripts.appcast.cli._run", return_value=mock_result),
+            patch("scripts.appcast.cli.run_command", return_value=mock_result),
         ):
             sig, length = sign_dmg(dmg)
 
@@ -255,34 +254,10 @@ class TestSignDmg:
 
         with (
             patch("scripts.appcast.cli._SPARKLE_BIN", tmp_path),
-            patch("scripts.appcast.cli._run", return_value=mock_result),
+            patch("scripts.appcast.cli.run_command", return_value=mock_result),
             pytest.raises(AppcastError, match="Failed to parse"),
         ):
             sign_dmg(dmg)
-
-
-class TestRunHelper:
-    """_run() executes or skips commands based on dry_run flag."""
-
-    @patch("scripts.appcast.cli.subprocess.run")
-    def test_real_run_calls_subprocess(self, mock_run: MagicMock) -> None:
-        mock_run.return_value = subprocess.CompletedProcess(["echo"], 0)
-        result = _run(["echo", "hello"])
-        mock_run.assert_called_once_with(["echo", "hello"], check=True, text=True, capture_output=False)
-        assert result.returncode == 0
-
-    @patch("scripts.appcast.cli.subprocess.run")
-    def test_dry_run_skips_subprocess(self, mock_run: MagicMock) -> None:
-        result = _run(["echo", "hello"], dry_run=True)
-        mock_run.assert_not_called()
-        assert result.returncode == 0
-        assert result.stdout == ""
-
-    @patch("scripts.appcast.cli.subprocess.run")
-    def test_capture_flag_passed_through(self, mock_run: MagicMock) -> None:
-        mock_run.return_value = subprocess.CompletedProcess(["cmd"], 0, stdout="out")
-        _run(["cmd"], capture=True)
-        mock_run.assert_called_once_with(["cmd"], check=True, text=True, capture_output=True)
 
 
 class TestLoadExistingAppcast:
@@ -478,7 +453,7 @@ class TestCmdPush:
         with (
             patch("scripts.appcast.cli._APPCAST_OUT", appcast),
             patch("scripts.appcast.cli.PROJECT_ROOT", tmp_path),
-            patch("scripts.appcast.cli._run", side_effect=internal_run_side_effect),
+            patch("scripts.appcast.cli.run_command", side_effect=internal_run_side_effect),
         ):
             cmd_push()
 
@@ -508,7 +483,7 @@ class TestCmdPush:
         with (
             patch("scripts.appcast.cli._APPCAST_OUT", appcast),
             patch("scripts.appcast.cli.PROJECT_ROOT", tmp_path),
-            patch("scripts.appcast.cli._run", side_effect=internal_run_side_effect),
+            patch("scripts.appcast.cli.run_command", side_effect=internal_run_side_effect),
         ):
             cmd_push()
 

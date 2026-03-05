@@ -51,7 +51,7 @@ AI_MODELS = (
 DEFAULT_AI_MODEL = "claude-sonnet-4-6"
 
 logger = logging.getLogger(__name__)
-_mismatch_warned = False
+_mismatch_warned = False  # Warn-once per process — relaunch to re-check
 
 
 def _plist_path() -> Path:
@@ -90,6 +90,8 @@ def get_api_key() -> str | None:
 
     # Source mode: env var takes precedence
     env_key = os.environ.get(_KEY_NAME)
+    if env_key:
+        env_key = env_key.strip()
     if env_key == "your-api-key-here":
         env_key = None
 
@@ -103,6 +105,7 @@ def get_api_key() -> str | None:
 def save_api_key(key: str) -> None:
     """Persist the API key to preferences.plist in the data dir."""
     prefs = _read_plist()
+    key = key.strip()
     prefs[_KEY_NAME] = key
     _write_plist(prefs)
     # Also set in current process so get_api_key() returns it immediately.

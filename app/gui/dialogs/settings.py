@@ -107,7 +107,7 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
         sizer.Add(model_desc, 0, wx.LEFT | wx.RIGHT | wx.TOP, _PREFS_PAD)
 
         # Updates section (only when running as app bundle with Sparkle)
-        if sparkle.is_available():
+        if sparkle.is_available():  # pragma: no cover — Sparkle framework not available in tests
             sizer.AddSpacer(_SECTION_GAP)
 
             updates_heading = wx.StaticText(panel, label="Updates")
@@ -126,7 +126,7 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
         panel.SetSizer(sizer)
         return panel
 
-    def _on_auto_update_changed(self, event: wx.CommandEvent) -> None:
+    def _on_auto_update_changed(self, event: wx.CommandEvent) -> None:  # pragma: no cover — Sparkle UI only
         """Toggle automatic update checks via Sparkle."""
         sparkle.set_auto_check_enabled(event.IsChecked())
 

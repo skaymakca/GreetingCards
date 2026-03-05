@@ -605,7 +605,7 @@ class TestRenameConfirmDialogHandlers:
     def test_on_confirm_ends_modal_ok(self, wx_app, wx_frame):
         dlg = RenameConfirmDialog(wx_frame, self._make_plan())
         # _on_confirm calls EndModal(wx.ID_OK)
-        try:
+        try:  # noqa: SIM105
             dlg._on_confirm(None)
         except wx.wxAssertionError:
             pass  # EndModal raises when not shown modally
@@ -613,7 +613,7 @@ class TestRenameConfirmDialogHandlers:
 
     def test_on_cancel_ends_modal_cancel(self, wx_app, wx_frame):
         dlg = RenameConfirmDialog(wx_frame, self._make_plan())
-        try:
+        try:  # noqa: SIM105
             dlg._on_cancel(None)
         except wx.wxAssertionError:
             pass
@@ -623,7 +623,7 @@ class TestRenameConfirmDialogHandlers:
         dlg = RenameConfirmDialog(wx_frame, self._make_plan())
         event = Mock(spec=wx.KeyEvent)
         event.GetKeyCode.return_value = wx.WXK_RETURN
-        try:
+        try:  # noqa: SIM105
             dlg._on_key(event)
         except wx.wxAssertionError:
             pass
@@ -633,7 +633,7 @@ class TestRenameConfirmDialogHandlers:
         dlg = RenameConfirmDialog(wx_frame, self._make_plan())
         event = Mock(spec=wx.KeyEvent)
         event.GetKeyCode.return_value = wx.WXK_ESCAPE
-        try:
+        try:  # noqa: SIM105
             dlg._on_key(event)
         except wx.wxAssertionError:
             pass

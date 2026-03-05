@@ -79,7 +79,7 @@ def clean_family_name(name: str) -> str:
     name = re.sub(r"[''\u2018\u2019]+$", "", name).strip()
 
     # Final aggressive strip of remaining punctuation at the ends
-    name = name.strip('.,!;:-\u2014\u2013"\'"\u2018\u2019\u201c\u201d')
+    name = name.strip('.,!;:-\u2014\u2013"\'"\u2018\u2019\u201c\u201d')  # noqa: B005
 
     # Strip plural 's' or 'es' in obvious cases
     name = strip_plural_family_name(name)
@@ -89,7 +89,7 @@ def clean_family_name(name: str) -> str:
 
 def strip_family_name_punctuation(name: str) -> str:
     """Clean up an extracted name by stripping OCR punctuation artifacts."""
-    name = name.strip().strip(".,!;:-—–\"'''")
+    name = name.strip().strip(".,!;:-—–\"'''")  # noqa: B005
     name = re.sub(r"\s+", " ", name)
     return name.strip()
 

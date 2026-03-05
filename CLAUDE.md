@@ -173,6 +173,9 @@ Greeting Cards - macOS app for organizing and renaming greeting card PDFs using 
 - Python 3.14: exception variables cleared after except block
 - Always test both source version and app bundle when making UI changes
 
+### Release Pipeline
+Release steps (signing, notarization, DMG creation, GitHub release) require per-machine credentials. Run `uv run python -m scripts.configure_release` to interactively generate `release-local.sh` — a gitignored shell script with the developer's signing identity and keychain profile baked in. Use `./release-local.sh <step>` or `./release-local.sh <from>-<to>` to run pipeline steps. Never hardcode credentials in committed code.
+
 ### High-Level Layout
 
 ```
@@ -239,6 +242,7 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `scripts/helpers.py`, `scripts/**/__main__.py`                                                                                                                                      | `docs/architecture/scripts-infrastructure.md`                         |
 | `tests/scripts/**`                                                                                                                                                                  | `docs/architecture/scripts-infrastructure.md`                         |
 | `# noinspection` comments in any `*.py` file                                                                                                                                        | `docs/architecture/pycharm-inspections.md`                            |
+| `# pragma: no cover` comments in any `*.py` file, `[tool.coverage.run] omit` in `pyproject.toml`                                                                                   | `docs/architecture/testing-exclusions.md`                             |
 | `scripts/dmg/**` (including `dmgbuild_settings.py`)                                                                                                                                 | `docs/architecture/dmg-creation.md`                                   |
 | `content/dmg/readme.md`, `content/dmg/Sample Cards/`                                                                                                                                | `docs/architecture/dmg-creation.md`                                   |
 | `scripts/sign/**`, `scripts/notarize/**`, `scripts/release/**`                                                                                                                      | `docs/architecture/release-pipeline.md`                               |
@@ -286,7 +290,7 @@ After adding or updating packages with `uv add`, run `make licenses-sync` to upd
 
 ## Code Quality Audit
 
-When asked to audit the codebase, follow the methodology in [`docs/code-quality-audit.md`](docs/code-quality-audit.md). Findings go into `.local/audits/YYYYMMDDThhmm-code-quality.md`.
+When asked to audit the codebase, follow the methodology in [`docs/code-quality-audit.md`](docs/code-quality-audit.md). Findings go into `_build/audit/YYYYMMDDThhmm-code-quality.md`.
 
 ## Coverage Analysis
 
@@ -294,7 +298,7 @@ When asked to analyze or improve test coverage, follow the methodology in [`docs
 
 ## MVC Compliance Audit
 
-When asked to audit MVC compliance, follow the methodology in [`docs/mvc-compliance-audit.md`](docs/mvc-compliance-audit.md). Findings go into `.local/audits/YYYYMMDDThhmm-mvc-compliance.md`.
+When asked to audit MVC compliance, follow the methodology in [`docs/mvc-compliance-audit.md`](docs/mvc-compliance-audit.md). Findings go into `_build/audit/YYYYMMDDThhmm-mvc-compliance.md`.
 
 ---
 
@@ -316,7 +320,7 @@ Before committing, run these checks and fix any issues:
 
 **pyright** (`[tool.pyright]` in `pyproject.toml`): Catches structural type errors, unused imports, unreachable code. Zero-warning baseline.
 
-**mypy** (`[tool.mypy]` in `pyproject.toml`): Catches nominal type mismatches, SQLAlchemy plugin issues. `import-untyped` errors are suppressed globally for stubless third-party libs (wx, AppKit, Foundation, tesserocr, fitz).
+**mypy** (`[tool.mypy]` in `pyproject.toml`): Catches nominal type mismatches, SQLAlchemy plugin issues. `import-untyped` errors are suppressed per-module for stubless third-party libs (wx, AppKit, Foundation, objc, tesserocr, fitz) via `[[tool.mypy.overrides]]`.
 
 **ruff** (`[tool.ruff]` in `pyproject.toml`): Linting (pyflakes, pycodestyle, isort, bugbear, simplify, etc.) and formatting. Use `make lint-fix` for auto-fixes, `make format` to reformat.
 

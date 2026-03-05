@@ -76,6 +76,7 @@ Run these and capture output as reference material for agent passes:
 2. PyCharm inspections — via JetBrains MCP on all Python files
 3. `uv run pytest tests/ -x` — test results and coverage
 4. `make licenses-sync` — license registry state
+   > **Note:** `make licenses-sync` modifies files (`content/licenses/registry.toml` and license text files). If it produces a diff, the delta itself is an LR finding. Revert changes after inspection — the audit is read-only.
 
 Tool-reported issues become pre-pass findings (category TA, UC, etc.) in the findings table. Agents in subsequent passes should not re-report what tools already caught.
 
@@ -131,7 +132,7 @@ If this pass finds zero new findings, the audit is **converged**. Otherwise, rep
 
 ## Output
 
-All findings go into `.local/audits/YYYYMMDDThhmm-code-quality.md` (timestamp of when the audit started). After convergence, group related findings into **clusters** — sets of findings that share a root cause or would be fixed together.
+All findings go into `_build/audit/YYYYMMDDThhmm-code-quality.md` (timestamp of when the audit started). After convergence, group related findings into **clusters** — sets of findings that share a root cause or would be fixed together.
 
 ### Presentation Guidelines
 
@@ -162,10 +163,18 @@ Use this template for the findings file:
 ## Category Key
 | Code | Category |
 |------|----------|
-| MT | Missing tests | UC | Unused code | TA | Type annotations |
-| RC | Repeated code | UP | Unpythonic patterns | MC | Magic constants |
-| HC | Hardcoded colors | PL | Print→Logging | IL | Incomplete logic |
-| BL | Bugs/Logic errors | SM | Stale Makefile | LR | License registry |
+| MT | Missing tests |
+| UC | Unused code |
+| TA | Type annotations |
+| RC | Repeated code |
+| UP | Unpythonic patterns |
+| MC | Magic constants |
+| HC | Hardcoded colors |
+| PL | Print→Logging |
+| IL | Incomplete logic |
+| BL | Bugs/Logic errors |
+| SM | Stale Makefile |
+| LR | License registry |
 | RL | Redundant license config |
 
 ---
@@ -268,8 +277,8 @@ Findings that were raised in earlier passes but rejected during consolidation. K
 
 ## How to Run
 
-1. Create the output directory if needed (`mkdir -p .local/audits`)
-2. Create a fresh findings file from the template above at `.local/audits/YYYYMMDDThhmm-code-quality.md`
+1. Create the output directory if needed (`mkdir -p _build/audit`)
+2. Create a fresh findings file from the template above at `_build/audit/YYYYMMDDThhmm-code-quality.md`
 3. Run the Pre-Pass: `make check`, PyCharm inspections, `pytest`, `make licenses-sync` — record results
 4. Launch Pass 1: four parallel general-purpose agents (A, B, C, D) with the scopes defined above
 5. Consolidate Pass 1 findings, cross-reference against pre-pass output

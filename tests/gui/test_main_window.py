@@ -4321,14 +4321,14 @@ def test_add_files_folders_loads_paths(wx_app):
 
 
 def test_process_cards_thread_calls_service(wx_app):
-    """_process_cards calls ProcessingService.process_files (lines 528-534)."""
+    """_process_cards calls ProcessingService.process_files."""
     from unittest.mock import patch
 
     window = MainWindow()
-    window._processing_files = [Path("/test/card.pdf")]
+    files = [Path("/test/card.pdf")]
 
     with patch.object(window._processing_service, "process_files") as mock_process:
-        window._process_cards()
+        window._process_cards(files)
         mock_process.assert_called_once()
 
     window._frame.Destroy()

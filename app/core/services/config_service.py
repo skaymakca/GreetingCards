@@ -62,12 +62,12 @@ class ConfigService:
         return default_year()
 
     @staticmethod
-    def has_prompted_auto_update() -> bool:
+    def has_prompted_auto_update() -> bool:  # pragma: no cover — Sparkle UI only
         """Return True if the auto-update opt-in dialog has been shown."""
         return has_prompted_auto_update()
 
     @staticmethod
-    def set_prompted_auto_update() -> None:
+    def set_prompted_auto_update() -> None:  # pragma: no cover — Sparkle UI only
         """Record that the auto-update opt-in dialog has been shown."""
         set_prompted_auto_update()
 

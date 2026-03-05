@@ -1,3 +1,4 @@
+# pyright: reportAttributeAccessIssue=false
 """Apple Events (AppleScript) support for Greeting Cards.
 
 Registers handlers for 15 commands that allow external scripts to control the

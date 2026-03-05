@@ -150,7 +150,7 @@ class AIMixin:
         if cards is None:
             cards, scope = self._get_target_cards()
             n = len(cards)
-            if scope == "selected":
+            if scope == "selected":  # noqa: SIM108
                 title = f"AI Analysis \u2014 {n} Selected"
             else:
                 title = f"AI Analysis \u2014 {n} Cards"
