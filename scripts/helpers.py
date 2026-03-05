@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import plistlib
 import shutil
 import tomllib
 from collections.abc import Generator
@@ -25,6 +26,24 @@ def read_version() -> str:
 def app_path() -> Path:
     """Return the path to the built macOS ``.app`` bundle."""
     return PROJECT_ROOT / "dist" / "Greeting Cards.app"
+
+
+def read_build_number() -> str:
+    """Read ``CFBundleVersion`` from the built app's ``Info.plist``.
+
+    Raises:
+        FileNotFoundError: If the app bundle has not been built yet.
+        ValueError: If ``CFBundleVersion`` is missing from the plist.
+    """
+    plist_path = app_path() / "Contents" / "Info.plist"
+    if not plist_path.exists():
+        raise FileNotFoundError(f"Info.plist not found: {plist_path}\n  Build the app first.")
+    with open(plist_path, "rb") as f:
+        info = plistlib.load(f)
+    build = info.get("CFBundleVersion")
+    if not build:
+        raise ValueError(f"CFBundleVersion not found in {plist_path}")
+    return str(build)
 
 
 def dmg_path(version: str | None = None) -> Path:

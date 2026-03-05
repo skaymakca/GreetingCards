@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import plistlib
 from pathlib import Path
 from unittest.mock import patch
 
@@ -158,3 +159,52 @@ def test_dmg_path_without_version_reads_pyproject() -> None:
     version = read_version()
     result = dmg_path()
     assert result.name == f"Greeting-Cards-{version}.dmg"
+
+
+# ---------------------------------------------------------------------------
+# read_build_number()
+# ---------------------------------------------------------------------------
+
+
+def test_read_build_number_returns_value(tmp_path: Path) -> None:
+    """Reads CFBundleVersion from a valid Info.plist."""
+    from scripts.helpers import read_build_number
+
+    plist_dir = tmp_path / "dist" / "Greeting Cards.app" / "Contents"
+    plist_dir.mkdir(parents=True)
+    plist_path = plist_dir / "Info.plist"
+    with open(plist_path, "wb") as f:
+        plistlib.dump({"CFBundleVersion": "1700000000"}, f)
+
+    with patch("scripts.helpers.app_path", return_value=tmp_path / "dist" / "Greeting Cards.app"):
+        result = read_build_number()
+
+    assert result == "1700000000"
+
+
+def test_read_build_number_missing_plist(tmp_path: Path) -> None:
+    """Raises FileNotFoundError when Info.plist does not exist."""
+    from scripts.helpers import read_build_number
+
+    with (
+        patch("scripts.helpers.app_path", return_value=tmp_path / "dist" / "Greeting Cards.app"),
+        pytest.raises(FileNotFoundError, match=r"Info\.plist not found"),
+    ):
+        read_build_number()
+
+
+def test_read_build_number_missing_key(tmp_path: Path) -> None:
+    """Raises ValueError when CFBundleVersion is missing from plist."""
+    from scripts.helpers import read_build_number
+
+    plist_dir = tmp_path / "dist" / "Greeting Cards.app" / "Contents"
+    plist_dir.mkdir(parents=True)
+    plist_path = plist_dir / "Info.plist"
+    with open(plist_path, "wb") as f:
+        plistlib.dump({"CFBundleShortVersionString": "1.0.0"}, f)
+
+    with (
+        patch("scripts.helpers.app_path", return_value=tmp_path / "dist" / "Greeting Cards.app"),
+        pytest.raises(ValueError, match="CFBundleVersion not found"),
+    ):
+        read_build_number()

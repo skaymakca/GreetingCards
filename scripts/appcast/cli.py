@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from email.utils import format_datetime
 from pathlib import Path
 
-from scripts.helpers import PROJECT_ROOT, dmg_path, read_version
+from scripts.helpers import PROJECT_ROOT, dmg_path, read_build_number, read_version
 
 _REPO = "skaymakca/GreetingCards"
 _SPARKLE_BIN = PROJECT_ROOT / "packaging" / "sparkle-bin"
@@ -185,10 +185,7 @@ def cmd_generate(version: str, *, dry_run: bool = False) -> None:
         # Use file size directly if sign_update didn't report it
         length = dmg.stat().st_size
 
-    # Generate a build number (Unix timestamp, same as spec file)
-    import time
-
-    build_number = str(int(time.time()))
+    build_number = read_build_number()
 
     print(f"Generating appcast.xml (v{version}, build {build_number})")
     xml = generate_appcast_xml(version, build_number, signature, length, dmg.name)

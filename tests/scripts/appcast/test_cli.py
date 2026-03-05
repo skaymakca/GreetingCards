@@ -355,6 +355,7 @@ class TestCmdGenerate:
         with (
             patch("scripts.appcast.cli.dmg_path", return_value=dmg),
             patch("scripts.appcast.cli.sign_dmg", return_value=("DRY_RUN_SIG", 0)),
+            patch("scripts.appcast.cli.read_build_number", return_value="1700000000"),
             patch("scripts.appcast.cli.generate_appcast_xml", return_value='<?xml version="1.0" ?>\n<rss/>\n'),
         ):
             cmd_generate("1.0.0", dry_run=True)  # should not raise
@@ -368,6 +369,7 @@ class TestCmdGenerate:
         with (
             patch("scripts.appcast.cli.dmg_path", return_value=dmg),
             patch("scripts.appcast.cli.sign_dmg", return_value=("DRY_RUN_SIG", 0)),
+            patch("scripts.appcast.cli.read_build_number", return_value="1700000000"),
             patch("scripts.appcast.cli.generate_appcast_xml", return_value=long_xml),
         ):
             cmd_generate("1.0.0", dry_run=True)
@@ -383,6 +385,7 @@ class TestCmdGenerate:
         with (
             patch("scripts.appcast.cli.dmg_path", return_value=dmg),
             patch("scripts.appcast.cli.sign_dmg", return_value=("sig123", 0)),
+            patch("scripts.appcast.cli.read_build_number", return_value="1700000000"),
             patch("scripts.appcast.cli.generate_appcast_xml", return_value="<rss/>\n") as mock_gen,
             patch("scripts.appcast.cli._APPCAST_OUT", tmp_path / "appcast.xml"),
         ):
@@ -400,6 +403,7 @@ class TestCmdGenerate:
         with (
             patch("scripts.appcast.cli.dmg_path", return_value=dmg),
             patch("scripts.appcast.cli.sign_dmg", return_value=("sig", 1000)),
+            patch("scripts.appcast.cli.read_build_number", return_value="1700000000"),
             patch("scripts.appcast.cli.generate_appcast_xml", return_value="<rss/>\n"),
             patch("scripts.appcast.cli._APPCAST_OUT", out),
         ):
@@ -407,6 +411,23 @@ class TestCmdGenerate:
 
         assert out.exists()
         assert out.read_text(encoding="utf-8") == "<rss/>\n"
+
+    def test_uses_build_number_from_app_bundle(self, tmp_path) -> None:
+        """cmd_generate passes read_build_number() value to generate_appcast_xml."""
+        dmg = tmp_path / "test.dmg"
+        dmg.write_bytes(b"fake dmg")
+        out = tmp_path / "dist" / "appcast.xml"
+
+        with (
+            patch("scripts.appcast.cli.dmg_path", return_value=dmg),
+            patch("scripts.appcast.cli.sign_dmg", return_value=("sig", 5000)),
+            patch("scripts.appcast.cli.read_build_number", return_value="1709876543"),
+            patch("scripts.appcast.cli.generate_appcast_xml", return_value="<rss/>\n") as mock_gen,
+            patch("scripts.appcast.cli._APPCAST_OUT", out),
+        ):
+            cmd_generate("2.0.0")
+
+        mock_gen.assert_called_once_with("2.0.0", "1709876543", "sig", 5000, dmg.name)
 
 
 class TestCmdPush:
