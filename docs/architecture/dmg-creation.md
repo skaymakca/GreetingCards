@@ -75,6 +75,8 @@ The output filename uses hyphens (`Greeting-Cards-X.Y.Z.dmg`) for URL-friendline
 
 The `--editable` flag builds a read-write (UDRW) DMG for manual icon positioning in Finder.
 
+The `--verify-signature` flag runs `codesign --verify --deep --strict` on the app bundle before building the DMG. Used by `release-local.sh` to catch cases where the app was rebuilt (unsigned) after signing. Not used by `make dmg` or CI, which build without signing.
+
 ---
 
 ## `scripts/dmg/dmgbuild_settings.py`
