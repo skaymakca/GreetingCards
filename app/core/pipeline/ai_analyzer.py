@@ -8,7 +8,8 @@ from typing import Any
 from PIL import Image
 
 # Direct import: ConfigService not available in worker subprocess context
-from app.core.config import get_ai_model, get_api_key
+from app.core.config import get_ai_model
+from app.core.keychain import get_api_key
 
 logger = logging.getLogger(__name__)
 

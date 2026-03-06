@@ -1,16 +1,14 @@
 import logging
-import os
 import plistlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from app.core.paths import get_data_dir, is_bundled
+from app.core.paths import get_data_dir
 
 GITHUB_URL = "https://github.com/skaymakca/GreetingCards"
 
 _PLIST_NAME = "preferences.plist"
-_KEY_NAME = "ANTHROPIC_API_KEY"
 _MODEL_KEY = "AI_MODEL"
 _AUTO_UPDATE_PROMPTED_KEY = "AUTO_UPDATE_PROMPTED"
 
@@ -51,7 +49,6 @@ AI_MODELS = (
 DEFAULT_AI_MODEL = "claude-sonnet-4-6"
 
 logger = logging.getLogger(__name__)
-_mismatch_warned = False  # Warn-once per process — relaunch to re-check
 
 
 def _plist_path() -> Path:
@@ -71,48 +68,6 @@ def _write_plist(data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "wb") as f:
         plistlib.dump(data, f)
-
-
-def get_api_key() -> str | None:
-    """Return the Anthropic API key, or None if not configured.
-
-    Source mode: env var (ANTHROPIC_API_KEY) takes precedence over plist.
-    Bundle mode: plist only (env var ignored).
-    """
-    global _mismatch_warned
-
-    prefs = _read_plist()
-    plist_key = prefs.get(_KEY_NAME) or None  # converts empty string to None
-
-    # Bundle mode: only use plist
-    if is_bundled():
-        return plist_key
-
-    # Source mode: env var takes precedence
-    env_key = os.environ.get(_KEY_NAME)
-    if env_key:
-        env_key = env_key.strip()
-    if env_key == "your-api-key-here":
-        env_key = None
-
-    if env_key and plist_key and env_key != plist_key and not _mismatch_warned:
-        logger.warning("ANTHROPIC_API_KEY env var differs from preferences.plist; using env var")
-        _mismatch_warned = True
-
-    return env_key or plist_key
-
-
-def save_api_key(key: str) -> None:
-    """Persist the API key to preferences.plist in the data dir."""
-    prefs = _read_plist()
-    key = key.strip()
-    prefs[_KEY_NAME] = key
-    _write_plist(prefs)
-    # Also set in current process so get_api_key() returns it immediately.
-    # In bundle mode this env var is never read (get_api_key uses plist only),
-    # so this assignment is effectively a no-op — but it's harmless and keeps
-    # the in-process state consistent for source-mode development.
-    os.environ[_KEY_NAME] = key
 
 
 def get_ai_model() -> str:

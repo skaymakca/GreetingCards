@@ -9,13 +9,15 @@ from app.core.config import (
     GITHUB_URL,
     ModelInfo,
     get_ai_model,
-    get_api_key,
     has_prompted_auto_update,
     save_ai_model,
-    save_api_key,
     set_prompted_auto_update,
 )
 from app.core.constants import RELOAD_COOLDOWN, default_year
+from app.core.keychain import (
+    get_api_key,
+    save_api_key,
+)
 
 
 class ConfigService:

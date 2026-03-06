@@ -3448,11 +3448,13 @@ def test_ensure_api_key_returns_true_after_dialog_entry(wx_app):
 
     with (
         patch.object(window._config_service, "has_api_key", return_value=False),
+        patch.object(window._config_service, "save_api_key") as mock_save,
         patch.object(window, "_show_info_message"),
         patch("app.gui.main_window_mixins.ai_mixin.show_api_key_dialog", return_value="sk-new-key"),
     ):
         result = window._ensure_api_key()
         assert result is True
+        mock_save.assert_called_once_with("sk-new-key")
 
     window._frame.Destroy()
 

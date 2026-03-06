@@ -3,7 +3,6 @@
 
 import logging
 import multiprocessing
-import os
 import sys
 from pathlib import Path
 
@@ -14,7 +13,6 @@ import wx
 
 from app.core.apple_events import register_apple_event_handlers, register_quit_handler
 from app.core.config import has_prompted_auto_update, set_prompted_auto_update
-from app.core.paths import is_bundled
 from app.core.sparkle import init as sparkle_init
 from app.core.sparkle import set_auto_check_enabled
 from app.core.sparkle import start as sparkle_start
@@ -41,9 +39,6 @@ def _startup_sparkle(window: MainWindow) -> None:
 def main():
     """Main entry point for wxPython version."""
     multiprocessing.freeze_support()  # PyInstaller support
-
-    if not is_bundled() and not os.environ.get("ANTHROPIC_API_KEY"):
-        logger.info("ANTHROPIC_API_KEY not set in environment; set via export or enter it in Settings (Cmd+,)")
 
     app = wx.App()
 

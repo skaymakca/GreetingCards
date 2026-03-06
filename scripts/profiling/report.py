@@ -58,11 +58,9 @@ def _ram_gb() -> float:
 def _git_short_hash() -> str:
     """Get the current git short hash, or 'unknown' if not in a git repo."""
     try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True
-        )
+        result = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True)
         return result.stdout.strip()
-    except (OSError, subprocess.CalledProcessError):
+    except OSError, subprocess.CalledProcessError:
         return "unknown"
 
 

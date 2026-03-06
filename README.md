@@ -51,8 +51,8 @@ A macOS desktop app for organizing holiday and greeting card PDFs. Drop a folder
 - **Help system** — built-in WebView help viewer with 10 pages, cross-page search with highlighted matches, and
   Previous/Next match navigation
 - **Native macOS UI** — native toolbar, preferences editor (Cmd+,), About dialog, and system colors throughout
-- **API key management** — prompts for the Anthropic API key on first AI use; key is saved to `preferences.plist`;
-  source mode also reads `ANTHROPIC_API_KEY` env var (bundle ignores env var)
+- **API key management** — prompts for the Anthropic API key on first AI use; key is stored securely in the macOS
+  Keychain
 - **AI model selection** — choose between Claude Haiku 4.5, Sonnet 4.6, or Opus 4.6 in Settings; persisted to
   preferences plist; stale/outdated model IDs are auto-migrated to the current default
 - **Auto-update** — built-in Sparkle 2 integration checks for updates automatically and via File > Check for Updates;
@@ -148,11 +148,7 @@ uv sync --no-dev
 uv sync
 ```
 
-Set your Anthropic API key (for AI analysis) via environment variable or the Settings dialog (Cmd+,):
-
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...
-```
+Set your Anthropic API key (for AI analysis) in Settings (Cmd+,) or via the prompt dialog on first AI use. The key is stored securely in the macOS Keychain.
 
 Run from source:
 
@@ -195,7 +191,8 @@ tests/
 │   ├── test_apple_events.py         # Apple Events handler logic
 │   ├── test_card_model.py           # Card data model
 │   ├── test_card_store.py           # CardStore state management
-│   ├── test_config.py               # Configuration and API key management
+│   ├── test_config.py               # Configuration (AI model, auto-update prompt)
+│   ├── test_keychain.py             # macOS Keychain API key storage
 │   ├── test_database.py             # SQLite database operations
 │   ├── test_paths.py                # Path resolution (dev vs bundle)
 │   ├── test_platform.py             # Platform detection
@@ -267,10 +264,11 @@ tests/
 
 ### Current Coverage
 
-- **2719 tests** covering core logic, GUI components, and scripts
+- **2713 tests** covering core logic, GUI components, and scripts
 - **Core** (services/, pipeline/, naming/, content/ sub-packages + top-level): AI analysis, AI batch, AI service,
   Apple Events, card model, card processor, card service, card store, changelog, changelog models, config,
   config service, database, family name cleaning, family name data, family name formatting, filename safety,
+  keychain,
   filter service, help builder, license HTML, license models, license sync, name extraction, OCR engine, paths,
   PDF rendering, PDF worker, platform, processing service, rate limit, rename service, renamer, rename filter,
   scripting protocol, template environment, version
@@ -361,7 +359,7 @@ require the [Tesseract CLI](https://github.com/tesseract-ocr/tesseract) (`brew i
 | `benchmark.ocr_concurrency`            | Measures how sequential, threads, and futures processes scale for the OCR step using a single configuration. Confirms that processes achieve near-linear scaling while threads are GIL-limited.                   |
 
 ```bash
-# OCR configuration quality (AI scoring enabled by default)
+# OCR configuration quality (AI scoring enabled by default; requires ANTHROPIC_API_KEY)
 uv run python -m scripts.benchmark.ocr_configuration_quality ~/Desktop/Cards
 
 # Preprocessing concurrency

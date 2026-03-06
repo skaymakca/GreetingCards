@@ -12,6 +12,7 @@ dependencies = [
     "SQLAlchemy==2.0.46",
     "wxPython==4.2.5; sys_platform == 'darwin'",
     "openai>=2.22.0",
+    "pyobjc-framework-security==12.1 ; sys_platform == 'darwin'",
 ]
 
 [dependency-groups]
@@ -75,6 +76,7 @@ module = [
     "objc", "objc.*",
     "tesserocr", "tesserocr.*",
     "fitz", "fitz.*",
+    "Security", "Security.*",
 ]
 ignore_missing_imports = true
 
