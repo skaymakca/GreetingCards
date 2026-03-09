@@ -31,6 +31,10 @@ Check for these categories across all files in `app/`, `tests/`, and `scripts/`.
 - **LOW (L)** — Minor issues, style concerns, small gaps — magic constants, missing annotations, unpythonic patterns
 - **STYLE (S)** — Informational only, not actionable defects
 
+### Known Non-Issues
+
+- **`except ExcA, ExcB:` (PEP 758)** — In Python 3.14+, unparenthesized multi-catch `except ExcA, ExcB:` is valid syntax that catches *both* exception types, identical to `except (ExcA, ExcB):`. This is NOT the Python 2 catch-and-bind semantics (`except ExcA as ExcB`). PEP 758 (Final) re-introduced this syntax with correct multi-catch behavior. Additionally, Ruff's formatter with `target-version = "py314"` actively *removes* parentheses from multi-catch clauses, producing this style. Do NOT flag this as a bug.
+
 ## Static Analysis
 
 Run the full static analysis suite and verify zero issues across all tools:

@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev tessdata run test test-everything check pyright mypy lint lint-fix format format-check security pycharm-inspect content licenses-sync icon sparkle app app-run dmg configure-release shellcheck version bump-patch bump-minor bump-major tag tag-push loc profile show-scripts sync-private visual-test visual-test-app docker-build docker-test docker-shell clean
+.PHONY: help setup setup-dev tessdata run test test-everything check pyright mypy lint lint-fix format format-check security audit-prepass pycharm-inspect content licenses-sync icon sparkle app app-run dmg configure-release shellcheck version bump-patch bump-minor bump-major tag tag-push loc profile show-scripts sync-private visual-test visual-test-app docker-build docker-test docker-shell clean
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -87,6 +87,10 @@ format-check: ## Check formatting (no changes)
 security: ## Run bandit security scan
 	$(call banner,Bandit Security)
 	uv run bandit -r app/ scripts/ -c pyproject.toml
+
+audit-prepass: ## Run audit pre-pass (static checks + all tests with coverage)
+	$(MAKE) check
+	$(MAKE) test-everything
 
 pycharm-inspect: ## Run PyCharm inspections (requires PyCharm; skipped if not installed)
 	@if [ -z "$(PYCHARM_APP)" ] || [ ! -x "$(PYCHARM_APP)/Contents/bin/inspect.sh" ]; then \
