@@ -231,9 +231,9 @@ loc: ## Count lines of code (excludes dependencies)
 	@find ./content/html/help \( -name "*.md" \) -exec cat {} + 2>/dev/null | wc -l | awk -v lbl="Help MD:" '$(FMT_LINE)'
 	@find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null | wc -l | awk -v lbl="Web:" '$(FMT_LINE)'
 	@echo ""
-	@wc -l Makefile "packaging/Greeting Cards.spec" 2>/dev/null | tail -1 | awk -v lbl="Config:" '$(FMT_LINE)'
+	@wc -l Makefile "packaging/Greeting Cards.spec" "packaging/Visual Test.spec" 2>/dev/null | tail -1 | awk -v lbl="Config:" '$(FMT_LINE)'
 	@echo ""
-	@(find . -name "*.py" -not -path "./.venv/*" -not -path "./_build/*" -not -path "./dist/*" -not -path "./.claude/*" -not -path "*/__pycache__/*" -exec cat {} + ; find ./content/html/help -name "*.md" -exec cat {} + 2>/dev/null; find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null; cat Makefile "packaging/Greeting Cards.spec") | wc -l | awk -v lbl="Total:" '$(FMT_LINE)'
+	@(find . -name "*.py" -not -path "./.venv/*" -not -path "./_build/*" -not -path "./dist/*" -not -path "./.claude/*" -not -path "*/__pycache__/*" -exec cat {} + ; find ./content/html/help -name "*.md" -exec cat {} + 2>/dev/null; find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null; cat Makefile "packaging/Greeting Cards.spec" "packaging/Visual Test.spec") | wc -l | awk -v lbl="Total:" '$(FMT_LINE)'
 
 profile: tessdata ## Profile the PDF processing pipeline (CORPUS=~/Desktop/Cards)
 	uv run python -m scripts.profiling "$(CORPUS)" $(if $(LIMIT),--limit $(LIMIT))
