@@ -92,11 +92,12 @@ CardStore
 ├── _hash_by_path: dict[Path, str]           # path → hash (many:1)
 ├── _mtime_by_path: dict[Path, float]        # path → mtime cache
 ├── _pdf_files: set[Path]                    # all registered paths
+├── _processing_errors: list[ProcessingError] # failed PDFs (no card created)
 ├── _next_card_id: int                       # monotonic ID counter
 └── _lock: threading.Lock                    # protects background worker mutations
 ```
 
-**Queries** (main thread, no lock needed): `get_by_id()`, `get_by_hash()`, `get_all_cards()`, `find_by_filename()`, `has_path()`, `count`, `is_empty`
+**Queries** (main thread, no lock needed): `get_by_id()`, `get_by_hash()`, `get_all_cards()`, `find_by_filename()`, `has_path()`, `count`, `is_empty`, `error_count`, `get_processing_errors()`
 
 **Derived queries:** `derive_folders()` — returns a sorted list of unique parent directories across all loaded cards. Used by the controller to populate the folder sidebar without exposing internal card data to the GUI layer.
 
@@ -207,11 +208,25 @@ PDF C (/dir1/other.pdf)    ─ hash "def456" → CardResult(file_paths=[C])
 
 ### Dedup During Processing
 
-In `CardStore.add_or_update()` (called from `MainWindow._process_cards()`):
+In `CardStore.add_or_update()` (called from `ProcessingService.process_files()`):
 1. Worker returns `file_hash` in result dict
-2. If hash already in `_cards_by_hash` → add path to existing card's `file_paths`
-3. If hash is new → create new CardResult, assign next monotonic ID
-4. Always update `_hash_by_path[pdf_path] = file_hash`
+2. If `file_hash` is `None` (processing error) → record a `ProcessingError`, return `(None, False)` — no card created
+3. If hash already in `_cards_by_hash` → add path to existing card's `file_paths`
+4. If hash is new → create new CardResult, assign next monotonic ID
+5. Always update `_hash_by_path[pdf_path] = file_hash`
+
+## Processing Errors
+
+PDFs that fail processing (e.g. corrupt files, OCR failures) are tracked separately from successful cards. When `PdfWorkerResult.file_hash` is `None`, `CardStore.add_or_update()` does **not** create a `CardResult`. Instead, it appends a `ProcessingError(path, error)` to `_processing_errors`.
+
+```python
+@dataclass
+class ProcessingError:
+    path: Path
+    error: str
+```
+
+This eliminates "ghost cards" — cards with no hash that cannot be looked up, deduplicated, or meaningfully displayed. The error count is available via `CardStore.error_count` and the full list via `get_processing_errors()`. The GUI appends the failure count to the processing-complete status message (e.g., "5 cards loaded (2 files failed)"). `clear()` resets the error list along with all other state.
 
 ## State Flow
 

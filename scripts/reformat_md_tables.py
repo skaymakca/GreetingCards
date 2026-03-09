@@ -86,7 +86,7 @@ def process_file(filepath: Path) -> str:
             continue
 
         if in_code_block:
-            if table_lines:
+            if table_lines:  # pragma: no cover — defensive: fence handler always clears table_lines
                 result.extend(_reformat_table(table_lines))
                 table_lines = []
             result.append(line)

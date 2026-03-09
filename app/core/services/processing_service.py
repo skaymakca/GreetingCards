@@ -107,7 +107,8 @@ class ProcessingService:
 
                 completed += 1
                 if on_progress:
-                    on_progress(completed, total, card.filename)
+                    filename = card.filename if card else pdf_path.name
+                    on_progress(completed, total, filename)
 
         if on_complete:
             on_complete()

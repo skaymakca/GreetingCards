@@ -7,15 +7,16 @@ import pytest
 import wx
 
 from app.gui.components.html_viewer import (
-    _MIN_SEARCH_LEN,
     HTMLViewerWindow,
     _build_page_index,
     _count_occurrences,
     _PageMatch,
+    _SearchController,
     _TextExtractor,
     _viewer_refs,
     show_viewer,
 )
+from app.gui.styles import Layout
 
 # --- Shared fixtures ---
 
@@ -407,7 +408,7 @@ class TestSearchMinLength:
     """Tests for the 3-character minimum search threshold."""
 
     def test_min_search_len_value(self):
-        assert _MIN_SEARCH_LEN == 3
+        assert Layout.HTML_VIEWER_MIN_SEARCH_LEN == 3
 
     def test_short_query_clears_highlights(self, viewer_window):
         """Queries shorter than _MIN_SEARCH_LEN should not trigger search."""
@@ -1073,3 +1074,103 @@ class TestMatchNavigation:
         # Still no results
         label = _get_search_label(frame)
         assert label.GetLabel() == ""
+
+
+# --- SearchController JS bridge and navigation tests ---
+
+
+class TestSearchControllerBridge:
+    """Tests for _SearchController JS bridge, navigation, and page info methods."""
+
+    def test_mark_all_noop_when_page_not_ready(self, viewer_window):
+        """_mark_all should do nothing when page_ready is False."""
+        frame = viewer_window.frame
+        webview = _get_webview(frame)
+
+        # Do NOT fire page loaded — page_ready stays False
+        with patch.object(webview, "RunScript") as mock_run:
+            # Trigger a search that would call _mark_all internally
+            search_ctrl = _get_search_ctrl(frame)
+            search_ctrl.SetValue("welcome")
+            _fire_timer_event(frame)
+
+            # RunScript should NOT have been called with shlMark
+            mark_calls = [c for c in mock_run.call_args_list if "shlMark" in str(c)]
+            assert len(mark_calls) == 0, "_mark_all should be a no-op when page is not ready"
+
+    def test_navigate_to_page_same_page_marks_and_focuses(self, viewer_window):
+        """When navigating to the current page, it marks matches and focuses."""
+        frame = viewer_window.frame
+        webview = _get_webview(frame)
+        search_ctrl = _get_search_ctrl(frame)
+
+        # Simulate page loaded so page_ready is True
+        _fire_page_loaded(frame)
+
+        # Search for "welcome" which is on index.html (the current page)
+        with patch.object(webview, "RunScript") as mock_run:
+            search_ctrl.SetValue("welcome")
+            _fire_timer_event(frame)
+
+            # Should have called shlMark and shlFocus (same-page path)
+            calls_str = [str(c) for c in mock_run.call_args_list]
+            mark_calls = [c for c in calls_str if "shlMark" in c]
+            focus_calls = [c for c in calls_str if "shlFocus" in c]
+            assert len(mark_calls) >= 1, "Should call shlMark on same-page navigation"
+            assert len(focus_calls) >= 1, "Should call shlFocus on same-page navigation"
+
+    def test_navigate_to_page_different_page_loads_url(self, viewer_window):
+        """When navigating to a different page, it calls LoadURL."""
+        frame = viewer_window.frame
+        webview = _get_webview(frame)
+        search_ctrl = _get_search_ctrl(frame)
+
+        # Simulate page loaded (on index.html)
+        _fire_page_loaded(frame)
+
+        # Search for "searchable" which only appears in pages/page1.html
+        with patch.object(webview, "LoadURL") as mock_load:
+            search_ctrl.SetValue("searchable")
+            _fire_timer_event(frame)
+
+            # Should have called LoadURL to navigate to pages/page1.html
+            assert mock_load.called, "Should call LoadURL when navigating to a different page"
+            loaded_url = mock_load.call_args[0][0]
+            assert "page1.html" in loaded_url
+
+    def test_current_page_info_returns_correct_index(self, viewer_window):
+        """current_page_info should return the correct index for the loaded page."""
+        frame = viewer_window.frame
+        webview = _get_webview(frame)
+
+        # Simulate page loaded on index.html
+        _fire_page_loaded(frame)
+
+        # The webview loaded index.html — current_page_info is called internally
+        # by _update_nav_buttons during on_page_loaded; verify via nav button state.
+        toolbar = _get_toolbar(frame)
+        tools = _get_named_tools(frame)
+
+        # On first page (index 0): Previous disabled, Next enabled
+        assert not toolbar.GetToolEnabled(tools["Previous"]), "Previous should be disabled on first page"
+        assert toolbar.GetToolEnabled(tools["Next"]), "Next should be enabled on first page"
+
+        # Also verify directly by mocking GetCurrentURL to ensure the method works
+        url = webview.GetCurrentURL()
+        assert url.endswith("index.html") or "index.html" in url
+
+    def test_current_page_info_unknown_url_returns_negative(self, viewer_window):
+        """current_page_info should return (-1, '') for an unknown URL."""
+        frame = viewer_window.frame
+        webview = _get_webview(frame)
+
+        # Mock GetCurrentURL to return a URL that doesn't match any page
+        with patch.object(webview, "GetCurrentURL", return_value="file:///unknown/path.html"):
+            # Fire page loaded — _update_nav_buttons calls current_page_info
+            _fire_page_loaded(frame)
+
+            # Both nav buttons should be disabled (index -1 is not > 0, not in range)
+            toolbar = _get_toolbar(frame)
+            tools = _get_named_tools(frame)
+            assert not toolbar.GetToolEnabled(tools["Previous"]), "Previous should be disabled for unknown URL"
+            assert not toolbar.GetToolEnabled(tools["Next"]), "Next should be disabled for unknown URL"

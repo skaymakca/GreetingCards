@@ -16,7 +16,7 @@ from app.core.paths import is_bundled
 from app.core.services.factory import create_services
 from app.core.services.filter_service import FilterCategory
 from app.core.services.rename_service import RenameService
-from app.gui import appearance, icons
+from app.gui import appearance
 from app.gui.appearance import is_dark_mode
 from app.gui.components.drop_target import DropOverlay as _DropOverlay
 from app.gui.components.drop_target import FileDropTarget
@@ -556,10 +556,11 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
         # Show success message
         count = self._card_service.count
-        self._show_info_message(
-            f"Processing complete\n{_plural(count, 'card')} loaded",
-            wx.ICON_INFORMATION,
-        )
+        status = f"Processing complete\n{_plural(count, 'card')} loaded"
+        error_count = self._card_store.error_count
+        if error_count:
+            status += f" ({_plural(error_count, 'file')} failed)"
+        self._show_info_message(status, wx.ICON_INFORMATION)
 
     def _start_rename(self) -> None:
         """Start rename workflow."""
@@ -650,28 +651,17 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         mode = "Dark" if is_dark_mode() else "Light"
         logger.info("Appearance changed to %s mode", mode)
 
-        # Refresh color palette and icon cache
-        Color.refresh()
-        icons.clear_cache()
+        # Shared refresh: palette, icon cache, repaint all top-level windows
+        appearance.refresh_all_windows()
 
-        # Update toolbar icons in-place
+        # Instance-specific updates
         self._refresh_toolbar_icons()
-
-        # Re-apply colors on long-lived panels
         self._sidebar.refresh_colors()
         self._preview_panel.refresh_colors()
         self._review_panel.refresh_colors()
         self._progress_label.SetForegroundColour(Color.TEXT_PRIMARY)
         self._progress_count.SetForegroundColour(Color.TEXT_SECONDARY)
         self._progress_gauge.Refresh()
-
-        # Repaint all windows; call refresh_colors() on those that support it
-        # noinspection PyArgumentList
-        for window in wx.GetTopLevelWindows():  # pyright: ignore[reportCallIssue]
-            if hasattr(window, "refresh_colors"):
-                window.refresh_colors()
-            window.Refresh()
-            window.Update()
 
     def _refresh_toolbar_icons(self) -> None:
         """Re-render toolbar icons for current appearance."""

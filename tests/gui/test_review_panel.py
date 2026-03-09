@@ -2885,3 +2885,34 @@ class TestDetailPanelCandidateSelect:
             detail._on_candidate(Mock())
 
             on_candidate.assert_called_once()
+
+
+class TestContextMenuRemoveHandler:
+    """Tests for context menu remove item enabled/disabled state."""
+
+    def test_remove_enabled_with_callback_and_hashes(self, parent_frame, mock_cards):
+        """Remove item is enabled when on_remove callback exists and cards have hashes."""
+        on_remove = Mock()
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock(), on_remove=on_remove)
+        mock_cards[0].file_hash = "hash_abc"
+        panel.load_cards(mock_cards)
+
+        menu = panel._build_context_menu([mock_cards[0]])
+        items = [it for it in menu.GetMenuItems() if not it.IsSeparator()]
+        remove_item = items[-1]  # Remove is the last non-separator item
+        assert remove_item.GetItemLabelText() == "Remove"
+        assert remove_item.IsEnabled()
+        menu.Destroy()
+
+    def test_remove_disabled_without_callback(self, parent_frame, mock_cards):
+        """Remove item is disabled when no on_remove callback is provided."""
+        panel = ReviewPanelMasterDetail(parent_frame, Mock(), Mock())  # no on_remove
+        mock_cards[0].file_hash = "hash_abc"
+        panel.load_cards(mock_cards)
+
+        menu = panel._build_context_menu([mock_cards[0]])
+        items = [it for it in menu.GetMenuItems() if not it.IsSeparator()]
+        remove_item = items[-1]
+        assert remove_item.GetItemLabelText() == "Remove"
+        assert not remove_item.IsEnabled()
+        menu.Destroy()

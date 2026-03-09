@@ -122,18 +122,24 @@ class TestAddOrUpdate:
         assert card2.id == 1
         assert store.count == 2
 
-    def test_add_with_none_hash(self) -> None:
+    def test_add_with_none_hash_records_error(self) -> None:
         store = CardStore()
         wr = _make_worker_result(file_hash=None)
+        wr.error = "OCR failed"
         pdf_path = Path("/tmp/card.pdf")
 
         card, is_new = store.add_or_update(wr, pdf_path)
 
-        assert is_new is True
-        # With None hash, card should NOT be stored in hash/id dicts
+        assert card is None
+        assert is_new is False
+        # No card created — error tracked separately
         assert store.count == 0
-        assert store.get_by_id(card.id) is None
         assert not store.has_path(pdf_path)
+        assert store.error_count == 1
+        errors = store.get_processing_errors()
+        assert len(errors) == 1
+        assert errors[0].path == pdf_path
+        assert errors[0].error == "OCR failed"
 
     def test_monotonic_id_assignment(self) -> None:
         store = CardStore()
@@ -465,6 +471,79 @@ class TestClear:
         wr2 = _make_worker_result(pdf_path="/tmp/card2.pdf", file_hash="hash2")
         card, _ = store.add_or_update(wr2, Path("/tmp/card2.pdf"))
         assert card.id == 0
+
+    def test_clear_also_clears_errors(self) -> None:
+        store = CardStore()
+        wr = _make_worker_result(file_hash=None)
+        wr.error = "bad PDF"
+        store.add_or_update(wr, Path("/tmp/bad.pdf"))
+        assert store.error_count == 1
+
+        store.clear()
+
+        assert store.error_count == 0
+        assert store.get_processing_errors() == []
+
+
+class TestProcessingErrors:
+    """Tests for processing error tracking."""
+
+    def test_multiple_processing_errors(self) -> None:
+        store = CardStore()
+        for i in range(3):
+            wr = _make_worker_result(pdf_path=f"/tmp/bad{i}.pdf", file_hash=None)
+            wr.error = f"Error {i}"
+            card, is_new = store.add_or_update(wr, Path(f"/tmp/bad{i}.pdf"))
+            assert card is None
+            assert is_new is False
+
+        assert store.error_count == 3
+        assert store.count == 0  # No cards created
+        errors = store.get_processing_errors()
+        assert len(errors) == 3
+        assert {e.path.name for e in errors} == {"bad0.pdf", "bad1.pdf", "bad2.pdf"}
+
+    def test_default_error_message(self) -> None:
+        """When worker_result.error is empty, default message is used."""
+        store = CardStore()
+        wr = _make_worker_result(file_hash=None)
+        # error field defaults to "" in PdfWorkerResult
+        store.add_or_update(wr, Path("/tmp/card.pdf"))
+
+        errors = store.get_processing_errors()
+        assert errors[0].error == "Unknown error"
+
+    def test_errors_alongside_successful_cards(self) -> None:
+        """Errors and successful cards coexist correctly."""
+        store = CardStore()
+        # Add a successful card
+        wr_ok = _make_worker_result(pdf_path="/tmp/good.pdf", file_hash="hash1")
+        card, is_new = store.add_or_update(wr_ok, Path("/tmp/good.pdf"))
+        assert card is not None
+        assert is_new is True
+
+        # Add a failed card
+        wr_bad = _make_worker_result(pdf_path="/tmp/bad.pdf", file_hash=None)
+        wr_bad.error = "corrupt"
+        card_bad, is_new_bad = store.add_or_update(wr_bad, Path("/tmp/bad.pdf"))
+        assert card_bad is None
+        assert is_new_bad is False
+
+        assert store.count == 1
+        assert store.error_count == 1
+
+    def test_get_processing_errors_returns_copy(self) -> None:
+        """get_processing_errors should return a copy, not the internal list."""
+        store = CardStore()
+        wr = _make_worker_result(file_hash=None)
+        wr.error = "fail"
+        store.add_or_update(wr, Path("/tmp/bad.pdf"))
+
+        errors = store.get_processing_errors()
+        errors.clear()
+
+        # Internal list should not be affected
+        assert store.error_count == 1
 
 
 class TestThreadSafety:

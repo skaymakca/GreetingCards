@@ -6,6 +6,7 @@ the system appearance in System Settings.
 
 Public API:
     is_dark_mode() -> bool
+    refresh_all_windows() -> None
     start_observer(callback) -> None
     stop_observer() -> None
 """
@@ -37,6 +38,21 @@ def is_dark_mode() -> bool:
         return "Dark" in name
     except Exception:
         return False
+
+
+def refresh_all_windows() -> None:
+    """Refresh palette, icon cache, and repaint all top-level windows."""
+    from app.gui.icons import clear_cache  # deferred to avoid circular import
+    from app.gui.styles import Color
+
+    Color.refresh()
+    clear_cache()
+    # noinspection PyArgumentList
+    for window in wx.GetTopLevelWindows():  # pyright: ignore[reportCallIssue]
+        if hasattr(window, "refresh_colors"):
+            window.refresh_colors()
+        window.Refresh()
+        window.Update()
 
 
 class _AppearanceObserver(NSObject):

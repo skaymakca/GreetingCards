@@ -12,6 +12,7 @@ Uses pyobjc to observe the `effectiveAppearance` key path on `NSApplication.shar
 
 Public API:
 - `is_dark_mode() -> bool` — checks if `effectiveAppearance` name contains "Dark"
+- `refresh_all_windows()` — refreshes color palette (`Color.refresh()`), clears the icon cache, and repaints all top-level windows (calling `refresh_colors()` on those that support it). Shared by `MainWindow` and the visual test harness to avoid duplicating the appearance-change boilerplate.
 - `start_observer(callback)` — registers KVO observer (called at app startup)
 - `stop_observer()` — removes KVO observer (called at app close)
 
@@ -38,14 +39,15 @@ Semantic colors (`ACCENT`, `SUCCESS`, `WARNING`, `ERROR`, `MANUAL_BLUE`) are fix
 
 When macOS appearance changes, `MainWindow._on_appearance_changed` runs:
 
-1. `Color.refresh()` — reassigns mode-dependent color class attributes
-2. `icons.clear_cache()` — invalidates cached toolbar/icon bitmaps
-3. `_refresh_toolbar_icons()` — re-renders toolbar SF Symbols with new tint
-4. Panel `refresh_colors()` — each panel re-applies colors to its widgets:
+1. `appearance.refresh_all_windows()` — shared helper that refreshes `Color` palette, clears the icon cache, and iterates all top-level windows calling `refresh_colors()` (if present) then `Refresh()`/`Update()`
+2. `_refresh_toolbar_icons()` — re-renders toolbar SF Symbols with new tint
+3. Panel `refresh_colors()` — each panel re-applies colors to its widgets:
    - `FilterSidebar.refresh_colors()` — section header labels
    - `PreviewPanel.refresh_colors()` — canvas background
    - `ReviewPanel.refresh_colors()` — detail panel labels
-5. Top-level window iteration — calls `refresh_colors()` on any window that supports it (e.g., `HtmlViewer` toolbar separator), then `Refresh()`/`Update()`
+4. Progress widget color updates — reapplies `Color.TEXT_PRIMARY`/`TEXT_SECONDARY` to progress labels
+
+The visual test harness (`scripts/visual_test.py`) also calls `appearance.refresh_all_windows()` followed by its own instance-specific updates (mode label and title).
 
 ### Panels with `refresh_colors()`
 

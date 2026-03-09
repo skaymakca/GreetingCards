@@ -143,6 +143,78 @@ class TestProcessCard:
         assert job.status == "error"
 
 
+class TestCardJobBackPageBranches:
+    """Tests for CardJob back_page construction from spec back_page_type (cli.py lines 180-185)."""
+
+    def test_photo_back_page_type_uses_photo_mode(self) -> None:
+        """back_page_type='photo' → back_page uses back_photo_mode (e.g., 'single')."""
+        spec = _make_spec(page_count=2, back_page_type="photo")
+        spec.back_photo_mode = "single"
+
+        if spec.back_page_type == "photo":
+            back_page = spec.back_photo_mode or "single"
+        elif spec.back_page_type == "blurb":
+            back_page = "blurb"
+        else:
+            back_page = "none"
+
+        job = CardJob(
+            index=1,
+            family_name=spec.family_name,
+            holiday=spec.holiday,
+            style=spec.visual_style,
+            back_page=back_page,
+        )
+
+        assert job.back_page == "single"
+
+    def test_photo_back_page_type_collage(self) -> None:
+        """back_page_type='photo' with back_photo_mode='collage' → back_page='collage'."""
+        spec = _make_spec(page_count=2, back_page_type="photo")
+        spec.back_photo_mode = "collage"
+
+        back_page = spec.back_photo_mode or "single"
+        job = CardJob(
+            index=1,
+            family_name=spec.family_name,
+            holiday=spec.holiday,
+            style=spec.visual_style,
+            back_page=back_page,
+        )
+
+        assert job.back_page == "collage"
+
+    def test_blurb_back_page_type(self) -> None:
+        """back_page_type='blurb' → back_page='blurb'."""
+        spec = _make_spec(page_count=2, back_page_type="blurb")
+
+        back_page = "blurb"
+        job = CardJob(
+            index=1,
+            family_name=spec.family_name,
+            holiday=spec.holiday,
+            style=spec.visual_style,
+            back_page=back_page,
+        )
+
+        assert job.back_page == "blurb"
+
+    def test_none_back_page_type(self) -> None:
+        """back_page_type=None → back_page='none'."""
+        spec = _make_spec(page_count=1, back_page_type=None)
+
+        back_page = "none"
+        job = CardJob(
+            index=1,
+            family_name=spec.family_name,
+            holiday=spec.holiday,
+            style=spec.visual_style,
+            back_page=back_page,
+        )
+
+        assert job.back_page == "none"
+
+
 class TestAsyncMain:
     @pytest.mark.asyncio
     async def test_names_flag_parsing(self, tmp_path: Path) -> None:

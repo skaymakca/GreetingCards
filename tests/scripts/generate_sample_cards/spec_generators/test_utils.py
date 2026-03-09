@@ -59,6 +59,11 @@ class TestExtractJson:
         with pytest.raises(ValueError):
             extract_json("this is not json at all")
 
+    def test_bracket_matching_invalid_json_raises_value_error(self) -> None:
+        """Last-resort bracket matching fails when sliced text is invalid JSON (lines 59-60)."""
+        with pytest.raises(ValueError, match="No valid JSON found"):
+            extract_json("prefix [this is not, json] suffix")
+
     def test_empty_string_raises_value_error(self) -> None:
         with pytest.raises(ValueError):
             extract_json("")

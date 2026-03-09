@@ -38,6 +38,14 @@ class RenameOutcome(Enum):
 
 
 @dataclass
+class ProcessingError:
+    """A PDF that failed to process (no CardResult created)."""
+
+    path: Path
+    error: str
+
+
+@dataclass
 class PdfWorkerResult:
     """Result from PDF processing worker (subprocess → main process).
 

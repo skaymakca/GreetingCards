@@ -62,9 +62,9 @@ Excluded code includes:
 
 ### 2. wxPython Event Handlers
 
-**Files:** `app/gui/components/review_panel.py`, `app/gui/components/preview_panel.py`, `app/gui/components/drop_target.py`, `app/gui/components/html_viewer.py`
+**Files:** `app/gui/components/review_panel.py`, `app/gui/components/preview_panel.py`, `app/gui/components/drop_target.py`
 **Mechanism:** `# pragma: no cover`
-**Lines excluded:** ~470
+**Lines excluded:** ~420
 
 Event handlers bound to wx widgets (`EVT_PAINT`, `EVT_KEY`, `EVT_CHECKBOX`, `EVT_MOUSE`, etc.) that are dispatched by the wx event loop. These functions:
 - Require a running `wx.App` with real widget geometry
@@ -72,6 +72,8 @@ Event handlers bound to wx widgets (`EVT_PAINT`, `EVT_KEY`, `EVT_CHECKBOX`, `EVT
 - Cannot be invoked directly without a live event loop providing valid event objects
 
 The business logic they delegate to is tested independently via the test suite.
+
+**Note:** `app/gui/components/html_viewer.py` search methods (`_mark_all`, `_focus_match`, `_clear_highlights`, `_navigate_to_page`, `current_page_info`, `on_page_loaded`) were previously excluded but are now tested via mock patching of the WebView's `RunScript`, `GetCurrentURL`, and `LoadURL` methods.
 
 ### 3. NSObject / Objective-C Bridge
 
@@ -107,7 +109,17 @@ Excluded code includes:
 
 Direct-execution entry points in scripts that have their `main()` functions tested via imports. The `if __name__ == "__main__"` guard line itself is not reachable when the module is imported by the test suite.
 
-### 6. Omitted Files
+### 6. Unreachable Defensive Guards
+
+**Files:** `scripts/reformat_md_tables.py`, `scripts/build_family_name_db/merger.py`
+**Mechanism:** `# pragma: no cover`
+**Lines excluded:** ~2
+
+Guards that are structurally unreachable due to preceding logic but exist as safety nets:
+- **Fence handler guard** (`reformat_md_tables.py`) — `if table_lines` inside `in_code_block` block is always empty because the fence toggle at line 82-84 already flushes `table_lines` before entering the code block body
+- **No-candidates guard** (`merger.py`) — `if not candidates: continue` can never trigger because `all_keys` is the union of all source dicts, so at least one source always provides a candidate
+
+### 7. Omitted Files
 
 **Configured in:** `pyproject.toml` `[tool.coverage.run] omit`
 **Files:** 7 entries

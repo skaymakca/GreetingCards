@@ -12,7 +12,7 @@ from app.models.card import PdfWorkerResult
 
 def _make_worker_result(
     pdf_path: str = "/tmp/card.pdf",
-    file_hash: str = "abc123",
+    file_hash: str | None = "abc123",
     family_name: str = "Smith",
 ) -> PdfWorkerResult:
     """Create a minimal PdfWorkerResult for testing."""
@@ -135,6 +135,42 @@ class TestProcessFiles:
         on_complete.assert_called_once()
         # No card should be stored (worker failed)
         assert store.count == 0
+
+    @patch("app.core.services.processing_service.ProcessPoolExecutor")
+    @patch("app.core.services.processing_service.multiprocessing")
+    def test_progress_fires_with_filename_when_card_is_none(self, mock_mp: MagicMock, mock_pool_cls: MagicMock) -> None:
+        """Progress callback should fire with pdf filename even when card is None (null hash)."""
+        store = CardStore()
+        service = ProcessingService(store)
+
+        wr = _make_worker_result(pdf_path="/tmp/broken.pdf", file_hash=None)
+        wr.error = "corrupt PDF"
+
+        mock_executor = MagicMock()
+        mock_pool_cls.return_value.__enter__ = MagicMock(return_value=mock_executor)
+        mock_pool_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        future = MagicMock()
+        future.result.return_value = wr
+        mock_executor.submit.return_value = future
+
+        with patch("app.core.services.processing_service.as_completed", return_value=iter([future])):
+            progress_calls: list[tuple[int, int, str]] = []
+
+            def on_progress(completed: int, total: int, filename: str) -> None:
+                progress_calls.append((completed, total, filename))
+
+            service.process_files(
+                [Path("/tmp/broken.pdf")],
+                on_progress=on_progress,
+            )
+
+        assert len(progress_calls) == 1
+        assert progress_calls[0][0] == 1  # completed
+        assert progress_calls[0][2] == "broken.pdf"  # filename from path, not card
+        # Error should be recorded in store
+        assert store.error_count == 1
+        assert store.count == 0  # No card created
 
     @patch("app.core.services.processing_service.ProcessPoolExecutor")
     @patch("app.core.services.processing_service.multiprocessing")

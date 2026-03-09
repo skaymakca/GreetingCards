@@ -24,7 +24,6 @@ import wx
 from app.core.pipeline.ai_analyzer import AIError, AIErrorKind
 from app.gui import appearance  # type: ignore[attr-defined]
 from app.gui.components.filter_sidebar import FilterSidebar
-from app.gui.icons import clear_cache
 from app.gui.styles import Color, Font
 from app.models.card import (
     STATUS_DUPLICATE,
@@ -377,18 +376,13 @@ class VisualTestFrame(wx.Frame):
         return scrolled
 
     def _on_appearance_changed(self) -> None:
-        Color.refresh()
-        clear_cache()
+        # Shared refresh: palette, icon cache, repaint all top-level windows
+        appearance.refresh_all_windows()
+
+        # Instance-specific updates
         mode = "Dark" if appearance.is_dark_mode() else "Light"
         self._mode_label.SetLabel(f"Current Mode: {mode}")
         self.SetTitle(f"Visual Test Harness — {mode} Mode")
-        # Repaint all top-level windows and refresh colors on dialogs
-        # noinspection PyArgumentList
-        for window in wx.GetTopLevelWindows():  # pyright: ignore[reportCallIssue]
-            if hasattr(window, "refresh_colors"):
-                window.refresh_colors()
-            window.Refresh()
-            window.Update()
 
     def _on_close(self, event: wx.CloseEvent) -> None:
         if self._appearance_timer is not None:

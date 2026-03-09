@@ -425,6 +425,16 @@ class TestMainFunction:
         assert "no valid scopes" in captured.err
 
 
+class TestMainDefaultArgv:
+    """Test main() with None argv (uses sys.argv)."""
+
+    def test_default_argv_shows_help(self) -> None:
+        """main(None) with sys.argv=['run_tests.py'] shows help and returns 0."""
+        with patch("sys.argv", ["run_tests.py"]):
+            rc = main(None)
+        assert rc == 0
+
+
 class TestUpdateLatestSymlinkReplacesExisting:
     def test_replaces_existing_symlink(self, tmp_path: Path) -> None:
         """Line 150: existing symlink is replaced with new target."""

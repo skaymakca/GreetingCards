@@ -175,6 +175,11 @@ class TestExtractFamilyNames:
         results = extract_family_names("The Ross Family")
         assert any(m.name == "Ross" for m in results)
 
+    def test_the_es_suffix_stripped(self):
+        """'The Churches' → 'Church' via the -es suffix branch (line 103-104)."""
+        results = extract_family_names("The Churches")
+        assert any(m.name == "Church" and m.confidence == Confidence.HIGH for m in results)
+
     def test_empty_names_filtered_in_dedup(self):
         """Empty name matches are filtered out during deduplication."""
         # An empty-string match would come from a pattern that matched but _clean_name returned ""

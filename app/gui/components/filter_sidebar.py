@@ -8,7 +8,6 @@ import wx
 from app.core.services.filter_service import FilterCategory
 from app.gui import styles
 
-_SIDEBAR_MIN_WIDTH = 175
 _SIDEBAR_PAD = 10
 _NOTIFY_PAD = 20
 
@@ -118,13 +117,13 @@ class FilterSidebar(wx.Panel):
         self._notify_label = wx.StaticText(self, label="")
         self._notify_label.SetFont(styles.Font.SMALL())
         self._notify_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
-        self._notify_label.Wrap(_SIDEBAR_MIN_WIDTH - _NOTIFY_PAD)
+        self._notify_label.Wrap(styles.Layout.SIDEBAR_WIDTH - _NOTIFY_PAD)
         sizer.Add(self._notify_label, 0, wx.ALL, _SIDEBAR_PAD)
         self._notify_label.Hide()
         self._notify_timer: wx.CallLater | None = None
 
         self.SetSizer(sizer)
-        self.SetMinSize((_SIDEBAR_MIN_WIDTH, -1))  # pyright: ignore[reportArgumentType]
+        self.SetMinSize((styles.Layout.SIDEBAR_WIDTH, -1))  # pyright: ignore[reportArgumentType]
 
     # --- Notification area ---
 
