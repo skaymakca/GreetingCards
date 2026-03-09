@@ -12,6 +12,7 @@ Step-by-step checklist for preparing and publishing a release. Work through each
 - [ ] `make test-everything` — all tests pass (including integration)
 - [ ] `make docker-test` — cross-platform tests pass on Linux
 - [ ] PyCharm inspections (if MCP available) — 0 errors/warnings
+- [ ] `make loc` — verify LOC snapshot is current (`README-loc.md`)
 
 ## Phase 2: Version & Changelog
 
