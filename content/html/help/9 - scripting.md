@@ -28,7 +28,7 @@ end tell
 
 -- Rename a specific card
 tell application "Greeting Cards"
-    set result to rename card path "/Users/you/Cards/IMG_001.pdf"
+    set result to rename card "IMG_001.pdf" to "Smith"
 end tell
 ```
 
@@ -45,29 +45,29 @@ end tell
 
 ### Card Queries
 
-| Command                | What it does                                 |
-|------------------------|----------------------------------------------|
-| `get card info path p` | Return full details for the card at path `p` |
-| `get loaded cards`     | Return a summary list of all loaded cards    |
+| Command                | What it does                                             |
+|------------------------|----------------------------------------------------------|
+| `get card info "file"` | Return full details for the card with the given filename |
+| `get loaded cards`     | Return a summary list of all loaded cards                |
 
 ### Card Mutations
 
-| Command                             | What it does                                           |
-|-------------------------------------|--------------------------------------------------------|
-| `rename card path p`                | Rename the card at `p` using its current best name     |
-| `set card name path p name n`       | Set a manual name for the card at `p`                  |
-| `select candidate path p index i`   | Promote candidate `i` (0-based) as the chosen name     |
-| `set remove family path p remove r` | Set whether to strip the family name from the filename |
+| Command                            | What it does                                     |
+|------------------------------------|--------------------------------------------------|
+| `rename card "file" to "name"`     | Rename the card on disk with the given name      |
+| `set card name "file" to "name"`   | Set a manual name for the card                   |
+| `select candidate "file" rank N`   | Promote candidate N (1-based) as the chosen name |
+| `set remove family "file" to true` | Set whether to strip "Family" from the filename  |
 
 ### AI & Models
 
-| Command                | What it does                                     |
-|------------------------|--------------------------------------------------|
-| `analyze cards`        | Run AI analysis on all loaded cards              |
-| `clear AI results`     | Discard cached AI results for all cards          |
-| `get models`           | Return the list of available AI models           |
-| `set model model_id m` | Switch to model `m` (e.g. `"claude-sonnet-4-6"`) |
-| `quit`                 | Quit the application                             |
+| Command                | What it does                                 |
+|------------------------|----------------------------------------------|
+| `analyze cards`        | Run AI analysis on all loaded cards          |
+| `clear AI results`     | Discard cached AI results for all cards      |
+| `get models`           | Return the list of available AI models       |
+| `set model "model-id"` | Switch to model (e.g. `"claude-sonnet-4-6"`) |
+| `quit`                 | Quit the application                         |
 
 ## JSON Responses
 
@@ -143,7 +143,8 @@ while True:
 # Rename all cards
 cards = run('tell application "Greeting Cards" to get loaded cards')
 for card in cards:
-    for path in card.get("file_paths", []):
-        result = run(f'tell application "Greeting Cards" to rename card path "{path}"')
+    name = card.get("family_name", "")
+    if name:
+        result = run(f'tell application "Greeting Cards" to rename card "{card["filename"]}" to "{name}"')
         print(result)
 ```
