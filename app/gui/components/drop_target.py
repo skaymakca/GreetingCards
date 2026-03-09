@@ -13,6 +13,9 @@ from app.gui.utils import draw_drag_highlight
 
 logger = logging.getLogger(__name__)
 
+_DROP_BRIGHTNESS = 0.75
+_DROP_COLOR_SATURATION = 0.5
+
 
 def load_drop_background() -> wx.Bitmap | None:
     """Load and process the drop target background image.
@@ -27,8 +30,8 @@ def load_drop_background() -> wx.Bitmap | None:
             return None
 
         img = Image.open(img_path).convert("RGBA")
-        img = ImageEnhance.Brightness(img).enhance(0.75)
-        img = ImageEnhance.Color(img).enhance(0.5)
+        img = ImageEnhance.Brightness(img).enhance(_DROP_BRIGHTNESS)
+        img = ImageEnhance.Color(img).enhance(_DROP_COLOR_SATURATION)
 
         # Convert PIL → wx.Bitmap
         width, height = img.size

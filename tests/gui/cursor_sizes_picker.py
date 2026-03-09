@@ -14,7 +14,7 @@ class CursorSizeTestDialog(wx.Dialog):
     """Dialog to test different cursor sizes and pick the best one."""
 
     # Test sizes from small to large
-    SIZES = [6, 7, 8, 9, 10, 11, 12]
+    SIZES = [6, 7, 8, 9, 10, 11, 12]  # noqa: RUF012
 
     def __init__(self, parent=None):
         super().__init__(parent, title="Cursor Size Picker", style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)

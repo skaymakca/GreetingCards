@@ -20,7 +20,7 @@ import re
 import subprocess
 import sys
 
-from scripts.helpers import PROJECT_ROOT, dmg_path, read_version
+from scripts.helpers import PROJECT_ROOT, dmg_path, read_version, run_command
 
 _CHANGELOG = PROJECT_ROOT / "CHANGELOG.md"
 _REPO = "skaymakca/GreetingCards"
@@ -28,14 +28,6 @@ _REPO = "skaymakca/GreetingCards"
 
 class ReleaseError(ValueError):
     """User-facing error in the release pipeline (clean output, no traceback)."""
-
-
-def _run(cmd: list[str], *, dry_run: bool = False) -> subprocess.CompletedProcess[str]:
-    """Run a command, printing it first. In dry-run mode, skip execution."""
-    print(f"  {'[dry-run] ' if dry_run else ''}{' '.join(cmd)}")
-    if dry_run:
-        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
-    return subprocess.run(cmd, check=True, text=True)
 
 
 def _checksum_path(version: str) -> pathlib.Path:
@@ -68,7 +60,7 @@ def extract_changelog(version: str, changelog_path: pathlib.Path | None = None) 
     # Extract body from after the heading to the next ## or end of file
     start = match.end()
     next_heading = re.search(r"^## ", text[start:], re.MULTILINE)
-    if next_heading:
+    if next_heading:  # noqa: SIM108
         body = text[start : start + next_heading.start()]
     else:
         body = text[start:]
@@ -206,7 +198,7 @@ def cmd_draft(version: str, *, dry_run: bool = False) -> None:
     cmd = build_draft_command(version, notes_file, dmg, checksum)
     print(f"Creating draft release v{version} …")
     try:
-        _run(cmd, dry_run=dry_run)
+        run_command(cmd, dry_run=dry_run)
     except subprocess.CalledProcessError as exc:
         print(f"gh exited with status {exc.returncode}.")
         print("Check that 'gh' is installed and authenticated (gh auth status).")
@@ -227,7 +219,7 @@ def cmd_publish(version: str, *, dry_run: bool = False) -> None:
     ]
     print(f"Publishing release v{version} …")
     try:
-        _run(cmd, dry_run=dry_run)
+        run_command(cmd, dry_run=dry_run)
     except subprocess.CalledProcessError as exc:
         print(f"gh exited with status {exc.returncode}.")
         print("Check that 'gh' is installed and authenticated (gh auth status).")

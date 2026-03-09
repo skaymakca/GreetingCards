@@ -1,0 +1,54 @@
+# Protect private-repo-only files from --delete
+P /.git
+P /.git/**
+P /.gitignore
+P /README.md
+
+# .local/ — personal notes, correspondence
++ /.local/
++ /.local/TODO.md
++ /.local/comms_research_etc/
++ /.local/comms_research_etc/**
++ /.local/gh_issues/
++ /.local/gh_issues/**
+- /.local/**
+
+# _build/audit/ — code quality audit reports
++ /_build/
++ /_build/audit/
++ /_build/audit/*.md
+- /_build/audit/**
+
+# _build/coverage/ — full timestamped dirs (no latest symlink)
++ /_build/coverage/
+- /_build/coverage/latest
++ /_build/coverage/*/
++ /_build/coverage/*/**
+
+# _build/release/ — metadata only (no DMGs)
++ /_build/release/
++ /_build/release/release-notes.md
++ /_build/release/submission-id.txt
+- /_build/release/**
+
+# _build/script_output/ — profiling + census (no sample/diagnostic cards)
++ /_build/script_output/
++ /_build/script_output/*-profiling/
++ /_build/script_output/*-profiling/**
++ /_build/script_output/census_names/
++ /_build/script_output/census_names/**
+- /_build/script_output/**
+
+# Remaining _build/ exclusion
+- /_build/**
+
+# .claude/ — local settings only
++ /.claude/
++ /.claude/settings.local.json
+- /.claude/**
+
+# Root files
++ /release-local.sh
+
+# Exclude everything else
+- *

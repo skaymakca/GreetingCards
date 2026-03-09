@@ -3448,11 +3448,13 @@ def test_ensure_api_key_returns_true_after_dialog_entry(wx_app):
 
     with (
         patch.object(window._config_service, "has_api_key", return_value=False),
+        patch.object(window._config_service, "save_api_key") as mock_save,
         patch.object(window, "_show_info_message"),
         patch("app.gui.main_window_mixins.ai_mixin.show_api_key_dialog", return_value="sk-new-key"),
     ):
         result = window._ensure_api_key()
         assert result is True
+        mock_save.assert_called_once_with("sk-new-key")
 
     window._frame.Destroy()
 
@@ -4321,14 +4323,14 @@ def test_add_files_folders_loads_paths(wx_app):
 
 
 def test_process_cards_thread_calls_service(wx_app):
-    """_process_cards calls ProcessingService.process_files (lines 528-534)."""
+    """_process_cards calls ProcessingService.process_files."""
     from unittest.mock import patch
 
     window = MainWindow()
-    window._processing_files = [Path("/test/card.pdf")]
+    files = [Path("/test/card.pdf")]
 
     with patch.object(window._processing_service, "process_files") as mock_process:
-        window._process_cards()
+        window._process_cards(files)
         mock_process.assert_called_once()
 
     window._frame.Destroy()

@@ -123,7 +123,7 @@ class CardStore:
             # Always update path → hash mapping
             if file_hash is not None:
                 self._hash_by_path[pdf_path] = file_hash
-                try:
+                try:  # noqa: SIM105
                     self._mtime_by_path[pdf_path] = pdf_path.stat().st_mtime
                 except OSError:
                     pass  # File vanished; reload will re-check
@@ -252,6 +252,8 @@ class CardStore:
                         current_mtime = path.stat().st_mtime
                     except OSError:
                         continue
+                    # Exact equality is safe: APFS/HFS+ mtime is deterministic
+                    # (same st_mtime on successive stat() calls for unmodified files).
                     if current_mtime == self.get_mtime_for_path(path):
                         continue
 

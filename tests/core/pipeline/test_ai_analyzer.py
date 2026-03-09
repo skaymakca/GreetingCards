@@ -16,13 +16,13 @@ from app.core.pipeline.ai_analyzer import (
     _normalize_images,
     _parse_response,
     analyze_card_with_ai_async,
-    format_ai_error,
+    classify_ai_error,
     parse_retry_after,
 )
 
 
-class TestFormatAiError:
-    """Tests for format_ai_error()."""
+class TestClassifyAiError:
+    """Tests for classify_ai_error()."""
 
     def test_auth_error(self):
         import anthropic
@@ -32,7 +32,7 @@ class TestFormatAiError:
             response=MagicMock(status_code=401),
             body=None,
         )
-        assert "Invalid API key" in format_ai_error(err)
+        assert "Invalid API key" in classify_ai_error(err).detail
 
     def test_rate_limit_error(self):
         import anthropic
@@ -42,20 +42,20 @@ class TestFormatAiError:
             response=MagicMock(status_code=429),
             body=None,
         )
-        assert "Rate limit" in format_ai_error(err)
+        assert "Rate limit" in classify_ai_error(err).detail
 
     def test_timeout_error(self):
         """APITimeoutError should be caught before APIConnectionError."""
         import anthropic
 
         err = anthropic.APITimeoutError(request=MagicMock())
-        assert "timed out" in format_ai_error(err).lower()
+        assert "timed out" in classify_ai_error(err).detail.lower()
 
     def test_connection_error(self):
         import anthropic
 
         err = anthropic.APIConnectionError(request=MagicMock())
-        assert "connection" in format_ai_error(err).lower()
+        assert "connection" in classify_ai_error(err).detail.lower()
 
     def test_status_error(self):
         import anthropic
@@ -65,13 +65,13 @@ class TestFormatAiError:
             response=MagicMock(status_code=500),
             body=None,
         )
-        result = format_ai_error(err)
-        assert "500" in result
-        assert "API error" in result
+        result = classify_ai_error(err)
+        assert "500" in result.detail
+        assert "API error" in result.detail
 
     def test_generic_error(self):
         err = Exception("something broke")
-        assert "something broke" in format_ai_error(err)
+        assert "something broke" in classify_ai_error(err).detail
 
 
 class TestImageToB64:

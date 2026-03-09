@@ -90,26 +90,30 @@ class CardService:
         if card is None or not card.file_hash:
             return None
 
+        matched = False
         for cand in card.candidates:
             if cand.id == candidate_id:
+                matched = True
                 card.family_name = cand.family_name
                 card.manual_override = ""
                 card.selected_candidate_id = candidate_id
                 card.method = cand.method
 
-                if card.confidence == Confidence.MANUAL and card.original_confidence:
-                    card.confidence = card.original_confidence
-                else:
-                    try:
-                        card.confidence = Confidence(cand.confidence)
-                    except ValueError:
-                        logger.debug(
-                            "Unknown confidence %r for candidate %d, defaulting to MEDIUM",
-                            cand.confidence,
-                            cand.id,
-                        )
-                        card.confidence = Confidence.MEDIUM
+                try:
+                    card.confidence = Confidence(cand.confidence)
+                except ValueError:
+                    logger.debug(
+                        "Unknown confidence %r for candidate %d, defaulting to MEDIUM",
+                        cand.confidence,
+                        cand.id,
+                    )
+                    card.confidence = Confidence.MEDIUM
+                card.original_confidence = None
                 break
+
+        if not matched:
+            logger.warning("Candidate %d not found for card %s", candidate_id, card.file_hash)
+            return card
 
         select_candidate(card.file_hash, candidate_id, card.remove_family)
         return card

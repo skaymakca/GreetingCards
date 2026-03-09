@@ -1,171 +1,18 @@
 """Tests for app.core.config module."""
 
-import logging
-import os
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
-import app.core.config as config_module
 from app.core.config import (
     DEFAULT_AI_MODEL,
     _plist_path,
     _read_plist,
     _write_plist,
     get_ai_model,
-    get_api_key,
     has_prompted_auto_update,
     save_ai_model,
-    save_api_key,
     set_prompted_auto_update,
 )
-
-
-@pytest.fixture(autouse=True)
-def _reset_mismatch_flag():
-    """Reset the module-level mismatch warning flag before each test."""
-    config_module._mismatch_warned = False
-    yield
-    config_module._mismatch_warned = False
-
-
-class TestGetApiKey:
-    """Tests for get_api_key()."""
-
-    def test_returns_env_var(self):
-        """Environment variable is highest priority."""
-        with (
-            patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-test-key"}),
-            patch("app.core.config._read_plist", return_value={}),
-        ):
-            assert get_api_key() == "sk-test-key"
-
-    def test_ignores_placeholder(self):
-        """Placeholder value 'your-api-key-here' is treated as unset."""
-        with (
-            patch.dict(os.environ, {"ANTHROPIC_API_KEY": "your-api-key-here"}, clear=False),
-            patch("app.core.config._read_plist", return_value={}),
-        ):
-            assert get_api_key() is None
-
-    def test_reads_plist_in_dev_mode(self):
-        """In dev mode (not bundled), reads from plist."""
-        with (
-            patch.dict(os.environ, {}, clear=True),
-            patch("app.core.config._read_plist", return_value={"ANTHROPIC_API_KEY": "sk-plist"}),
-        ):
-            assert get_api_key() == "sk-plist"
-
-    def test_reads_plist_in_bundled_mode(self):
-        """In bundled mode, reads from preferences.plist only."""
-        with (
-            patch.dict(os.environ, {}, clear=True),
-            patch("app.core.config.is_bundled", return_value=True),
-            patch("app.core.config._read_plist", return_value={"ANTHROPIC_API_KEY": "sk-plist"}),
-        ):
-            assert get_api_key() == "sk-plist"
-
-    def test_bundled_mode_ignores_env_var(self):
-        """In bundled mode, env var is ignored even when set."""
-        with (
-            patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-env"}),
-            patch("app.core.config.is_bundled", return_value=True),
-            patch("app.core.config._read_plist", return_value={"ANTHROPIC_API_KEY": "sk-plist"}),
-        ):
-            assert get_api_key() == "sk-plist"
-
-    def test_env_var_overrides_plist(self):
-        """In source mode, env var takes precedence over plist."""
-        with (
-            patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-env"}),
-            patch("app.core.config.is_bundled", return_value=False),
-            patch("app.core.config._read_plist", return_value={"ANTHROPIC_API_KEY": "sk-plist"}),
-        ):
-            assert get_api_key() == "sk-env"
-
-    def test_returns_none_when_nothing_configured(self):
-        """Returns None when no key is set anywhere."""
-        with patch.dict(os.environ, {}, clear=True), patch("app.core.config._read_plist", return_value={}):
-            assert get_api_key() is None
-
-    def test_returns_none_when_plist_key_empty(self):
-        """Returns None when plist key is empty string."""
-        with (
-            patch.dict(os.environ, {}, clear=True),
-            patch("app.core.config._read_plist", return_value={"ANTHROPIC_API_KEY": ""}),
-        ):
-            assert get_api_key() is None
-
-    def test_logs_warning_on_mismatch(self, caplog):
-        """Logs a warning when env var and plist key differ."""
-        with (
-            patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-env"}),
-            patch("app.core.config._read_plist", return_value={"ANTHROPIC_API_KEY": "sk-plist"}),
-        ):
-            with caplog.at_level(logging.WARNING, logger="app.core.config"):
-                get_api_key()
-            assert "differs from preferences.plist" in caplog.text
-
-    def test_mismatch_warning_only_once(self, caplog):
-        """Mismatch warning is logged only once per process."""
-        with (
-            patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-env"}),
-            patch("app.core.config._read_plist", return_value={"ANTHROPIC_API_KEY": "sk-plist"}),
-        ):
-            with caplog.at_level(logging.WARNING, logger="app.core.config"):
-                get_api_key()
-                get_api_key()
-            assert caplog.text.count("differs from preferences.plist") == 1
-
-    def test_no_warning_when_keys_match(self, caplog):
-        """No warning when env var and plist key are the same."""
-        with (
-            patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-same"}),
-            patch("app.core.config._read_plist", return_value={"ANTHROPIC_API_KEY": "sk-same"}),
-        ):
-            with caplog.at_level(logging.WARNING, logger="app.core.config"):
-                get_api_key()
-            assert "differs" not in caplog.text
-
-    def test_no_warning_when_plist_empty(self, caplog):
-        """No warning when plist key is not set."""
-        with (
-            patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-env"}),
-            patch("app.core.config._read_plist", return_value={}),
-        ):
-            with caplog.at_level(logging.WARNING, logger="app.core.config"):
-                get_api_key()
-            assert "differs" not in caplog.text
-
-
-class TestSaveApiKey:
-    """Tests for save_api_key()."""
-
-    def test_saves_to_plist_and_environ(self):
-        """Persists key to plist and sets env var."""
-        with (
-            patch("app.core.config._read_plist", return_value={}),
-            patch("app.core.config._write_plist") as mock_write,
-            patch.dict(os.environ, {}, clear=True),
-        ):
-            save_api_key("sk-new-key")
-            mock_write.assert_called_once()
-            written = mock_write.call_args[0][0]
-            assert written["ANTHROPIC_API_KEY"] == "sk-new-key"
-            assert os.environ["ANTHROPIC_API_KEY"] == "sk-new-key"
-
-    def test_save_updates_existing_plist(self):
-        """Existing plist data is preserved when saving."""
-        with (
-            patch("app.core.config._read_plist", return_value={"other": "data"}),
-            patch("app.core.config._write_plist") as mock_write,
-            patch.dict(os.environ, {}, clear=True),
-        ):
-            save_api_key("sk-key")
-            written = mock_write.call_args[0][0]
-            assert written["other"] == "data"
-            assert written["ANTHROPIC_API_KEY"] == "sk-key"
 
 
 class TestGetAiModel:

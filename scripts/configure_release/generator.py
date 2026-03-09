@@ -42,7 +42,7 @@ class Utility:
 STEPS: tuple[Step, ...] = (
     Step(1, "build", "Building app", "make app", Scope.LOCAL),
     Step(2, "sign", "Signing app", 'uv run python -m scripts.sign --identity "$CODESIGN_IDENTITY"', Scope.LOCAL),
-    Step(3, "dmg", "Creating DMG", "uv run python -m scripts.dmg", Scope.LOCAL),
+    Step(3, "dmg", "Creating DMG", "uv run python -m scripts.dmg --verify-signature", Scope.LOCAL),
     Step(
         4,
         "submit",

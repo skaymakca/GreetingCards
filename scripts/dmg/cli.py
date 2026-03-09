@@ -6,12 +6,16 @@ which calls 'make app' automatically).
 
 Usage:
     uv run python -m scripts.dmg
+    uv run python -m scripts.dmg --verify-signature
     uv run python -m scripts.dmg --help
 
 Output: dist/Greeting-Cards-X.Y.Z.dmg
 """
 
 import argparse
+import subprocess
+import sys
+from pathlib import Path
 
 import dmgbuild  # type: ignore[import-untyped]
 
@@ -19,6 +23,25 @@ from scripts.dmg.background import generate as _generate_background
 from scripts.dmg.readme import generate as _generate_readme
 from scripts.helpers import PROJECT_ROOT, dmg_path, read_version
 from scripts.helpers import app_path as _app_path
+
+
+def verify_app_signature(bundle_path: Path) -> None:
+    """Verify the app bundle is code-signed. Exit with error if not."""
+    print("Verifying code signature …")
+    result = subprocess.run(
+        ["codesign", "--verify", "--deep", "--strict", str(bundle_path)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(
+            f"Error: App bundle is not properly signed: {bundle_path}\n"
+            f"{result.stderr.strip()}\n"
+            "Hint: Run './release-local.sh sign' before creating the DMG.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+    print("Signature OK.")
 
 
 def main() -> None:
@@ -32,6 +55,11 @@ def main() -> None:
         action="store_true",
         help="Build a read-write (UDRW) DMG that can be edited in Finder.",
     )
+    parser.add_argument(
+        "--verify-signature",
+        action="store_true",
+        help="Verify the app bundle is code-signed before building the DMG.",
+    )
     args = parser.parse_args()
 
     version = read_version()
@@ -41,6 +69,9 @@ def main() -> None:
     app = _app_path()
     sample_cards_path = PROJECT_ROOT / "content" / "dmg" / "Sample Cards"
     output_path = dmg_path(version)
+
+    if args.verify_signature:
+        verify_app_signature(app)
 
     # Step 1: Generate background image
     print("Generating background …")

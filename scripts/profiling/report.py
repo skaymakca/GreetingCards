@@ -55,12 +55,22 @@ def _ram_gb() -> float:
         return 0
 
 
+def _git_short_hash() -> str:
+    """Get the current git short hash, or 'unknown' if not in a git repo."""
+    try:
+        result = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True)
+        return result.stdout.strip()
+    except OSError, subprocess.CalledProcessError:
+        return "unknown"
+
+
 def _system_info(corpus_path: Path, pdf_count: int, invocation: str) -> dict:
     """Collect system information for reports."""
     now = datetime.now()
     info = {
         "date": now.isoformat(timespec="seconds"),
         "date_display": now.strftime("%Y-%m-%d %H:%M"),
+        "git_hash": _git_short_hash(),
         "python": sys.version.split()[0],
         "platform": platform.machine(),
         "os": _macos_version(),
@@ -152,6 +162,7 @@ def _write_invocation(sys_info: dict, output_dir: Path) -> Path:
     lines = [
         f"Command: {sys_info['invocation']}",
         f"Date: {sys_info['date_display']}",
+        f"Git: {sys_info['git_hash']}",
         f"Hostname: {sys_info['hostname']}",
         f"Python: {sys_info['python']}",
         f"Platform: {sys_info['platform']} ({sys_info['os']})",
@@ -224,6 +235,7 @@ def generate_report(
     info_rows = [
         f"<tr><td>Command</td><td><code>{html_escape(sys_info['invocation'])}</code></td></tr>",
         f"<tr><td>Date</td><td>{sys_info['date_display']}</td></tr>",
+        f"<tr><td>Git</td><td><code>{html_escape(sys_info['git_hash'])}</code></td></tr>",
         f"<tr><td>Hostname</td><td>{html_escape(sys_info['hostname'])}</td></tr>",
         f"<tr><td>Python</td><td>{sys_info['python']}</td></tr>",
         f"<tr><td>Platform</td><td>{sys_info['platform']} ({html_escape(sys_info['os'])})</td></tr>",

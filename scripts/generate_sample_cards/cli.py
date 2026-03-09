@@ -258,7 +258,7 @@ async def async_main() -> None:
 
         # Open output folder
         if not args.no_open:
-            try:
+            try:  # noqa: SIM105
                 subprocess.run(["open", str(output_dir)], check=False)
             except FileNotFoundError:
                 pass

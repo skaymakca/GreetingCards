@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from scripts.notarize.cli import (
+    backup_dmg,
     check_status,
     fetch_history,
     fetch_log,
@@ -99,6 +100,32 @@ class TestSaveLoadSubmissionId:
         path = tmp_path / "nonexistent.txt"
         with pytest.raises(FileNotFoundError):
             load_submission_id(path)
+
+
+class TestBackupDmg:
+    def test_copies_dmg_with_timestamp(self, tmp_path: pathlib.Path) -> None:
+        dmg = tmp_path / "Greeting-Cards-1.0.0.dmg"
+        dmg.write_bytes(b"fake dmg content")
+        dest_dir = tmp_path / "release"
+
+        with patch("scripts.notarize.cli._SUBMISSION_ID_FILE", dest_dir / "submission-id.txt"):
+            result = backup_dmg(dmg)
+
+        assert result.exists()
+        assert result.read_bytes() == b"fake dmg content"
+        assert result.parent == dest_dir
+        assert result.name.startswith("Greeting-Cards-1.0.0-")
+        assert result.suffix == ".dmg"
+
+    def test_creates_parent_dirs(self, tmp_path: pathlib.Path) -> None:
+        dmg = tmp_path / "test.dmg"
+        dmg.write_bytes(b"data")
+        dest_dir = tmp_path / "deep" / "nested"
+
+        with patch("scripts.notarize.cli._SUBMISSION_ID_FILE", dest_dir / "submission-id.txt"):
+            result = backup_dmg(dmg)
+
+        assert result.exists()
 
 
 class TestCheckStatus:
@@ -201,39 +228,34 @@ class TestFetchHistory:
 
 class TestStaple:
     @patch("scripts.notarize.cli.subprocess.run")
-    def test_staples_app_and_dmg(self, mock_run: MagicMock, tmp_path: pathlib.Path) -> None:
-        app = tmp_path / "Test.app"
+    def test_staples_dmg_only(self, mock_run: MagicMock, tmp_path: pathlib.Path) -> None:
         dmg = tmp_path / "Test.dmg"
 
-        staple(app, dmg)
+        staple(dmg)
 
-        assert mock_run.call_count == 2
-        first_cmd = mock_run.call_args_list[0][0][0]
-        second_cmd = mock_run.call_args_list[1][0][0]
-        assert "stapler" in first_cmd
-        assert str(app) in first_cmd
-        assert str(dmg) in second_cmd
+        assert mock_run.call_count == 1
+        cmd = mock_run.call_args[0][0]
+        assert "stapler" in cmd
+        assert str(dmg) in cmd
 
     @patch("scripts.notarize.cli.subprocess.run")
     def test_dry_run_skips(self, mock_run: MagicMock, tmp_path: pathlib.Path) -> None:
-        staple(tmp_path / "a.app", tmp_path / "a.dmg", dry_run=True)
+        staple(tmp_path / "a.dmg", dry_run=True)
         mock_run.assert_not_called()
 
 
 class TestVerify:
     @patch("scripts.notarize.cli.subprocess.run")
-    def test_calls_spctl(self, mock_run: MagicMock, tmp_path: pathlib.Path) -> None:
-        verify(tmp_path / "Test.app")
+    def test_calls_stapler_validate(self, mock_run: MagicMock, tmp_path: pathlib.Path) -> None:
+        verify(tmp_path / "Test.dmg")
 
         cmd = mock_run.call_args[0][0]
-        assert "spctl" in cmd
-        assert "--assess" in cmd
-        assert "--type" in cmd
-        assert "execute" in cmd
+        assert "stapler" in cmd
+        assert "validate" in cmd
 
     @patch("scripts.notarize.cli.subprocess.run")
     def test_dry_run_skips(self, mock_run: MagicMock, tmp_path: pathlib.Path) -> None:
-        verify(tmp_path / "Test.app", dry_run=True)
+        verify(tmp_path / "Test.dmg", dry_run=True)
         mock_run.assert_not_called()
 
 
@@ -258,14 +280,12 @@ class TestMain:
             patch("sys.argv", ["notarize", "--dry-run", "staple"]),
             patch("scripts.notarize.cli.read_version", return_value="1.0.0"),
             patch("scripts.notarize.cli.dmg_path") as mock_dmg_path,
-            patch("scripts.notarize.cli.app_path") as mock_app_path,
             patch("scripts.notarize.cli.load_submission_id", return_value="abc-123"),
             patch("scripts.notarize.cli.check_status", return_value=None) as mock_status,
             patch("scripts.notarize.cli.staple") as mock_staple,
             patch("scripts.notarize.cli.verify") as mock_verify,
         ):
             mock_dmg_path.return_value = pathlib.Path("/fake/test.dmg")
-            mock_app_path.return_value = pathlib.Path("/fake/Test.app")
             from scripts.notarize.cli import main
 
             main()
@@ -362,6 +382,7 @@ class TestMain:
             patch("scripts.notarize.cli.dmg_path", return_value=dmg),
             patch("scripts.notarize.cli.submit", return_value="new-sub-id-999") as mock_submit,
             patch("scripts.notarize.cli.save_submission_id") as mock_save,
+            patch("scripts.notarize.cli.backup_dmg"),
         ):
             from scripts.notarize.cli import main
 
@@ -389,23 +410,6 @@ class TestMain:
             patch("sys.argv", ["notarize", "staple", "--submission-id", "abc-123"]),
             patch("scripts.notarize.cli.read_version", return_value="1.0.0"),
             patch("scripts.notarize.cli.dmg_path", return_value=tmp_path / "missing.dmg"),
-            patch("scripts.notarize.cli.app_path", return_value=tmp_path / "Test.app"),
-            pytest.raises(SystemExit, match="1"),
-        ):
-            from scripts.notarize.cli import main
-
-            main()
-
-    def test_staple_missing_app_errors(self, tmp_path: pathlib.Path) -> None:
-        """_cmd_staple raises SystemExit when app bundle does not exist."""
-        dmg = tmp_path / "test.dmg"
-        dmg.write_bytes(b"fake")
-
-        with (
-            patch("sys.argv", ["notarize", "staple", "--submission-id", "abc-123"]),
-            patch("scripts.notarize.cli.read_version", return_value="1.0.0"),
-            patch("scripts.notarize.cli.dmg_path", return_value=dmg),
-            patch("scripts.notarize.cli.app_path", return_value=tmp_path / "Missing.app"),
             pytest.raises(SystemExit, match="1"),
         ):
             from scripts.notarize.cli import main
@@ -416,14 +420,11 @@ class TestMain:
         """_cmd_staple raises SystemExit when notarization status is not Accepted."""
         dmg = tmp_path / "test.dmg"
         dmg.write_bytes(b"fake")
-        app = tmp_path / "Test.app"
-        app.mkdir()
 
         with (
             patch("sys.argv", ["notarize", "staple", "--submission-id", "abc-123"]),
             patch("scripts.notarize.cli.read_version", return_value="1.0.0"),
             patch("scripts.notarize.cli.dmg_path", return_value=dmg),
-            patch("scripts.notarize.cli.app_path", return_value=app),
             patch("scripts.notarize.cli.check_status", return_value="In Progress"),
             pytest.raises(SystemExit, match="1"),
         ):

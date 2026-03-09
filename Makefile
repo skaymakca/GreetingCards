@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev tessdata run test test-everything check pyright mypy lint lint-fix format format-check security pycharm-inspect content licenses-sync icon sparkle app app-run dmg configure-release shellcheck version bump-patch bump-minor bump-major tag tag-push visual-test visual-test-app show-scripts loc docker-build docker-test docker-shell clean
+.PHONY: help setup setup-dev tessdata run test test-everything check pyright mypy lint lint-fix format format-check security pycharm-inspect content licenses-sync icon sparkle app app-run dmg configure-release shellcheck version bump-patch bump-minor bump-major tag tag-push loc profile show-scripts sync-private visual-test visual-test-app docker-build docker-test docker-shell clean
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -20,6 +20,7 @@ SPARKLE_VERSION := 2.9.0
 INSPECT_OUT := /tmp/pycharm-inspect-out
 PYCHARM_APP ?= $(firstword $(wildcard $(HOME)/Applications/PyCharm.app $(HOME)/Applications/PyCharm\ CE.app /Applications/PyCharm.app /Applications/PyCharm\ CE.app))
 LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister
+PRIVATE_REPO := $(HOME)/code/GreetingCards-private
 
 help: # Show this help message
 	@echo "Greeting Cards - Available make commands:"
@@ -214,13 +215,24 @@ tag-push: ## Push all tags to remote
 
 ##@ Tools
 
-visual-test: content ## Run visual test harness from source
-	uv run python scripts/visual_test.py
+loc: ## Count lines of code (excludes dependencies)
+	@echo "Lines of code (project files only):"
+	@echo ""
+	@find . -name "*.py" -not -path "./.venv/*" -not -path "./_build/*" -not -path "./dist/*" -not -path "./.claude/*" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="Python:" '$(FMT_LINE)'
+	@(find ./app -name "*.py" -not -path "*/gui/*" -not -path "*/__pycache__/*" -exec cat {} + ; cat main.py) | wc -l | awk -v lbl="  Core:" '$(FMT_LINE)'
+	@find ./app/gui -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  GUI:" '$(FMT_LINE)'
+	@find ./scripts -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  Scripts:" '$(FMT_LINE)'
+	@find ./tests -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  Tests:" '$(FMT_LINE)'
+	@echo ""
+	@find ./content/html/help \( -name "*.md" \) -exec cat {} + 2>/dev/null | wc -l | awk -v lbl="Help MD:" '$(FMT_LINE)'
+	@find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null | wc -l | awk -v lbl="Web:" '$(FMT_LINE)'
+	@echo ""
+	@wc -l Makefile "packaging/Greeting Cards.spec" 2>/dev/null | tail -1 | awk -v lbl="Config:" '$(FMT_LINE)'
+	@echo ""
+	@(find . -name "*.py" -not -path "./.venv/*" -not -path "./_build/*" -not -path "./dist/*" -not -path "./.claude/*" -not -path "*/__pycache__/*" -exec cat {} + ; find ./content/html/help -name "*.md" -exec cat {} + 2>/dev/null; find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null; cat Makefile "packaging/Greeting Cards.spec") | wc -l | awk -v lbl="Total:" '$(FMT_LINE)'
 
-visual-test-app: icon content tessdata ## Build and run visual test harness as .app bundle (logs visible)
-	uv run pyinstaller --workpath _build/pyinstaller_build -y "packaging/Visual Test.spec"
-	@rm -rf "dist/Visual Test"
-	"dist/Visual Test.app/Contents/MacOS/Visual Test"
+profile: tessdata ## Profile the PDF processing pipeline (CORPUS=~/Desktop/Cards)
+	uv run python -m scripts.profiling "$(CORPUS)" $(if $(LIMIT),--limit $(LIMIT))
 
 show-scripts: ## Show available script invocations (does not run them)
 	@echo "Available scripts (run with uv run python -m scripts.<name>):"
@@ -289,21 +301,29 @@ show-scripts: ## Show available script invocations (does not run them)
 	@echo "  All scripts support --help."
 	@echo "  Output goes to _build/script_output/ with timestamped directories."
 
-loc: ## Count lines of code (excludes dependencies)
-	@echo "Lines of code (project files only):"
-	@echo ""
-	@find . -name "*.py" -not -path "./.venv/*" -not -path "./_build/*" -not -path "./dist/*" -not -path "./.claude/*" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="Python:" '$(FMT_LINE)'
-	@(find ./app -name "*.py" -not -path "*/gui/*" -not -path "*/__pycache__/*" -exec cat {} + ; cat main.py) | wc -l | awk -v lbl="  Core:" '$(FMT_LINE)'
-	@find ./app/gui -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  GUI:" '$(FMT_LINE)'
-	@find ./scripts -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  Scripts:" '$(FMT_LINE)'
-	@find ./tests -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  Tests:" '$(FMT_LINE)'
-	@echo ""
-	@find ./content/html/help \( -name "*.md" \) -exec cat {} + 2>/dev/null | wc -l | awk -v lbl="Help MD:" '$(FMT_LINE)'
-	@find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null | wc -l | awk -v lbl="Web:" '$(FMT_LINE)'
-	@echo ""
-	@wc -l Makefile "packaging/Greeting Cards.spec" 2>/dev/null | tail -1 | awk -v lbl="Config:" '$(FMT_LINE)'
-	@echo ""
-	@(find . -name "*.py" -not -path "./.venv/*" -not -path "./_build/*" -not -path "./dist/*" -not -path "./.claude/*" -not -path "*/__pycache__/*" -exec cat {} + ; find ./content/html/help -name "*.md" -exec cat {} + 2>/dev/null; find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null; cat Makefile "packaging/Greeting Cards.spec") | wc -l | awk -v lbl="Total:" '$(FMT_LINE)'
+sync-private: ## Sync trackable local files to the private sibling repo
+	@if [ ! -d "$(PRIVATE_REPO)/.git" ]; then \
+		echo "Initializing private repo at $(PRIVATE_REPO)..."; \
+		mkdir -p "$(PRIVATE_REPO)"; \
+		git -C "$(PRIVATE_REPO)" init; \
+		printf '.DS_Store\n' > "$(PRIVATE_REPO)/.gitignore"; \
+		cp scripts/sync-private-readme.md "$(PRIVATE_REPO)/README.md"; \
+		echo "✓ Private repo initialized."; \
+		echo ""; \
+	fi
+	@echo "Syncing to $(PRIVATE_REPO)..."
+	@rsync -a --no-links --prune-empty-dirs --delete \
+		--filter='merge scripts/sync-private-filters.txt' \
+		./ "$(PRIVATE_REPO)/"
+	@echo "✓ Sync complete."
+
+visual-test: content ## Run visual test harness from source
+	uv run python scripts/visual_test.py
+
+visual-test-app: icon content tessdata ## Build and run visual test harness as .app bundle (logs visible)
+	uv run pyinstaller --workpath _build/pyinstaller_build -y "packaging/Visual Test.spec"
+	@rm -rf "dist/Visual Test"
+	"dist/Visual Test.app/Contents/MacOS/Visual Test"
 
 ##@ Docker
 

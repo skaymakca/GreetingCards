@@ -105,7 +105,7 @@ After each pass:
 
 ## Output
 
-All findings go into `.local/audits/YYYYMMDDThhmm-mvc-compliance.md` (timestamp of when the audit started). After convergence, group related findings into **clusters** — sets of findings that share a root cause or would be fixed together.
+All findings go into `_build/audit/YYYYMMDDThhmm-mvc-compliance.md` (timestamp of when the audit started). After convergence, group related findings into **clusters** — sets of findings that share a root cause or would be fixed together.
 
 ### Findings File Template
 
@@ -177,8 +177,8 @@ Use this template for the findings file:
 
 ## How to Run
 
-1. Create the output directory if needed (`mkdir -p .local/audits`)
-2. Create a fresh findings file from the template above at `.local/audits/YYYYMMDDThhmm-mvc-compliance.md`
+1. Create the output directory if needed (`mkdir -p _build/audit`)
+2. Create a fresh findings file from the template above at `_build/audit/YYYYMMDDThhmm-mvc-compliance.md`
 3. Launch Pass 1: three parallel agents (A, B, C) with the scopes defined above
 4. Consolidate Pass 1 findings into the file
 5. Launch Pass 2: two parallel agents (D, E) — pass them the Pass 1 findings for validation

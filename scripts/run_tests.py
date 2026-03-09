@@ -300,7 +300,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     # Run pytest
-    cmd = [sys.executable, "-m", "pytest"] + pytest_args
+    cmd = [sys.executable, "-m", "pytest"] + pytest_args  # noqa: RUF005
     result = subprocess.run(cmd, cwd=str(PROJECT_ROOT))
 
     # Post-pytest coverage processing

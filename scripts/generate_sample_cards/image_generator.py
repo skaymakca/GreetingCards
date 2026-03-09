@@ -216,8 +216,8 @@ async def generate_image_openai_async(
                         image=[reference_image],
                         prompt=prompt,
                         n=1,
-                        size=size,
-                        quality=quality,
+                        size=size,  # pyright: ignore[reportArgumentType]
+                        quality=quality,  # pyright: ignore[reportArgumentType]
                         input_fidelity="high",
                     )
                 else:
@@ -225,8 +225,8 @@ async def generate_image_openai_async(
                         model=model,
                         prompt=prompt,
                         n=1,
-                        size=size,
-                        quality=quality,
+                        size=size,  # pyright: ignore[reportArgumentType]
+                        quality=quality,  # pyright: ignore[reportArgumentType]
                     )
 
                 if not result.data:
@@ -237,7 +237,7 @@ async def generate_image_openai_async(
                     output_path.write_bytes(img_bytes)
                     return True
                 elif image_data.url:
-                    urllib.request.urlretrieve(image_data.url, output_path)
+                    urllib.request.urlretrieve(image_data.url, output_path)  # nosec B310
                     return True
 
                 return False

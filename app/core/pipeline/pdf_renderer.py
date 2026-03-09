@@ -61,9 +61,3 @@ def render_all_pages(pdf_path: Path, dpi: int = 200) -> list[Image.Image]:
             img_data = pix.tobytes("png")
             images.append(autocrop_whitespace(Image.open(io.BytesIO(img_data))))
     return images
-
-
-def get_page_count(pdf_path: Path) -> int:
-    """Return the number of pages in a PDF."""
-    with fitz.open(str(pdf_path)) as doc:
-        return len(doc)

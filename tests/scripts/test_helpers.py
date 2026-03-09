@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import plistlib
+import subprocess
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -208,3 +209,38 @@ def test_read_build_number_missing_key(tmp_path: Path) -> None:
         pytest.raises(ValueError, match="CFBundleVersion not found"),
     ):
         read_build_number()
+
+
+# ---------------------------------------------------------------------------
+# run_command()
+# ---------------------------------------------------------------------------
+
+
+class TestRunCommand:
+    """Tests for run_command() shared helper."""
+
+    @patch("scripts.helpers.subprocess.run")
+    def test_real_run_calls_subprocess(self, mock_run: MagicMock) -> None:
+        from scripts.helpers import run_command
+
+        mock_run.return_value = subprocess.CompletedProcess(["echo"], 0)
+        result = run_command(["echo", "hello"])
+        mock_run.assert_called_once_with(["echo", "hello"], check=True, text=True, capture_output=False)
+        assert result.returncode == 0
+
+    @patch("scripts.helpers.subprocess.run")
+    def test_dry_run_skips_subprocess(self, mock_run: MagicMock) -> None:
+        from scripts.helpers import run_command
+
+        result = run_command(["echo", "hello"], dry_run=True)
+        mock_run.assert_not_called()
+        assert result.returncode == 0
+        assert result.stdout == ""
+
+    @patch("scripts.helpers.subprocess.run")
+    def test_capture_flag_passed_through(self, mock_run: MagicMock) -> None:
+        from scripts.helpers import run_command
+
+        mock_run.return_value = subprocess.CompletedProcess(["cmd"], 0, stdout="out")
+        run_command(["cmd"], capture=True)
+        mock_run.assert_called_once_with(["cmd"], check=True, text=True, capture_output=True)

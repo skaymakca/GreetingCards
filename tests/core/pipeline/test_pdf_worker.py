@@ -260,6 +260,25 @@ class TestProcessPdfWorkerCardState:
         assert result.selected_candidate_id is None
 
 
+class TestProcessPdfWorkerEmptyOcr:
+    """Tests for empty OCR text handling."""
+
+    @patch("app.core.pipeline.pdf_worker.reprocess_candidates_from_raw")
+    @patch("app.core.pipeline.pdf_worker.save_raw_ocr")
+    @patch("app.core.pipeline.pdf_worker.extract_text_all_pages", return_value="")
+    @patch("app.core.pipeline.pdf_worker.render_all_pages")
+    @patch("app.core.pipeline.pdf_worker.get_card_state")
+    @patch("app.core.pipeline.pdf_worker.compute_file_hash", return_value="abc123")
+    def test_empty_ocr_text_is_saved(self, mock_hash, mock_state, mock_render, mock_ocr, mock_save_ocr, mock_reprocess):
+        """Empty OCR text is still saved to the database."""
+        mock_render.return_value = [_make_test_image()]
+        mock_state.return_value = None
+
+        process_pdf_worker("/fake/card.pdf")
+
+        mock_save_ocr.assert_called_once_with("abc123", "")
+
+
 class TestProcessPdfWorkerWithDB:
     """DB-backed tests for process_pdf_worker using real in-memory SQLite."""
 

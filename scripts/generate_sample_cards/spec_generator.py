@@ -40,7 +40,7 @@ async def generate_card_specs_async(
     """Generate card specifications using async concurrent Claude calls."""
     console = Console(highlight=False)
     client = anthropic.AsyncAnthropic()
-    rng = random.Random()
+    rng = random.Random()  # nosec B311
 
     try:
         # Override count if fixed names were provided

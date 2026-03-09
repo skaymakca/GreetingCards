@@ -9,13 +9,15 @@ from app.core.config import (
     GITHUB_URL,
     ModelInfo,
     get_ai_model,
-    get_api_key,
     has_prompted_auto_update,
     save_ai_model,
-    save_api_key,
     set_prompted_auto_update,
 )
 from app.core.constants import RELOAD_COOLDOWN, default_year
+from app.core.keychain import (
+    get_api_key,
+    save_api_key,
+)
 
 
 class ConfigService:
@@ -62,12 +64,12 @@ class ConfigService:
         return default_year()
 
     @staticmethod
-    def has_prompted_auto_update() -> bool:
+    def has_prompted_auto_update() -> bool:  # pragma: no cover — Sparkle UI only
         """Return True if the auto-update opt-in dialog has been shown."""
         return has_prompted_auto_update()
 
     @staticmethod
-    def set_prompted_auto_update() -> None:
+    def set_prompted_auto_update() -> None:  # pragma: no cover — Sparkle UI only
         """Record that the auto-update opt-in dialog has been shown."""
         set_prompted_auto_update()
 

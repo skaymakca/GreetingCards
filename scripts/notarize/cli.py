@@ -16,20 +16,14 @@ from __future__ import annotations
 import argparse
 import pathlib
 import re
+import shutil
 import subprocess
+from datetime import datetime
 
-from scripts.helpers import PROJECT_ROOT, app_path, dmg_path, read_version
+from scripts.helpers import PROJECT_ROOT, dmg_path, read_version, run_command
 
 _SUBMISSION_ID_FILE = PROJECT_ROOT / "_build" / "release" / "submission-id.txt"
 _ID_PATTERN = re.compile(r"id:\s*([0-9a-f-]+)")
-
-
-def _run(cmd: list[str], *, dry_run: bool = False, capture: bool = False) -> subprocess.CompletedProcess[str]:
-    """Run a command, printing it first. In dry-run mode, skip execution."""
-    print(f"  {'[dry-run] ' if dry_run else ''}{' '.join(cmd)}")
-    if dry_run:
-        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
-    return subprocess.run(cmd, check=True, capture_output=capture, text=True)
 
 
 def save_submission_id(submission_id: str, path: pathlib.Path = _SUBMISSION_ID_FILE) -> None:
@@ -48,13 +42,28 @@ def load_submission_id(path: pathlib.Path = _SUBMISSION_ID_FILE) -> str:
     return text
 
 
+def backup_dmg(dmg: pathlib.Path) -> pathlib.Path:
+    """Copy the DMG to _build/release/ with a datetime stamp.
+
+    Preserves the exact artifact submitted to Apple so it can be recovered
+    if the DMG is accidentally rebuilt before stapling.
+    """
+    timestamp = datetime.now().strftime("%Y%m%dT%H%M")
+    backup_name = f"{dmg.stem}-{timestamp}{dmg.suffix}"
+    backup_path = _SUBMISSION_ID_FILE.parent / backup_name
+    backup_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(dmg, backup_path)
+    print(f"DMG backed up to {backup_path}")
+    return backup_path
+
+
 def submit(dmg: pathlib.Path, profile: str, *, dry_run: bool = False) -> str | None:
     """Submit DMG to Apple's notary service (fire-and-forget).
 
     Returns the submission ID on success, or None in dry-run mode.
     """
     print("Submitting to Apple notary service …")
-    result = _run(
+    result = run_command(
         [
             "xcrun",
             "notarytool",
@@ -88,7 +97,7 @@ def check_status(submission_id: str, profile: str, *, dry_run: bool = False) -> 
     (e.g. ``"Accepted"``, ``"In Progress"``). Returns None in dry-run mode.
     """
     print(f"Checking status for {submission_id} …")
-    result = _run(
+    result = run_command(
         ["xcrun", "notarytool", "info", submission_id, "--keychain-profile", profile],
         dry_run=dry_run,
         capture=True,
@@ -110,7 +119,7 @@ def fetch_history(profile: str, *, dry_run: bool = False) -> str | None:
     output.  Returns ``None`` if no ID is found or in dry-run mode.
     """
     print("Fetching notarization history …")
-    result = _run(
+    result = run_command(
         ["xcrun", "notarytool", "history", "--keychain-profile", profile],
         dry_run=dry_run,
         capture=True,
@@ -133,7 +142,7 @@ def fetch_log(submission_id: str, profile: str, *, dry_run: bool = False) -> Non
     """
     print(f"Fetching log for {submission_id} …")
     try:
-        _run(
+        run_command(
             ["xcrun", "notarytool", "log", submission_id, "--keychain-profile", profile],
             dry_run=dry_run,
         )
@@ -143,21 +152,20 @@ def fetch_log(submission_id: str, profile: str, *, dry_run: bool = False) -> Non
         raise SystemExit(1) from None
 
 
-def staple(app: pathlib.Path, dmg: pathlib.Path, *, dry_run: bool = False) -> None:
-    """Staple the notarization ticket to both the .app and the .dmg."""
+def staple(dmg: pathlib.Path, *, dry_run: bool = False) -> None:
+    """Staple the notarization ticket to the DMG."""
     print("Stapling ticket …")
-    _run(["xcrun", "stapler", "staple", str(app)], dry_run=dry_run)
-    _run(["xcrun", "stapler", "staple", str(dmg)], dry_run=dry_run)
+    run_command(["xcrun", "stapler", "staple", str(dmg)], dry_run=dry_run)
 
 
-def verify(app: pathlib.Path, *, dry_run: bool = False) -> None:
-    """Verify the notarized app passes Gatekeeper assessment."""
-    print("Verifying Gatekeeper assessment …")
-    _run(
-        ["spctl", "--assess", "--type", "execute", "--verbose", str(app)],
+def verify(dmg: pathlib.Path, *, dry_run: bool = False) -> None:
+    """Verify the notarization ticket is stapled to the DMG."""
+    print("Verifying stapled ticket …")
+    run_command(
+        ["xcrun", "stapler", "validate", str(dmg)],
         dry_run=dry_run,
     )
-    print("Gatekeeper assessment passed.")
+    print("Stapler validation passed.")
 
 
 def _resolve_submission_id(args: argparse.Namespace) -> str:
@@ -193,8 +201,10 @@ def _cmd_submit(args: argparse.Namespace) -> None:
 
     if submission_id:
         save_submission_id(submission_id)
+        backup = backup_dmg(dmg)
         print()
         print(f"Submission ID: {submission_id}")
+        print(f"DMG backup:    {backup}")
         print("Next steps:")
         print("  uv run python -m scripts.notarize status   # check progress")
         print("  uv run python -m scripts.notarize staple   # after acceptance")
@@ -220,17 +230,11 @@ def _cmd_staple(args: argparse.Namespace) -> None:
     """Staple handler: resolve ID, check status, staple + verify."""
     version = read_version()
     dmg = dmg_path(version)
-    app = app_path()
 
-    if not args.dry_run:
-        if not dmg.exists():
-            print(f"Error: DMG not found at {dmg}")
-            print("  Run 'make dmg' first.")
-            raise SystemExit(1)
-        if not app.exists():
-            print(f"Error: App bundle not found at {app}")
-            print("  Run 'make app' first.")
-            raise SystemExit(1)
+    if not args.dry_run and not dmg.exists():
+        print(f"Error: DMG not found at {dmg}")
+        print("  Run 'make dmg' first.")
+        raise SystemExit(1)
 
     submission_id = _resolve_submission_id(args)
     status = check_status(submission_id, args.keychain_profile, dry_run=args.dry_run)
@@ -240,8 +244,8 @@ def _cmd_staple(args: argparse.Namespace) -> None:
         print("Run 'status' or 'log' to check progress.")
         raise SystemExit(1)
 
-    staple(app, dmg, dry_run=args.dry_run)
-    verify(app, dry_run=args.dry_run)
+    staple(dmg, dry_run=args.dry_run)
+    verify(dmg, dry_run=args.dry_run)
     print("Notarization complete.")
 
 

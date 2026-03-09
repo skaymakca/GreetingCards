@@ -193,12 +193,15 @@ def _ensure_schema() -> None:
 
     _drop_tables(engine, orphaned)
 
-    # Create new schema
-    Base.metadata.create_all(engine)
+    _create_fresh_schema(engine, session_factory, expected)
 
+
+def _create_fresh_schema(engine: Engine, session_factory: sessionmaker[Session], version: str) -> None:
+    """Create all tables and stamp the schema version."""
+    Base.metadata.create_all(engine)
     session = session_factory()
     try:
-        session.add(Settings(key="schema_version", value=expected))
+        session.add(Settings(key="schema_version", value=version))
         session.commit()
     except Exception:
         session.rollback()
@@ -225,17 +228,7 @@ def reset_database() -> None:
     all_tables = db_inspector.get_table_names()
     _drop_tables(engine, all_tables)
 
-    # Create new schema
-    Base.metadata.create_all(engine)
-    session = session_factory()
-    try:
-        session.add(Settings(key="schema_version", value=_compute_schema_version()))
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
+    _create_fresh_schema(engine, session_factory, _compute_schema_version())
 
 
 def clear_ai_results(file_hashes: list[str]) -> int:
@@ -285,7 +278,7 @@ def clear_ai_results(file_hashes: list[str]) -> int:
             # Find best remaining OCR candidate
             best_ocr = session.query(Candidate).filter_by(file_hash=card.file_hash, method="ocr").all()
             if best_ocr:
-                best = min(best_ocr, key=lambda c: _CONFIDENCE_ORDER.get(c.confidence, 999))  # type: ignore[call-overload]  # Candidate.confidence is Mapped[str]
+                best = min(best_ocr, key=lambda c: (_CONFIDENCE_ORDER.get(c.confidence, 999), c.id))  # type: ignore[call-overload]  # Candidate.confidence is Mapped[str]
                 card.selected_candidate_id = best.id
             else:
                 card.selected_candidate_id = None
@@ -430,34 +423,45 @@ def get_candidates(file_hash: str) -> list[CandidateInfo]:
         return _sort_candidates(candidates)
 
 
-# noinspection DuplicatedCode
+def _update_card_selection(
+    session: Session,
+    file_hash: str,
+    *,
+    selected_family_name: str | None = None,
+    selected_candidate_id: int | None = None,
+    remove_family: bool = False,
+) -> None:
+    """Update or create a card's selection state.
+
+    Exactly one of selected_family_name or selected_candidate_id should be set;
+    the other is cleared.
+    """
+    card = session.query(Card).filter_by(file_hash=file_hash).first()
+    if card:
+        card.selected_family_name = selected_family_name
+        card.selected_candidate_id = selected_candidate_id
+        card.remove_family = remove_family
+        card.updated_at = datetime.now(UTC)
+    else:
+        card = Card(
+            file_hash=file_hash,
+            selected_family_name=selected_family_name,
+            selected_candidate_id=selected_candidate_id,
+            remove_family=remove_family,
+        )
+        session.add(card)
+
+
 def set_manual_name(file_hash: str, family_name: str, remove_family: bool = False) -> None:
     """Set a manual name entry. Clears selected_candidate_id."""
     with _session_scope() as session:
-        card = session.query(Card).filter_by(file_hash=file_hash).first()
-        if card:
-            card.selected_family_name = family_name
-            card.selected_candidate_id = None
-            card.remove_family = remove_family
-            card.updated_at = datetime.now(UTC)
-        else:
-            card = Card(file_hash=file_hash, selected_family_name=family_name, remove_family=remove_family)
-            session.add(card)
+        _update_card_selection(session, file_hash, selected_family_name=family_name, remove_family=remove_family)
 
 
-# noinspection DuplicatedCode
 def select_candidate(file_hash: str, candidate_id: int, remove_family: bool = False) -> None:
     """Select a candidate for the card. Clears selected_family_name."""
     with _session_scope() as session:
-        card = session.query(Card).filter_by(file_hash=file_hash).first()
-        if card:
-            card.selected_candidate_id = candidate_id
-            card.selected_family_name = None
-            card.remove_family = remove_family
-            card.updated_at = datetime.now(UTC)
-        else:
-            card = Card(file_hash=file_hash, selected_candidate_id=candidate_id, remove_family=remove_family)
-            session.add(card)
+        _update_card_selection(session, file_hash, selected_candidate_id=candidate_id, remove_family=remove_family)
 
 
 def update_remove_family(file_hash: str, remove_family: bool) -> None:
@@ -519,18 +523,21 @@ def get_card_state(file_hash: str) -> CardState | None:
         )
 
 
+def _upsert_raw(session: Session, model_class: type, file_hash: str, field_name: str, value: str) -> None:
+    """Insert or update a raw result row (OCR or AI)."""
+    row = session.query(model_class).filter_by(file_hash=file_hash).first()
+    if row:
+        setattr(row, field_name, value)
+    else:
+        row = model_class(file_hash=file_hash, **{field_name: value})
+        session.add(row)
+
+
 def save_raw_ocr(file_hash: str, ocr_text: str) -> None:
     """Save raw OCR text for potential re-processing."""
     with _session_scope() as session:
         _ensure_card_exists(session, file_hash)
-
-        # Save or update OCR result
-        ocr_result = session.query(RawOCRResult).filter_by(file_hash=file_hash).first()
-        if ocr_result:
-            ocr_result.ocr_text = ocr_text
-        else:
-            ocr_result = RawOCRResult(file_hash=file_hash, ocr_text=ocr_text)
-            session.add(ocr_result)
+        _upsert_raw(session, RawOCRResult, file_hash, "ocr_text", ocr_text)
 
 
 def get_raw_ocr(file_hash: str) -> str | None:
@@ -544,15 +551,8 @@ def save_raw_ai(file_hash: str, best_name: str, alternates: list[str]) -> None:
     """Save raw AI result for debugging and potential re-processing."""
     with _session_scope() as session:
         _ensure_card_exists(session, file_hash)
-
-        # Save raw AI response as JSON
         raw_data = json.dumps({"best_name": best_name, "alternates": alternates})
-        ai_result = session.query(RawAIResult).filter_by(file_hash=file_hash).first()
-        if ai_result:
-            ai_result.raw_response = raw_data
-        else:
-            ai_result = RawAIResult(file_hash=file_hash, raw_response=raw_data)
-            session.add(ai_result)
+        _upsert_raw(session, RawAIResult, file_hash, "raw_response", raw_data)
 
 
 # noinspection PyTypeChecker

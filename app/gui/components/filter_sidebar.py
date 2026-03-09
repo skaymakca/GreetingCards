@@ -124,7 +124,7 @@ class FilterSidebar(wx.Panel):
         self._notify_timer: wx.CallLater | None = None
 
         self.SetSizer(sizer)
-        self.SetMinSize((_SIDEBAR_MIN_WIDTH, -1))
+        self.SetMinSize((_SIDEBAR_MIN_WIDTH, -1))  # pyright: ignore[reportArgumentType]
 
     # --- Notification area ---
 
@@ -133,7 +133,7 @@ class FilterSidebar(wx.Panel):
         if self._notify_timer is not None:
             self._notify_timer.Stop()
             self._notify_timer = None
-        if icon in (wx.ICON_WARNING, wx.ICON_ERROR):
+        if icon in (wx.ICON_WARNING, wx.ICON_ERROR):  # noqa: SIM108
             colour = styles.Color.ERROR
         else:
             colour = styles.Color.TEXT_SECONDARY
@@ -272,7 +272,7 @@ class FilterSidebar(wx.Panel):
 
         # Build filter list: "All Folders" + one per folder
         self._folder_filters = [("all_folders", "All Folders")]
-        for path, label in zip(folder_paths, labels, strict=False):
+        for path, label in zip(folder_paths, labels, strict=True):
             self._folder_filters.append((str(path), label))
         self._folder_keys = [f[0] for f in self._folder_filters]
 

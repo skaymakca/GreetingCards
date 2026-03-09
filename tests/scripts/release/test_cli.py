@@ -11,7 +11,6 @@ from scripts.release.cli import (
     ReleaseError,
     _preflight_tag_check,
     _release_notes_path,
-    _run,
     build_draft_command,
     cmd_draft,
     cmd_publish,
@@ -410,22 +409,6 @@ class TestCalledProcessError:
             pytest.raises(SystemExit, match="1"),
         ):
             cmd_publish("1.0.0")
-
-
-class TestRunHelper:
-    """Tests for the _run() helper function."""
-
-    @patch("scripts.release.cli.subprocess.run")
-    def test_dry_run_returns_empty_result(self, mock_run: MagicMock) -> None:
-        result = _run(["gh", "release", "create"], dry_run=True)
-        mock_run.assert_not_called()
-        assert result.returncode == 0
-        assert result.stdout == ""
-
-    @patch("scripts.release.cli.subprocess.run", return_value=subprocess.CompletedProcess(["gh"], 0))
-    def test_real_run_calls_subprocess(self, mock_run: MagicMock) -> None:
-        _run(["gh", "release", "create"])
-        mock_run.assert_called_once_with(["gh", "release", "create"], check=True, text=True)
 
 
 class TestPreflightTagCheck:

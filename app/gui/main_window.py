@@ -43,8 +43,8 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
     def __init__(self) -> None:
         # Create frame
-        self._frame = wx.Frame(None, title="Greeting Cards", size=(Layout.WINDOW_WIDTH, Layout.WINDOW_HEIGHT))
-        self._frame.SetMinSize(Layout.MIN_FRAME_SIZE)
+        self._frame = wx.Frame(None, title="Greeting Cards", size=(Layout.WINDOW_WIDTH, Layout.WINDOW_HEIGHT))  # pyright: ignore[reportArgumentType]
+        self._frame.SetMinSize(Layout.MIN_FRAME_SIZE)  # pyright: ignore[reportArgumentType]
 
         # Service initialization — wxPython's two-phase construction requires
         # these to be created here rather than injected via constructor.
@@ -57,7 +57,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         self._current_category_filters = [FilterCategory.ALL.value]  # Current sidebar category filters
         self._current_folder_filters = ["all_folders"]  # Current sidebar folder filters
         self._ai_target_cards: list[CardResult] = []  # Cards for current AI batch
-        self._processing_files: list[Path] = []  # Files currently being processed
+
         self._is_processing_busy: bool = False  # True while PDF processing thread runs
 
         # Preferences editor (lazy-init)
@@ -178,7 +178,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
         row.AddStretchSpacer()
 
-        self._progress_gauge = wx.Gauge(strip, range=100, size=(200, -1))
+        self._progress_gauge = wx.Gauge(strip, range=100, size=(200, -1))  # pyright: ignore[reportArgumentType]
         row.Add(self._progress_gauge, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
 
         self._progress_count = wx.StaticText(strip, label="")
@@ -499,7 +499,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
             return
 
         # Snapshot the file list for the background thread
-        self._processing_files = list(files_to_process)
+        files = list(files_to_process)
         self._is_processing_busy = True
 
         # Show busy cursor
@@ -512,14 +512,13 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         # Note: Card deduplication happens in _process_cards during processing
 
         # Show progress strip
-        total = len(self._processing_files)
-        self._show_progress_strip(total, "Processing Cards...")
+        self._show_progress_strip(len(files), "Processing Cards...")
 
         # Start background thread
-        thread = threading.Thread(target=self._process_cards, daemon=True)
+        thread = threading.Thread(target=self._process_cards, args=(files,), daemon=True)
         thread.start()
 
-    def _process_cards(self) -> None:
+    def _process_cards(self, files: list[Path]) -> None:
         """Process PDFs using ProcessingService (runs in background thread)."""
 
         def _on_progress(completed: int, total: int, filename: str) -> None:
@@ -529,7 +528,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
             wx.CallAfter(self._processing_complete)
 
         self._processing_service.process_files(
-            self._processing_files,
+            files,
             on_progress=_on_progress,
             on_complete=_on_complete,
         )
@@ -667,7 +666,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
         # Repaint all windows; call refresh_colors() on those that support it
         # noinspection PyArgumentList
-        for window in wx.GetTopLevelWindows():
+        for window in wx.GetTopLevelWindows():  # pyright: ignore[reportCallIssue]
             if hasattr(window, "refresh_colors"):
                 window.refresh_colors()
             window.Refresh()

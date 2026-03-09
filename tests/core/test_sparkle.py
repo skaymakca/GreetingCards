@@ -93,6 +93,14 @@ class TestCheckForUpdates:
         """check_for_updates() is a safe no-op when controller is None."""
         sparkle.check_for_updates()  # Should not raise
 
+    def test_exception_is_caught(self) -> None:
+        """Exception from controller.checkForUpdates_ is caught and logged."""
+        mock_ctrl = MagicMock()
+        mock_ctrl.checkForUpdates_.side_effect = RuntimeError("boom")
+        sparkle._controller = mock_ctrl
+        sparkle.check_for_updates()  # Should not raise
+        sparkle._controller = None
+
 
 class TestIsAvailable:
     """is_available() reflects init state."""
@@ -123,6 +131,22 @@ class TestAutoCheckPreference:
         """set_auto_check_enabled() is a safe no-op when not available."""
         sparkle.set_auto_check_enabled(False)  # Should not raise
 
+    def test_get_auto_check_exception_returns_true(self) -> None:
+        """Exception from updater returns True as safe default."""
+        mock_updater = MagicMock()
+        mock_updater.automaticallyChecksForUpdates.side_effect = RuntimeError("boom")
+        sparkle._updater = mock_updater
+        assert sparkle.get_auto_check_enabled() is True
+        sparkle._updater = None
+
+    def test_set_auto_check_exception_is_caught(self) -> None:
+        """Exception from updater.setAutomaticallyChecksForUpdates_ is caught."""
+        mock_updater = MagicMock()
+        mock_updater.setAutomaticallyChecksForUpdates_.side_effect = RuntimeError("boom")
+        sparkle._updater = mock_updater
+        sparkle.set_auto_check_enabled(False)  # Should not raise
+        sparkle._updater = None
+
 
 class TestStart:
     """start() behavior."""
@@ -133,6 +157,51 @@ class TestStart:
     def test_noop_when_not_initialized(self) -> None:
         """start() is a safe no-op when controller is None."""
         sparkle.start()  # Should not raise
+
+    def test_exception_is_caught(self) -> None:
+        """Exception from controller.startUpdater() is caught and logged."""
+        mock_ctrl = MagicMock()
+        mock_ctrl.startUpdater.side_effect = RuntimeError("boom")
+        sparkle._controller = mock_ctrl
+        sparkle.start()  # Should not raise
+        sparkle._controller = None
+
+
+class TestGetFrameworksPath:
+    """_get_frameworks_path() behavior."""
+
+    def test_no_meipass_returns_none(self) -> None:
+        """Returns None when not running as a PyInstaller bundle."""
+        had = hasattr(sparkle.sys, "_MEIPASS")
+        if had:
+            saved = sparkle.sys._MEIPASS  # type: ignore[attr-defined]
+            delattr(sparkle.sys, "_MEIPASS")
+        try:
+            assert sparkle._get_frameworks_path() is None
+        finally:
+            if had:
+                sparkle.sys._MEIPASS = saved  # type: ignore[attr-defined]
+
+    def test_with_meipass_returns_frameworks(self, tmp_path) -> None:
+        """Returns Frameworks path when _MEIPASS is set and dir exists."""
+        contents = tmp_path / "Contents"
+        resources = contents / "Resources"
+        resources.mkdir(parents=True)
+        frameworks = contents / "Frameworks"
+        frameworks.mkdir()
+
+        with patch.object(sparkle.sys, "_MEIPASS", str(resources), create=True):
+            result = sparkle._get_frameworks_path()
+            assert result == frameworks
+
+    def test_with_meipass_no_frameworks_dir(self, tmp_path) -> None:
+        """Returns None when Frameworks directory doesn't exist."""
+        contents = tmp_path / "Contents"
+        resources = contents / "Resources"
+        resources.mkdir(parents=True)
+
+        with patch.object(sparkle.sys, "_MEIPASS", str(resources), create=True):
+            assert sparkle._get_frameworks_path() is None
 
 
 class TestCleanup:

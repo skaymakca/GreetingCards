@@ -18,7 +18,7 @@ from scripts.generate_sample_cards.spec_generators.constants import (
 
 def assign_generated_fields(count: int) -> list[dict[str, Any]]:
     """Build a list of dicts with all Python-determined fields."""
-    rng = random.Random()
+    rng = random.Random()  # nosec B311
 
     # Round-robin + shuffle for holidays and styles
     holidays = (HOLIDAYS * ((count // len(HOLIDAYS)) + 1))[:count]

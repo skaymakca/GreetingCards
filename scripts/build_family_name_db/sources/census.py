@@ -41,7 +41,7 @@ def download_census(console: Console, cache_dir: Path) -> dict[str, CensusEntry]
 
     if not zip_path.exists():
         console.print("[bold]Downloading Census 2010 surname data...[/bold]")
-        with urlopen(CENSUS_URL) as resp:
+        with urlopen(CENSUS_URL) as resp:  # nosec B310
             zip_path.write_bytes(resp.read())
         console.print(f"  Downloaded {zip_path.stat().st_size / 1024 / 1024:.1f} MB")
     else:

@@ -6,6 +6,19 @@ Colors are wx.Colour objects, fonts are wx.Font objects.
 import wx
 
 
+def parse_hex_rgb(hex_color: str) -> tuple[int, int, int]:
+    """Parse a hex color string to (R, G, B) integer components (0–255).
+
+    Args:
+        hex_color: Hex color string like "#FFFFFF" or "FFFFFF"
+    """
+    hex_color = hex_color.lstrip("#")
+    r = int(hex_color[0:2], 16)
+    g = int(hex_color[2:4], 16)
+    b = int(hex_color[4:6], 16)
+    return r, g, b
+
+
 class Color:
     """Color palette for the application (wx.Colour objects).
 
@@ -73,10 +86,7 @@ class Color:
         Returns:
             wx.Colour object
         """
-        hex_color = hex_color.lstrip("#")
-        r = int(hex_color[0:2], 16)
-        g = int(hex_color[2:4], 16)
-        b = int(hex_color[4:6], 16)
+        r, g, b = parse_hex_rgb(hex_color)
         return wx.Colour(r, g, b)
 
 
@@ -161,6 +171,25 @@ class Layout:
     DROP_BG_SCALE = 0.5  # Background image area as fraction of overlay
     DROP_IMG_SHIFT = 0.06  # Upward shift of background image
     DROP_TEXT_GAP = 2  # Pixel gap between primary/secondary text
+
+    # Preview panel
+    PREVIEW_BUTTON_SIZE = (28, 28)
+    PREVIEW_FIT_BUTTON_SIZE = (42, 28)
+    PAGE_LABEL_MIN_WIDTH = 50
+    ZOOM_LABEL_MIN_WIDTH = 40
+    MIN_CANVAS_SIZE = 10
+    ERROR_TEXT_MARGIN = 40
+
+    # Review panel
+    LEGEND_ROW_SPACING = 6
+    LEGEND_ICON_GAP = 2
+    LEGEND_POPUP_GAP = 2
+    FILE_PATHS_MIN_HEIGHT = 100
+
+    # Dialogs
+    DIALOG_PADDING = 20
+    DIALOG_SECTION_GAP = 10
+    PROGRESS_GAUGE_WIDTH = 350
 
     # Timing (ms)
     DEBOUNCE_MS = 1000

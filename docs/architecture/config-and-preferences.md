@@ -2,18 +2,19 @@
 
 User configuration: API key, AI model selection, and how persistence differs between dev and bundled modes.
 
-**Key files:** `app/core/config.py`, `app/core/paths.py`, `app/core/services/config_service.py`, `app/gui/dialogs/settings.py`
+**Key files:** `app/core/keychain.py`, `app/core/config.py`, `app/core/paths.py`, `app/core/services/config_service.py`, `app/gui/dialogs/settings.py`
 
 ## Storage Overview
 
-The app uses two persistence mechanisms for different purposes:
+The app uses three persistence mechanisms for different purposes:
 
-| What                                  | Storage                            | Why                                                      |
-|---------------------------------------|------------------------------------|----------------------------------------------------------|
-| API key, AI model, auto-update prompt | `preferences.plist` (XML plist)    | User preferences — small, simple key-value pairs         |
-| OCR results, AI results, manual edits | `GreetingCards.sqlite` (SQLite)    | Cached/derived data — structured, queryable, rebuildable |
+| What                          | Storage                            | Why                                                      |
+|-------------------------------|------------------------------------|----------------------------------------------------------|
+| API key                       | macOS Keychain (generic password)  | Secure credential storage — OS-managed, encrypted        |
+| AI model, auto-update prompt  | `preferences.plist` (XML plist)    | User preferences — small, simple key-value pairs         |
+| OCR results, AI results, etc. | `GreetingCards.sqlite` (SQLite)    | Cached/derived data — structured, queryable, rebuildable |
 
-Both files live in the same data directory (see below). The plist is read/written via `plistlib`; the database via SQLAlchemy.
+The plist and database live in the same data directory (see below). The plist is read/written via `plistlib`; the database via SQLAlchemy; the API key via `pyobjc-framework-Security` (`SecItem*` API).
 
 ## Path Resolution by Mode
 
@@ -26,16 +27,17 @@ All paths are determined by `is_bundled()` in `app/core/paths.py` (checks for `s
 
 Both data directories are auto-created on first access. The modes use separate data directories so that development builds cannot corrupt production data (schema migrations, test resets, etc.).
 
-## API Key Resolution
+## API Key Storage
 
-`get_api_key()` resolution differs by mode:
+The Anthropic API key is stored in the macOS Keychain via `app/core/keychain.py`:
 
-- **Bundle mode** (`.app`): reads from `preferences.plist` only. Environment variables are ignored.
-- **Source mode** (`python main.py`): checks `ANTHROPIC_API_KEY` env var first, falls back to `preferences.plist`. If both sources have different non-empty keys, a warning is logged once per process.
+- **Service:** `com.kaymakcalan.app.greetingcards` (bundle identifier)
+- **Account:** `anthropic-api-key`
+- **Class:** `kSecClassGenericPassword`
 
-`save_api_key()` writes to both the plist and `os.environ` so the key is available immediately in the current process.
+`get_api_key()` reads from Keychain, returning `None` if the item doesn't exist. `save_api_key()` inserts or updates the Keychain item. `delete_api_key()` removes it. Both source mode and bundle mode use the same Keychain APIs — there is no env var or plist involvement.
 
-The placeholder value `"your-api-key-here"` is treated as unset.
+> **Note:** Standalone scripts in `scripts/` use environment variables for API access — they do not use the Keychain, because they run outside the app context. `generate_sample_cards` requires both `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`; `benchmark.ocr_configuration_quality` requires `ANTHROPIC_API_KEY` for its AI scoring feature.
 
 ## AI Model Selection
 
