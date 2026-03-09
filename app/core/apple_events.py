@@ -268,6 +268,40 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
     # Note: JSON error strings in handler responses are part of the scripting API
     # contract. Changes to these strings may break external AppleScript clients.
 
+    # -- Dispatch helpers --------------------------------------------------
+
+    @staticmethod
+    def _reply_dict(
+        func: Callable[[], dict],
+        reply: NSAppleEventDescriptor,
+        *,
+        timeout_error: str = "Main thread timeout",
+    ) -> None:
+        """Dispatch *func* on the main thread, JSON-encode the dict result.
+
+        On timeout (``_call_on_main_thread`` returns ``None``), replies with
+        ``{"success": false, "error": <timeout_error>}``.
+        """
+        result = _call_on_main_thread(func)
+        if result is None:
+            _set_text_reply(reply, json.dumps({"success": False, "error": timeout_error}))
+        else:
+            _set_text_reply(reply, json.dumps(result))
+
+    @staticmethod
+    def _reply_str(
+        func: Callable[[], str],
+        reply: NSAppleEventDescriptor,
+        *,
+        fallback: str = "{}",
+    ) -> None:
+        """Dispatch *func* on the main thread, reply with the raw string result.
+
+        On timeout, replies with *fallback*.
+        """
+        result = _call_on_main_thread(func)
+        _set_text_reply(reply, result or fallback)
+
     # -- Loading & Status --------------------------------------------------
 
     def handleLoadPaths_reply_(self, event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
@@ -278,49 +312,20 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
             return
 
         window = self._ensure_window()
-
-        def _do():
-            return window.load_paths_for_script(paths)
-
-        result = _call_on_main_thread(_do)
-        if result is None:
-            _set_text_reply(reply, json.dumps({"success": False, "error": "Main thread timeout"}))
-        else:
-            _set_text_reply(reply, json.dumps(result))
+        self._reply_dict(lambda: window.load_paths_for_script(paths), reply)
 
     def handleGetStatus_reply_(self, _event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
         """get status — return app status as JSON."""
         window = self._ensure_window()
-
-        def _do():
-            return _status_to_json(window)
-
-        result = _call_on_main_thread(_do)
-        _set_text_reply(reply, result or "{}")
+        self._reply_str(lambda: _status_to_json(window), reply)
 
     def handleReload_reply_(self, _event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
         """reload — trigger manual reload."""
-
-        def _do():
-            return self._ensure_window().reload_for_script()
-
-        result = _call_on_main_thread(_do)
-        if result is None:
-            _set_text_reply(reply, json.dumps({"success": False, "error": "Main thread timeout"}))
-        else:
-            _set_text_reply(reply, json.dumps(result))
+        self._reply_dict(lambda: self._ensure_window().reload_for_script(), reply)
 
     def handleClearAll_reply_(self, _event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
         """clear all — clear all loaded cards."""
-
-        def _do():
-            return self._ensure_window().clear_all_for_script()
-
-        result = _call_on_main_thread(_do)
-        if result is None:
-            _set_text_reply(reply, json.dumps({"success": False, "error": "Main thread timeout"}))
-        else:
-            _set_text_reply(reply, json.dumps(result))
+        self._reply_dict(lambda: self._ensure_window().clear_all_for_script(), reply)
 
     # -- Card Queries ------------------------------------------------------
 
@@ -339,19 +344,17 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
                 return json.dumps({"error": f"Card not found: {filename}"})
             return _card_to_json(card)
 
-        result = _call_on_main_thread(_do)
-        _set_text_reply(reply, result or "{}")
+        self._reply_str(_do, reply)
 
     def handleGetLoadedCards_reply_(self, _event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
         """get loaded cards — return all cards as JSON array."""
         window = self._ensure_window()
 
-        def _do():
+        def _do():  # pragma: no cover — wx.CallAfter closure, dispatched via _call_on_main_thread
             cards = window.get_all_cards_for_script()
             return json.dumps([_card_summary(c) for c in cards])
 
-        result = _call_on_main_thread(_do)
-        _set_text_reply(reply, result or "[]")
+        self._reply_str(_do, reply, fallback="[]")
 
     # -- Card Mutations ----------------------------------------------------
 
@@ -366,12 +369,11 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
             return
 
         window = self._ensure_window()
-
-        def _do():
-            return window.rename_card_for_script(filename, new_name, year)
-
-        result = _call_on_main_thread(_do)
-        _set_text_reply(reply, json.dumps(result) if result else json.dumps({"success": False, "error": "timeout"}))
+        self._reply_dict(
+            lambda: window.rename_card_for_script(filename, new_name, year),
+            reply,
+            timeout_error="timeout",
+        )
 
     def handleSetCardName_reply_(self, event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
         """set card name — set/clear manual name override."""
@@ -383,15 +385,7 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
             return
 
         window = self._ensure_window()
-
-        def _do():
-            return window.set_card_name_for_script(filename, new_name)
-
-        result = _call_on_main_thread(_do)
-        if result is None:
-            _set_text_reply(reply, json.dumps({"success": False, "error": "Main thread timeout"}))
-        else:
-            _set_text_reply(reply, json.dumps(result))
+        self._reply_dict(lambda: window.set_card_name_for_script(filename, new_name), reply)
 
     def handleSelectCandidate_reply_(self, event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
         """select candidate — select candidate by rank."""
@@ -403,15 +397,7 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
             return
 
         window = self._ensure_window()
-
-        def _do():
-            return window.select_candidate_for_script(filename, rank)
-
-        result = _call_on_main_thread(_do)
-        if result is None:
-            _set_text_reply(reply, json.dumps({"success": False, "error": "Main thread timeout"}))
-        else:
-            _set_text_reply(reply, json.dumps(result))
+        self._reply_dict(lambda: window.select_candidate_for_script(filename, rank), reply)
 
     def handleSetRemoveFamily_reply_(self, event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
         """set remove family — toggle Remove Family checkbox."""
@@ -423,15 +409,7 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
             return
 
         window = self._ensure_window()
-
-        def _do():
-            return window.set_remove_family_for_script(filename, new_value)
-
-        result = _call_on_main_thread(_do)
-        if result is None:
-            _set_text_reply(reply, json.dumps({"success": False, "error": "Main thread timeout"}))
-        else:
-            _set_text_reply(reply, json.dumps(result))
+        self._reply_dict(lambda: window.set_remove_family_for_script(filename, new_value), reply)
 
     # -- AI Operations -----------------------------------------------------
 
@@ -439,29 +417,13 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
         """analyze cards — start AI analysis."""
         filename = _get_direct_text(event)
         window = self._ensure_window()
-
-        def _do():
-            return window.analyze_for_script(filename)
-
-        result = _call_on_main_thread(_do)
-        if result is None:
-            _set_text_reply(reply, json.dumps({"success": False, "error": "Main thread timeout"}))
-        else:
-            _set_text_reply(reply, json.dumps(result))
+        self._reply_dict(lambda: window.analyze_for_script(filename), reply)
 
     def handleClearAiResults_reply_(self, event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) -> None:
         """clear AI results — clear AI results."""
         filename = _get_direct_text(event)
         window = self._ensure_window()
-
-        def _do():
-            return window.clear_ai_for_script(filename)
-
-        result = _call_on_main_thread(_do)
-        if result is None:
-            _set_text_reply(reply, json.dumps({"success": False, "error": "Main thread timeout"}))
-        else:
-            _set_text_reply(reply, json.dumps(result))
+        self._reply_dict(lambda: window.clear_ai_for_script(filename), reply)
 
     # -- Model Management --------------------------------------------------
 
@@ -481,15 +443,7 @@ class AppleEventHandler(objc.lookUpClass("NSObject")):  # type: ignore[misc]
             return
 
         window = self._ensure_window()
-
-        def _do():
-            return window.set_ai_model_for_script(model_id)
-
-        result = _call_on_main_thread(_do)
-        if result is None:
-            _set_text_reply(reply, json.dumps({"success": False, "error": "Main thread timeout"}))
-        else:
-            _set_text_reply(reply, json.dumps(result))
+        self._reply_dict(lambda: window.set_ai_model_for_script(model_id), reply)
 
     # -- Lifecycle ---------------------------------------------------------
 

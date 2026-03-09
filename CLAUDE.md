@@ -285,6 +285,7 @@ After adding or updating packages with `uv add`, run `make licenses-sync` to upd
 - **Scripts** (`scripts/`): Use naive local time (`datetime.now()`) — scripts run locally
 - **Filename timestamps**: `strftime("%Y%m%dT%H%M")` → `YYYYMMDDThhmm` (e.g., `20260303T1422`)
 - **Log format**: ISO 8601 with `T` separator (`%Y-%m-%dT%H:%M:%S`)
+- **User-facing calendar dates** (copyright year, default naming year): Use naive `datetime.now()` — these reflect the user's local perspective, not stored timestamps
 - **Elapsed timers**: Use `time.monotonic()`, never `time.time()`
 
 ---

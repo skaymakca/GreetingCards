@@ -36,6 +36,7 @@ from app.core.platform import open_file, reveal_in_finder
 from app.gui.context_menu import add_entry_context_menu
 from app.gui.dialogs.common import display_path as _display_path
 from app.gui.icons import load_menu_icon, load_sf_symbol
+from app.gui.rename_display import format_candidate_label
 from app.gui.styles import Color, Font, Layout
 from app.gui.utils import create_static_text, draw_drag_highlight
 from app.models.card import CardResult, Confidence
@@ -431,7 +432,7 @@ class DetailPanel(wx.Panel):
             placeholder = f"Select from {len(card.candidates)} candidate{'s' if len(card.candidates) != 1 else ''}"  # nosec
             self._candidates_choice.Append(placeholder)
             for i, cand in enumerate(card.candidates):
-                self._candidates_choice.Append(cand.display_label)
+                self._candidates_choice.Append(format_candidate_label(cand))
                 self._candidate_map[i + 1] = cand.id  # +1 to skip placeholder at index 0
             self._candidates_choice.SetSelection(0)
             self._candidates_choice.Enable()

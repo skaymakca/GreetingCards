@@ -2,7 +2,7 @@
 
 **Key files:**
 
-- `app/core/apple_events.py` — Core handler layer: `NSAppleEventManager` registration, param extraction, reply helpers, JSON serialization, `_call_on_main_thread` safety wrapper (~560 lines)
+- `app/core/apple_events.py` — Core handler layer: `NSAppleEventManager` registration, param extraction, reply dispatch helpers, JSON serialization, `_call_on_main_thread` safety wrapper (~470 lines)
 - `app/gui/main_window_mixins/apple_events_mixin.py` — Mixin bridge layer: 2 properties + 14 bridge methods called on the main thread (~190 lines)
 
 **Bundle ID:** `com.kaymakcalan.app.greetingcards`
@@ -20,12 +20,14 @@ NSAppleEventManager  (macOS AE dispatcher — always main thread)
         │
         ▼
 AppleEventHandler  (NSObject subclass — app/core/apple_events.py)
-  ┌─────────────────────────────────────────────────────────┐
-  │  handleXxx_reply_()  methods  (one per command)         │
-  │    1. Extract params via _get_text_param / _get_int_... │
-  │    2. Wrap action in closure, call _call_on_main_thread  │
-  │    3. _set_text_reply(reply, json.dumps(result))         │
-  └─────────────────────────────────────────────────────────┘
+  ┌──────────────────────────────────────────────────────────┐
+  │  handleXxx_reply_()  methods  (one per command)          │
+  │    1. Extract params via _get_text_param / _get_int_...  │
+  │    2. Validate, then delegate to a dispatch helper:      │
+  │       • _reply_dict() — dict result → json.dumps + reply │
+  │       • _reply_str()  — raw JSON string + reply          │
+  │       Both call _call_on_main_thread and handle timeout. │
+  └──────────────────────────────────────────────────────────┘
         │  (main-thread dispatch via injected callable if needed)
         ▼
 AppleEventsMixin  (app/gui/main_window_mixins/apple_events_mixin.py)
@@ -140,6 +142,35 @@ def _call_on_main_thread[T](func: Callable[[], T]) -> T | None:
 ```
 
 **Timeout:** 30 seconds. If the main thread doesn't respond (e.g. blocked modal dialog), the handler returns `{"error": "Main thread timeout"}` or `{"error": "timeout"}` depending on the command.
+
+---
+
+## Reply Dispatch Helpers
+
+Most handler methods follow one of two patterns when calling the window delegate and replying to the caller. These are extracted into two static helper methods on `AppleEventHandler` to eliminate repetition:
+
+### `_reply_dict(func, reply, *, timeout_error="Main thread timeout")`
+
+For handlers whose window method returns a `dict`. Calls `_call_on_main_thread(func)`, then:
+- **On success:** replies with `json.dumps(result)`.
+- **On timeout (result is None):** replies with `json.dumps({"success": False, "error": timeout_error})`.
+
+Used by: load paths, reload, clear all, rename card, set card name, select candidate, set remove family, analyze cards, clear AI results, set model.
+
+The `timeout_error` keyword allows per-handler customization (e.g. rename card uses `"timeout"` instead of the default `"Main thread timeout"`).
+
+### `_reply_str(func, reply, *, fallback="{}")`
+
+For handlers whose inner function returns a pre-built JSON string. Calls `_call_on_main_thread(func)`, then:
+- **On success:** replies with the raw string.
+- **On timeout (result is None or empty):** replies with *fallback*.
+
+Used by: get status (fallback `"{}"`), get card info (fallback `"{}"`), get loaded cards (fallback `"[]"`).
+
+### Handlers that use neither helper
+
+- **get models** — no window call, replies directly with `_ai_models_to_json()`.
+- **quit** — no reply needed, calls `_call_on_main_thread` directly.
 
 ---
 

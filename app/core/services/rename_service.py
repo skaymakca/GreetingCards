@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.core.card_store import CardStore
+from app.core.naming.family_name import smart_title_case_family_name as _smart_title_case_family_name
 from app.core.naming.filename_safety import INVALID_FILENAME_CHARS as _INVALID_FILENAME_CHARS
 from app.core.naming.rename_filter import RESOLVED_OUTCOMES, filter_completed_renames
 from app.core.naming.renamer import build_rename_plan, build_target_filename, execute_rename_plan, validate_year
@@ -92,6 +93,15 @@ class RenameService:
             card.confidence = old_confidence
 
         return results
+
+    @staticmethod
+    def smart_title_case_family_name(name: str) -> str:
+        """Apply domain-aware title-casing to a family name.
+
+        Wraps ``smart_title_case_family_name()`` so callers don't import
+        core naming internals directly.
+        """
+        return _smart_title_case_family_name(name)
 
     @staticmethod
     def get_completed_paths(results: list[RenameResult]) -> set[Path]:

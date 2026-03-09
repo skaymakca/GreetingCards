@@ -140,5 +140,5 @@ def generate(version: str) -> pathlib.Path:
     return _OUTPUT
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover — script entry point
     generate(sys.argv[1] if len(sys.argv) > 1 else "0.0.0")

@@ -63,8 +63,8 @@ class Candidate(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     file_hash: Mapped[str] = mapped_column(String(64), ForeignKey("cards.file_hash"), index=True)
     family_name: Mapped[str] = mapped_column(String)
-    method: Mapped[str] = mapped_column(String)  # 'ocr' | 'ai'
-    confidence: Mapped[str] = mapped_column(String)  # 'high' | 'medium' | 'low'
+    method: Mapped[CandidateMethodStr] = mapped_column(String)
+    confidence: Mapped[CandidateConfidenceStr] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
 

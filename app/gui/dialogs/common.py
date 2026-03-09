@@ -6,7 +6,7 @@ from pathlib import Path
 import wx
 import wx.dataview as dv
 
-from app.core.pipeline.ai_analyzer import AIError
+from app.core.services.ai_service import AIError
 from app.gui import styles
 from app.gui.rename_display import (
     filter_visible_results,

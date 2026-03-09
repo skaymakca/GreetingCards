@@ -12,11 +12,17 @@ from app.models.card import (
     STATUS_SKIP_ERROR,
     STATUS_SKIP_NO_NAME,
     STATUS_SKIP_SAME,
+    CandidateInfo,
     RenameOutcome,
     RenamePlanItem,
     RenameResult,
     RenameStatus,
 )
+
+
+def format_candidate_label(candidate: CandidateInfo) -> str:
+    """Format a candidate's display label for the review panel."""
+    return f"{candidate.family_name} ({candidate.method.upper()} - {candidate.confidence.capitalize()})"
 
 
 def summarize_plan(plan: list[RenamePlanItem]) -> dict[str, int]:

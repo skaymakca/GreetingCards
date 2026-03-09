@@ -7,8 +7,7 @@ import threading
 
 import wx
 
-from app.core.pipeline.ai_analyzer import AIError, AIErrorKind
-from app.core.services.ai_service import AIService
+from app.core.services.ai_service import AIError, AIErrorKind, AIService
 from app.core.services.card_service import CardService
 from app.gui.dialogs import ErrorListDialog
 from app.gui.dialogs.api_key import show_api_key_dialog

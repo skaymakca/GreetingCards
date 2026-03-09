@@ -68,15 +68,6 @@ class CandidateInfo:
     method: CandidateMethodStr
     confidence: CandidateConfidenceStr
 
-    @property
-    def display_label(self) -> str:
-        """Formatted label for presentation in choice lists.
-
-        This is a display-only value — do not use as a lookup key.
-        Use ``id`` for programmatic lookups.
-        """
-        return f"{self.family_name} ({self.method.upper()} - {self.confidence.capitalize()})"
-
 
 @dataclass
 class CardState:

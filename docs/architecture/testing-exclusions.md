@@ -77,12 +77,37 @@ The business logic they delegate to is tested independently via the test suite.
 
 **Files:** `app/gui/appearance.py`, `app/core/apple_events.py`
 **Mechanism:** `# pragma: no cover`
-**Lines excluded:** ~5
+**Lines excluded:** ~8
 
 - **KVO observer** (`appearance.py`) — `observeValueForKeyPath_ofObject_change_context_` callback triggered by macOS appearance change notifications
 - **Apple Events safety guards** (`apple_events.py`) — defensive `if self is None` checks required by PyObjC's bridging model
+- **Apple Events closure** (`apple_events.py`) — `_do()` closure inside `handleGetLoadedCards_reply_`, dispatched via `_call_on_main_thread` and not reachable in tests without a live NSAppleEventManager
 
-### 4. Omitted Files
+### 4. wx.CallAfter Closures and App Entry Point
+
+**Files:** `app/gui/main_window.py`
+**Mechanism:** `# pragma: no cover`
+**Lines excluded:** ~7
+
+Closures passed to `wx.CallAfter` that are defined inside methods running in background threads or during layout. These closures:
+- Are dispatched by the wx event loop and require a running `wx.App` to execute
+- Perform trivial delegation to already-tested methods on the main thread
+
+Excluded code includes:
+- **`_apply` closure** (`_apply_content_sash_position`) — reads splitter width and sets sash position after layout
+- **`_on_progress` closure** (`_process_cards`) — forwards processing progress to the main thread
+- **`_on_complete` closure** (`_process_cards`) — signals processing completion on the main thread
+- **`run()` method** — app entry point that calls `self._frame.Show()`, only executable with a live `wx.App`
+
+### 5. Script `if __name__ == "__main__"` Guards
+
+**Files:** `scripts/dmg/background.py`, `scripts/dmg/readme.py`, `scripts/reformat_md_tables.py`, `scripts/run_tests.py`
+**Mechanism:** `# pragma: no cover`
+**Lines excluded:** ~4
+
+Direct-execution entry points in scripts that have their `main()` functions tested via imports. The `if __name__ == "__main__"` guard line itself is not reachable when the module is imported by the test suite.
+
+### 6. Omitted Files
 
 **Configured in:** `pyproject.toml` `[tool.coverage.run] omit`
 **Files:** 7 entries

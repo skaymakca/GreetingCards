@@ -2,7 +2,7 @@
 
 CardResult lifecycle, content-based deduplication, and state management.
 
-**Key files:** `app/models/card.py`, `app/core/card_store.py` (in-memory state), `app/core/services/card_service.py` (mutations + DB persistence), `app/core/services/rename_service.py` (rename orchestration), `app/core/services/processing_service.py` (PDF processing orchestration), `app/core/services/ai_service.py` (AI batch orchestration), `app/core/database.py` (DB models)
+**Key files:** `app/models/card.py`, `app/core/card_store.py` (in-memory state), `app/core/services/factory.py` (service construction + wiring), `app/core/services/card_service.py` (mutations + DB persistence), `app/core/services/rename_service.py` (rename orchestration), `app/core/services/processing_service.py` (PDF processing orchestration), `app/core/services/ai_service.py` (AI batch orchestration), `app/core/database.py` (DB models)
 
 ## Core Data Structures
 
@@ -104,6 +104,16 @@ CardStore
 
 **Composite operations** (main thread): `filter_and_register(pdf_paths)` — filters out already-loaded paths, registers new ones, returns `(new_pdfs, skipped_pdfs)`. `compute_reload_diff(mtime_only)` — iterates loaded paths, detects deletions and content modifications, returns `(deleted_paths, modified_paths)` with side effects (unlinking deleted, detaching modified).
 
+### Threading Model
+
+CardStore uses a split locking strategy as an intentional design choice:
+
+- **Main-thread reads are lock-free.** Query methods (`get_by_id()`, `get_by_hash()`, `get_all_cards()`, etc.) do not acquire `self._lock`. This relies on CPython's GIL guaranteeing atomicity for single dict operations (`__getitem__`, `__contains__`, `__len__`), so a main-thread read cannot see a partially-updated dict entry.
+- **Background worker mutations use `self._lock`.** Methods like `add_or_update()` acquire the lock to ensure that multi-step mutations (e.g., inserting into `_cards_by_hash` then `_id_to_card` then `_hash_by_path`) are atomic with respect to each other. Without the lock, two concurrent background workers could interleave their mutations.
+- **Main-thread mutations are also lock-free.** `CardService` methods and composite operations like `compute_reload_diff()` run exclusively on the main thread. Since the GIL prevents concurrent execution with the background worker's locked section, these are safe without acquiring the lock.
+
+**Risk: free-threaded Python (PEP 703).** If the project moves to a free-threaded build (no GIL), the lock-free read paths would become unsafe — concurrent dict reads during a background mutation could observe inconsistent state. The fix would be to acquire `self._lock` on read paths as well, or switch to a `threading.RWLock` pattern to avoid lock contention on the UI thread. This is a known trade-off: the current design prioritizes UI responsiveness over forward-compatibility with free-threaded builds.
+
 ## CardService — Mutations + DB Persistence
 
 `CardService` (`app/core/services/card_service.py`) orchestrates card field mutations with database persistence. Each method combines in-memory updates on the CardResult with DB calls, ensuring the two stay in sync. Runs exclusively on the main (UI) thread.
@@ -126,6 +136,10 @@ CardService
 **`is_ai_eligible`** checks that a card has no error and has at least one image (`page_images` or `preview_image`). Used by both the GUI AI button handler and the scripting bridge's `analyze` command to avoid duplicating eligibility logic.
 
 **Why separate from CardStore:** CardStore is a pure in-memory container with thread-safety concerns (background PDF worker). CardService handles business operations that require database access and runs only on the main thread — no locking needed.
+
+### Services Factory
+
+`create_services()` (`app/core/services/factory.py`) centralizes dependency wiring. It creates a single `CardStore` and passes it to every service that needs it, returning a frozen `Services` dataclass. `MainWindow.__init__` calls `create_services()` instead of manually constructing each service and threading the store through them.
 
 ## RenameService — Rename Orchestration
 

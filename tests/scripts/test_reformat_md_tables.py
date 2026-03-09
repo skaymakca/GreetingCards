@@ -130,6 +130,39 @@ class TestProcessFile:
         assert "| a   | bb |" in result
         assert "| ccc | d  |" in result
 
+    def test_table_immediately_after_code_block_end(self, tmp_path: Path) -> None:
+        """Table starting right after ``` closing fence is reformatted normally.
+
+        Exercises the flush path at lines 82-84 (closing fence) and ensures
+        table accumulation resumes correctly after the code block ends.
+        """
+        md = (
+            "```\n"
+            "| raw | table |\n"
+            "|---|---|\n"
+            "| inside | code |\n"
+            "```\n"
+            "| short | verylongcolumn |\n"
+            "|---|---|\n"
+            "| a | b |\n"
+        )
+        f = tmp_path / "test.md"
+        f.write_text(md)
+        result = process_file(f)
+        lines = result.splitlines()
+
+        # Table inside code block must remain unformatted
+        code_start = lines.index("```")
+        code_end = lines.index("```", code_start + 1)
+        code_lines = lines[code_start + 1 : code_end]
+        assert "| raw | table |" in code_lines
+        assert "| inside | code |" in code_lines
+
+        # Table after code block must be reformatted (padded)
+        after_code = lines[code_end + 1 :]
+        assert "| short | verylongcolumn |" in after_code
+        assert "| a     | b              |" in after_code
+
 
 class TestMain:
     def test_no_args_exits(self) -> None:
