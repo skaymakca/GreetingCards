@@ -94,7 +94,7 @@ Run `make help` to see all available commands.
 | `make setup-dev`         | Install all dependencies including dev/testing tools                             |
 | `make run`               | Run the app from source                                                          |
 | `make test`              | Run tests (no args shows help; `make test T="core --cov -x"`)                    |
-| `make test-everything`   | Run all tests (including integration) with coverage and open reports              |
+| `make test-everything`   | Run all tests (including integration) with coverage and open reports             |
 | `make tessdata`          | Download tessdata (eng.traineddata) for OCR                                      |
 | `make content`           | Generate runtime content (HTML, data files, images)                              |
 | `make licenses-sync`     | Sync license registry from uv.lock + .dist-info                                  |

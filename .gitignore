@@ -20,6 +20,9 @@ dist/
 .claude/
 .mcp.json
 
+# IDE / Inspections
+Inspections/
+
 # Testing
 .pytest_cache/
 .coverage

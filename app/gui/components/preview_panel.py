@@ -99,6 +99,7 @@ class PreviewPanel(wx.Panel):
         # Left group: Page navigation [◀] [page] [▶]
         self._prev_btn = wx.Button(controls, label="◀", size=styles.Layout.PREVIEW_BUTTON_SIZE)
         self._prev_btn.Bind(wx.EVT_BUTTON, lambda _: self.prev_page())
+        # noinspection DuplicatedCode
         self._prev_btn.Enable(False)
         controls_sizer.Add(self._prev_btn, 0, wx.ALIGN_CENTER_VERTICAL)
 
@@ -124,6 +125,7 @@ class PreviewPanel(wx.Panel):
 
         self._zout_btn = wx.Button(controls, label="−", size=styles.Layout.PREVIEW_BUTTON_SIZE)
         self._zout_btn.Bind(wx.EVT_BUTTON, lambda _: self._zoom_out())
+        # noinspection DuplicatedCode
         self._zout_btn.Enable(False)
         controls_sizer.Add(self._zout_btn, 0, wx.ALIGN_CENTER_VERTICAL)
 

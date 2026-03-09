@@ -31,15 +31,15 @@ Sparkle 2 provides native macOS auto-update functionality. The app checks for up
 
 Module-level lifecycle following the `appearance.py` pattern:
 
-| Function                  | Purpose                                        |
-|---------------------------|------------------------------------------------|
-| `init() -> bool`         | Load framework, create controller (no start)   |
-| `start()`                | Begin automatic check schedule                 |
-| `check_for_updates()`    | User-initiated check (menu item)               |
-| `is_available() -> bool` | True if Sparkle loaded successfully             |
-| `get_auto_check_enabled()` | Read Sparkle's auto-check preference          |
-| `set_auto_check_enabled()` | Write Sparkle's auto-check preference         |
-| `cleanup()`              | Release resources (called on window close)      |
+| Function                   | Purpose                                      |
+|----------------------------|----------------------------------------------|
+| `init() -> bool`           | Load framework, create controller (no start) |
+| `start()`                  | Begin automatic check schedule               |
+| `check_for_updates()`      | User-initiated check (menu item)             |
+| `is_available() -> bool`   | True if Sparkle loaded successfully          |
+| `get_auto_check_enabled()` | Read Sparkle's auto-check preference         |
+| `set_auto_check_enabled()` | Write Sparkle's auto-check preference        |
+| `cleanup()`                | Release resources (called on window close)   |
 
 **Graceful degradation:** All functions are safe no-ops when:
 - Running from source (`not is_bundled()`)
@@ -128,11 +128,11 @@ ditto packaging/Sparkle.framework "dist/Greeting Cards.app/Contents/Frameworks/S
 
 Set in `packaging/Greeting Cards.spec`:
 
-| Key              | Value                                                        |
-|------------------|--------------------------------------------------------------|
-| `SUFeedURL`      | `https://skaymakca.github.io/GreetingCards/appcast.xml`      |
-| `SUPublicEDKey`  | EdDSA public key (empty until key generation)                |
-| `CFBundleVersion`| Unix timestamp (monotonically increasing numeric build number)|
+| Key               | Value                                                          |
+|-------------------|----------------------------------------------------------------|
+| `SUFeedURL`       | `https://skaymakca.github.io/GreetingCards/appcast.xml`        |
+| `SUPublicEDKey`   | EdDSA public key (empty until key generation)                  |
+| `CFBundleVersion` | Unix timestamp (monotonically increasing numeric build number) |
 
 ### Entitlements
 
@@ -168,10 +168,10 @@ Hosted on GitHub Pages via the `gh-pages` branch.
 
 ### Subcommands
 
-| Command    | Purpose                                            |
-|------------|----------------------------------------------------|
-| `generate` | Sign DMG with `sign_update`, generate appcast.xml  |
-| `push`     | Push appcast.xml to gh-pages branch                |
+| Command    | Purpose                                           |
+|------------|---------------------------------------------------|
+| `generate` | Sign DMG with `sign_update`, generate appcast.xml |
+| `push`     | Push appcast.xml to gh-pages branch               |
 
 ### `generate` flow
 

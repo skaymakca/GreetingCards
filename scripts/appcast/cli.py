@@ -13,6 +13,9 @@ from __future__ import annotations
 
 import argparse
 import subprocess
+
+# isort: split
+# noinspection PyPep8NamingInspection,PyPep8Naming
 import xml.etree.ElementTree as ET  # nosec B405
 from datetime import UTC, datetime
 from email.utils import format_datetime
@@ -42,7 +45,7 @@ def sign_dmg(dmg: Path, *, dry_run: bool = False) -> tuple[str, int]:
     result = run_command([str(sign_tool), str(dmg)], dry_run=dry_run, capture=True)
 
     if dry_run:
-        return ("DRY_RUN_SIGNATURE", 0)
+        return "DRY_RUN_SIGNATURE", 0
 
     # sign_update outputs: sparkle:edSignature="..." length="..."
     output = result.stdout.strip()
@@ -57,7 +60,7 @@ def sign_dmg(dmg: Path, *, dry_run: bool = False) -> tuple[str, int]:
     if not sig:
         raise AppcastError(f"Failed to parse sign_update output: {output}")
 
-    return (sig, length)
+    return sig, length
 
 
 def _load_existing_appcast() -> ET.Element | None:

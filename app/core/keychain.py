@@ -2,6 +2,7 @@
 
 import logging
 
+# noinspection PyUnresolvedReferences
 from Security import (  # type: ignore[import-untyped]
     SecItemAdd,  # pyright: ignore[reportAttributeAccessIssue]
     SecItemCopyMatching,  # pyright: ignore[reportAttributeAccessIssue]

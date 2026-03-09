@@ -40,19 +40,24 @@ GrazieInspection findings are fixed in the source text. Both inspections are kep
 MarkdownUnresolvedFileReference cannot be fixed — all findings are in `content/html/help/1 - index.md` where links to
 `pages/*.html` are resolved at build time, not on disk. This inspection is suppressed via scope.
 
+HttpUrlsUsage findings on the Sparkle XML namespace URI (`http://www.andymatuschak.org/xml-namespaces/sparkle`) in
+`docs/architecture/auto-update.md` are known false positives — the URI must stay HTTP for protocol compatibility.
+
 **Scope-based suppression:** A shared scope (`.idea/scopes/Markdown_and_Other_Inspection_Suppressions.xml`) and
 inspection profile (`.idea/inspectionProfiles/Project_Default.xml`) suppress inspections that cannot be fixed or
 suppressed inline:
 
-| Inspection                      | File(s)                    | Reason                                                                                                        |
-|---------------------------------|----------------------------|---------------------------------------------------------------------------------------------------------------|
-| MarkdownUnresolvedFileReference | `*.md`                     | Help content links to `pages/*.html` resolved at build time, not on disk                                      |
-| CssUnusedSymbol                 | `highlight.css`            | `.hljs*` selectors used at runtime by Highlight.js; inline `/*noinspection*/` broken ([WEB-40359][web-40359]) |
-| JsonSchemaCompliance            | `apple-events.schema.json` | PyCharm confuses `"description"` property name with JSON Schema keyword; no inline suppression for JSON       |
+| Inspection                      | File(s)                                                      | Reason                                                                                                         |
+|---------------------------------|--------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
+| MarkdownUnresolvedFileReference | `*.md`                                                       | Help content links to `pages/*.html` resolved at build time, not on disk                                       |
+| CssUnusedSymbol                 | `highlight.css`                                              | `.hljs*` selectors used at runtime by Highlight.js; inline `/*noinspection*/` broken ([WEB-40359][web-40359])  |
+| JsonSchemaCompliance            | `apple-events.schema.json`                                   | PyCharm confuses `"description"` property name with JSON Schema keyword; no inline suppression for JSON        |
+| DuplicatedCode                  | `scripts/appcast/__main__.py`, `scripts/release/__main__.py` | Intentionally duplicated entry-point boilerplate; `# noinspection` broken in batch mode ([PY-38309][py-38309]) |
 
 [web-40359]: https://youtrack.jetbrains.com/issue/WEB-40359
+[py-38309]: https://youtrack.jetbrains.com/issue/PY-38309
 
-The scope pattern covers `file:*.md||file:content/html/common/css/highlight.css||file:content/apple-events.schema.json`.
+The scope pattern covers `file:*.md||file:content/html/common/css/highlight.css||file:content/apple-events.schema.json||file:scripts/appcast/__main__.py||file:scripts/release/__main__.py`.
 This works in both the editor and batch "Inspect Code" runs (fixed
 in [IJPL-225115](https://youtrack.jetbrains.com/issue/IJPL-225115), PyCharm 2025.3.3).
 
@@ -144,7 +149,9 @@ resolve at runtime on macOS but have no type stubs. `app/gui/main_window.py` has
 
 **Files:** `app/gui/icons.py`, `app/gui/appearance.py`, `app/gui/main_window.py`, `app/core/apple_events.py` (
 `objc.super`, `objc.selector`), `app/gui/components/html_viewer.py` (`RunScript`, `GetCurrentURL`, `LoadURL` — wxPython
-WebView C++ extensions), `scripts/dmg/background.py` (`_sf_chevron` — AppKit/Foundation symbols without type stubs)
+WebView C++ extensions), `scripts/dmg/background.py` (`_sf_chevron` — AppKit/Foundation symbols without type stubs),
+`app/core/keychain.py` (Security framework — 18 symbols without type stubs),
+`app/core/sparkle.py` (`objc.lookUpClass` — ObjC runtime class lookup)
 
 #### PyBroadException — intentional broad catches
 
@@ -160,7 +167,8 @@ wxPython requires CamelCase method names for `DataViewModel` overrides (`GetColu
 methods use Objective-C naming. Style factory methods (`TITLE`, `HEADING`, etc.) use uppercase by convention.
 
 **Files:** `app/gui/components/review_panel.py`, `app/gui/dialogs/common.py`, `app/gui/appearance.py`,
-`app/gui/styles.py`, `app/gui/main_window.py`
+`app/gui/styles.py`, `app/gui/main_window.py`, `app/core/sparkle.py` (`SPUStandardUpdaterController` — ObjC class name),
+`scripts/appcast/cli.py` (`ET` — standard alias for `xml.etree.ElementTree`)
 
 #### PyProtectedMember — PyInstaller and test internals
 
@@ -213,7 +221,7 @@ the instance even if they don't currently use `self`.
 **Files:** `app/gui/components/filter_sidebar.py`, `app/gui/main_window.py`, `app/gui/components/preview_panel.py`,
 `app/gui/components/review_panel.py`, `app/core/services/card_service.py` (`clear_ai_results` — part of public instance
 API), `scripts/visual_test.py`, `scripts/configure_release/ui.py` (`choose`, `ask`, `confirm` — Protocol conformance
-requires instance methods)
+requires instance methods), `app/gui/dialogs/settings.py` (`_on_auto_update_changed` — wxPython event handler)
 
 #### PyArgumentList — dynamic dispatch false positives
 
@@ -238,11 +246,13 @@ Benchmark report generation builds lists incrementally for readability.
 #### GrazieInspection — technical prose false positives
 
 False positives on technical terms, range notation (`1..N`), code values (`'ai'`), and hyphenated compounds in
-docstrings and comments.
+docstrings and comments. In Markdown files, "install" as a noun, module names, button labels, and "multistep"
+hyphenation trigger false positives that cannot be suppressed inline.
 
 **Files:** `app/gui/components/filter_sidebar.py`, `app/gui/components/preview_panel.py`, `app/core/database.py`,
 `app/core/content/help_builder.py`, `app/core/card_store.py` (`pdf_files` code identifier in docstrings),
-`scripts/benchmark/ocr_concurrency.py`, `scripts/benchmark/pre_processing_concurrency.py`
+`scripts/benchmark/ocr_concurrency.py`, `scripts/benchmark/pre_processing_concurrency.py`,
+`docs/architecture/release-pipeline.md`, `docs/architecture/auto-update.md`, `README.md`
 
 #### PyMethodFirstArgAssignment — PyObjC initializer pattern
 
@@ -267,9 +277,12 @@ the deprecation does not apply.
 #### DuplicatedCode — similar-but-distinct patterns
 
 Benchmark scripts share structural patterns (report generation, result tables) that are intentionally not abstracted.
-Database CRUD methods have similar shapes by nature.
+Database CRUD methods have similar shapes by nature. `scripts/appcast/__main__.py` and `scripts/release/__main__.py`
+share intentionally duplicated entry-point boilerplate — suppressed via scope (not inline) due to
+[PY-38309](https://youtrack.jetbrains.com/issue/PY-38309).
 
 **Files:** `app/gui/main_window.py`, `app/gui/components/toolbar.py` (`build_menu_bar` — event binding patterns mirror
 `build_toolbar`), `app/core/database.py`, `app/core/pipeline/pdf_renderer.py`, `scripts/benchmark/ocr_concurrency.py`,
 `scripts/benchmark/pre_processing_concurrency.py`, `scripts/benchmark/ocr_configuration_quality.py`,
-`scripts/visual_test.py` (`_build_right_column` — three identical button-creation loops)
+`scripts/visual_test.py` (`_build_right_column` — three identical button-creation loops),
+`app/gui/components/preview_panel.py` (page navigation / zoom widget construction — similar wxPython patterns)

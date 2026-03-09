@@ -126,6 +126,7 @@ class GeneralPreferencesPage(wx.StockPreferencesPage):
         panel.SetSizer(sizer)
         return panel
 
+    # noinspection PyMethodMayBeStatic
     def _on_auto_update_changed(self, event: wx.CommandEvent) -> None:  # pragma: no cover — Sparkle UI only
         """Toggle automatic update checks via Sparkle."""
         sparkle.set_auto_check_enabled(event.IsChecked())

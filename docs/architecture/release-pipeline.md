@@ -141,11 +141,11 @@ Four subcommands for changelog extraction, checksums, and GitHub Release managem
 
 `cmd_draft()` runs three git tag validations before creating the release, preventing the `gh release create v0.12.1` foot-gun where GitHub creates a release under `untagged-HASH` if the tag doesn't exist.
 
-| Check              | Command                                  | Failure                                                                 |
-|--------------------|------------------------------------------|-------------------------------------------------------------------------|
-| Local tag exists   | `git tag --list v{version}`              | `ReleaseError` with hint to run `make tag`                              |
-| Remote tag exists  | `git ls-remote --tags origin v{version}` | `ReleaseError` with hint to run `make tag-push`                         |
-| Tag matches HEAD   | `git rev-parse v{version}^{commit}` vs `git rev-parse HEAD` | Interactive prompt (`Continue anyway? [y/N]`); aborts on "N"/empty |
+| Check             | Command                                                     | Failure                                                            |
+|-------------------|-------------------------------------------------------------|--------------------------------------------------------------------|
+| Local tag exists  | `git tag --list v{version}`                                 | `ReleaseError` with hint to run `make tag`                         |
+| Remote tag exists | `git ls-remote --tags origin v{version}`                    | `ReleaseError` with hint to run `make tag-push`                    |
+| Tag matches HEAD  | `git rev-parse v{version}^{commit}` vs `git rev-parse HEAD` | Interactive prompt (`Continue anyway? [y/N]`); aborts on "N"/empty |
 
 In dry-run mode, all three checks run and display results, but the tag-on-HEAD mismatch is a non-blocking warning (no prompt).
 
@@ -188,11 +188,11 @@ The `--dry-run` flag (placed before the subcommand) prints `gh` commands without
 
 ## Makefile Targets
 
-| Target                   | Description                                                   |
-|--------------------------|---------------------------------------------------------------|
-| `make app`               | Build the `.app` bundle (used by `release-local.sh` step 1)   |
-| `make configure-release` | Generate the release pipeline script (`release-local.sh`)     |
-| `make shellcheck`        | Run shellcheck on `release-local.sh` (if it exists)           |
+| Target                   | Description                                                 |
+|--------------------------|-------------------------------------------------------------|
+| `make app`               | Build the `.app` bundle (used by `release-local.sh` step 1) |
+| `make configure-release` | Generate the release pipeline script (`release-local.sh`)   |
+| `make shellcheck`        | Run shellcheck on `release-local.sh` (if it exists)         |
 
 The full build → sign → DMG → submit → staple → checksum → changelog → draft pipeline is driven entirely by `release-local.sh`. Individual Make targets for signing, DMG, and notarization were removed because Make's PHONY dependency model caused the app to be rebuilt (unsigned) between signing and DMG creation.
 
@@ -227,26 +227,26 @@ Help output displays a formatted table with ID, Name, and Scope columns for both
 
 ### Steps
 
-| ID        | Name                   | Scope  | Command                                                             |
-|-----------|------------------------|--------|---------------------------------------------------------------------|
-| build     | Building app           | Local  | `make app`                                                          |
-| sign      | Signing app            | Local  | `scripts.sign --identity "$CODESIGN_IDENTITY"`                      |
-| dmg       | Creating DMG           | Local  | `scripts.dmg --verify-signature`                                    |
-| submit    | Submitting to notary   | Apple  | `scripts.notarize --keychain-profile "$KEYCHAIN_PROFILE" submit`    |
-| staple    | Stapling ticket        | Apple  | `scripts.notarize --keychain-profile "$KEYCHAIN_PROFILE" staple`    |
-| checksum  | Generating checksum    | Local  | `scripts.release checksum`                                          |
-| changelog | Extracting changelog   | Local  | `scripts.release changelog`                                         |
-| appcast   | Generating appcast     | Local  | `scripts.appcast generate`                                          |
-| draft     | Creating draft release | GitHub | `scripts.release draft`                                             |
+| ID        | Name                   | Scope  | Command                                                          |
+|-----------|------------------------|--------|------------------------------------------------------------------|
+| build     | Building app           | Local  | `make app`                                                       |
+| sign      | Signing app            | Local  | `scripts.sign --identity "$CODESIGN_IDENTITY"`                   |
+| dmg       | Creating DMG           | Local  | `scripts.dmg --verify-signature`                                 |
+| submit    | Submitting to notary   | Apple  | `scripts.notarize --keychain-profile "$KEYCHAIN_PROFILE" submit` |
+| staple    | Stapling ticket        | Apple  | `scripts.notarize --keychain-profile "$KEYCHAIN_PROFILE" staple` |
+| checksum  | Generating checksum    | Local  | `scripts.release checksum`                                       |
+| changelog | Extracting changelog   | Local  | `scripts.release changelog`                                      |
+| appcast   | Generating appcast     | Local  | `scripts.appcast generate`                                       |
+| draft     | Creating draft release | GitHub | `scripts.release draft`                                          |
 
 ### Utilities
 
-| ID          | Name                        | Scope  | Command                                                            |
-|-------------|-----------------------------|--------|--------------------------------------------------------------------|
-| status      | Check notarization status   | Apple  | `scripts.notarize --keychain-profile "$KEYCHAIN_PROFILE" status`   |
-| log         | Fetch notarization log      | Apple  | `scripts.notarize --keychain-profile "$KEYCHAIN_PROFILE" log`      |
-| publish     | Publish the draft release   | GitHub | `scripts.release publish`                                          |
-| appcastpush | Push appcast to Pages       | GitHub | `scripts.appcast push`                                             |
+| ID          | Name                      | Scope  | Command                                                          |
+|-------------|---------------------------|--------|------------------------------------------------------------------|
+| status      | Check notarization status | Apple  | `scripts.notarize --keychain-profile "$KEYCHAIN_PROFILE" status` |
+| log         | Fetch notarization log    | Apple  | `scripts.notarize --keychain-profile "$KEYCHAIN_PROFILE" log`    |
+| publish     | Publish the draft release | GitHub | `scripts.release publish`                                        |
+| appcastpush | Push appcast to Pages     | GitHub | `scripts.appcast push`                                           |
 
 ### Maintenance
 
@@ -282,13 +282,13 @@ Actually signing and notarizing requires a Developer ID Application certificate 
 
 ## Troubleshooting
 
-| Problem                                     | Cause                                | Fix                                                            |
-|---------------------------------------------|--------------------------------------|----------------------------------------------------------------|
-| `errSecInternalComponent` during signing    | Keychain locked or cert not found    | Unlock keychain; verify cert in Keychain Access                |
-| Notarization "invalid signature"            | Binary not signed or UPX compressed  | Check `upx=False` in spec; re-run `./release-local.sh sign`    |
-| Notarization "The signature is invalid"     | Inner binary unsigned                | Inside-out signing missed a file; check `find_binaries()`      |
-| Notarization "hardened runtime not enabled" | Missing `--options runtime`          | Verify `sign_binary()` includes `--options runtime`            |
-| `stapler validate` fails after stapling      | Ticket not stapled or wrong DMG      | Re-run `xcrun stapler staple` on the DMG                       |
-| "app is damaged" on user's machine          | Not notarized or quarantine attr set | Notarize properly; user can remove quarantine with `xattr -cr` |
-| `gh: command not found`                     | GitHub CLI not installed             | `brew install gh` and `gh auth login`                          |
+| Problem                                     | Cause                                                       | Fix                                                               |
+|---------------------------------------------|-------------------------------------------------------------|-------------------------------------------------------------------|
+| `errSecInternalComponent` during signing    | Keychain locked or cert not found                           | Unlock keychain; verify cert in Keychain Access                   |
+| Notarization "invalid signature"            | Binary not signed or UPX compressed                         | Check `upx=False` in spec; re-run `./release-local.sh sign`       |
+| Notarization "The signature is invalid"     | Inner binary unsigned                                       | Inside-out signing missed a file; check `find_binaries()`         |
+| Notarization "hardened runtime not enabled" | Missing `--options runtime`                                 | Verify `sign_binary()` includes `--options runtime`               |
+| `stapler validate` fails after stapling     | Ticket not stapled or wrong DMG                             | Re-run `xcrun stapler staple` on the DMG                          |
+| "app is damaged" on user's machine          | Not notarized or quarantine attr set                        | Notarize properly; user can remove quarantine with `xattr -cr`    |
+| `gh: command not found`                     | GitHub CLI not installed                                    | `brew install gh` and `gh auth login`                             |
 | DMG step rejects unsigned app               | App rebuilt after signing (`make app` between sign and dmg) | Re-run `./release-local.sh sign` or `./release-local.sh sign-dmg` |

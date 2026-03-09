@@ -101,6 +101,11 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         self._frame.Bind(wx.EVT_CLOSE, self._on_close)
         self._frame.Bind(wx.EVT_ACTIVATE, self._on_frame_activate)
 
+    @property
+    def frame(self) -> wx.Frame:
+        """Read-only access to the underlying wx.Frame."""
+        return self._frame
+
     def _get_card_by_id(self, card_id: int) -> CardResult | None:
         """Get card by ID. O(1) lookup via CardStore."""
         return self._card_service.get_by_id(card_id)

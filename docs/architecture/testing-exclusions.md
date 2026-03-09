@@ -35,11 +35,11 @@ if sparkle.is_available():  # pragma: no cover — Sparkle framework not availab
 
 ### When to use which
 
-| Situation | Mechanism |
-|---|---|
-| Entire file is untestable (benchmark, interactive harness, trampoline) | `omit` in pyproject.toml |
-| A branch/function within a tested file requires unavailable runtime (framework, live GUI, etc.) | `# pragma: no cover` |
-| Code that *could* be tested but isn't yet | Neither — write a test |
+| Situation                                                                                       | Mechanism                |
+|-------------------------------------------------------------------------------------------------|--------------------------|
+| Entire file is untestable (benchmark, interactive harness, trampoline)                          | `omit` in pyproject.toml |
+| A branch/function within a tested file requires unavailable runtime (framework, live GUI, etc.) | `# pragma: no cover`     |
+| Code that *could* be tested but isn't yet                                                       | Neither — write a test   |
 
 ---
 
@@ -124,15 +124,15 @@ Guards that are structurally unreachable due to preceding logic but exist as saf
 **Configured in:** `pyproject.toml` `[tool.coverage.run] omit`
 **Files:** 7 entries
 
-| Pattern | Reason |
-|---|---|
-| `scripts/*/__main__.py` | Entry-point trampolines (2–3 lines calling `cli.main()`) |
-| `scripts/benchmark/*` | Benchmark suite requiring real PDFs and tesserocr hardware |
-| `scripts/profiling/*` | Runtime profiler instrumenting live app with cProfile |
-| `scripts/visual_test.py` | Interactive wxPython GUI harness for manual visual inspection |
-| `scripts/dark_mode_cycler.py` | AppleScript-driven macOS dark mode toggle |
-| `scripts/dmg/dmgbuild_settings.py` | Executed by dmgbuild with injected `defines` dict, not importable |
-| `scripts/build_family_name_db/benchmark_compression.py` | Compression format benchmark requiring real TSV data |
+| Pattern                                                 | Reason                                                            |
+|---------------------------------------------------------|-------------------------------------------------------------------|
+| `scripts/*/__main__.py`                                 | Entry-point trampolines (2–3 lines calling `cli.main()`)          |
+| `scripts/benchmark/*`                                   | Benchmark suite requiring real PDFs and tesserocr hardware        |
+| `scripts/profiling/*`                                   | Runtime profiler instrumenting live app with cProfile             |
+| `scripts/visual_test.py`                                | Interactive wxPython GUI harness for manual visual inspection     |
+| `scripts/dark_mode_cycler.py`                           | AppleScript-driven macOS dark mode toggle                         |
+| `scripts/dmg/dmgbuild_settings.py`                      | Executed by dmgbuild with injected `defines` dict, not importable |
+| `scripts/build_family_name_db/benchmark_compression.py` | Compression format benchmark requiring real TSV data              |
 
 ---
 

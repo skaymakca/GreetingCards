@@ -29,7 +29,7 @@ def _startup_sparkle(window: MainWindow) -> None:
             "You can change this later in Settings.",
             "Automatic Updates",
             wx.YES_NO | wx.ICON_QUESTION,
-            window._frame,
+            window.frame,
         )
         set_auto_check_enabled(result == wx.YES)
         ConfigService.set_prompted_auto_update()
