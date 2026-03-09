@@ -9,7 +9,8 @@
 - ❌ Do NOT commit after fixing bugs
 - ✅ ONLY commit when user explicitly says "commit X"
 - ✅ Keep track of changes to write good commit messages when asked
-- ✅ Include `Fixes #N` or `Fixes #N, #M` in commit/PR messages when the work resolves GitHub issues
+- ✅ Include `Fixes #N` in commit/PR messages when the work resolves GitHub issues
+- ✅ **One `Fixes` per line** — `Fixes #2, #6` on a single line is unreliable; use separate lines
 - ✅ **Always commit ALL unstaged changes** — never do partial/selective commits unless explicitly told to. Tests run against the full working tree, so partial commits can leave broken states in the history.
 
 ---
@@ -90,48 +91,66 @@ pip install package-name
 
 **Follow these rules for ALL bash commands to avoid permission prompts.**
 
-### No command substitution
+> **When you need complex shell logic**, write a temp script to `/tmp` using the Write tool, then run it with `bash /tmp/script.sh` (or `uv run python /tmp/script.py`). Inside a script file, all shell features (pipes, substitution, comments, multi-line logic) work without triggering approval prompts.
+
+### 1. No command substitution
 - ❌ `git commit -m "$(date)"` — `$(...)` triggers approval
 - ❌ `` git commit -m "`date`" `` — backtick substitution also triggers approval
 - ✅ Split into two commands: first run `date`, then use the result
 
-### No complex quoting in flag values
+### 2. No complex quoting in flag values
 - ❌ `grep --include="*.py" pattern`
 - ✅ `grep --include='*.py' pattern` or `grep -r pattern --include=\*.py`
 
-### No command chaining (&&, ||, ;)
+### 3. No command chaining (&&, ||, ;)
 - ❌ `mkdir build && cmake ..`
 - ✅ Issue each command separately, one per Bash tool call
 - Exception: simple read-only pipes are fine (e.g., `git log --oneline | head -5`)
 
-### No multiline constructs or heredocs
+### 4. No multiline constructs or heredocs
 - ❌ Multi-line bash strings or heredocs in a single command
 - ✅ Use the Write tool to create a file, then execute it
 - ✅ Or break into sequential single-line commands
 - For git commits: use `git commit -m 'single line message'` or write message to a temp file and use `git commit -F /tmp/msg.txt`
 
-### No output redirection for writing files
+### 5. No output redirection for writing files
 - ❌ `echo "text" > file.txt` or `command >> file.txt`
 - ✅ Use the Write or Edit tool instead
 
-### No inline environment variables
+### 6. No inline environment variables
 - ❌ `VAR=value command`
 - ✅ Use `env VAR=value command` or set variables separately
 
-### No process substitution
+### 7. No process substitution
 - ❌ `diff <(cmd1) <(cmd2)`
 - ✅ Write outputs to temp files first, then diff
 
-### No background operators
+### 8. No background operators
 - ❌ `command &`
 - ✅ Use the `run_in_background` parameter on the Bash tool
 
-### Prefer make targets and dedicated tools
+### 9. No backslash-escaped whitespace
+- ❌ `find . -name foo\ bar.py`
+- ❌ `cd /my\ path/with\ spaces`
+- ✅ Use single quotes: `find . -name 'foo bar.py'`
+- Never use `\ ` to escape spaces — always quote the whole argument with single quotes
+
+### 10. No backslash-escaped operators
+- Do not use `\;`, `\|`, `\&`, `\<`, or `\>` in shell commands
+- If a literal character is needed, use quoting instead (e.g., `';'`)
+
+### 11. No multi-line commands with # comments
+- Do not write shell commands where a quoted newline is followed by a `#`-prefixed line
+- Split into separate commands or remove the comment
+
+### 12. Prefer make targets and dedicated tools
 - Use `make check`, `make lint`, `make app` etc. — single simple commands
 - Use Read/Write/Edit/Grep/Glob tools instead of cat/echo/sed/grep/find
 
-### General principle
+### 13. General principle
 When in doubt, break complex shell operations into multiple simple sequential commands. Prefer clarity over cleverness. One command per Bash tool call.
+
+> **Remember**: if a command feels awkward because of the rules above, that's a signal to use a temp script in `/tmp` instead.
 
 ---
 
@@ -155,6 +174,9 @@ When in doubt, break complex shell operations into multiple simple sequential co
 
 ### If LSP fails
 If the LSP tool returns an error or "no server available", **tell the user immediately** so they can check their LSP configuration. Example: "LSP server is not responding for Python files — you may need to restart it. Falling back to Grep for now."
+
+### Caveats
+- Do not rely on LSP diagnostics as the sole source of truth for build errors. CLI build tools (`make check`, `uv run pyright`) are more reliable. If LSP shows errors that don't match build results, trust the build.
 
 ---
 
