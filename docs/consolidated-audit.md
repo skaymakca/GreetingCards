@@ -10,9 +10,9 @@ The three individual audit methodologies are:
 
 | Audit            | Methodology Doc                                                     | Output Path                                            |
 |------------------|---------------------------------------------------------------------|--------------------------------------------------------|
-| Code Quality     | [`docs/code-quality-audit.md`](../code-quality-audit.md)            | `_build/audit/{ts}-code-quality.md`                    |
-| Coverage         | [`docs/coverage-analysis.md`](../coverage-analysis.md)              | `_build/coverage/{cov_ts}/coverage-analysis.md`        |
-| MVC Compliance   | [`docs/mvc-compliance-audit.md`](../mvc-compliance-audit.md)        | `_build/audit/{ts}-mvc-compliance.md`                  |
+| Code Quality     | [`docs/code-quality-audit.md`](code-quality-audit.md)            | `_build/audit/{ts}-code-quality.md`                    |
+| Coverage         | [`docs/coverage-analysis.md`](coverage-analysis.md)              | `_build/coverage/{cov_ts}/coverage-analysis.md`        |
+| MVC Compliance   | [`docs/mvc-compliance-audit.md`](mvc-compliance-audit.md)        | `_build/audit/{ts}-mvc-compliance.md`                  |
 | **Consolidated** | This doc                                                            | `_build/audit/{ts}-consolidated-audit.md`              |
 
 Each audit is read-only (no source modifications), with non-overlapping output paths. This makes direct parallel agents the simplest and safest orchestration approach — no worktrees or isolation needed.

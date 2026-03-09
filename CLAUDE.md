@@ -275,7 +275,7 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `README-Release-Checklist.md`                                                                                                                                                       | `docs/architecture/release-pipeline.md`                               |
 | Markdown tables in any `*.md` file                                                                                                                                                  | `docs/pycharm-table-formatting.md`                                    |
 | `docker/Dockerfile`, `docker/docker-compose.yml`, `.github/workflows/ci.yml`, `.github/actions/setup-build-env/action.yml`                                                          | `docs/architecture/docker-and-ci.md`                                  |
-| `docs/architecture/consolidated-audit.md`                                                                                                                                           | The three individual audit methodology docs                           |
+| `docs/consolidated-audit.md`                                                                                                                                                        | The three individual audit methodology docs                           |
 
 ### Test Count
 When adding or removing tests, update the test count in `README.md` (search for "tests** covering") to match the actual number from `pytest` output.
@@ -326,7 +326,7 @@ When asked to audit MVC compliance, follow the methodology in [`docs/mvc-complia
 
 ## Consolidated Audit
 
-When asked to run a "full audit", "consolidated audit", or "all audits", follow the methodology in [`docs/architecture/consolidated-audit.md`](docs/architecture/consolidated-audit.md). Individual reports go to their standard locations; the consolidated report goes to `_build/audit/YYYYMMDDThhmm-consolidated-audit.md`.
+When asked to run a "full audit", "consolidated audit", or "all audits", follow the methodology in [`docs/consolidated-audit.md`](docs/consolidated-audit.md). Individual reports go to their standard locations; the consolidated report goes to `_build/audit/YYYYMMDDThhmm-consolidated-audit.md`.
 
 ---
 
