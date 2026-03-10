@@ -212,6 +212,27 @@ def test_read_build_number_missing_key(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# build_number_path()
+# ---------------------------------------------------------------------------
+
+
+def test_build_number_path_with_explicit_version() -> None:
+    from scripts.helpers import build_number_path
+
+    result = build_number_path("1.2.3")
+    assert result.name == "Greeting-Cards-1.2.3.build"
+    assert result.parent.name == "dist"
+
+
+def test_build_number_path_without_version_reads_pyproject() -> None:
+    from scripts.helpers import build_number_path, read_version
+
+    version = read_version()
+    result = build_number_path()
+    assert result.name == f"Greeting-Cards-{version}.build"
+
+
+# ---------------------------------------------------------------------------
 # run_command()
 # ---------------------------------------------------------------------------
 

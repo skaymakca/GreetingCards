@@ -162,6 +162,29 @@ class TestMain:
 
         mock_verify.assert_called_once()
 
+    def test_writes_build_number_sidecar(self, tmp_path: Path) -> None:
+        bg_path = tmp_path / "background.png"
+        readme_path = tmp_path / "Read Me.rtfd"
+        sidecar_path = tmp_path / "dist" / "Greeting-Cards-1.0.0.build"
+
+        with (
+            patch("scripts.dmg.cli.read_version", return_value="1.0.0"),
+            patch("scripts.dmg.cli._generate_background", return_value=bg_path),
+            patch("scripts.dmg.cli._generate_readme", return_value=readme_path),
+            patch("scripts.dmg.cli.dmgbuild") as mock_dmg,
+            patch("scripts.dmg.cli.read_build_number", return_value="1700000000"),
+            patch("scripts.dmg.cli.build_number_path", return_value=sidecar_path),
+            patch("sys.argv", ["dmg"]),
+        ):
+            mock_dmg.build_dmg = MagicMock()
+            sidecar_path.parent.mkdir(parents=True, exist_ok=True)
+            from scripts.dmg.cli import main
+
+            main()
+
+        assert sidecar_path.exists()
+        assert sidecar_path.read_text(encoding="utf-8") == "1700000000"
+
 
 class TestVerifyAppSignature:
     def test_passes_when_codesign_succeeds(self, tmp_path: Path) -> None:

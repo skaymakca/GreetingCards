@@ -21,7 +21,7 @@ from datetime import UTC, datetime
 from email.utils import format_datetime
 from pathlib import Path
 
-from scripts.helpers import PROJECT_ROOT, dmg_path, read_build_number, read_version, run_command
+from scripts.helpers import PROJECT_ROOT, build_number_path, dmg_path, read_version, run_command
 
 _REPO = "skaymakca/GreetingCards"
 _SPARKLE_BIN = PROJECT_ROOT / "packaging" / "sparkle-bin"
@@ -118,6 +118,14 @@ def generate_appcast_xml(
         title = ET.SubElement(channel, "title")
         title.text = "Greeting Cards"
 
+    # Check for duplicate version
+    for existing_item in channel.findall("item"):
+        existing_short = existing_item.find(f"{{{_SPARKLE_NS}}}shortVersionString")
+        if existing_short is not None and existing_short.text == version:
+            raise AppcastError(
+                f"Appcast already contains version {version}. Remove the existing entry before regenerating."
+            )
+
     # Build new item
     item = ET.Element("item")
     item_title = ET.SubElement(item, "title")
@@ -180,7 +188,14 @@ def cmd_generate(version: str, *, dry_run: bool = False) -> None:
         # Use file size directly if sign_update didn't report it
         length = dmg.stat().st_size
 
-    build_number = read_build_number()
+    sidecar = build_number_path(version)
+    if not sidecar.exists():
+        raise AppcastError(
+            f"Build number sidecar not found: {sidecar}\n  Run the DMG step first (it writes the sidecar)."
+        )
+    build_number = sidecar.read_text(encoding="utf-8").strip()
+    if not build_number:
+        raise AppcastError(f"Build number sidecar is empty: {sidecar}")
 
     print(f"Generating appcast.xml (v{version}, build {build_number})")
     xml = generate_appcast_xml(version, build_number, signature, length, dmg.name)

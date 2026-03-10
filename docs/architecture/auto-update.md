@@ -177,9 +177,11 @@ Hosted on GitHub Pages via the `gh-pages` branch. The `gh-pages` branch also con
 
 1. Find DMG at `dist/Greeting-Cards-X.Y.Z.dmg`
 2. Sign with `packaging/sparkle-bin/sign_update` → EdDSA signature + length
-3. Load existing appcast from `gh-pages` branch (if any)
-4. Prepend new `<item>` entry
-5. Write to `dist/appcast.xml`
+3. Read build number from sidecar file `dist/Greeting-Cards-X.Y.Z.build` (written by the DMG step to capture the build number of the app *inside* the DMG)
+4. Load existing appcast from `gh-pages` branch (if any)
+5. Check for duplicate `sparkle:shortVersionString` — raises `AppcastError` if the version already exists
+6. Prepend new `<item>` entry
+7. Write to `dist/appcast.xml`
 
 ### `push` flow
 

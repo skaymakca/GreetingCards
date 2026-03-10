@@ -57,6 +57,16 @@ def dmg_path(version: str | None = None) -> Path:
     return PROJECT_ROOT / "dist" / f"Greeting-Cards-{version}.dmg"
 
 
+def build_number_path(version: str | None = None) -> Path:
+    """Return the path to the build-number sidecar file for *version*.
+
+    If *version* is ``None``, :func:`read_version` is called automatically.
+    """
+    if version is None:
+        version = read_version()
+    return PROJECT_ROOT / "dist" / f"Greeting-Cards-{version}.build"
+
+
 def _make_output_dir(folder_name: str) -> Path:
     """Create a timestamped output directory under _build/script_output/.
 

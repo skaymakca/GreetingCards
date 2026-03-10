@@ -292,3 +292,4 @@ Actually signing and notarizing requires a Developer ID Application certificate 
 | "app is damaged" on user's machine          | Not notarized or quarantine attr set                        | Notarize properly; user can remove quarantine with `xattr -cr`    |
 | `gh: command not found`                     | GitHub CLI not installed                                    | `brew install gh` and `gh auth login`                             |
 | DMG step rejects unsigned app               | App rebuilt after signing (`make app` between sign and dmg) | Re-run `./release-local.sh sign` or `./release-local.sh sign-dmg` |
+| Build number sidecar not found              | Appcast step run without the DMG step                       | Run `./release-local.sh dmg` first (it writes `dist/*.build`)     |
