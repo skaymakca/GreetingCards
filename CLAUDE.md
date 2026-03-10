@@ -275,6 +275,7 @@ When editing files in these areas, **read the corresponding doc first**, then **
 | `README-Release-Checklist.md`                                                                                                                                                       | `docs/architecture/release-pipeline.md`                               |
 | Markdown tables in any `*.md` file                                                                                                                                                  | `docs/pycharm-table-formatting.md`                                    |
 | `docker/Dockerfile`, `docker/docker-compose.yml`, `.github/workflows/ci.yml`, `.github/actions/setup-build-env/action.yml`                                                          | `docs/architecture/docker-and-ci.md`                                  |
+| `website/**`, `.github/workflows/deploy-website.yml`                                                                                                                                | `docs/architecture/project-website.md`                                |
 | `docs/consolidated-audit.md`                                                                                                                                                        | The three individual audit methodology docs                           |
 
 ### Test Count

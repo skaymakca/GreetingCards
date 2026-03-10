@@ -104,6 +104,42 @@ Each job has an `if` guard that restricts it to one event type:
 
 This avoids duplicate work: on a PR, only one runner is used instead of two.
 
+## Website Deploy Pipeline
+
+### Overview
+
+`.github/workflows/deploy-website.yml` builds and deploys the Hugo project website to the `gh-pages` branch.
+
+### Trigger
+
+```yaml
+on:
+  push:
+    branches: [main]
+    paths: ['website/**']
+  workflow_dispatch:
+```
+
+Only triggers when files under `website/` change on `main`, or via manual dispatch. Code changes, doc changes, and test changes do not trigger a deploy.
+
+### Job
+
+| Job      | Runner          | Steps                                                                        |
+|----------|-----------------|------------------------------------------------------------------------------|
+| `deploy` | `ubuntu-latest` | Checkout, install Hugo, `hugo --minify --source website`, deploy to gh-pages |
+
+Uses `peaceiris/actions-hugo@v3` for Hugo installation and `peaceiris/actions-gh-pages@v4` for deployment. The critical setting is `keep_files: true`, which preserves `appcast.xml` on the `gh-pages` branch.
+
+### Concurrency
+
+```yaml
+concurrency:
+  group: deploy-website
+  cancel-in-progress: true
+```
+
+Multiple rapid pushes to `website/` cancel in-progress deploys — only the latest version is deployed.
+
 ## Gotchas
 
 - **Anonymous `.venv` volume:** The `docker/docker-compose.yml` anonymous volume for `/app/.venv` is essential. Without it,

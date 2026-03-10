@@ -160,7 +160,7 @@ Set in `packaging/Greeting Cards.spec`:
 </rss>
 ```
 
-Hosted on GitHub Pages via the `gh-pages` branch.
+Hosted on GitHub Pages via the `gh-pages` branch. The `gh-pages` branch also contains Hugo-generated website output — see `docs/architecture/project-website.md` for how appcast and website coexist.
 
 ---
 

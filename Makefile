@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev tessdata run test test-everything check pyright mypy lint lint-fix format format-check security audit-prepass pycharm-inspect content licenses-sync icon sparkle app app-run dmg configure-release shellcheck version bump-patch bump-minor bump-major tag tag-push loc profile show-scripts sync-private visual-test visual-test-app docker-build docker-test docker-shell clean
+.PHONY: help setup setup-dev tessdata run test test-everything check pyright mypy lint lint-fix format format-check security audit-prepass pycharm-inspect content licenses-sync icon sparkle app app-run dmg configure-release shellcheck version bump-patch bump-minor bump-major tag tag-push loc profile show-scripts sync-private visual-test visual-test-app docker-build docker-test docker-shell _sync-website-version website website-serve clean
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -341,6 +341,18 @@ docker-test: ## Run tests in Linux container
 
 docker-shell: ## Interactive shell in Linux container
 	docker compose -f docker/docker-compose.yml run --rm test-linux /bin/bash
+
+##@ Website
+
+_sync-website-version:
+	@mkdir -p website/data
+	@uv run python -c "import tomllib,json,pathlib; v=tomllib.load(open('pyproject.toml','rb'))['project']['version']; pathlib.Path('website/data/version.json').write_text(json.dumps({'version':v}))"
+
+website: _sync-website-version ## Build Hugo site locally
+	hugo --source website
+
+website-serve: _sync-website-version ## Dev server with live reload
+	hugo server --source website
 
 ##@ Cleanup
 

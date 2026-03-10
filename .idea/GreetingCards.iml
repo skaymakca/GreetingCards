@@ -16,6 +16,7 @@
       <excludeFolder url="file://$MODULE_DIR$/packaging/Sparkle.framework" />
       <excludeFolder url="file://$MODULE_DIR$/packaging/sparkle-bin" />
       <excludeFolder url="file://$MODULE_DIR$/Inspections" />
+      <excludeFolder url="file://$MODULE_DIR$/website" />
     </content>
     <orderEntry type="jdk" jdkName="uv (GreetingCards)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

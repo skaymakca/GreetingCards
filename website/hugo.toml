@@ -1,0 +1,42 @@
+baseURL = "https://skaymakca.github.io/GreetingCards/"
+languageCode = "en-us"
+title = "Greeting Cards"
+
+[markup.goldmark.renderer]
+  unsafe = false
+
+[params]
+  description = "A macOS app for organizing and renaming greeting card PDFs using OCR and AI."
+  tagline = "Organize your greeting cards with OCR and AI"
+  githubRepo = "https://github.com/skaymakca/GreetingCards"
+  releasesURL = "https://github.com/skaymakca/GreetingCards/releases/latest"
+
+[[params.features]]
+  title = "Offline OCR"
+  description = "Tesseract-powered text extraction works entirely offline. Your cards never leave your Mac."
+  icon = "eye"
+
+[[params.features]]
+  title = "AI Vision"
+  description = "Claude analyzes card images directly — catching names that OCR misses in decorative fonts and handwriting."
+  icon = "sparkles"
+
+[[params.features]]
+  title = "Batch Rename"
+  description = "One click renames all your cards into a clean, consistent format with family names and occasions."
+  icon = "pencil"
+
+[[params.features]]
+  title = "Dark Mode"
+  description = "Follows your macOS appearance automatically. Every panel, dialog, and preview adapts seamlessly."
+  icon = "moon"
+
+[[params.features]]
+  title = "AppleScript"
+  description = "Fully scriptable via Apple Events. Automate card processing from shell scripts or Shortcuts."
+  icon = "terminal"
+
+[[params.features]]
+  title = "Auto-Update"
+  description = "Built-in Sparkle updater keeps you current. New versions install seamlessly in the background."
+  icon = "arrow-up"
