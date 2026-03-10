@@ -231,10 +231,11 @@ loc: ## Count lines of code (excludes dependencies)
 	@echo "" | tee -a README-loc.md
 	@find ./content/html/help \( -name "*.md" \) -exec cat {} + 2>/dev/null | wc -l | awk -v lbl="Help MD:" '$(FMT_LINE)' | tee -a README-loc.md
 	@find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null | wc -l | awk -v lbl="Web:" '$(FMT_LINE)' | tee -a README-loc.md
+	@(find ./website/layouts -name "*.html" -exec cat {} + 2>/dev/null; find ./website/static -name "*.css" -exec cat {} + 2>/dev/null; cat ./website/hugo.toml 2>/dev/null; find ./website/content -name "*.md" -exec cat {} + 2>/dev/null) | wc -l | awk -v lbl="Website:" '$(FMT_LINE)' | tee -a README-loc.md
 	@echo "" | tee -a README-loc.md
 	@wc -l Makefile "packaging/Greeting Cards.spec" "packaging/Visual Test.spec" 2>/dev/null | tail -1 | awk -v lbl="Config:" '$(FMT_LINE)' | tee -a README-loc.md
 	@echo "" | tee -a README-loc.md
-	@(find . -name "*.py" -not -path "./.venv/*" -not -path "./_build/*" -not -path "./dist/*" -not -path "./.claude/*" -not -path "*/__pycache__/*" -exec cat {} + ; find ./content/html/help -name "*.md" -exec cat {} + 2>/dev/null; find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null; cat Makefile "packaging/Greeting Cards.spec" "packaging/Visual Test.spec") | wc -l | awk -v lbl="Total:" '$(FMT_LINE)' | tee -a README-loc.md
+	@(find . -name "*.py" -not -path "./.venv/*" -not -path "./_build/*" -not -path "./dist/*" -not -path "./.claude/*" -not -path "*/__pycache__/*" -exec cat {} + ; find ./content/html/help -name "*.md" -exec cat {} + 2>/dev/null; find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null; find ./website/layouts -name "*.html" -exec cat {} + 2>/dev/null; find ./website/static -name "*.css" -exec cat {} + 2>/dev/null; cat ./website/hugo.toml 2>/dev/null; find ./website/content -name "*.md" -exec cat {} + 2>/dev/null; cat Makefile "packaging/Greeting Cards.spec" "packaging/Visual Test.spec") | wc -l | awk -v lbl="Total:" '$(FMT_LINE)' | tee -a README-loc.md
 	@echo '```' >> README-loc.md
 
 profile: tessdata ## Profile the PDF processing pipeline (CORPUS=~/Desktop/Cards)
