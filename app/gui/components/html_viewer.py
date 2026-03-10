@@ -11,22 +11,10 @@ import wx
 import wx.html2
 
 from app.gui.icons import load_menu_icon, load_sf_symbol
-from app.gui.styles import Color
+from app.gui.styles import Color, Layout
 
 # Singleton weakrefs keyed by viewer type
 _viewer_refs: dict[str, weakref.ref] = {}
-
-# Viewer-specific toolbar sizing — intentionally not in Layout because these are
-# tightly coupled to the HTML viewer's toolbar structure and icon loading.
-_TOOL_BITMAP_SIZE = wx.Size(24, 24)
-_LABEL_WIDTH = 80
-_SEARCH_MIN_WIDTH = 150
-_TOOL_WIDTH_EST = 36
-_TOOLBAR_MARGIN = 24
-_NUM_TOOLS = 5
-
-_MIN_SEARCH_LEN = 3
-_DEBOUNCE_MS = 200
 
 
 def _toolbar_icon(name: str) -> wx.Bitmap:
@@ -188,19 +176,19 @@ class _SearchController:
 
     # ── JS bridge ──
 
-    def _mark_all(self) -> None:  # pragma: no cover
+    def _mark_all(self) -> None:
         if not self._page_ready:
             return
         query = self._search_ctrl.GetValue()
         self._last_query = query
         self._webview.RunScript(f"shlMark({json.dumps(query)})")
 
-    def _focus_match(self, idx: int) -> None:  # pragma: no cover
+    def _focus_match(self, idx: int) -> None:
         if not self._page_ready:
             return
         self._webview.RunScript(f"shlFocus({idx})")
 
-    def _clear_highlights(self) -> None:  # pragma: no cover
+    def _clear_highlights(self) -> None:
         if not self._page_ready:
             return
         self._last_query = ""
@@ -212,7 +200,7 @@ class _SearchController:
         self._search_pages.clear()
         self._page_cursor = 0
         self._match_cursor = 0
-        if not query or len(query) < _MIN_SEARCH_LEN:
+        if not query or len(query) < Layout.HTML_VIEWER_MIN_SEARCH_LEN:
             self._pending_mark = False
             self._pending_focus = False
             self._clear_highlights()
@@ -237,7 +225,7 @@ class _SearchController:
 
     # ── Navigation ──
 
-    def _navigate_to_page(self, pg_idx: int, mt_idx: int) -> None:  # pragma: no cover
+    def _navigate_to_page(self, pg_idx: int, mt_idx: int) -> None:
         self._page_cursor = pg_idx
         self._match_cursor = mt_idx
         page = self._search_pages[pg_idx].page
@@ -255,7 +243,7 @@ class _SearchController:
             self._pending_focus = True
             self._webview.LoadURL((self._base_path / page).as_uri())
 
-    def current_page_info(self) -> tuple[int, str]:  # pragma: no cover
+    def current_page_info(self) -> tuple[int, str]:
         """Return (index, rel_path) of the current page."""
         current_url = self._webview.GetCurrentURL()
         base_url = current_url.split("#")[0]
@@ -286,12 +274,12 @@ class _SearchController:
 
     def on_search_text(self, evt: wx.CommandEvent) -> None:
         query = self._search_ctrl.GetValue()
-        if len(query) < _MIN_SEARCH_LEN:
+        if len(query) < Layout.HTML_VIEWER_MIN_SEARCH_LEN:
             self._debounce_timer.Stop()
             self.run_search("")
             return
         self._debounce_timer.Stop()
-        self._debounce_timer.StartOnce(_DEBOUNCE_MS)
+        self._debounce_timer.StartOnce(Layout.HTML_VIEWER_DEBOUNCE_MS)
 
     def on_debounce_timer(self, evt: wx.TimerEvent) -> None:
         self.run_search(self._search_ctrl.GetValue())
@@ -321,7 +309,7 @@ class _SearchController:
             next_pg = (self._page_cursor + 1) % len(self._search_pages)
             self._navigate_to_page(next_pg, 0)
 
-    def on_page_loaded(self, evt: wx.Event) -> None:  # pragma: no cover
+    def on_page_loaded(self, evt: wx.Event) -> None:
         self._page_ready = True
         self._update_nav_buttons()
         if self._pending_mark:
@@ -368,7 +356,7 @@ class HTMLViewerWindow:
 
         # Toolbar
         toolbar = wx.ToolBar(frame, style=wx.TB_HORIZONTAL | wx.TB_NODIVIDER)
-        toolbar.SetToolBitmapSize(_TOOL_BITMAP_SIZE)
+        toolbar.SetToolBitmapSize(Layout.HTML_VIEWER_TOOL_BITMAP_SIZE)
 
         home_bmp = _toolbar_icon("house")
         home_id = toolbar.AddTool(wx.ID_ANY, "Home", home_bmp, shortHelp="Home").GetId()
@@ -383,12 +371,12 @@ class HTMLViewerWindow:
         toolbar.AddStretchableSpace()
 
         search_label = wx.StaticText(
-            toolbar, label="", size=(_LABEL_WIDTH, -1), style=wx.ALIGN_RIGHT | wx.ST_NO_AUTORESIZE
+            toolbar, label="", size=(Layout.HTML_VIEWER_LABEL_WIDTH, -1), style=wx.ALIGN_RIGHT | wx.ST_NO_AUTORESIZE
         )
         search_label.SetForegroundColour(Color.TEXT_SECONDARY)
         toolbar.AddControl(search_label)
 
-        search_ctrl = wx.SearchCtrl(toolbar, size=(_SEARCH_MIN_WIDTH, -1))
+        search_ctrl = wx.SearchCtrl(toolbar, size=(Layout.HTML_VIEWER_SEARCH_MIN_WIDTH, -1))
         search_ctrl.SetDescriptiveText(search_hint)
         search_ctrl.ShowCancelButton(True)
         toolbar.AddControl(search_ctrl)
@@ -420,8 +408,12 @@ class HTMLViewerWindow:
             if evt:
                 evt.Skip()
             tb_w = toolbar.GetSize().width
-            fixed_w = _NUM_TOOLS * _TOOL_WIDTH_EST + _LABEL_WIDTH + _TOOLBAR_MARGIN
-            new_w = max(_SEARCH_MIN_WIDTH, tb_w - fixed_w)
+            fixed_w = (
+                Layout.HTML_VIEWER_NUM_TOOLS * Layout.HTML_VIEWER_TOOL_WIDTH_EST
+                + Layout.HTML_VIEWER_LABEL_WIDTH
+                + Layout.HTML_VIEWER_TOOLBAR_MARGIN
+            )
+            new_w = max(Layout.HTML_VIEWER_SEARCH_MIN_WIDTH, tb_w - fixed_w)
             if search_ctrl.GetSize().width != new_w:
                 search_ctrl.SetMinSize(wx.Size(new_w, -1))
                 toolbar.Realize()

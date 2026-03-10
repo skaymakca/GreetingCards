@@ -165,6 +165,31 @@ class TestGenerateCardContentAsync:
         assert result is None
 
     @pytest.mark.asyncio
+    async def test_all_rate_limit_retries_exhausted_returns_none(self) -> None:
+        """All attempts hit RateLimitError, post-loop return None (line 156)."""
+        mock_response = MagicMock()
+        mock_response.headers = {"retry-after-ms": "10"}
+        mock_response.status_code = 429
+        rate_limit_exc = anthropic.RateLimitError(message="rate limit", response=mock_response, body={})
+
+        client = MagicMock()
+        client.messages.create = AsyncMock(side_effect=rate_limit_exc)
+
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            result = await generate_card_content_async(
+                client,
+                _make_semaphore(),
+                _make_gate(),
+                "Smith",
+                _make_constraints(),
+                "test-model",
+                _make_mock_console(),
+                0,
+            )
+
+        assert result is None
+
+    @pytest.mark.asyncio
     async def test_returns_parsed_dict(self) -> None:
         content = _make_content()
         client = _make_mock_client(content)

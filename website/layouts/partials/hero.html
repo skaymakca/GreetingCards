@@ -1,0 +1,16 @@
+<section class="hero">
+  <div class="hero-content">
+    <img src="{{ "images/icon.png" | relURL }}" alt="Greeting Cards icon" width="128" height="128" class="hero-icon">
+    <h1 class="hero-title">{{ .Site.Title }}</h1>
+    <p class="hero-tagline">{{ .Site.Params.tagline }}</p>
+    <p class="hero-description">{{ .Content }}</p>
+    <div class="hero-actions">
+      <a href="{{ .Site.Params.releasesURL }}" class="btn btn-primary" target="_blank" rel="noopener">Download</a>
+      <a href="{{ .Site.Params.githubRepo }}" class="btn btn-secondary" target="_blank" rel="noopener">View Source</a>
+    </div>
+    <p class="hero-meta">macOS &middot; Free &amp; open source</p>
+  </div>
+  <div class="hero-screenshot">
+    <img src="{{ "images/screenshot.png" | relURL }}" alt="Greeting Cards app showing card preview with family name extraction" width="2624" height="1724" loading="eager">
+  </div>
+</section>

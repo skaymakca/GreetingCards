@@ -7,7 +7,7 @@ from pathlib import Path
 
 from app.core.database import compute_file_hash
 from app.core.pipeline.card_processor import worker_result_to_card
-from app.models.card import CardResult, PdfWorkerResult
+from app.models.card import CardResult, PdfWorkerResult, ProcessingError
 
 
 class CardStore:
@@ -23,6 +23,7 @@ class CardStore:
         self._hash_by_path: dict[Path, str] = {}
         self._mtime_by_path: dict[Path, float] = {}
         self._pdf_files: set[Path] = set()
+        self._processing_errors: list[ProcessingError] = []
         self._next_card_id: int = 0
         self._lock = threading.Lock()
 
@@ -84,23 +85,39 @@ class CardStore:
         """True if any paths are loaded (used for reload checks)."""
         return bool(self._hash_by_path)
 
+    @property
+    def error_count(self) -> int:
+        """Number of PDFs that failed processing."""
+        return len(self._processing_errors)
+
+    def get_processing_errors(self) -> list[ProcessingError]:
+        """Return all processing errors."""
+        return list(self._processing_errors)
+
     def derive_folders(self) -> list[Path]:
         """Derive sorted unique source folders from all loaded cards."""
         return sorted({p.parent for card in self._cards_by_hash.values() for p in card.file_paths})
 
     # ── Mutations (thread-safe via internal lock) ──
 
-    def add_or_update(self, worker_result: PdfWorkerResult, pdf_path: Path) -> tuple[CardResult, bool]:
+    def add_or_update(self, worker_result: PdfWorkerResult, pdf_path: Path) -> tuple[CardResult | None, bool]:
         """Process a worker result: deduplicate or create new card.
 
         Called from the background processing thread -- must be thread-safe.
 
         Returns:
-            (card, is_new) -- the card and whether it was newly created
+            (card, is_new) -- the card and whether it was newly created.
+            When ``file_hash`` is None (processing error), returns (None, False)
+            and records the error in ``_processing_errors``.
         """
         file_hash = worker_result.file_hash
+        if file_hash is None:
+            with self._lock:
+                self._processing_errors.append(ProcessingError(pdf_path, worker_result.error or "Unknown error"))
+            return None, False
+
         with self._lock:
-            if file_hash and file_hash in self._cards_by_hash:
+            if file_hash in self._cards_by_hash:
                 # Duplicate content — add path to existing card
                 existing = self._cards_by_hash[file_hash]
                 if pdf_path not in existing.file_paths:
@@ -112,21 +129,16 @@ class CardStore:
                 card_id = self._next_card_id
                 self._next_card_id += 1
                 card = worker_result_to_card(worker_result, card_id)
-                # Cards with null file_hash (e.g. processing errors) are intentionally
-                # not stored in the lookup dicts — they exist only as transient results
-                # and cannot be deduplicated or looked up by hash.
-                if file_hash is not None:
-                    self._cards_by_hash[file_hash] = card
-                    self._id_to_card[card.id] = card
+                self._cards_by_hash[file_hash] = card
+                self._id_to_card[card.id] = card
                 is_new = True
 
             # Always update path → hash mapping
-            if file_hash is not None:
-                self._hash_by_path[pdf_path] = file_hash
-                try:  # noqa: SIM105
-                    self._mtime_by_path[pdf_path] = pdf_path.stat().st_mtime
-                except OSError:
-                    pass  # File vanished; reload will re-check
+            self._hash_by_path[pdf_path] = file_hash
+            try:  # noqa: SIM105
+                self._mtime_by_path[pdf_path] = pdf_path.stat().st_mtime
+            except OSError:
+                pass  # File vanished; reload will re-check
 
         return card, is_new
 
@@ -275,4 +287,5 @@ class CardStore:
         self._hash_by_path.clear()
         self._mtime_by_path.clear()
         self._pdf_files.clear()
+        self._processing_errors.clear()
         self._next_card_id = 0

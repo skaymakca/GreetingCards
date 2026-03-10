@@ -9,6 +9,7 @@ from app.core.card_store import CardStore
 from app.core.services.rename_service import RenameService
 from app.gui.rename_display import (
     filter_visible_results,
+    format_candidate_label,
     format_plan_summary,
     format_result_status,
     format_results_summary,
@@ -18,6 +19,7 @@ from app.gui.rename_display import (
     summarize_results,
 )
 from app.models.card import (
+    CandidateInfo,
     CardResult,
     Confidence,
     RenameOutcome,
@@ -594,3 +596,22 @@ class TestTargetFilename:
         result = RenameService.target_filename(card, "2025")
         assert "Smith" in result
         assert "2025" in result
+
+
+# ── format_candidate_label ──
+
+
+class TestFormatCandidateLabel:
+    """Tests for format_candidate_label() — moved from CandidateInfo.display_label."""
+
+    def test_ocr_high(self) -> None:
+        c = CandidateInfo(id=1, family_name="Smith", method="ocr", confidence="high")
+        assert format_candidate_label(c) == "Smith (OCR - High)"
+
+    def test_ai_medium(self) -> None:
+        c = CandidateInfo(id=2, family_name="Jones", method="ai", confidence="medium")
+        assert format_candidate_label(c) == "Jones (AI - Medium)"
+
+    def test_ocr_low(self) -> None:
+        c = CandidateInfo(id=3, family_name="O'Brien", method="ocr", confidence="low")
+        assert format_candidate_label(c) == "O'Brien (OCR - Low)"

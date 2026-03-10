@@ -40,13 +40,10 @@ class TestCandidateInfo:
         assert c.method == "ocr"
         assert c.confidence == "high"
 
-    def test_display_label(self):
+    def test_no_display_label_property(self):
+        """display_label was moved to GUI layer (format_candidate_label)."""
         c = CandidateInfo(id=1, family_name="Smith", method="ocr", confidence="high")
-        assert c.display_label == "Smith (OCR - High)"
-
-    def test_display_label_ai_medium(self):
-        c = CandidateInfo(id=2, family_name="Jones", method="ai", confidence="medium")
-        assert c.display_label == "Jones (AI - Medium)"
+        assert not hasattr(c, "display_label")
 
 
 class TestCardState:

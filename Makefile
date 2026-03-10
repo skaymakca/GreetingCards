@@ -1,4 +1,4 @@
-.PHONY: help setup setup-dev tessdata run test test-everything check pyright mypy lint lint-fix format format-check security pycharm-inspect content licenses-sync icon sparkle app app-run dmg configure-release shellcheck version bump-patch bump-minor bump-major tag tag-push loc profile show-scripts sync-private visual-test visual-test-app docker-build docker-test docker-shell clean
+.PHONY: help setup setup-dev tessdata run test test-everything check pyright mypy lint lint-fix format format-check security audit-prepass pycharm-inspect content licenses-sync icon sparkle app app-run dmg configure-release shellcheck version bump-patch bump-minor bump-major tag tag-push loc profile show-scripts sync-private visual-test visual-test-app docker-build docker-test docker-shell _sync-website-version website website-serve clean
 
 # awk helper: format "LABEL  NUMBER lines" with right-aligned thousands-separated number
 # Usage: echo COUNT | awk -v lbl="Python:" '$(FMT_LINE)'
@@ -87,6 +87,10 @@ format-check: ## Check formatting (no changes)
 security: ## Run bandit security scan
 	$(call banner,Bandit Security)
 	uv run bandit -r app/ scripts/ -c pyproject.toml
+
+audit-prepass: ## Run audit pre-pass (static checks + all tests with coverage)
+	$(MAKE) check
+	$(MAKE) test-everything
 
 pycharm-inspect: ## Run PyCharm inspections (requires PyCharm; skipped if not installed)
 	@if [ -z "$(PYCHARM_APP)" ] || [ ! -x "$(PYCHARM_APP)/Contents/bin/inspect.sh" ]; then \
@@ -216,20 +220,23 @@ tag-push: ## Push all tags to remote
 ##@ Tools
 
 loc: ## Count lines of code (excludes dependencies)
-	@echo "Lines of code (project files only):"
-	@echo ""
-	@find . -name "*.py" -not -path "./.venv/*" -not -path "./_build/*" -not -path "./dist/*" -not -path "./.claude/*" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="Python:" '$(FMT_LINE)'
-	@(find ./app -name "*.py" -not -path "*/gui/*" -not -path "*/__pycache__/*" -exec cat {} + ; cat main.py) | wc -l | awk -v lbl="  Core:" '$(FMT_LINE)'
-	@find ./app/gui -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  GUI:" '$(FMT_LINE)'
-	@find ./scripts -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  Scripts:" '$(FMT_LINE)'
-	@find ./tests -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  Tests:" '$(FMT_LINE)'
-	@echo ""
-	@find ./content/html/help \( -name "*.md" \) -exec cat {} + 2>/dev/null | wc -l | awk -v lbl="Help MD:" '$(FMT_LINE)'
-	@find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null | wc -l | awk -v lbl="Web:" '$(FMT_LINE)'
-	@echo ""
-	@wc -l Makefile "packaging/Greeting Cards.spec" 2>/dev/null | tail -1 | awk -v lbl="Config:" '$(FMT_LINE)'
-	@echo ""
-	@(find . -name "*.py" -not -path "./.venv/*" -not -path "./_build/*" -not -path "./dist/*" -not -path "./.claude/*" -not -path "*/__pycache__/*" -exec cat {} + ; find ./content/html/help -name "*.md" -exec cat {} + 2>/dev/null; find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null; cat Makefile "packaging/Greeting Cards.spec") | wc -l | awk -v lbl="Total:" '$(FMT_LINE)'
+	@printf '# Lines of Code — %s\n\n```\n' "$$(date +'%Y%m%dT%H%M')" > README-loc.md
+	@echo "Lines of code (project files only):" | tee -a README-loc.md
+	@echo "" | tee -a README-loc.md
+	@find . -name "*.py" -not -path "./.venv/*" -not -path "./_build/*" -not -path "./dist/*" -not -path "./.claude/*" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="Python:" '$(FMT_LINE)' | tee -a README-loc.md
+	@(find ./app -name "*.py" -not -path "*/gui/*" -not -path "*/__pycache__/*" -exec cat {} + ; cat main.py) | wc -l | awk -v lbl="  Core:" '$(FMT_LINE)' | tee -a README-loc.md
+	@find ./app/gui -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  GUI:" '$(FMT_LINE)' | tee -a README-loc.md
+	@find ./scripts -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  Scripts:" '$(FMT_LINE)' | tee -a README-loc.md
+	@find ./tests -name "*.py" -not -path "*/__pycache__/*" -exec cat {} + | wc -l | awk -v lbl="  Tests:" '$(FMT_LINE)' | tee -a README-loc.md
+	@echo "" | tee -a README-loc.md
+	@find ./content/html/help \( -name "*.md" \) -exec cat {} + 2>/dev/null | wc -l | awk -v lbl="Help MD:" '$(FMT_LINE)' | tee -a README-loc.md
+	@find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null | wc -l | awk -v lbl="Web:" '$(FMT_LINE)' | tee -a README-loc.md
+	@(find ./website/layouts -name "*.html" -exec cat {} + 2>/dev/null; find ./website/static -name "*.css" -exec cat {} + 2>/dev/null; cat ./website/hugo.toml 2>/dev/null; find ./website/content -name "*.md" -exec cat {} + 2>/dev/null) | wc -l | awk -v lbl="Website:" '$(FMT_LINE)' | tee -a README-loc.md
+	@echo "" | tee -a README-loc.md
+	@wc -l Makefile "packaging/Greeting Cards.spec" "packaging/Visual Test.spec" 2>/dev/null | tail -1 | awk -v lbl="Config:" '$(FMT_LINE)' | tee -a README-loc.md
+	@echo "" | tee -a README-loc.md
+	@(find . -name "*.py" -not -path "./.venv/*" -not -path "./_build/*" -not -path "./dist/*" -not -path "./.claude/*" -not -path "*/__pycache__/*" -exec cat {} + ; find ./content/html/help -name "*.md" -exec cat {} + 2>/dev/null; find ./content \( -name "*.css" -o -name "*.js" -o -name "*.j2" \) -exec cat {} + 2>/dev/null; find ./website/layouts -name "*.html" -exec cat {} + 2>/dev/null; find ./website/static -name "*.css" -exec cat {} + 2>/dev/null; cat ./website/hugo.toml 2>/dev/null; find ./website/content -name "*.md" -exec cat {} + 2>/dev/null; cat Makefile "packaging/Greeting Cards.spec" "packaging/Visual Test.spec") | wc -l | awk -v lbl="Total:" '$(FMT_LINE)' | tee -a README-loc.md
+	@echo '```' >> README-loc.md
 
 profile: tessdata ## Profile the PDF processing pipeline (CORPUS=~/Desktop/Cards)
 	uv run python -m scripts.profiling "$(CORPUS)" $(if $(LIMIT),--limit $(LIMIT))
@@ -335,6 +342,18 @@ docker-test: ## Run tests in Linux container
 
 docker-shell: ## Interactive shell in Linux container
 	docker compose -f docker/docker-compose.yml run --rm test-linux /bin/bash
+
+##@ Website
+
+_sync-website-version:
+	@mkdir -p website/data
+	@uv run python -c "import tomllib,json,pathlib; v=tomllib.load(open('pyproject.toml','rb'))['project']['version']; pathlib.Path('website/data/version.json').write_text(json.dumps({'version':v}))"
+
+website: _sync-website-version ## Build Hugo site locally
+	hugo --source website
+
+website-serve: _sync-website-version ## Dev server with live reload
+	hugo server --source website
 
 ##@ Cleanup
 

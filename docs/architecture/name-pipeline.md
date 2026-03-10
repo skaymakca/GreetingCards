@@ -258,7 +258,7 @@ Each `RenameResult` has an `outcome` field (`app/models/card.RenameOutcome`) for
 `MainWindow._remove_completed_results()` selectively removes resolved paths (those with outcomes in `RESOLVED_OUTCOMES`) from cards. Cards with no remaining paths are deleted. Failed or unresolved paths (no name, errors) are kept for the user to address.
 
 ### Rename Presentation (`app/gui/rename_display.py`)
-Presentation helpers for the rename confirmation and completion dialogs live in `app/gui/rename_display.py` (GUI layer, not core). Functions: `summarize_plan()`, `format_plan_summary()`, `summarize_results()`, `format_results_summary()`, `get_plan_item_display()`, `is_skip_status()`, `filter_visible_results()`.
+Presentation helpers for the rename confirmation and completion dialogs live in `app/gui/rename_display.py` (GUI layer, not core). Functions: `format_candidate_label()`, `summarize_plan()`, `format_plan_summary()`, `summarize_results()`, `format_results_summary()`, `get_plan_item_display()`, `is_skip_status()`, `filter_visible_results()`.
 
 ## Gotchas
 

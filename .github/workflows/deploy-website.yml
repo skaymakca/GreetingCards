@@ -1,0 +1,42 @@
+#file: noinspection UndefinedAction,UndefinedAction,UndefinedParamsPresent,UndefinedParamsPresent,UndefinedParamsPresent,UndefinedParamsPresent,UndefinedParamsPresent,UndefinedParamsPresent
+name: Deploy Website
+
+on:
+  push:
+    branches: [main]
+    paths: ['website/**']
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-website
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: 'latest'
+          extended: true
+
+      - name: Sync version from pyproject.toml
+        run: |
+          mkdir -p website/data
+          python3 -c "import tomllib,json,pathlib; v=tomllib.load(open('pyproject.toml','rb'))['project']['version']; pathlib.Path('website/data/version.json').write_text(json.dumps({'version':v}))"
+
+      - run: hugo --minify --source website
+
+      - uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./website/public
+          keep_files: true
+          commit_message: 'Deploy website'

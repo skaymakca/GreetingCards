@@ -31,15 +31,15 @@ Sparkle 2 provides native macOS auto-update functionality. The app checks for up
 
 Module-level lifecycle following the `appearance.py` pattern:
 
-| Function                  | Purpose                                        |
-|---------------------------|------------------------------------------------|
-| `init() -> bool`         | Load framework, create controller (no start)   |
-| `start()`                | Begin automatic check schedule                 |
-| `check_for_updates()`    | User-initiated check (menu item)               |
-| `is_available() -> bool` | True if Sparkle loaded successfully             |
-| `get_auto_check_enabled()` | Read Sparkle's auto-check preference          |
-| `set_auto_check_enabled()` | Write Sparkle's auto-check preference         |
-| `cleanup()`              | Release resources (called on window close)      |
+| Function                   | Purpose                                      |
+|----------------------------|----------------------------------------------|
+| `init() -> bool`           | Load framework, create controller (no start) |
+| `start()`                  | Begin automatic check schedule               |
+| `check_for_updates()`      | User-initiated check (menu item)             |
+| `is_available() -> bool`   | True if Sparkle loaded successfully          |
+| `get_auto_check_enabled()` | Read Sparkle's auto-check preference         |
+| `set_auto_check_enabled()` | Write Sparkle's auto-check preference        |
+| `cleanup()`                | Release resources (called on window close)   |
 
 **Graceful degradation:** All functions are safe no-ops when:
 - Running from source (`not is_bundled()`)
@@ -128,11 +128,11 @@ ditto packaging/Sparkle.framework "dist/Greeting Cards.app/Contents/Frameworks/S
 
 Set in `packaging/Greeting Cards.spec`:
 
-| Key              | Value                                                        |
-|------------------|--------------------------------------------------------------|
-| `SUFeedURL`      | `https://skaymakca.github.io/GreetingCards/appcast.xml`      |
-| `SUPublicEDKey`  | EdDSA public key (empty until key generation)                |
-| `CFBundleVersion`| Unix timestamp (monotonically increasing numeric build number)|
+| Key               | Value                                                          |
+|-------------------|----------------------------------------------------------------|
+| `SUFeedURL`       | `https://skaymakca.github.io/GreetingCards/appcast.xml`        |
+| `SUPublicEDKey`   | EdDSA public key (empty until key generation)                  |
+| `CFBundleVersion` | Unix timestamp (monotonically increasing numeric build number) |
 
 ### Entitlements
 
@@ -160,7 +160,7 @@ Set in `packaging/Greeting Cards.spec`:
 </rss>
 ```
 
-Hosted on GitHub Pages via the `gh-pages` branch.
+Hosted on GitHub Pages via the `gh-pages` branch. The `gh-pages` branch also contains Hugo-generated website output — see `docs/architecture/project-website.md` for how appcast and website coexist.
 
 ---
 
@@ -168,18 +168,20 @@ Hosted on GitHub Pages via the `gh-pages` branch.
 
 ### Subcommands
 
-| Command    | Purpose                                            |
-|------------|----------------------------------------------------|
-| `generate` | Sign DMG with `sign_update`, generate appcast.xml  |
-| `push`     | Push appcast.xml to gh-pages branch                |
+| Command    | Purpose                                           |
+|------------|---------------------------------------------------|
+| `generate` | Sign DMG with `sign_update`, generate appcast.xml |
+| `push`     | Push appcast.xml to gh-pages branch               |
 
 ### `generate` flow
 
 1. Find DMG at `dist/Greeting-Cards-X.Y.Z.dmg`
 2. Sign with `packaging/sparkle-bin/sign_update` → EdDSA signature + length
-3. Load existing appcast from `gh-pages` branch (if any)
-4. Prepend new `<item>` entry
-5. Write to `dist/appcast.xml`
+3. Read build number from sidecar file `dist/Greeting-Cards-X.Y.Z.build` (written by the DMG step to capture the build number of the app *inside* the DMG)
+4. Load existing appcast from `gh-pages` branch (if any)
+5. Check for duplicate `sparkle:shortVersionString` — raises `AppcastError` if the version already exists
+6. Prepend new `<item>` entry
+7. Write to `dist/appcast.xml`
 
 ### `push` flow
 

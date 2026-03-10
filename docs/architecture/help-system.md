@@ -26,8 +26,9 @@ content/html/
 │   ├── 5 - preview.md
 │   ├── 6 - shortcuts.md
 │   ├── 7 - ai-models.md
-│   ├── 8 - scripting.md
-│   └── 9 - tips.md
+│   ├── 8 - auto-update.md
+│   ├── 9 - scripting.md
+│   └── 10 - tips.md
 ├── common/
 │   ├── css/viewer.css            ← Shared stylesheet for all viewers
 │   └── js/search.js              ← JavaScript search/highlight functions
@@ -55,6 +56,7 @@ _build/runtime_content/html/
 │       ├── preview.html
 │       ├── shortcuts.html
 │       ├── ai-models.html
+│       ├── auto-update.html
 │       ├── scripting.html
 │       └── tips.html
 └── common/

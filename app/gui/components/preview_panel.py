@@ -7,13 +7,6 @@ from PIL import Image
 
 from app.gui import styles, utils
 
-# Preview panel constants
-_MODIFIER_POLL_MS = 50
-_WARNING_FONT_SIZE = 32
-_WARNING_LABEL_OFFSET = 30
-_WARNING_TEXT_OFFSET = 20
-_WARNING_LINE_SPACING = 4
-
 
 # noinspection PyMethodMayBeStatic,PyUnusedLocal,PyTypeChecker,GrazieInspection
 class PreviewPanel(wx.Panel):
@@ -106,6 +99,7 @@ class PreviewPanel(wx.Panel):
         # Left group: Page navigation [◀] [page] [▶]
         self._prev_btn = wx.Button(controls, label="◀", size=styles.Layout.PREVIEW_BUTTON_SIZE)
         self._prev_btn.Bind(wx.EVT_BUTTON, lambda _: self.prev_page())
+        # noinspection DuplicatedCode
         self._prev_btn.Enable(False)
         controls_sizer.Add(self._prev_btn, 0, wx.ALIGN_CENTER_VERTICAL)
 
@@ -131,6 +125,7 @@ class PreviewPanel(wx.Panel):
 
         self._zout_btn = wx.Button(controls, label="−", size=styles.Layout.PREVIEW_BUTTON_SIZE)
         self._zout_btn.Bind(wx.EVT_BUTTON, lambda _: self._zoom_out())
+        # noinspection DuplicatedCode
         self._zout_btn.Enable(False)
         controls_sizer.Add(self._zout_btn, 0, wx.ALIGN_CENTER_VERTICAL)
 
@@ -332,21 +327,21 @@ class PreviewPanel(wx.Panel):
             # Zoom in (Shift pressed, Alt not pressed)
             self._apply_zoom(self.ZOOM_STEP)
             # Restart timer after a brief delay
-            wx.CallAfter(self._modifier_timer.Start, _MODIFIER_POLL_MS)
+            wx.CallAfter(self._modifier_timer.Start, styles.Layout.PREVIEW_MODIFIER_POLL_MS)
             event.Skip()  # Allow default processing for proper focus
             return
         elif (modifiers & wx.MOD_ALT) and not (modifiers & wx.MOD_SHIFT):
             # Zoom out (Alt pressed, Shift not pressed)
             self._apply_zoom(1.0 / self.ZOOM_STEP)
             # Restart timer after a brief delay
-            wx.CallAfter(self._modifier_timer.Start, _MODIFIER_POLL_MS)
+            wx.CallAfter(self._modifier_timer.Start, styles.Layout.PREVIEW_MODIFIER_POLL_MS)
             event.Skip()  # Allow default processing for proper focus
             return
 
         # Otherwise start pan
         self._on_pan_start(event)
         # Restart timer
-        wx.CallAfter(self._modifier_timer.Start, _MODIFIER_POLL_MS)
+        wx.CallAfter(self._modifier_timer.Start, styles.Layout.PREVIEW_MODIFIER_POLL_MS)
         event.Skip()  # Allow default processing
 
     def _on_pan_start(self, event: wx.MouseEvent) -> None:
@@ -402,7 +397,7 @@ class PreviewPanel(wx.Panel):
         if self._images and self._drag_start is None:
             self._update_cursor()
             # Start timer to poll for modifier key changes (50ms = 20 times per second)
-            self._modifier_timer.Start(_MODIFIER_POLL_MS)
+            self._modifier_timer.Start(styles.Layout.PREVIEW_MODIFIER_POLL_MS)
 
     def _on_leave(self, event: wx.MouseEvent) -> None:
         """Reset cursor when mouse leaves canvas and stop modifier polling."""
@@ -530,19 +525,19 @@ class PreviewPanel(wx.Panel):
 
         # Draw warning symbol
         dc.SetTextForeground(styles.Color.ERROR)
-        dc.SetFont(wx.Font(wx.FontInfo(_WARNING_FONT_SIZE)))
+        dc.SetFont(wx.Font(wx.FontInfo(styles.Layout.PREVIEW_WARNING_FONT_SIZE)))
         warning = "⚠"
         tw, th = dc.GetTextExtent(warning)
-        dc.DrawText(warning, cx - tw // 2, cy - _WARNING_LABEL_OFFSET - th // 2)
+        dc.DrawText(warning, cx - tw // 2, cy - styles.Layout.PREVIEW_WARNING_LABEL_OFFSET - th // 2)
 
         # Draw error message
         dc.SetFont(styles.Font.BODY())
         lines = self._wrap_text(dc, self._error_message, cw - styles.Layout.ERROR_TEXT_MARGIN)
-        y_offset = cy + _WARNING_TEXT_OFFSET
+        y_offset = cy + styles.Layout.PREVIEW_WARNING_TEXT_OFFSET
         for line in lines:
             tw, th = dc.GetTextExtent(line)
             dc.DrawText(line, cx - tw // 2, y_offset)
-            y_offset += th + _WARNING_LINE_SPACING
+            y_offset += th + styles.Layout.PREVIEW_WARNING_LINE_SPACING
 
     def _wrap_text(self, dc: wx.DC, text: str, max_width: int) -> list[str]:
         """Wrap text to fit within max_width.

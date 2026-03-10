@@ -776,6 +776,16 @@ class TestAppleEventsMixinWithDB:
         assert state.remove_family is True
 
 
+class TestAnalyzeForScriptEmptyStore:
+    """Test analyze_for_script with empty card store."""
+
+    def test_analyze_empty_store_returns_error(self, window):
+        """analyze_for_script(None) on empty store returns error (line 127)."""
+        result = window.analyze_for_script(None)
+        assert result["success"] is False
+        assert "No cards loaded" in result["error"]
+
+
 class TestAppleEventsBridgeEdgeCases:
     """Tests for edge cases in apple events bridge (lines 83, 127, 137, 143, 159, 181-182)."""
 

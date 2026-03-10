@@ -114,7 +114,7 @@ def merge_sources(
         if census_entry:
             candidates.append(_heuristic_display(census_entry.name.title()))
 
-        if not candidates:
+        if not candidates:  # pragma: no cover — defensive: key always comes from at least one source dict
             continue
 
         # Winner is the first candidate (priority order: faker > smashew > census)

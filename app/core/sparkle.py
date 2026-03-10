@@ -77,6 +77,7 @@ def init() -> bool:
             logger.warning("Sparkle: failed to load framework bundle")
             return False
 
+        # noinspection PyUnresolvedReferences,PyPep8NamingInspection,PyPep8Naming
         SPUStandardUpdaterController = objc.lookUpClass("SPUStandardUpdaterController")  # pyright: ignore[reportAttributeAccessIssue]
 
         # Init with deferred start (startingUpdater=False)

@@ -6,6 +6,7 @@ thread or a CLI tool by providing progress/completion callbacks.
 
 import asyncio
 import logging
+import random
 from collections.abc import Callable
 
 from app.core.constants import AI_CONCURRENCY
@@ -18,7 +19,8 @@ from app.models.card import CardResult
 logger = logging.getLogger(__name__)
 
 _MAX_ATTEMPTS = 2  # 1 initial + 1 app-level retry
-_TRANSIENT_RETRY_DELAY_S = 2
+_TRANSIENT_RETRY_BASE_S = 2.0
+_TRANSIENT_RETRY_JITTER = 0.5  # ±50% → sleep range [1.0, 3.0]
 
 
 async def run_ai_batch_async(
@@ -108,7 +110,8 @@ async def run_ai_batch_async(
                 except (anthropic.APITimeoutError, anthropic.APIConnectionError) as e:
                     if attempt == 0:
                         logger.warning("Transient error on %s, retrying: %s", card.filename, e)
-                        await asyncio.sleep(_TRANSIENT_RETRY_DELAY_S)
+                        jitter = random.uniform(-_TRANSIENT_RETRY_JITTER, _TRANSIENT_RETRY_JITTER)  # nosec B311
+                        await asyncio.sleep(_TRANSIENT_RETRY_BASE_S * (1 + jitter))
                         continue  # retry once
                     errors.append(classify_ai_error(e))
                 except Exception as e:

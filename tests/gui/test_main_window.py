@@ -4412,3 +4412,20 @@ def test_run_ai_all_base_exception_reraises(wx_app):
     assert args[1] == []
 
     window._frame.Destroy()
+
+
+def test_start_processing_busy_guard(wx_app):
+    """_start_processing returns immediately when _is_processing_busy is True."""
+    from unittest.mock import patch
+
+    window = MainWindow()
+    window._is_processing_busy = True
+
+    with patch("threading.Thread") as mock_thread:
+        window._start_processing([Path("/fake/card.pdf")])
+        mock_thread.assert_not_called()
+
+    # Ensure state was not changed
+    assert window._is_processing_busy is True
+
+    window._frame.Destroy()

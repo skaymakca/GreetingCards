@@ -2,7 +2,7 @@
 
 import wx
 
-from app.core.naming.family_name import smart_title_case_family_name
+from app.core.services.rename_service import RenameService
 from app.gui.icons import load_menu_icon
 
 
@@ -61,7 +61,7 @@ def _title_case(text_ctrl: wx.TextCtrl) -> None:
     """Convert text to Title Case using domain-aware casing rules."""
     current_text = text_ctrl.GetValue()
     if current_text:
-        title_cased = smart_title_case_family_name(current_text)
+        title_cased = RenameService.smart_title_case_family_name(current_text)
         text_ctrl.SetValue(title_cased)
 
 

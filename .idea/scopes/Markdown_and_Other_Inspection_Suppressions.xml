@@ -1,4 +1,4 @@
 <component name="NamedScopeManager">
   <scope name="Markdown and Other Inspection Suppressions"
-         pattern="file:*.md||file:content/html/common/css/highlight.css||file:content/apple-events.schema.json" />
+         pattern="file:*.md||file:content/html/common/css/highlight.css||file:content/apple-events.schema.json||file:scripts/appcast/__main__.py||file:scripts/release/__main__.py" />
 </component>

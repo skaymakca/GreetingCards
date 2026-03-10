@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import wx
 
 from app.core.apple_events import register_apple_event_handlers, register_quit_handler
-from app.core.config import has_prompted_auto_update, set_prompted_auto_update
+from app.core.services.config_service import ConfigService
 from app.core.sparkle import init as sparkle_init
 from app.core.sparkle import set_auto_check_enabled
 from app.core.sparkle import start as sparkle_start
@@ -23,16 +23,16 @@ logger = logging.getLogger(__name__)
 
 def _startup_sparkle(window: MainWindow) -> None:
     """Show first-launch auto-update opt-in, then start Sparkle."""
-    if not has_prompted_auto_update():
+    if not ConfigService.has_prompted_auto_update():
         result = wx.MessageBox(
             "Would you like Greeting Cards to automatically check for updates?\n\n"
             "You can change this later in Settings.",
             "Automatic Updates",
             wx.YES_NO | wx.ICON_QUESTION,
-            window._frame,
+            window.frame,
         )
         set_auto_check_enabled(result == wx.YES)
-        set_prompted_auto_update()
+        ConfigService.set_prompted_auto_update()
     sparkle_start()
 
 

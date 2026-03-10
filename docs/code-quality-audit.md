@@ -31,6 +31,12 @@ Check for these categories across all files in `app/`, `tests/`, and `scripts/`.
 - **LOW (L)** — Minor issues, style concerns, small gaps — magic constants, missing annotations, unpythonic patterns
 - **STYLE (S)** — Informational only, not actionable defects
 
+### Known Non-Issues
+
+- **`except ExcA, ExcB:` (PEP 758)** — In Python 3.14+, unparenthesized multi-catch `except ExcA, ExcB:` is valid syntax that catches *both* exception types, identical to `except (ExcA, ExcB):`. This is NOT the Python 2 catch-and-bind semantics (`except ExcA as ExcB`). PEP 758 (Final) re-introduced this syntax with correct multi-catch behavior. Additionally, Ruff's formatter with `target-version = "py314"` actively *removes* parentheses from multi-catch clauses, producing this style. Do NOT flag this as a bug.
+
+- **Naive `datetime.now()` for user-facing calendar year** — `datetime.now().year` is used intentionally (without UTC) in two locations: `app/core/constants.py` (`default_year()` for card naming) and `app/gui/main_window.py` (`_show_about()` for copyright year display). These are user-facing calendar dates that should reflect the user's local perspective, not stored timestamps. The general UTC convention for app code does not apply here. Do NOT flag these as convention violations.
+
 ## Static Analysis
 
 Run the full static analysis suite and verify zero issues across all tools:

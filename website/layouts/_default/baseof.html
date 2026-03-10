@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="{{ .Site.LanguageCode }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ if .IsHome }}{{ .Site.Title }} — {{ .Site.Params.tagline }}{{ else }}{{ .Title }} — {{ .Site.Title }}{{ end }}</title>
+  <meta name="description" content="{{ .Site.Params.description }}">
+  <meta property="og:title" content="{{ .Site.Title }}">
+  <meta property="og:description" content="{{ .Site.Params.description }}">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="{{ "images/icon.png" | relURL }}" type="image/png">
+  <link rel="stylesheet" href="{{ "css/style.css" | relURL }}">
+</head>
+<body>
+  <header class="site-header">
+    <nav class="site-nav">
+      <a href="{{ "" | relURL }}" class="nav-brand">
+        <img src="{{ "images/icon.png" | relURL }}" alt="" width="32" height="32" class="nav-icon">
+        <span>{{ .Site.Title }}</span>
+      </a>
+      <a href="{{ .Site.Params.githubRepo }}" class="nav-link" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    {{ block "main" . }}{{ end }}
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <p>&copy; 2026 Sukru N Kaymakcalan</p>
+      <p>
+        <a href="{{ .Site.Params.githubRepo }}" target="_blank" rel="noopener">GitHub</a>
+        &middot;
+        <a href="{{ .Site.Params.releasesURL }}" target="_blank" rel="noopener">Releases</a>
+      </p>
+    </div>
+  </footer>
+</body>
+</html>

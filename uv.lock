@@ -221,7 +221,7 @@ wheels = [
 
 [[package]]
 name = "greeting-cards"
-version = "0.13.2"
+version = "1.0.0"
 source = { virtual = "." }
 dependencies = [
     { name = "anthropic" },

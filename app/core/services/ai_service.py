@@ -10,9 +10,11 @@ import asyncio
 import logging
 from collections.abc import Callable
 
-from app.core.pipeline.ai_analyzer import AIError
+from app.core.pipeline.ai_analyzer import AIError, AIErrorKind
 from app.core.pipeline.ai_batch import run_ai_batch_async
 from app.models.card import CardResult
+
+__all__ = ["AIError", "AIErrorKind", "AIService"]
 
 logger = logging.getLogger(__name__)
 

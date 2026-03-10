@@ -6,7 +6,7 @@ from pathlib import Path
 import wx
 import wx.dataview as dv
 
-from app.core.pipeline.ai_analyzer import AIError
+from app.core.services.ai_service import AIError
 from app.gui import styles
 from app.gui.rename_display import (
     filter_visible_results,
@@ -19,20 +19,6 @@ from app.gui.rename_display import (
     summarize_results,
 )
 from app.models.card import RenamePlanItem, RenameResult
-
-# Dialog layout constants
-_DIALOG_PADDING = 20  # Outer margin for dialog content
-_HEADER_GAP = 4  # Gap between header and summary text
-_SECTION_GAP = 12  # Gap between summary and table/content
-_BTN_GAP = 8  # Gap between adjacent buttons
-_SCROLLBAR_WIDTH = 20  # Reserve space for vertical scrollbar
-_STATUS_COL_WIDTH = 100  # Width for short status columns (OK, SKIP, SAME, ERROR, DUP)
-_RESULT_COL_WIDTH = 140  # Width for result columns (OK, ERROR: msg)
-
-# Dialog widths (used in both size= and column-width arithmetic)
-_RENAME_DIALOG_WIDTH = 700
-_ERROR_DIALOG_WIDTH = 650
-_COMPLETION_DIALOG_WIDTH = 650
 
 
 def _create_data_view(parent: wx.Window, model: TableModel, columns: list[tuple[str, int]]) -> dv.DataViewCtrl:
@@ -204,22 +190,22 @@ class RenameConfirmDialog(wx.Dialog):
         super().__init__(
             parent,
             title="Confirm Rename",
-            size=(_RENAME_DIALOG_WIDTH, 500),
+            size=(styles.Layout.DIALOG_RENAME_WIDTH, 500),
             style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER,
         )
 
         # Main sizer
         sizer = wx.BoxSizer(wx.VERTICAL)
 
-        sizer.AddSpacer(_DIALOG_PADDING)
+        sizer.AddSpacer(styles.Layout.DIALOG_PADDING)
 
         # Header
         self._header = wx.StaticText(self, label="Rename Plan")
         self._header.SetFont(styles.Font.TITLE())
         self._header.SetForegroundColour(styles.Color.TEXT_PRIMARY)
-        sizer.Add(self._header, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
+        sizer.Add(self._header, 0, wx.LEFT | wx.RIGHT, styles.Layout.DIALOG_PADDING)
 
-        sizer.AddSpacer(_HEADER_GAP)
+        sizer.AddSpacer(styles.Layout.DIALOG_HEADER_GAP)
 
         # Summary counts
         counts = summarize_plan(plan)
@@ -228,9 +214,9 @@ class RenameConfirmDialog(wx.Dialog):
         self._summary_label = wx.StaticText(self, label=summary)
         self._summary_label.SetFont(styles.Font.BODY())
         self._summary_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
-        sizer.Add(self._summary_label, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
+        sizer.Add(self._summary_label, 0, wx.LEFT | wx.RIGHT, styles.Layout.DIALOG_PADDING)
 
-        sizer.AddSpacer(_SECTION_GAP)
+        sizer.AddSpacer(styles.Layout.DIALOG_CONTENT_GAP)
 
         # Category → color mapping (GUI concern)
         _CATEGORY_COLOR: dict[str, wx.Colour] = {
@@ -260,15 +246,26 @@ class RenameConfirmDialog(wx.Dialog):
         self.model = TableModel(data, colors)
         col_label = "Original" if multi_dir else "Original File Name"
         new_label = "New" if multi_dir else "New File Name"
-        file_col_width = (_RENAME_DIALOG_WIDTH - 2 * _DIALOG_PADDING - _SCROLLBAR_WIDTH - _STATUS_COL_WIDTH) // 2
+        file_col_width = (
+            styles.Layout.DIALOG_RENAME_WIDTH
+            - 2 * styles.Layout.DIALOG_PADDING
+            - styles.Layout.DIALOG_SCROLLBAR_WIDTH
+            - styles.Layout.DIALOG_STATUS_COL_WIDTH
+        ) // 2
         self.list_ctrl = _create_data_view(
-            self, self.model, [(col_label, file_col_width), (new_label, file_col_width), ("Status", _STATUS_COL_WIDTH)]
+            self,
+            self.model,
+            [
+                (col_label, file_col_width),
+                (new_label, file_col_width),
+                ("Status", styles.Layout.DIALOG_STATUS_COL_WIDTH),
+            ],
         )
-        self.list_ctrl.GetColumn(2).SetMinWidth(_STATUS_COL_WIDTH)
+        self.list_ctrl.GetColumn(2).SetMinWidth(styles.Layout.DIALOG_STATUS_COL_WIDTH)
 
-        sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
+        sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, styles.Layout.DIALOG_PADDING)
 
-        sizer.AddSpacer(_DIALOG_PADDING)
+        sizer.AddSpacer(styles.Layout.DIALOG_PADDING)
 
         # Buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -276,15 +273,15 @@ class RenameConfirmDialog(wx.Dialog):
 
         cancel_btn = wx.Button(self, wx.ID_CANCEL, "Cancel")
         cancel_btn.Bind(wx.EVT_BUTTON, self._on_cancel)
-        btn_sizer.Add(cancel_btn, 0, wx.RIGHT, _BTN_GAP)
+        btn_sizer.Add(cancel_btn, 0, wx.RIGHT, styles.Layout.DIALOG_BTN_GAP)
 
         confirm_btn = wx.Button(self, wx.ID_OK, "Rename All")
         confirm_btn.Bind(wx.EVT_BUTTON, self._on_confirm)
         btn_sizer.Add(confirm_btn, 0)
 
-        sizer.Add(btn_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
+        sizer.Add(btn_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, styles.Layout.DIALOG_PADDING)
 
-        sizer.AddSpacer(_DIALOG_PADDING)
+        sizer.AddSpacer(styles.Layout.DIALOG_PADDING)
 
         self.SetSizer(sizer)
         self.CenterOnParent()
@@ -323,13 +320,16 @@ class ErrorListDialog(wx.Dialog):
 
     def __init__(self, parent: wx.Window, title: str, errors: list[AIError], auth_aborted: bool = False) -> None:
         super().__init__(
-            parent, title=title, size=(_ERROR_DIALOG_WIDTH, 400), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
+            parent,
+            title=title,
+            size=(styles.Layout.DIALOG_ERROR_WIDTH, 400),
+            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER,
         )
 
         # Main sizer
         sizer = wx.BoxSizer(wx.VERTICAL)
 
-        sizer.AddSpacer(_DIALOG_PADDING)
+        sizer.AddSpacer(styles.Layout.DIALOG_PADDING)
 
         # Summary header
         header_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -339,7 +339,7 @@ class ErrorListDialog(wx.Dialog):
         symbol_font.SetPointSize(20)
         symbol.SetFont(symbol_font)
         symbol.SetForegroundColour(styles.Color.ERROR)
-        header_sizer.Add(symbol, 0, wx.RIGHT, _BTN_GAP)
+        header_sizer.Add(symbol, 0, wx.RIGHT, styles.Layout.DIALOG_BTN_GAP)
 
         summary = f"{len(errors)} error(s)"
         if auth_aborted:
@@ -349,9 +349,9 @@ class ErrorListDialog(wx.Dialog):
         self._summary_label.SetForegroundColour(styles.Color.TEXT_PRIMARY)
         header_sizer.Add(self._summary_label, 0, wx.ALIGN_CENTER_VERTICAL)
 
-        sizer.Add(header_sizer, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
+        sizer.Add(header_sizer, 0, wx.LEFT | wx.RIGHT, styles.Layout.DIALOG_PADDING)
 
-        sizer.AddSpacer(_SECTION_GAP)
+        sizer.AddSpacer(styles.Layout.DIALOG_CONTENT_GAP)
 
         # Prepare data and colors from AIError objects (all errors in red)
         data = [[err.kind.value, err.detail] for err in errors]
@@ -359,20 +359,25 @@ class ErrorListDialog(wx.Dialog):
 
         # Create model and ctrl
         self.model = TableModel(data, colors)
-        type_col_width = _STATUS_COL_WIDTH
-        detail_col_width = _ERROR_DIALOG_WIDTH - 2 * _DIALOG_PADDING - _SCROLLBAR_WIDTH - type_col_width
+        type_col_width = styles.Layout.DIALOG_STATUS_COL_WIDTH
+        detail_col_width = (
+            styles.Layout.DIALOG_ERROR_WIDTH
+            - 2 * styles.Layout.DIALOG_PADDING
+            - styles.Layout.DIALOG_SCROLLBAR_WIDTH
+            - type_col_width
+        )
         self.list_ctrl = _create_data_view(self, self.model, [("Type", type_col_width), ("Details", detail_col_width)])
 
-        sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
+        sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, styles.Layout.DIALOG_PADDING)
 
-        sizer.AddSpacer(_DIALOG_PADDING)
+        sizer.AddSpacer(styles.Layout.DIALOG_PADDING)
 
         # OK button
         ok_btn = wx.Button(self, wx.ID_OK, "OK")
         ok_btn.Bind(wx.EVT_BUTTON, lambda evt: self.EndModal(wx.ID_OK))
         sizer.Add(ok_btn, 0, wx.ALIGN_CENTER)
 
-        sizer.AddSpacer(_DIALOG_PADDING)
+        sizer.AddSpacer(styles.Layout.DIALOG_PADDING)
 
         self.SetSizer(sizer)
         self.CenterOnParent()
@@ -392,7 +397,10 @@ class CompletionDialog(wx.Dialog):
 
     def __init__(self, parent: wx.Window, title: str, results: list[RenameResult]) -> None:
         super().__init__(
-            parent, title=title, size=(_COMPLETION_DIALOG_WIDTH, 420), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
+            parent,
+            title=title,
+            size=(styles.Layout.DIALOG_COMPLETION_WIDTH, 420),
+            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER,
         )
 
         # Compute counts
@@ -401,15 +409,15 @@ class CompletionDialog(wx.Dialog):
         # Main sizer
         sizer = wx.BoxSizer(wx.VERTICAL)
 
-        sizer.AddSpacer(_DIALOG_PADDING)
+        sizer.AddSpacer(styles.Layout.DIALOG_PADDING)
 
         # Header
         self._header = wx.StaticText(self, label="Rename Complete")
         self._header.SetFont(styles.Font.TITLE())
         self._header.SetForegroundColour(styles.Color.TEXT_PRIMARY)
-        sizer.Add(self._header, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
+        sizer.Add(self._header, 0, wx.LEFT | wx.RIGHT, styles.Layout.DIALOG_PADDING)
 
-        sizer.AddSpacer(_HEADER_GAP)
+        sizer.AddSpacer(styles.Layout.DIALOG_HEADER_GAP)
 
         # Summary counts
         summary = format_results_summary(results)
@@ -417,9 +425,9 @@ class CompletionDialog(wx.Dialog):
         self._summary_label = wx.StaticText(self, label=summary)
         self._summary_label.SetFont(styles.Font.BODY())
         self._summary_label.SetForegroundColour(styles.Color.TEXT_SECONDARY)
-        sizer.Add(self._summary_label, 0, wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
+        sizer.Add(self._summary_label, 0, wx.LEFT | wx.RIGHT, styles.Layout.DIALOG_PADDING)
 
-        sizer.AddSpacer(_SECTION_GAP)
+        sizer.AddSpacer(styles.Layout.DIALOG_CONTENT_GAP)
 
         # Filter to only renamed and error rows (skip rows already shown in confirm dialog)
         visible = filter_visible_results(results)
@@ -439,21 +447,26 @@ class CompletionDialog(wx.Dialog):
 
         # Create model and ctrl
         self.model = TableModel(data, colors)
-        file_col_width = _COMPLETION_DIALOG_WIDTH - 2 * _DIALOG_PADDING - _SCROLLBAR_WIDTH - _RESULT_COL_WIDTH
+        file_col_width = (
+            styles.Layout.DIALOG_COMPLETION_WIDTH
+            - 2 * styles.Layout.DIALOG_PADDING
+            - styles.Layout.DIALOG_SCROLLBAR_WIDTH
+            - styles.Layout.DIALOG_RESULT_COL_WIDTH
+        )
         self.list_ctrl = _create_data_view(
-            self, self.model, [("File Name", file_col_width), ("Result", _RESULT_COL_WIDTH)]
+            self, self.model, [("File Name", file_col_width), ("Result", styles.Layout.DIALOG_RESULT_COL_WIDTH)]
         )
 
-        sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, _DIALOG_PADDING)
+        sizer.Add(self.list_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, styles.Layout.DIALOG_PADDING)
 
-        sizer.AddSpacer(_DIALOG_PADDING)
+        sizer.AddSpacer(styles.Layout.DIALOG_PADDING)
 
         # OK button
         ok_btn = wx.Button(self, wx.ID_OK, "OK")
         ok_btn.Bind(wx.EVT_BUTTON, lambda evt: self.EndModal(wx.ID_OK))
         sizer.Add(ok_btn, 0, wx.ALIGN_CENTER)
 
-        sizer.AddSpacer(_DIALOG_PADDING)
+        sizer.AddSpacer(styles.Layout.DIALOG_PADDING)
 
         self.SetSizer(sizer)
         self.CenterOnParent()

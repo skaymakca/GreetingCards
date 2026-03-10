@@ -316,5 +316,5 @@ def main(argv: list[str] | None = None) -> int:
     return result.returncode
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover — script entry point
     raise SystemExit(main())

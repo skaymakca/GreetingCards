@@ -12,7 +12,7 @@ from typing import Protocol
 
 import wx
 
-from app.core.pipeline.ai_analyzer import AIError
+from app.core.services.ai_service import AIError
 from app.core.services.card_service import CardService
 from app.core.services.config_service import ConfigService
 from app.core.services.processing_service import ProcessingService

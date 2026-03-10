@@ -21,7 +21,7 @@ import dmgbuild  # type: ignore[import-untyped]
 
 from scripts.dmg.background import generate as _generate_background
 from scripts.dmg.readme import generate as _generate_readme
-from scripts.helpers import PROJECT_ROOT, dmg_path, read_version
+from scripts.helpers import PROJECT_ROOT, build_number_path, dmg_path, read_build_number, read_version
 from scripts.helpers import app_path as _app_path
 
 
@@ -97,3 +97,10 @@ def main() -> None:
     )
 
     print(f"Built: {output_path}")
+
+    # Write build-number sidecar so the appcast step reads the build number
+    # of the app *actually inside* the DMG, not whatever is on disk later.
+    build_number = read_build_number()
+    sidecar = build_number_path(version)
+    sidecar.write_text(build_number, encoding="utf-8")
+    print(f"Build number sidecar: {sidecar.name} ({build_number})")

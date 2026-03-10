@@ -204,6 +204,33 @@ class TestRunAiBatchAsync:
         assert mock_analyze.call_count == 2
 
     @pytest.mark.asyncio
+    async def test_transient_retry_uses_jitter(self):
+        """Transient retry delay incorporates jitter from random.uniform."""
+        import anthropic
+
+        from app.core.pipeline.ai_analyzer import AIResult
+        from app.core.pipeline.ai_batch import run_ai_batch_async
+
+        card = _make_card()
+        timeout_err = anthropic.APITimeoutError(request=MagicMock())
+        mock_analyze = AsyncMock(side_effect=[timeout_err, AIResult(best_name="Jones")])
+        mock_sleep = AsyncMock()
+
+        with (
+            patch("app.core.pipeline.ai_batch.get_card_state", return_value=None),
+            patch("app.core.pipeline.ai_batch.analyze_card_with_ai_async", mock_analyze),
+            patch("app.core.pipeline.ai_batch.save_raw_ai"),
+            patch("app.core.pipeline.ai_batch.reprocess_candidates_from_raw"),
+            patch("app.core.pipeline.ai_batch.load_card_state_from_db"),
+            patch("asyncio.sleep", mock_sleep),
+            patch("app.core.pipeline.ai_batch.random.uniform", return_value=0.3),
+        ):
+            await run_ai_batch_async([card], MagicMock(), MagicMock())
+
+        assert mock_analyze.call_count == 2
+        mock_sleep.assert_called_once_with(2.0 * (1 + 0.3))
+
+    @pytest.mark.asyncio
     async def test_generic_error_recorded_no_retry(self):
         """Generic exception is recorded in errors, no retry attempted."""
         from app.core.pipeline.ai_batch import run_ai_batch_async

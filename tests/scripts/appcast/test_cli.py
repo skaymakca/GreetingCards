@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import subprocess
 import xml.etree.ElementTree as ET
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -23,26 +24,28 @@ class TestGenerateAppcastXml:
 
     def test_generates_valid_xml(self) -> None:
         """Output is well-formed XML with Sparkle namespace."""
-        xml_str = generate_appcast_xml(
-            version="1.2.3",
-            build_number="1700000000",
-            signature="test_sig_abc",
-            length=12345678,
-            dmg_filename="Greeting-Cards-1.2.3.dmg",
-        )
+        with patch("scripts.appcast.cli._load_existing_appcast", return_value=None):
+            xml_str = generate_appcast_xml(
+                version="1.2.3",
+                build_number="1700000000",
+                signature="test_sig_abc",
+                length=12345678,
+                dmg_filename="Greeting-Cards-1.2.3.dmg",
+            )
         root = ET.fromstring(xml_str)
         assert root.tag == "rss"
         assert root.attrib["version"] == "2.0"
 
     def test_version_fields(self) -> None:
         """Correct shortVersionString and version in the item."""
-        xml_str = generate_appcast_xml(
-            version="0.13.0",
-            build_number="1700000001",
-            signature="sig123",
-            length=5000000,
-            dmg_filename="Greeting-Cards-0.13.0.dmg",
-        )
+        with patch("scripts.appcast.cli._load_existing_appcast", return_value=None):
+            xml_str = generate_appcast_xml(
+                version="0.13.0",
+                build_number="1700000001",
+                signature="sig123",
+                length=5000000,
+                dmg_filename="Greeting-Cards-0.13.0.dmg",
+            )
         root = ET.fromstring(xml_str)
         ns = {"sparkle": "http://www.andymatuschak.org/xml-namespaces/sparkle"}
 
@@ -59,13 +62,14 @@ class TestGenerateAppcastXml:
 
     def test_enclosure_url(self) -> None:
         """Enclosure URL points to GitHub Releases."""
-        xml_str = generate_appcast_xml(
-            version="2.0.0",
-            build_number="1700000002",
-            signature="sig456",
-            length=8000000,
-            dmg_filename="Greeting-Cards-2.0.0.dmg",
-        )
+        with patch("scripts.appcast.cli._load_existing_appcast", return_value=None):
+            xml_str = generate_appcast_xml(
+                version="2.0.0",
+                build_number="1700000002",
+                signature="sig456",
+                length=8000000,
+                dmg_filename="Greeting-Cards-2.0.0.dmg",
+            )
         root = ET.fromstring(xml_str)
 
         enclosure = root.find(".//enclosure")
@@ -76,13 +80,14 @@ class TestGenerateAppcastXml:
 
     def test_enclosure_signature(self) -> None:
         """Enclosure has edSignature and length attributes."""
-        xml_str = generate_appcast_xml(
-            version="1.0.0",
-            build_number="1700000003",
-            signature="my_ed_signature",
-            length=9999999,
-            dmg_filename="Greeting-Cards-1.0.0.dmg",
-        )
+        with patch("scripts.appcast.cli._load_existing_appcast", return_value=None):
+            xml_str = generate_appcast_xml(
+                version="1.0.0",
+                build_number="1700000003",
+                signature="my_ed_signature",
+                length=9999999,
+                dmg_filename="Greeting-Cards-1.0.0.dmg",
+            )
         root = ET.fromstring(xml_str)
 
         enclosure = root.find(".//enclosure")
@@ -93,13 +98,14 @@ class TestGenerateAppcastXml:
 
     def test_channel_title(self) -> None:
         """Channel has 'Greeting Cards' title."""
-        xml_str = generate_appcast_xml(
-            version="1.0.0",
-            build_number="1700000004",
-            signature="sig",
-            length=1000,
-            dmg_filename="test.dmg",
-        )
+        with patch("scripts.appcast.cli._load_existing_appcast", return_value=None):
+            xml_str = generate_appcast_xml(
+                version="1.0.0",
+                build_number="1700000004",
+                signature="sig",
+                length=1000,
+                dmg_filename="test.dmg",
+            )
         root = ET.fromstring(xml_str)
         title = root.find(".//channel/title")
         assert title is not None
@@ -107,13 +113,14 @@ class TestGenerateAppcastXml:
 
     def test_minimum_system_version(self) -> None:
         """Item specifies minimumSystemVersion 13.0."""
-        xml_str = generate_appcast_xml(
-            version="1.0.0",
-            build_number="1700000005",
-            signature="sig",
-            length=1000,
-            dmg_filename="test.dmg",
-        )
+        with patch("scripts.appcast.cli._load_existing_appcast", return_value=None):
+            xml_str = generate_appcast_xml(
+                version="1.0.0",
+                build_number="1700000005",
+                signature="sig",
+                length=1000,
+                dmg_filename="test.dmg",
+            )
         root = ET.fromstring(xml_str)
         ns = {"sparkle": "http://www.andymatuschak.org/xml-namespaces/sparkle"}
         min_ver = root.find(".//item/sparkle:minimumSystemVersion", ns)
@@ -182,6 +189,43 @@ class TestGenerateAppcastXml:
         root = ET.fromstring(xml_str)
         desc = root.find(".//item/description")
         assert desc is None
+
+    def test_duplicate_version_raises(self) -> None:
+        """Raises AppcastError when version already exists in appcast."""
+        ns = "http://www.andymatuschak.org/xml-namespaces/sparkle"
+        ET.register_namespace("sparkle", ns)
+        root_el = ET.Element("rss", {"version": "2.0"})
+        channel = ET.SubElement(root_el, "channel")
+        title = ET.SubElement(channel, "title")
+        title.text = "Greeting Cards"
+        old_item = ET.SubElement(channel, "item")
+        old_short = ET.SubElement(old_item, f"{{{ns}}}shortVersionString")
+        old_short.text = "1.0.0"
+
+        with (
+            patch("scripts.appcast.cli._load_existing_appcast", return_value=root_el),
+            pytest.raises(AppcastError, match=r"already contains version 1\.0\.0"),
+        ):
+            generate_appcast_xml("1.0.0", "200", "sig", 1000, "t.dmg")
+
+    def test_different_version_does_not_raise(self) -> None:
+        """No error when existing appcast has a different version."""
+        ns = "http://www.andymatuschak.org/xml-namespaces/sparkle"
+        ET.register_namespace("sparkle", ns)
+        root_el = ET.Element("rss", {"version": "2.0"})
+        channel = ET.SubElement(root_el, "channel")
+        title = ET.SubElement(channel, "title")
+        title.text = "Greeting Cards"
+        old_item = ET.SubElement(channel, "item")
+        old_short = ET.SubElement(old_item, f"{{{ns}}}shortVersionString")
+        old_short.text = "0.9.0"
+
+        with patch("scripts.appcast.cli._load_existing_appcast", return_value=root_el):
+            xml_str = generate_appcast_xml("1.0.0", "200", "sig", 1000, "t.dmg")
+
+        root = ET.fromstring(xml_str)
+        items = root.findall(".//item")
+        assert len(items) == 2
 
 
 class TestSignDmg:
@@ -316,35 +360,44 @@ class TestGetReleaseNotes:
 class TestCmdGenerate:
     """cmd_generate() signs DMG and generates appcast XML."""
 
-    def test_missing_dmg_raises(self, tmp_path) -> None:
+    @staticmethod
+    def _write_sidecar(tmp_path: Path, version: str, build_number: str) -> Path:
+        """Helper: create a sidecar file and return its path."""
+        sidecar = tmp_path / f"Greeting-Cards-{version}.build"
+        sidecar.write_text(build_number, encoding="utf-8")
+        return sidecar
+
+    def test_missing_dmg_raises(self, tmp_path: Path) -> None:
         with (
             patch("scripts.appcast.cli.dmg_path", return_value=tmp_path / "nonexistent.dmg"),
             pytest.raises(FileNotFoundError, match="DMG not found"),
         ):
             cmd_generate("1.0.0")
 
-    def test_dry_run_prints_preview(self, tmp_path) -> None:
+    def test_dry_run_prints_preview(self, tmp_path: Path) -> None:
         dmg = tmp_path / "test.dmg"
         dmg.write_bytes(b"fake dmg")
+        sidecar = self._write_sidecar(tmp_path, "1.0.0", "1700000000")
 
         with (
             patch("scripts.appcast.cli.dmg_path", return_value=dmg),
             patch("scripts.appcast.cli.sign_dmg", return_value=("DRY_RUN_SIG", 0)),
-            patch("scripts.appcast.cli.read_build_number", return_value="1700000000"),
+            patch("scripts.appcast.cli.build_number_path", return_value=sidecar),
             patch("scripts.appcast.cli.generate_appcast_xml", return_value='<?xml version="1.0" ?>\n<rss/>\n'),
         ):
             cmd_generate("1.0.0", dry_run=True)  # should not raise
 
-    def test_dry_run_long_xml_shows_ellipsis(self, tmp_path, capsys) -> None:
+    def test_dry_run_long_xml_shows_ellipsis(self, tmp_path: Path, capsys) -> None:
         """Dry-run with >10 lines of XML prints '...' truncation."""
         dmg = tmp_path / "test.dmg"
         dmg.write_bytes(b"fake dmg")
+        sidecar = self._write_sidecar(tmp_path, "1.0.0", "1700000000")
 
         long_xml = "\n".join(f"<line{i}/>" for i in range(15)) + "\n"
         with (
             patch("scripts.appcast.cli.dmg_path", return_value=dmg),
             patch("scripts.appcast.cli.sign_dmg", return_value=("DRY_RUN_SIG", 0)),
-            patch("scripts.appcast.cli.read_build_number", return_value="1700000000"),
+            patch("scripts.appcast.cli.build_number_path", return_value=sidecar),
             patch("scripts.appcast.cli.generate_appcast_xml", return_value=long_xml),
         ):
             cmd_generate("1.0.0", dry_run=True)
@@ -352,15 +405,16 @@ class TestCmdGenerate:
         captured = capsys.readouterr()
         assert "..." in captured.out
 
-    def test_length_zero_fallback_to_stat(self, tmp_path) -> None:
+    def test_length_zero_fallback_to_stat(self, tmp_path: Path) -> None:
         """When sign_dmg returns length==0 and not dry_run, uses file stat."""
         dmg = tmp_path / "test.dmg"
         dmg.write_bytes(b"x" * 42)
+        sidecar = self._write_sidecar(tmp_path, "1.0.0", "1700000000")
 
         with (
             patch("scripts.appcast.cli.dmg_path", return_value=dmg),
             patch("scripts.appcast.cli.sign_dmg", return_value=("sig123", 0)),
-            patch("scripts.appcast.cli.read_build_number", return_value="1700000000"),
+            patch("scripts.appcast.cli.build_number_path", return_value=sidecar),
             patch("scripts.appcast.cli.generate_appcast_xml", return_value="<rss/>\n") as mock_gen,
             patch("scripts.appcast.cli._APPCAST_OUT", tmp_path / "appcast.xml"),
         ):
@@ -369,16 +423,17 @@ class TestCmdGenerate:
         # generate_appcast_xml should have been called with length=42 (file size)
         assert mock_gen.call_args[0][3] == 42
 
-    def test_writes_appcast_file(self, tmp_path) -> None:
+    def test_writes_appcast_file(self, tmp_path: Path) -> None:
         """Non-dry-run writes appcast.xml to disk."""
         dmg = tmp_path / "test.dmg"
         dmg.write_bytes(b"fake dmg")
         out = tmp_path / "dist" / "appcast.xml"
+        sidecar = self._write_sidecar(tmp_path, "1.0.0", "1700000000")
 
         with (
             patch("scripts.appcast.cli.dmg_path", return_value=dmg),
             patch("scripts.appcast.cli.sign_dmg", return_value=("sig", 1000)),
-            patch("scripts.appcast.cli.read_build_number", return_value="1700000000"),
+            patch("scripts.appcast.cli.build_number_path", return_value=sidecar),
             patch("scripts.appcast.cli.generate_appcast_xml", return_value="<rss/>\n"),
             patch("scripts.appcast.cli._APPCAST_OUT", out),
         ):
@@ -387,22 +442,52 @@ class TestCmdGenerate:
         assert out.exists()
         assert out.read_text(encoding="utf-8") == "<rss/>\n"
 
-    def test_uses_build_number_from_app_bundle(self, tmp_path) -> None:
-        """cmd_generate passes read_build_number() value to generate_appcast_xml."""
+    def test_reads_build_number_from_sidecar(self, tmp_path: Path) -> None:
+        """cmd_generate reads the build number from the sidecar file."""
         dmg = tmp_path / "test.dmg"
         dmg.write_bytes(b"fake dmg")
         out = tmp_path / "dist" / "appcast.xml"
+        sidecar = self._write_sidecar(tmp_path, "2.0.0", "1709876543")
 
         with (
             patch("scripts.appcast.cli.dmg_path", return_value=dmg),
             patch("scripts.appcast.cli.sign_dmg", return_value=("sig", 5000)),
-            patch("scripts.appcast.cli.read_build_number", return_value="1709876543"),
+            patch("scripts.appcast.cli.build_number_path", return_value=sidecar),
             patch("scripts.appcast.cli.generate_appcast_xml", return_value="<rss/>\n") as mock_gen,
             patch("scripts.appcast.cli._APPCAST_OUT", out),
         ):
             cmd_generate("2.0.0")
 
         mock_gen.assert_called_once_with("2.0.0", "1709876543", "sig", 5000, dmg.name)
+
+    def test_missing_sidecar_raises(self, tmp_path: Path) -> None:
+        """AppcastError raised when build number sidecar does not exist."""
+        dmg = tmp_path / "test.dmg"
+        dmg.write_bytes(b"fake dmg")
+        missing_sidecar = tmp_path / "Greeting-Cards-1.0.0.build"
+
+        with (
+            patch("scripts.appcast.cli.dmg_path", return_value=dmg),
+            patch("scripts.appcast.cli.sign_dmg", return_value=("sig", 1000)),
+            patch("scripts.appcast.cli.build_number_path", return_value=missing_sidecar),
+            pytest.raises(AppcastError, match="Build number sidecar not found"),
+        ):
+            cmd_generate("1.0.0")
+
+    def test_empty_sidecar_raises(self, tmp_path: Path) -> None:
+        """AppcastError raised when build number sidecar is empty."""
+        dmg = tmp_path / "test.dmg"
+        dmg.write_bytes(b"fake dmg")
+        sidecar = tmp_path / "Greeting-Cards-1.0.0.build"
+        sidecar.write_text("", encoding="utf-8")
+
+        with (
+            patch("scripts.appcast.cli.dmg_path", return_value=dmg),
+            patch("scripts.appcast.cli.sign_dmg", return_value=("sig", 1000)),
+            patch("scripts.appcast.cli.build_number_path", return_value=sidecar),
+            pytest.raises(AppcastError, match="sidecar is empty"),
+        ):
+            cmd_generate("1.0.0")
 
 
 class TestCmdPush:

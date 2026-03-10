@@ -12,14 +12,11 @@ import wx.adv
 logger = logging.getLogger(__name__)
 
 from app.core import sparkle
-from app.core.card_store import CardStore
 from app.core.paths import is_bundled
-from app.core.services.card_service import CardService
-from app.core.services.config_service import ConfigService
+from app.core.services.factory import create_services
 from app.core.services.filter_service import FilterCategory
-from app.core.services.processing_service import ProcessingService
 from app.core.services.rename_service import RenameService
-from app.gui import appearance, icons
+from app.gui import appearance
 from app.gui.appearance import is_dark_mode
 from app.gui.components.drop_target import DropOverlay as _DropOverlay
 from app.gui.components.drop_target import FileDropTarget
@@ -48,12 +45,13 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
         # Service initialization — wxPython's two-phase construction requires
         # these to be created here rather than injected via constructor.
-        # CardStore is the internal data store; services are the public facade.
-        self._card_store = CardStore()
-        self._card_service = CardService(self._card_store)
-        self._config_service = ConfigService()
-        self._rename_service = RenameService(self._card_store)
-        self._processing_service = ProcessingService(self._card_store)
+        # create_services() wires a single CardStore shared across services.
+        services = create_services()
+        self._card_store = services.card_store  # shared store (used by tests)
+        self._card_service = services.card_service
+        self._config_service = services.config_service
+        self._rename_service = services.rename_service
+        self._processing_service = services.processing_service
         self._current_category_filters = [FilterCategory.ALL.value]  # Current sidebar category filters
         self._current_folder_filters = ["all_folders"]  # Current sidebar folder filters
         self._ai_target_cards: list[CardResult] = []  # Cards for current AI batch
@@ -103,6 +101,11 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         self._frame.Bind(wx.EVT_CLOSE, self._on_close)
         self._frame.Bind(wx.EVT_ACTIVATE, self._on_frame_activate)
 
+    @property
+    def frame(self) -> wx.Frame:
+        """Read-only access to the underlying wx.Frame."""
+        return self._frame
+
     def _get_card_by_id(self, card_id: int) -> CardResult | None:
         """Get card by ID. O(1) lookup via CardStore."""
         return self._card_service.get_by_id(card_id)
@@ -133,6 +136,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         info = wx.adv.AboutDialogInfo()
         if is_bundled():
             info.SetName("Greeting Cards")
+            # Naive local time is intentional — copyright year is user-facing, not a timestamp
             info.SetCopyright(f"(c) {datetime.now().year}")
             info.SetDescription("Open-source licenses: Help > Licenses")
         wx.adv.AboutBox(info)
@@ -174,19 +178,19 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         self._progress_label = wx.StaticText(strip, label="")
         self._progress_label.SetFont(Font.SMALL())
         self._progress_label.SetForegroundColour(Color.TEXT_PRIMARY)
-        row.Add(self._progress_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 12)
+        row.Add(self._progress_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, Layout.PROGRESS_STRIP_LABEL_PAD)
 
         row.AddStretchSpacer()
 
         self._progress_gauge = wx.Gauge(strip, range=100, size=(200, -1))  # pyright: ignore[reportArgumentType]
-        row.Add(self._progress_gauge, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
+        row.Add(self._progress_gauge, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, Layout.PROGRESS_STRIP_GAUGE_PAD)
 
         self._progress_count = wx.StaticText(strip, label="")
         self._progress_count.SetFont(Font.SMALL())
         self._progress_count.SetForegroundColour(Color.TEXT_SECONDARY)
-        row.Add(self._progress_count, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 20)
+        row.Add(self._progress_count, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, Layout.PROGRESS_STRIP_COUNT_PAD)
 
-        outer.Add(row, 0, wx.EXPAND | wx.TOP | wx.BOTTOM, 4)
+        outer.Add(row, 0, wx.EXPAND | wx.TOP | wx.BOTTOM, Layout.PROGRESS_STRIP_V_PAD)
 
         strip.SetSizer(outer)
         strip.Hide()
@@ -279,7 +283,7 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
     def _apply_content_sash_position(self) -> None:
         """Set the content splitter sash to split review/preview equally."""
 
-        def _apply() -> None:
+        def _apply() -> None:  # pragma: no cover — wx.CallAfter closure, requires live event loop
             w = self._inner_splitter.GetSize().GetWidth()
             if w > 0:
                 self._inner_splitter.SetSashPosition(int(w * Layout.CONTENT_SASH_GRAVITY))
@@ -521,10 +525,12 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
     def _process_cards(self, files: list[Path]) -> None:
         """Process PDFs using ProcessingService (runs in background thread)."""
 
-        def _on_progress(completed: int, total: int, filename: str) -> None:
+        def _on_progress(
+            completed: int, total: int, filename: str
+        ) -> None:  # pragma: no cover — wx.CallAfter closure, runs in background thread
             wx.CallAfter(self._update_processing_progress, completed, total, filename)
 
-        def _on_complete() -> None:
+        def _on_complete() -> None:  # pragma: no cover — wx.CallAfter closure, runs in background thread
             wx.CallAfter(self._processing_complete)
 
         self._processing_service.process_files(
@@ -555,10 +561,11 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
 
         # Show success message
         count = self._card_service.count
-        self._show_info_message(
-            f"Processing complete\n{_plural(count, 'card')} loaded",
-            wx.ICON_INFORMATION,
-        )
+        status = f"Processing complete\n{_plural(count, 'card')} loaded"
+        error_count = self._card_store.error_count
+        if error_count:
+            status += f" ({_plural(error_count, 'file')} failed)"
+        self._show_info_message(status, wx.ICON_INFORMATION)
 
     def _start_rename(self) -> None:
         """Start rename workflow."""
@@ -649,28 +656,17 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
         mode = "Dark" if is_dark_mode() else "Light"
         logger.info("Appearance changed to %s mode", mode)
 
-        # Refresh color palette and icon cache
-        Color.refresh()
-        icons.clear_cache()
+        # Shared refresh: palette, icon cache, repaint all top-level windows
+        appearance.refresh_all_windows()
 
-        # Update toolbar icons in-place
+        # Instance-specific updates
         self._refresh_toolbar_icons()
-
-        # Re-apply colors on long-lived panels
         self._sidebar.refresh_colors()
         self._preview_panel.refresh_colors()
         self._review_panel.refresh_colors()
         self._progress_label.SetForegroundColour(Color.TEXT_PRIMARY)
         self._progress_count.SetForegroundColour(Color.TEXT_SECONDARY)
         self._progress_gauge.Refresh()
-
-        # Repaint all windows; call refresh_colors() on those that support it
-        # noinspection PyArgumentList
-        for window in wx.GetTopLevelWindows():  # pyright: ignore[reportCallIssue]
-            if hasattr(window, "refresh_colors"):
-                window.refresh_colors()
-            window.Refresh()
-            window.Update()
 
     def _refresh_toolbar_icons(self) -> None:
         """Re-render toolbar icons for current appearance."""
@@ -722,6 +718,6 @@ class MainWindow(FilterMixin, SelectionMixin, AppleEventsMixin, AIMixin):
             self._prefs_editor.Dismiss()
         self._frame.Destroy()
 
-    def run(self) -> None:
+    def run(self) -> None:  # pragma: no cover — app entry point, requires live wx.App
         """Start the application event loop."""
         self._frame.Show()
