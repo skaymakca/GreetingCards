@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0 (2026-03-09)
+
+Greeting Cards is feature-complete. This release adds a project website and
+marks the 1.0 milestone.
+
+- Project website at skaymakca.github.io/GreetingCards with download link, feature overview, and screenshot
+- Internal quality improvements from two rounds of codebase audits
+
 ## 0.13.2 (2026-03-05)
 
 Maintenance release with internal quality improvements.
