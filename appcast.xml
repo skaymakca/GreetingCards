@@ -3,6 +3,19 @@
   <channel>
     <title>Greeting Cards</title>
     <item>
+      <title>Version 1.0.0</title>
+      <sparkle:version>1773114267</sparkle:version>
+      <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <pubDate>Tue, 10 Mar 2026 03:52:00 +0000</pubDate>
+      <description>Greeting Cards is feature-complete. This release adds a project website and
+marks the 1.0 milestone.
+
+- Project website at skaymakca.github.io/GreetingCards with download link, feature overview, and screenshot
+- Internal quality improvements from two rounds of codebase audits</description>
+      <enclosure url="https://github.com/skaymakca/GreetingCards/releases/download/v1.0.0/Greeting-Cards-1.0.0.dmg" sparkle:edSignature="5spzi+RIfPhgCRPsLfVXE6SbT1UxCJ/G5XcmMhurM7kBtpaRyyX6YtKltjBt/WoPogCNQLXjv2RufVV8uRDFDQ==" length="90565999" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.13.2</title>
       <sparkle:version>1772781618</sparkle:version>
       <sparkle:shortVersionString>0.13.2</sparkle:shortVersionString>
